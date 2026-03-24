@@ -128,9 +128,7 @@ pub fn action_explain(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        action_explain, object_explain, ownership_explain, policy_explain, ExplainBasis,
-    };
+    use super::{action_explain, object_explain, ownership_explain, policy_explain, ExplainBasis};
     use crate::{ConfirmationMode, OwnershipClass, PolicyDecisionKind};
     use serde_json::json;
 

@@ -74,6 +74,7 @@ pub struct TodoistIntegrationOutput {
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
     pub guidance: Option<IntegrationGuidanceOutput>,
+    pub write_capabilities: integrations_todoist::TodoistWriteCapabilities,
 }
 
 #[derive(Debug, Clone)]
@@ -948,8 +949,9 @@ pub async fn update_google_settings(
 pub async fn update_todoist_settings(
     storage: &Storage,
     api_token: Option<String>,
+    write_capabilities: Option<integrations_todoist::TodoistWriteCapabilitiesPatch>,
 ) -> Result<IntegrationsOutput, AppError> {
-    integrations_todoist::update_todoist_settings(storage, api_token).await?;
+    integrations_todoist::update_todoist_settings(storage, api_token, write_capabilities).await?;
     get_integrations(storage).await
 }
 
@@ -1183,6 +1185,7 @@ fn map_todoist_status(status: integrations_todoist::TodoistStatus) -> TodoistInt
             detail: guidance.detail,
             action: guidance.action,
         }),
+        write_capabilities: status.write_capabilities,
     }
 }
 
@@ -1605,7 +1608,11 @@ mod tests {
             let storage = Storage::connect(&db_path_string).await.unwrap();
             storage.migrate().await.unwrap();
 
-            update_todoist_settings(&storage, Some("todoist-secret-token".to_string()))
+            update_todoist_settings(
+                &storage,
+                Some("todoist-secret-token".to_string()),
+                None,
+            )
                 .await
                 .unwrap();
         }

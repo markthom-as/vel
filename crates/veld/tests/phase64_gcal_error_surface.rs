@@ -4,7 +4,7 @@ use vel_adapters_google_calendar::google_calendar_module_manifest;
 use vel_core::{Grant, GrantScope, ModuleCapabilityProfile};
 use vel_storage::migrate_storage;
 use veld::services::{
-    gcal_write_bridge::{GoogleCalendarWriteBridgeRequest, bridge_google_calendar_write},
+    gcal_write_bridge::{bridge_google_calendar_write, GoogleCalendarWriteBridgeRequest},
     module_policy_bridge::{ModulePolicyBridge, ModulePolicyBridgeError, ModulePolicyBridgeInput},
 };
 
@@ -47,8 +47,8 @@ fn google_calendar_error_surface_keeps_unsupported_capability_distinct() {
 }
 
 #[tokio::test]
-async fn google_calendar_error_surface_keeps_policy_read_only_scope_reconciliation_and_ownership_failures_typed()
- {
+async fn google_calendar_error_surface_keeps_policy_read_only_scope_reconciliation_and_ownership_failures_typed(
+) {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
 
@@ -138,11 +138,9 @@ async fn google_calendar_error_surface_keeps_policy_read_only_scope_reconciliati
     )
     .await
     .expect_err("unsupported recurrence scope should stay explicit");
-    assert!(
-        unsupported_scope
-            .to_string()
-            .contains("UnsupportedCapability")
-    );
+    assert!(unsupported_scope
+        .to_string()
+        .contains("UnsupportedCapability"));
 
     let ownership = bridge_google_calendar_write(
         &pool,

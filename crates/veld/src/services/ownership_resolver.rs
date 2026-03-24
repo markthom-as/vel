@@ -11,8 +11,10 @@ impl OwnershipResolver {
         defaults: &[OwnershipDefault],
         overlays: &[OwnershipOverlay],
     ) -> Vec<OwnershipEvaluation> {
-        let overlay_map: HashMap<&str, &OwnershipOverlay> =
-            overlays.iter().map(|overlay| (overlay.field.as_str(), overlay)).collect();
+        let overlay_map: HashMap<&str, &OwnershipOverlay> = overlays
+            .iter()
+            .map(|overlay| (overlay.field.as_str(), overlay))
+            .collect();
 
         defaults
             .iter()
@@ -72,4 +74,3 @@ mod tests {
         }));
     }
 }
-

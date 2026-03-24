@@ -1,9 +1,9 @@
 use chrono::{TimeZone, Utc};
 use vel_core::{
-    Event, EventId, EventLocation, EventMoment, EventMomentKind, EventTransparency,
-    Exception, ExceptionStatus, ParticipantConfidence, ParticipantRef, ParticipantStub,
-    Participation, ParticipationResponseStatus, PersonId, RecurrenceFrequency,
-    RecurrenceWeekday, Series, SeriesRule,
+    Event, EventId, EventLocation, EventMoment, EventMomentKind, EventTransparency, Exception,
+    ExceptionStatus, ParticipantConfidence, ParticipantRef, ParticipantStub, Participation,
+    ParticipationResponseStatus, PersonId, RecurrenceFrequency, RecurrenceWeekday, Series,
+    SeriesRule,
 };
 use veld::services::recurrence_materialization::RecurrenceMaterializationService;
 
@@ -83,7 +83,9 @@ fn recurrence_materialization_represents_series_occurrences_and_exceptions() {
 
     assert_eq!(occurrences.len(), 4);
     assert!(occurrences.iter().all(|value| value.materialized));
-    assert!(occurrences.iter().any(|value| value.occurrence_key == modified_key));
+    assert!(occurrences
+        .iter()
+        .any(|value| value.occurrence_key == modified_key));
     assert!(occurrences.iter().any(|value| {
         value.occurrence_key == cancelled_key
             && value.exception_status == Some(ExceptionStatus::Cancelled)
@@ -122,7 +124,10 @@ fn attendee_participation_is_person_linked_or_stub_based_not_opaque_blob() {
     resolved.validate().unwrap();
     stub.validate().unwrap();
 
-    assert!(matches!(resolved.participant_ref, ParticipantRef::Person(_)));
+    assert!(matches!(
+        resolved.participant_ref,
+        ParticipantRef::Person(_)
+    ));
     assert!(matches!(stub.participant_ref, ParticipantRef::Stub(_)));
 }
 

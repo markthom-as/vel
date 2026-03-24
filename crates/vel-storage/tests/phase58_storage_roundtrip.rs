@@ -108,19 +108,32 @@ async fn phase58_storage_roundtrip_rebuilds_source_summary_from_synclink_state()
         .expect("source_summary should be materialized");
 
     assert_eq!(
-        source_summary.get("active_link_count").and_then(|value| value.as_u64()),
+        source_summary
+            .get("active_link_count")
+            .and_then(|value| value.as_u64()),
         Some(1)
     );
     assert_eq!(
-        source_summary.get("providers").and_then(|value| value.as_array()).map(|items| items.len()),
+        source_summary
+            .get("providers")
+            .and_then(|value| value.as_array())
+            .map(|items| items.len()),
         Some(1)
     );
     assert_eq!(
-        source_summary.get("primary_provider").and_then(|value| value.as_str()),
+        source_summary
+            .get("primary_provider")
+            .and_then(|value| value.as_str()),
         Some("todoist")
     );
     assert_eq!(list_relations_from(&pool, &task_id).await.unwrap().len(), 1);
-    assert_eq!(list_sync_links_for_object(&pool, &task_id).await.unwrap().len(), 1);
+    assert_eq!(
+        list_sync_links_for_object(&pool, &task_id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -175,7 +188,9 @@ async fn phase58_projection_roundtrip_stays_rebuildable_and_non_authoritative() 
         .expect("rebuild should produce source_summary");
 
     assert_eq!(
-        source_summary.get("active_link_count").and_then(|value| value.as_u64()),
+        source_summary
+            .get("active_link_count")
+            .and_then(|value| value.as_u64()),
         Some(0)
     );
 }

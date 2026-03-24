@@ -1,17 +1,17 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use sqlx::SqlitePool;
 use time::{Duration, OffsetDateTime};
 use vel_storage::{
-    CanonicalObjectRecord, IntegrationAccountRecord, StorageError, SyncLinkRecord, get_sync_link,
-    insert_canonical_object, upsert_integration_account, upsert_sync_link,
+    get_sync_link, insert_canonical_object, upsert_integration_account, upsert_sync_link,
+    CanonicalObjectRecord, IntegrationAccountRecord, StorageError, SyncLinkRecord,
 };
 
 use crate::{
     account_linking::GoogleCalendarCheckpointState,
     google_ids::{
+        google_calendar_id, google_event_id, google_provider_object_ref, google_sync_link_id,
         GOOGLE_CALENDAR_MODULE_ID, GOOGLE_CALENDAR_PROVIDER, GOOGLE_CALENDAR_REMOTE_TYPE,
-        GOOGLE_EVENT_REMOTE_TYPE, google_calendar_id, google_event_id, google_provider_object_ref,
-        google_sync_link_id,
+        GOOGLE_EVENT_REMOTE_TYPE,
     },
 };
 
@@ -368,16 +368,16 @@ fn map_google_event(
 #[cfg(test)]
 mod tests {
     use super::{
-        DEFAULT_FUTURE_DAYS, DEFAULT_PAST_DAYS, GoogleCalendarPayload, GoogleEventPayload,
-        GoogleImportWindow, GoogleWindowedImportRequest, import_google_window,
+        import_google_window, GoogleCalendarPayload, GoogleEventPayload, GoogleImportWindow,
+        GoogleWindowedImportRequest, DEFAULT_FUTURE_DAYS, DEFAULT_PAST_DAYS,
     };
     use crate::account_linking::GoogleCalendarCheckpointState;
     use serde_json::json;
-    use sqlx::{SqlitePool, migrate::Migrator};
+    use sqlx::{migrate::Migrator, SqlitePool};
     use time::{Duration, OffsetDateTime};
     use vel_storage::{
-        IntegrationAccountRecord, get_canonical_object, get_integration_account,
-        list_sync_links_for_object, upsert_integration_account,
+        get_canonical_object, get_integration_account, list_sync_links_for_object,
+        upsert_integration_account, IntegrationAccountRecord,
     };
 
     static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");

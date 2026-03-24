@@ -108,7 +108,10 @@ fn validate_step_id(step_id: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ActionStep, ApprovalStep, ConditionStep, SkillStep, SyncStep, WorkflowStep, WorkflowStepKind};
+    use super::{
+        ActionStep, ApprovalStep, ConditionStep, SkillStep, SyncStep, WorkflowStep,
+        WorkflowStepKind,
+    };
 
     #[test]
     fn workflow_step_taxonomy_stays_minimal_and_validated() {

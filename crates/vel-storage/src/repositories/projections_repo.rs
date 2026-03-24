@@ -109,9 +109,9 @@ pub async fn rebuild_projection(
     .execute(pool)
     .await?;
 
-    get_projection(pool, id).await?.ok_or_else(|| {
-        StorageError::NotFound(format!("projection {id} missing after rebuild"))
-    })
+    get_projection(pool, id)
+        .await?
+        .ok_or_else(|| StorageError::NotFound(format!("projection {id} missing after rebuild")))
 }
 
 fn map_projection_row(row: &sqlx::sqlite::SqliteRow) -> Result<ProjectionRecord, StorageError> {

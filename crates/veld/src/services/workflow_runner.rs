@@ -50,10 +50,14 @@ impl WorkflowRunner {
         request: &ManualWorkflowInvocationRequest,
     ) -> Result<WorkflowRunOutcome, AppError> {
         if request.workflow_id.trim().is_empty() {
-            return Err(AppError::bad_request("manual workflow invocation missing workflow_id"));
+            return Err(AppError::bad_request(
+                "manual workflow invocation missing workflow_id",
+            ));
         }
         if request.steps.is_empty() {
-            return Err(AppError::bad_request("manual workflow invocation requires at least one step"));
+            return Err(AppError::bad_request(
+                "manual workflow invocation requires at least one step",
+            ));
         }
 
         let run_id = RunId::new();
@@ -117,15 +121,33 @@ impl WorkflowRunner {
                                 skill.skill_id
                             ))
                         })?;
-                    let module_registry_object = request.module_registry_objects.get(&module_id).ok_or_else(
-                        || AppError::bad_request(format!("missing module registry object {module_id}")),
-                    )?;
-                    let skill_registry_object = request.skill_registry_objects.get(&skill.skill_id).ok_or_else(
-                        || AppError::bad_request(format!("missing skill registry object {}", skill.skill_id)),
-                    )?;
-                    let grant_envelope = request.grant_envelopes.get(&skill.skill_id).ok_or_else(|| {
-                        AppError::bad_request(format!("missing grant envelope for skill {}", skill.skill_id))
-                    })?;
+                    let module_registry_object = request
+                        .module_registry_objects
+                        .get(&module_id)
+                        .ok_or_else(|| {
+                            AppError::bad_request(format!(
+                                "missing module registry object {module_id}"
+                            ))
+                        })?;
+                    let skill_registry_object = request
+                        .skill_registry_objects
+                        .get(&skill.skill_id)
+                        .ok_or_else(|| {
+                            AppError::bad_request(format!(
+                                "missing skill registry object {}",
+                                skill.skill_id
+                            ))
+                        })?;
+                    let grant_envelope =
+                        request
+                            .grant_envelopes
+                            .get(&skill.skill_id)
+                            .ok_or_else(|| {
+                                AppError::bad_request(format!(
+                                    "missing grant envelope for skill {}",
+                                    skill.skill_id
+                                ))
+                            })?;
 
                     let invocation = SkillInvocation {
                         workflow_id: request.workflow_id.clone(),
@@ -151,7 +173,10 @@ impl WorkflowRunner {
                         .await
                     {
                         Ok(_) => {}
-                        Err(error) if request.dry_run && error.to_string().contains("ConfirmationRequired") => {
+                        Err(error)
+                            if request.dry_run
+                                && error.to_string().contains("ConfirmationRequired") =>
+                        {
                             persist_run_record(
                                 pool,
                                 &RunRecord {
@@ -213,7 +238,9 @@ impl WorkflowRunner {
                             status: WorkflowRunStatus::AwaitingApproval,
                             dry_run: request.dry_run,
                             current_step_id: Some(step.step_id.clone()),
-                            reason: Some("approval step paused manual workflow execution".to_string()),
+                            reason: Some(
+                                "approval step paused manual workflow execution".to_string(),
+                            ),
                         },
                     )
                     .await?;
@@ -259,7 +286,10 @@ impl WorkflowRunner {
                                 status: WorkflowRunStatus::Refused,
                                 dry_run: request.dry_run,
                                 current_step_id: Some(step.step_id.clone()),
-                                reason: Some("condition step refused manual workflow progression".to_string()),
+                                reason: Some(
+                                    "condition step refused manual workflow progression"
+                                        .to_string(),
+                                ),
                             },
                         )
                         .await?;
@@ -287,7 +317,8 @@ impl WorkflowRunner {
                 dry_run: request.dry_run,
                 current_step_id: None,
                 reason: Some(if request.dry_run {
-                    "dry_run completed with no canonical mutation and no external mutation".to_string()
+                    "dry_run completed with no canonical mutation and no external mutation"
+                        .to_string()
                 } else {
                     "manual workflow completed".to_string()
                 }),
@@ -341,7 +372,9 @@ fn primary_object_ref(bound_context: &BoundWorkflowContext) -> Result<String, Ap
         .values()
         .next()
         .map(|record| record.id.clone())
-        .ok_or_else(|| AppError::bad_request("manual workflow runner requires a canonical object binding"))
+        .ok_or_else(|| {
+            AppError::bad_request("manual workflow runner requires a canonical object binding")
+        })
 }
 
 fn primary_object_refs(bound_context: &BoundWorkflowContext) -> Vec<String> {

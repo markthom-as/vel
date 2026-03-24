@@ -10,6 +10,7 @@ Todoist is handled through the web Settings integrations surface with:
 - `Sync now`,
 - `Disconnect`,
 - sync history and guidance,
+- per-field Todoist writeback capability toggles for completion status, due date, and tags,
 - allowed Todoist write actions for create, update, complete, and reopen through the operator-authenticated runtime.
 
 For shipped-truth authority, see [MASTER_PLAN.md](../../MASTER_PLAN.md).
@@ -69,6 +70,14 @@ The allowed Todoist write surface is intentionally small:
 - complete an existing Todoist-backed commitment,
 - reopen an existing Todoist-backed commitment.
 
+System operators can gate specific writeback categories in `System > Integrations > Todoist`:
+
+- `Completion status`
+- `Due date`
+- `Tags`
+
+When a capability is disabled, Vel rejects the corresponding outbound Todoist mutation instead of partially applying it.
+
 These writes do not silently force last-write-wins behavior. Before `todoist_update_task`, `todoist_complete_task`, or `todoist_reopen_task`, Vel fetches the latest upstream task and compares it with the last synced snapshot stored in local upstream refs.
 
 If the upstream task drifted, Vel opens a conflict review item instead of overwriting it:
@@ -76,9 +85,10 @@ If the upstream task drifted, Vel opens a conflict review item instead of overwr
 - `stale_write` when the upstream `updated_at` no longer matches the last synced snapshot,
 - `upstream_vs_local` when the upstream task payload no longer matches the stored local view.
 
-Todoist labels remain compatibility-only metadata at the adapter boundary. The durable Vel-side contract is the typed field set `project_id`, `scheduled_for`, `priority`, `waiting_on`, and `review_state`.
+Todoist labels remain compatibility metadata at the adapter boundary, but Vel can now round-trip canonical task tags back into upstream Todoist labels when the `Tags` writeback capability is enabled. The durable Vel-side contract remains centered on typed fields such as `project_id`, `scheduled_for`, `priority`, `waiting_on`, and `review_state`.
 
 The read path stays separate from the write path:
 
 - `POST /v1/sync/todoist` remains the read/sync surface,
-- write-back uses the bounded operator routes under `/api/integrations/todoist/*`.
+- canonical Todoist write review enters through `POST /api/integrations/todoist/write-intent`,
+- the legacy `/api/integrations/todoist/*` mutation routes are quarantined during the `0.5` cutover.

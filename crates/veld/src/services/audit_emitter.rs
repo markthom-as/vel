@@ -113,7 +113,9 @@ mod tests {
         let records = list_runtime_records(&pool, "audit").await.unwrap();
         assert_eq!(records.len(), 3);
         assert!(records.iter().any(|record| record.status == "denied"));
-        assert!(records.iter().any(|record| record.payload_json["dry_run"] == json!(true)));
+        assert!(records
+            .iter()
+            .any(|record| record.payload_json["dry_run"] == json!(true)));
         assert!(records
             .iter()
             .any(|record| record.payload_json["approval_required"] == json!(true)));

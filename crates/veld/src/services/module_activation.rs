@@ -34,8 +34,13 @@ impl ModuleActivationService {
         &self,
         request: &ModuleActivationRequest,
     ) -> Result<ModuleActivation, ModulePolicyBridgeError> {
-        let requested_capabilities = ModuleCapabilityProfile::from_registry_object(&request.registry_object);
-        let overlay_enabled = request.registry_object.persisted_overlay.enabled.unwrap_or(true);
+        let requested_capabilities =
+            ModuleCapabilityProfile::from_registry_object(&request.registry_object);
+        let overlay_enabled = request
+            .registry_object
+            .persisted_overlay
+            .enabled
+            .unwrap_or(true);
         let base_eligible =
             request.registry_object.status == RegistryStatus::Active && overlay_enabled;
 

@@ -25,7 +25,13 @@ impl EventMoment {
 
         match self.kind {
             EventMomentKind::ZonedDateTime => {
-                if self.timezone.as_deref().unwrap_or_default().trim().is_empty() {
+                if self
+                    .timezone
+                    .as_deref()
+                    .unwrap_or_default()
+                    .trim()
+                    .is_empty()
+                {
                     return Err(format!("event {label} zoned_datetime requires timezone"));
                 }
             }
@@ -101,9 +107,7 @@ impl Event {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        Event, EventLocation, EventMoment, EventMomentKind, EventTransparency,
-    };
+    use super::{Event, EventLocation, EventMoment, EventMomentKind, EventTransparency};
     use crate::EventId;
 
     #[test]
@@ -126,7 +130,10 @@ mod tests {
             location: None,
         };
 
-        assert!(mismatched.validate().unwrap_err().contains("same moment kind"));
+        assert!(mismatched
+            .validate()
+            .unwrap_err()
+            .contains("same moment kind"));
 
         let valid = Event {
             id: EventId::new(),

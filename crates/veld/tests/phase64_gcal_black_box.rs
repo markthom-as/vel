@@ -3,25 +3,25 @@ use serde_json::json;
 use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_adapters_google_calendar::{
-    GoogleAvailabilityBridgeInput, GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState,
-    GoogleCalendarMappingPayload, GoogleEventLocationPayload, GoogleEventMappingPayload,
-    GoogleEventMomentPayload, GoogleEventPayload, GoogleImportWindow, GoogleRecurrencePayload,
     apply_google_upstream_delete, bridge_google_availability_input,
     google_availability_projection_envelope, google_calendar_module_manifest, import_google_window,
     link_google_calendar_account, map_google_calendar, map_google_event, map_google_recurrence,
+    GoogleAvailabilityBridgeInput, GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState,
+    GoogleCalendarMappingPayload, GoogleEventLocationPayload, GoogleEventMappingPayload,
+    GoogleEventMomentPayload, GoogleEventPayload, GoogleImportWindow, GoogleRecurrencePayload,
 };
 use vel_core::{
     AllDayHandlingRule, AvailabilityPolicyConfig, AvailabilityResult, CalendarId,
     DeclinedResponsePolicy, EventId, EventMomentKind, ParticipationResponseStatus,
 };
 use vel_storage::{
-    CanonicalObjectQuery, get_canonical_object, list_sync_links_for_object, migrate_storage,
-    query_canonical_objects,
+    get_canonical_object, list_sync_links_for_object, migrate_storage, query_canonical_objects,
+    CanonicalObjectQuery,
 };
 use veld::services::{
     availability_projection::{AvailabilityEventInput, AvailabilityProjectionService},
     calendar_explain::CalendarExplainService,
-    gcal_write_bridge::{GoogleCalendarWriteBridgeRequest, bridge_google_calendar_write},
+    gcal_write_bridge::{bridge_google_calendar_write, GoogleCalendarWriteBridgeRequest},
     recurrence_materialization::RecurrenceMaterializationService,
 };
 
@@ -36,8 +36,8 @@ fn to_projection_input(input: GoogleAvailabilityBridgeInput) -> AvailabilityEven
 }
 
 #[tokio::test]
-async fn google_calendar_black_box_proves_account_window_calendar_event_participation_availability_occurrence_tombstone_and_write_flow()
- {
+async fn google_calendar_black_box_proves_account_window_calendar_event_participation_availability_occurrence_tombstone_and_write_flow(
+) {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
 

@@ -123,7 +123,9 @@ pub async fn list_registry_objects(
     rows.iter().map(map_registry_row).collect()
 }
 
-fn map_registry_row(row: &sqlx::sqlite::SqliteRow) -> Result<CanonicalRegistryRecord, StorageError> {
+fn map_registry_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<CanonicalRegistryRecord, StorageError> {
     Ok(CanonicalRegistryRecord {
         id: row.try_get("id")?,
         registry_type: row.try_get("registry_type")?,

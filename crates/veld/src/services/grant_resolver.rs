@@ -9,8 +9,16 @@ pub enum GrantResolverError {
 pub struct GrantResolver;
 
 impl GrantResolver {
-    pub fn resolve(&self, grant: &Grant, request: &GrantRequest) -> Result<Grant, GrantResolverError> {
-        if !grant.capabilities.iter().any(|capability| capability == &request.capability) {
+    pub fn resolve(
+        &self,
+        grant: &Grant,
+        request: &GrantRequest,
+    ) -> Result<Grant, GrantResolverError> {
+        if !grant
+            .capabilities
+            .iter()
+            .any(|capability| capability == &request.capability)
+        {
             return Err(GrantResolverError::GrantMissing(format!(
                 "GrantMissing capability {}",
                 request.capability
@@ -29,11 +37,9 @@ impl GrantResolver {
             ));
         }
 
-        if !grant
-            .scope
-            .iter()
-            .any(|scope| matches!(scope, GrantScope::Action(action) if action == &request.action_name))
-        {
+        if !grant.scope.iter().any(
+            |scope| matches!(scope, GrantScope::Action(action) if action == &request.action_name),
+        ) {
             return Err(GrantResolverError::GrantMissing(format!(
                 "GrantMissing action {}",
                 request.action_name
@@ -88,7 +94,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(narrowed.capabilities, vec!["object.write".to_string()]);
-        assert!(narrowed.scope.iter().any(|scope| matches!(scope, GrantScope::Object(id) if id == "task_01")));
+        assert!(narrowed
+            .scope
+            .iter()
+            .any(|scope| matches!(scope, GrantScope::Object(id) if id == "task_01")));
         assert!(!narrowed.durable);
     }
 
@@ -118,4 +127,3 @@ mod tests {
         assert!(matches!(result, Err(GrantResolverError::GrantMissing(_))));
     }
 }
-

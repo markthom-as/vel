@@ -44,4 +44,3 @@ mod tests {
         assert!(registry.list().len() >= 7);
     }
 }
-

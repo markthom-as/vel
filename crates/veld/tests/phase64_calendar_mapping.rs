@@ -1,7 +1,7 @@
 use vel_adapters_google_calendar::{
-    GoogleAttendeePayload, GoogleCalendarMappingPayload, GoogleEventLocationPayload,
-    GoogleEventMappingPayload, GoogleEventMomentPayload, map_google_attendee, map_google_calendar,
-    map_google_event,
+    map_google_attendee, map_google_calendar, map_google_event, GoogleAttendeePayload,
+    GoogleCalendarMappingPayload, GoogleEventLocationPayload, GoogleEventMappingPayload,
+    GoogleEventMomentPayload,
 };
 use vel_core::{
     CalendarId, CalendarVisibility, EventId, EventMomentKind, EventTransparency, ParticipantRef,

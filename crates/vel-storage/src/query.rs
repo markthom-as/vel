@@ -125,10 +125,14 @@ pub async fn query_canonical_objects(
         QuerySortDirection::Asc => " ASC, id ASC",
         QuerySortDirection::Desc => " DESC, id DESC",
     });
-    builder.push(" LIMIT ").push_bind(i64::from(query.limit.unwrap_or(50)));
+    builder
+        .push(" LIMIT ")
+        .push_bind(i64::from(query.limit.unwrap_or(50)));
 
     let rows = builder.build().fetch_all(pool).await?;
-    rows.iter().map(map_canonical_object_row_for_query).collect()
+    rows.iter()
+        .map(map_canonical_object_row_for_query)
+        .collect()
 }
 
 pub async fn traverse_relations(
@@ -156,7 +160,9 @@ pub async fn traverse_relations(
     builder.push_bind(&traversal.from_id);
 
     if let Some(relation_type) = &traversal.relation_type {
-        builder.push(" AND relation_type = ").push_bind(relation_type);
+        builder
+            .push(" AND relation_type = ")
+            .push_bind(relation_type);
     }
     if let Some(direction) = &traversal.direction {
         builder.push(" AND direction = ").push_bind(direction);
@@ -173,9 +179,10 @@ pub async fn traverse_relations(
         QuerySortDirection::Asc => "ASC, id ASC",
         QuerySortDirection::Desc => "DESC, id DESC",
     });
-    builder.push(" LIMIT ").push_bind(i64::from(traversal.limit.unwrap_or(50)));
+    builder
+        .push(" LIMIT ")
+        .push_bind(i64::from(traversal.limit.unwrap_or(50)));
 
     let rows = builder.build().fetch_all(pool).await?;
     rows.iter().map(map_relation_row_for_query).collect()
 }
-

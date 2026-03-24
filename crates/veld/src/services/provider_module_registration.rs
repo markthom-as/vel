@@ -1,5 +1,5 @@
 use sqlx::SqlitePool;
-use vel_core::{Grant, RegistryManifest, ReconciliationResult};
+use vel_core::{Grant, ReconciliationResult, RegistryManifest};
 use vel_storage::SqliteModuleRegistryStore;
 
 use super::{

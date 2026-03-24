@@ -38,7 +38,10 @@ mod tests {
     fn grant_model_tracks_scope_and_lifetime_posture() {
         let grant = Grant {
             id: "grant_01".to_string(),
-            scope: vec![GrantScope::Workspace, GrantScope::Action("object.update".to_string())],
+            scope: vec![
+                GrantScope::Workspace,
+                GrantScope::Action("object.update".to_string()),
+            ],
             capabilities: vec!["object.write".to_string()],
             durable: false,
             run_scoped: true,
@@ -56,4 +59,3 @@ mod tests {
         assert_eq!(request.capability, "object.write");
     }
 }
-

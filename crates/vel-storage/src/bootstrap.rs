@@ -2,8 +2,7 @@ use sqlx::SqlitePool;
 use time::OffsetDateTime;
 
 use crate::{
-    db::StorageError,
-    get_registry_object, upsert_registry_object, CanonicalRegistryRecord,
+    db::StorageError, get_registry_object, upsert_registry_object, CanonicalRegistryRecord,
 };
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]

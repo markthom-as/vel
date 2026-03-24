@@ -2,10 +2,10 @@ use serde_json::json;
 use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_adapters_todoist::{
-    TodoistTaskPayload, apply_upstream_delete, reconcile_todoist_task, restore_from_tombstone,
+    apply_upstream_delete, reconcile_todoist_task, restore_from_tombstone, TodoistTaskPayload,
 };
-use vel_storage::{CanonicalObjectRecord, SyncLinkRecord, migrate_storage};
-use veld::services::todoist_write_bridge::{TodoistWriteBridgeRequest, bridge_todoist_write};
+use vel_storage::{migrate_storage, CanonicalObjectRecord, SyncLinkRecord};
+use veld::services::todoist_write_bridge::{bridge_todoist_write, TodoistWriteBridgeRequest};
 
 #[test]
 fn source_owned_fields_win_and_local_and_provider_task_history_stay_continuous() {
@@ -38,24 +38,18 @@ fn source_owned_fields_win_and_local_and_provider_task_history_stay_continuous()
     );
 
     assert_eq!(result.merged_facets["due"]["value"], "2026-03-24");
-    assert!(
-        result
-            .conflicts
-            .iter()
-            .any(|conflict| conflict.reason.contains("source-owned field due"))
-    );
-    assert!(
-        result
-            .task_events
-            .iter()
-            .any(|event| event.provenance == "provider_event")
-    );
-    assert!(
-        result
-            .task_events
-            .iter()
-            .any(|event| event.provenance == "local_write_intent")
-    );
+    assert!(result
+        .conflicts
+        .iter()
+        .any(|conflict| conflict.reason.contains("source-owned field due")));
+    assert!(result
+        .task_events
+        .iter()
+        .any(|event| event.provenance == "provider_event"));
+    assert!(result
+        .task_events
+        .iter()
+        .any(|event| event.provenance == "local_write_intent"));
 }
 
 #[test]
@@ -104,8 +98,8 @@ fn upstream_delete_becomes_tombstone_and_restore_is_explicit() {
 }
 
 #[tokio::test]
-async fn todoist_write_bridge_enforces_read_only_and_policy_denied_paths_and_dispatches_write_intent()
- {
+async fn todoist_write_bridge_enforces_read_only_and_policy_denied_paths_and_dispatches_write_intent(
+) {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
 

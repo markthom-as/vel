@@ -1,4 +1,7 @@
-use axum::{body::{to_bytes, Body}, http::{Request, StatusCode}};
+use axum::{
+    body::{to_bytes, Body},
+    http::{Request, StatusCode},
+};
 use tower::util::ServiceExt;
 use vel_config::AppConfig;
 use vel_storage::Storage;
@@ -20,7 +23,13 @@ fn request(method: &str, uri: &str, body: Body) -> Request<Body> {
 async fn legacy_provider_write_routes_are_quarantined_during_cutover() {
     let storage = Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();
-    let app = build_app(storage, AppConfig::default(), PolicyConfig::default(), None, None);
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        PolicyConfig::default(),
+        None,
+        None,
+    );
 
     let todoist = app
         .clone()
@@ -51,25 +60,27 @@ async fn legacy_provider_write_routes_are_quarantined_during_cutover() {
         serde_json::from_slice(&to_bytes(notes.into_body(), usize::MAX).await.unwrap()).unwrap();
 
     assert_eq!(todoist_json["error"]["code"], "deprecated");
-    assert!(
-        todoist_json["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("/api/integrations/todoist/write-intent")
-    );
-    assert!(
-        notes_json["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("outside the 0.5 proving-adapter scope")
-    );
+    assert!(todoist_json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("/api/integrations/todoist/write-intent"));
+    assert!(notes_json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("outside the 0.5 proving-adapter scope"));
 }
 
 #[tokio::test]
 async fn read_side_integration_surface_remains_available_while_legacy_writes_are_retired() {
     let storage = Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();
-    let app = build_app(storage, AppConfig::default(), PolicyConfig::default(), None, None);
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        PolicyConfig::default(),
+        None,
+        None,
+    );
 
     let response = app
         .oneshot(request("GET", "/api/integrations", Body::empty()))

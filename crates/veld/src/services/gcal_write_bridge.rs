@@ -1,18 +1,19 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use sqlx::SqlitePool;
 use vel_core::{
+    action_explain, generic_object_action_contracts, object_explain, policy_explain,
     ConfirmationMode, ExplainBasis, PolicyDecisionKind, PolicyEvaluationInput, PolicyLayerKind,
-    WriteIntentId, action_explain, generic_object_action_contracts, object_explain, policy_explain,
+    WriteIntentId,
 };
 
 use crate::{
     errors::AppError,
     services::{
         conflict_classifier::ConflictClassifier,
-        policy_evaluator::{PolicyEvaluator, PolicyEvaluatorError, default_layer},
+        policy_evaluator::{default_layer, PolicyEvaluator, PolicyEvaluatorError},
         write_intent_dispatch::{
-            DispatchDisposition, ExecutionDispatch, WriteIntentDispatchRequest,
-            dispatch_write_intent,
+            dispatch_write_intent, DispatchDisposition, ExecutionDispatch,
+            WriteIntentDispatchRequest,
         },
     },
 };
@@ -224,7 +225,7 @@ fn map_policy_error(error: PolicyEvaluatorError) -> AppError {
 
 #[cfg(test)]
 mod tests {
-    use super::{GoogleCalendarWriteBridgeRequest, bridge_google_calendar_write};
+    use super::{bridge_google_calendar_write, GoogleCalendarWriteBridgeRequest};
     use serde_json::json;
     use sqlx::SqlitePool;
     use vel_storage::{list_runtime_records, migrate_storage};

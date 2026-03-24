@@ -148,7 +148,8 @@ impl RegistryReconciler for DefaultRegistryReconciler {
         ReconciliationResult {
             state,
             object,
-            reason: "reconcile manifest-backed registry object against persisted overlay".to_string(),
+            reason: "reconcile manifest-backed registry object against persisted overlay"
+                .to_string(),
         }
     }
 }
@@ -201,7 +202,11 @@ mod tests {
                     }],
                 },
                 RegistryManifest {
-                    registry_id: SemanticRegistryId::new(RegistryKind::Skill, "core", "daily-brief"),
+                    registry_id: SemanticRegistryId::new(
+                        RegistryKind::Skill,
+                        "core",
+                        "daily-brief",
+                    ),
                     display_name: "Daily Brief".to_string(),
                     version: "0.5".to_string(),
                     status: RegistryStatus::Active,
@@ -233,7 +238,9 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(ids.iter().any(|id| id == MODULE_INTEGRATION_TODOIST));
-        assert!(ids.iter().any(|id| id == MODULE_INTEGRATION_GOOGLE_CALENDAR));
+        assert!(ids
+            .iter()
+            .any(|id| id == MODULE_INTEGRATION_GOOGLE_CALENDAR));
         assert!(ids.iter().any(|id| id == SKILL_CORE_DAILY_BRIEF));
         assert!(ids.iter().any(|id| id == TOOL_OBJECT_GET));
         assert_eq!(
@@ -262,24 +269,22 @@ mod tests {
         };
         let reconciler = DefaultRegistryReconciler;
         let created = reconciler.reconcile(&manifest, Some(overlay.clone()), None);
-        let unchanged = reconciler.reconcile(&manifest, Some(overlay.clone()), Some(&created.object));
+        let unchanged =
+            reconciler.reconcile(&manifest, Some(overlay.clone()), Some(&created.object));
 
         let updated_existing = RegistryObject {
             version: "0.4".to_string(),
             ..created.object.clone()
         };
-        let updated = reconciler.reconcile(&manifest, Some(overlay.clone()), Some(&updated_existing));
+        let updated =
+            reconciler.reconcile(&manifest, Some(overlay.clone()), Some(&updated_existing));
 
         let drifted_overlay = PersistedOverlay {
             enabled: Some(false),
             notes: Some("persisted overlay drift".to_string()),
             metadata: serde_json::json!({"activation":"manual"}),
         };
-        let drifted = reconciler.reconcile(
-            &manifest,
-            Some(drifted_overlay),
-            Some(&created.object),
-        );
+        let drifted = reconciler.reconcile(&manifest, Some(drifted_overlay), Some(&created.object));
 
         assert_eq!(created.state, ReconciliationState::New);
         assert_eq!(unchanged.state, ReconciliationState::Unchanged);
@@ -291,7 +296,11 @@ mod tests {
     fn materialized_registry_object_preserves_persisted_overlay() {
         let object = materialize_registry_object(
             &RegistryManifest {
-                registry_id: SemanticRegistryId::new(RegistryKind::Module, "integration", "todoist"),
+                registry_id: SemanticRegistryId::new(
+                    RegistryKind::Module,
+                    "integration",
+                    "todoist",
+                ),
                 display_name: "Todoist".to_string(),
                 version: "0.5".to_string(),
                 status: RegistryStatus::Active,
@@ -306,6 +315,9 @@ mod tests {
         );
 
         assert_eq!(object.id, MODULE_INTEGRATION_TODOIST);
-        assert_eq!(object.persisted_overlay.notes.as_deref(), Some("persisted overlay"));
+        assert_eq!(
+            object.persisted_overlay.notes.as_deref(),
+            Some("persisted overlay")
+        );
     }
 }

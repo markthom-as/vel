@@ -2,7 +2,7 @@ use serde_json::Value as JsonValue;
 use sha2::{Digest, Sha256};
 use vel_core::{MembraneConflict, OwnershipClass, OwnershipDefault, OwnershipEvaluation};
 
-use crate::{TodoistTaskPayload, task_mapping::task_facets};
+use crate::{task_mapping::task_facets, TodoistTaskPayload};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TaskFieldChange {
@@ -221,12 +221,10 @@ mod tests {
         );
 
         assert_eq!(result.merged_facets["due"]["value"], "2026-03-24");
-        assert!(
-            result
-                .conflicts
-                .iter()
-                .any(|conflict| conflict.reason.contains("source-owned field due"))
-        );
+        assert!(result
+            .conflicts
+            .iter()
+            .any(|conflict| conflict.reason.contains("source-owned field due")));
         assert!(
             result
                 .task_events
@@ -234,12 +232,10 @@ mod tests {
                 .any(|event| event.provenance == "provider_event"
                     && event.event_type == "due_changed")
         );
-        assert!(
-            result
-                .task_events
-                .iter()
-                .any(|event| event.provenance == "local_write_intent"
-                    && event.event_type == "due_changed")
-        );
+        assert!(result
+            .task_events
+            .iter()
+            .any(|event| event.provenance == "local_write_intent"
+                && event.event_type == "due_changed"));
     }
 }

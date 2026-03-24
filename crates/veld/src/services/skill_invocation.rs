@@ -1,8 +1,8 @@
 use sqlx::SqlitePool;
 use vel_core::{
-    generic_object_action_contracts, ActionContract, AuditEventKind, AuditRecord,
-    AuditRequirement, GrantEnvelope, GrantRequest, PolicyEvaluationInput, PolicyLayerKind,
-    RegistryKind, RegistryObject, SkillInvocation, SkillInvocationOutcome,
+    generic_object_action_contracts, ActionContract, AuditEventKind, AuditRecord, AuditRequirement,
+    GrantEnvelope, GrantRequest, PolicyEvaluationInput, PolicyLayerKind, RegistryKind,
+    RegistryObject, SkillInvocation, SkillInvocationOutcome,
 };
 
 use crate::errors::AppError;
@@ -39,11 +39,11 @@ impl SkillInvocationService {
 
         let effective_grant = grant_envelope.effective_grant();
         let activation = match self.activation_service.activate(&ModuleActivationRequest {
-                registry_object: module_registry_object.clone(),
-                enabled_feature_gates,
-                grant: effective_grant.clone(),
-                read_only: grant_envelope.read_only,
-            }) {
+            registry_object: module_registry_object.clone(),
+            enabled_feature_gates,
+            grant: effective_grant.clone(),
+            read_only: grant_envelope.read_only,
+        }) {
             Ok(activation) => activation,
             Err(error) => {
                 let app_error = map_module_activation_error(error);
@@ -71,15 +71,15 @@ impl SkillInvocationService {
         })?;
 
         let narrowed_grant = match self.grant_resolver.resolve(
-                &effective_grant,
-                &GrantRequest {
-                    action_name: invocation.action_name.clone(),
-                    capability: action_contract.capability.capability.clone(),
-                    object_ids: invocation.target_object_refs.clone(),
-                    durable: false,
-                    run_scoped: true,
-                },
-            ) {
+            &effective_grant,
+            &GrantRequest {
+                action_name: invocation.action_name.clone(),
+                capability: action_contract.capability.capability.clone(),
+                object_ids: invocation.target_object_refs.clone(),
+                durable: false,
+                run_scoped: true,
+            },
+        ) {
             Ok(grant) => grant,
             Err(error) => {
                 let app_error = map_grant_error(error);
@@ -123,8 +123,10 @@ impl SkillInvocationService {
 
         match decision {
             Ok(policy_decision) => {
-                let audit_required =
-                    matches!(audit_requirement(&action_contract), AuditRequirement::Required);
+                let audit_required = matches!(
+                    audit_requirement(&action_contract),
+                    AuditRequirement::Required
+                );
                 let audit = AuditRecord {
                     action_name: invocation.action_name.clone(),
                     target_object_refs: invocation.target_object_refs.clone(),
@@ -135,8 +137,9 @@ impl SkillInvocationService {
                     } else {
                         AuditEventKind::Allowed
                     },
-                    reason: "mediated skill invocation passed module activation and action membrane"
-                        .to_string(),
+                    reason:
+                        "mediated skill invocation passed module activation and action membrane"
+                            .to_string(),
                     field_captures: vec![],
                     write_intent_ref: None,
                     downstream_operation_ref: None,

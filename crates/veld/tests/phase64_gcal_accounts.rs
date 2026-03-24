@@ -2,19 +2,19 @@ use serde_json::json;
 use sqlx::SqlitePool;
 use time::{Duration, OffsetDateTime};
 use vel_adapters_google_calendar::{
-    DEFAULT_FUTURE_DAYS, DEFAULT_PAST_DAYS, GoogleCalendarAccountLinkRequest,
-    GoogleCalendarCheckpointState, GoogleCalendarPayload, GoogleEventPayload, GoogleImportWindow,
-    GoogleWindowedImportRequest, google_calendar_module_manifest, import_google_window,
-    link_google_calendar_account,
+    google_calendar_module_manifest, import_google_window, link_google_calendar_account,
+    GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState, GoogleCalendarPayload,
+    GoogleEventPayload, GoogleImportWindow, GoogleWindowedImportRequest, DEFAULT_FUTURE_DAYS,
+    DEFAULT_PAST_DAYS,
 };
 use vel_storage::{
-    CanonicalObjectQuery, get_canonical_object, get_integration_account,
-    list_sync_links_for_object, migrate_storage, query_canonical_objects,
+    get_canonical_object, get_integration_account, list_sync_links_for_object, migrate_storage,
+    query_canonical_objects, CanonicalObjectQuery,
 };
 
 #[tokio::test]
-async fn google_calendar_multi_account_bounded_import_uses_canonical_account_and_synclink_substrate()
- {
+async fn google_calendar_multi_account_bounded_import_uses_canonical_account_and_synclink_substrate(
+) {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
 

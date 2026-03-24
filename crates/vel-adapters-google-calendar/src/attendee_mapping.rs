@@ -96,7 +96,7 @@ fn response_status(value: &str) -> ParticipationResponseStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::{GoogleAttendeePayload, map_google_attendee};
+    use super::{map_google_attendee, GoogleAttendeePayload};
     use vel_core::{ParticipantRef, ParticipationResponseStatus};
 
     #[test]

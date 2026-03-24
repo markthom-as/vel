@@ -1,18 +1,21 @@
-use axum::{body::{to_bytes, Body}, http::Request};
+use axum::{
+    body::{to_bytes, Body},
+    http::Request,
+};
 use serde_json::json;
 use time::OffsetDateTime;
 use tower::util::ServiceExt;
 use vel_adapters_google_calendar::{
-    GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState, GoogleCalendarPayload,
-    GoogleEventPayload, GoogleImportWindow, GoogleWindowedImportRequest, import_google_window,
-    link_google_calendar_account,
+    import_google_window, link_google_calendar_account, GoogleCalendarAccountLinkRequest,
+    GoogleCalendarCheckpointState, GoogleCalendarPayload, GoogleEventPayload, GoogleImportWindow,
+    GoogleWindowedImportRequest,
 };
 use vel_adapters_todoist::{
-    TodoistAccountLinkRequest, TodoistBacklogImportRequest, TodoistBacklogTask,
-    TodoistCheckpointState, import_todoist_backlog, link_todoist_account,
+    import_todoist_backlog, link_todoist_account, TodoistAccountLinkRequest,
+    TodoistBacklogImportRequest, TodoistBacklogTask, TodoistCheckpointState,
 };
 use vel_config::AppConfig;
-use vel_storage::{Storage, list_runtime_records};
+use vel_storage::{list_runtime_records, Storage};
 use veld::{app::build_app, policy_config::PolicyConfig};
 
 const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
@@ -117,7 +120,9 @@ async fn canonical_write_routes_emit_explain_and_audit_evidence_for_dry_run_and_
                 summary: "Focus block".to_string(),
                 description: None,
                 start: OffsetDateTime::now_utc() + time::Duration::days(1),
-                end: OffsetDateTime::now_utc() + time::Duration::days(1) + time::Duration::minutes(30),
+                end: OffsetDateTime::now_utc()
+                    + time::Duration::days(1)
+                    + time::Duration::minutes(30),
                 transparency: "opaque".to_string(),
                 remote_version: Some("etag-1".to_string()),
             }],
@@ -180,11 +185,21 @@ async fn canonical_write_routes_emit_explain_and_audit_evidence_for_dry_run_and_
             .unwrap(),
     )
     .unwrap();
-    let audits = list_runtime_records(storage.sql_pool(), "audit").await.unwrap();
+    let audits = list_runtime_records(storage.sql_pool(), "audit")
+        .await
+        .unwrap();
 
-    assert_eq!(todoist_json["data"]["explain"]["policy_explain"]["decision"], "allowed");
+    assert_eq!(
+        todoist_json["data"]["explain"]["policy_explain"]["decision"],
+        "allowed"
+    );
     assert_eq!(todoist_json["data"]["dispatch"], serde_json::Value::Null);
-    assert_eq!(google_json["data"]["dispatch"]["downstream_status"], "succeeded");
+    assert_eq!(
+        google_json["data"]["dispatch"]["downstream_status"],
+        "succeeded"
+    );
     assert!(audits.iter().any(|record| record.status == "dry_run"));
-    assert!(audits.iter().any(|record| record.status == "dispatch_succeeded"));
+    assert!(audits
+        .iter()
+        .any(|record| record.status == "dispatch_succeeded"));
 }

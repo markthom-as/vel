@@ -3,8 +3,8 @@ use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_storage::{
     insert_canonical_object, query_canonical_objects, traverse_relations, CanonicalObjectQuery,
-    CanonicalObjectRecord, CanonicalObjectSort, CanonicalObjectSortField,
-    CanonicalRelationRecord, QuerySortDirection, RelationTraversal,
+    CanonicalObjectRecord, CanonicalObjectSort, CanonicalObjectSortField, CanonicalRelationRecord,
+    QuerySortDirection, RelationTraversal,
 };
 
 #[tokio::test]
@@ -135,7 +135,9 @@ async fn phase58_relation_traversal_is_typed_and_paged() {
             updated_at: now,
         },
     ] {
-        vel_storage::upsert_relation(&pool, &relation).await.unwrap();
+        vel_storage::upsert_relation(&pool, &relation)
+            .await
+            .unwrap();
     }
 
     let active_only = traverse_relations(
@@ -165,4 +167,3 @@ async fn phase58_relation_traversal_is_typed_and_paged() {
     .unwrap();
     assert_eq!(include_inactive.len(), 1);
 }
-

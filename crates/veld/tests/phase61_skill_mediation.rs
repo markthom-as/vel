@@ -112,7 +112,10 @@ async fn mediated_skill_invocation_allows_generic_action_and_emits_audit() {
         .unwrap();
 
     assert!(outcome.mediated);
-    assert_eq!(outcome.effective_grant.capabilities, vec!["object.read".to_string()]);
+    assert_eq!(
+        outcome.effective_grant.capabilities,
+        vec!["object.read".to_string()]
+    );
     assert_eq!(outcome.action_contract.action_name, "object.get");
 
     let audits = list_runtime_records(&pool, "audit").await.unwrap();

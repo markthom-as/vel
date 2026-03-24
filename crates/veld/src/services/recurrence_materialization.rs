@@ -15,9 +15,7 @@ impl RecurrenceMaterializationService {
         window_start: DateTime<Utc>,
         window_end: DateTime<Utc>,
     ) -> Result<Vec<Occurrence>, AppError> {
-        series
-            .validate()
-            .map_err(AppError::bad_request)?;
+        series.validate().map_err(AppError::bad_request)?;
         event.validate().map_err(AppError::bad_request)?;
 
         if event.start.kind != EventMomentKind::ZonedDateTime
@@ -75,14 +73,14 @@ impl RecurrenceMaterializationService {
                             });
                         }
                         ExceptionStatus::Modified => {
-                            let replacement_start = exception
-                                .replacement_start
-                                .clone()
-                                .ok_or_else(|| AppError::bad_request("modified exception missing start"))?;
-                            let replacement_end = exception
-                                .replacement_end
-                                .clone()
-                                .ok_or_else(|| AppError::bad_request("modified exception missing end"))?;
+                            let replacement_start =
+                                exception.replacement_start.clone().ok_or_else(|| {
+                                    AppError::bad_request("modified exception missing start")
+                                })?;
+                            let replacement_end =
+                                exception.replacement_end.clone().ok_or_else(|| {
+                                    AppError::bad_request("modified exception missing end")
+                                })?;
 
                             results.push(Occurrence {
                                 occurrence_key,
@@ -195,7 +193,11 @@ fn days_until(from: Weekday, to: Weekday) -> i64 {
     let from = from.num_days_from_monday() as i64;
     let to = to.num_days_from_monday() as i64;
     let delta = to - from;
-    if delta <= 0 { delta + 7 } else { delta }
+    if delta <= 0 {
+        delta + 7
+    } else {
+        delta
+    }
 }
 
 #[allow(dead_code)]

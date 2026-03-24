@@ -1,30 +1,36 @@
 use std::collections::BTreeMap;
 
-use axum::{body::{to_bytes, Body}, http::Request};
+use axum::{
+    body::{to_bytes, Body},
+    http::Request,
+};
 use serde_json::json;
 use time::OffsetDateTime;
 use tower::util::ServiceExt;
 use vel_adapters_google_calendar::{
-    GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState, GoogleCalendarPayload,
-    GoogleEventPayload, GoogleImportWindow, GoogleWindowedImportRequest, import_google_window,
-    link_google_calendar_account,
+    import_google_window, link_google_calendar_account, GoogleCalendarAccountLinkRequest,
+    GoogleCalendarCheckpointState, GoogleCalendarPayload, GoogleEventPayload, GoogleImportWindow,
+    GoogleWindowedImportRequest,
 };
 use vel_adapters_todoist::{
-    TodoistAccountLinkRequest, TodoistBacklogImportRequest, TodoistBacklogTask,
-    TodoistCheckpointState, import_todoist_backlog, link_todoist_account,
+    import_todoist_backlog, link_todoist_account, TodoistAccountLinkRequest,
+    TodoistBacklogImportRequest, TodoistBacklogTask, TodoistCheckpointState,
 };
 use vel_config::AppConfig;
 use vel_core::{
     ActionStep, CapabilityRequest, CoreBootstrapBundle, PersistedOverlay, RegistryKind,
-    RegistryManifest, RegistryObject, RegistryStatus, SeededWorkflowMutability,
-    SeededWorkflowSpec, SemanticRegistryId, WorkflowBinding, WorkflowContext,
-    WorkflowContextValue, WorkflowObjectRef, WorkflowStep, WorkflowRunStatus,
+    RegistryManifest, RegistryObject, RegistryStatus, SeededWorkflowMutability, SeededWorkflowSpec,
+    SemanticRegistryId, WorkflowBinding, WorkflowContext, WorkflowContextValue, WorkflowObjectRef,
+    WorkflowRunStatus, WorkflowStep,
 };
-use vel_storage::{Storage, list_registry_objects, list_runtime_records};
+use vel_storage::{list_registry_objects, list_runtime_records, Storage};
 use veld::{
     app::build_app,
     policy_config::PolicyConfig,
-    services::{core_module_bootstrap::CoreModuleBootstrap, workflow_runner::{ManualWorkflowInvocationRequest, WorkflowRunner}},
+    services::{
+        core_module_bootstrap::CoreModuleBootstrap,
+        workflow_runner::{ManualWorkflowInvocationRequest, WorkflowRunner},
+    },
 };
 
 const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
@@ -171,7 +177,9 @@ async fn milestone_cutover_proves_bootstrap_workflow_todoist_and_google_on_one_l
                 summary: "Focus block".to_string(),
                 description: None,
                 start: OffsetDateTime::now_utc() + time::Duration::days(1),
-                end: OffsetDateTime::now_utc() + time::Duration::days(1) + time::Duration::minutes(30),
+                end: OffsetDateTime::now_utc()
+                    + time::Duration::days(1)
+                    + time::Duration::minutes(30),
                 transparency: "opaque".to_string(),
                 remote_version: Some("etag-1".to_string()),
             }],
@@ -246,8 +254,14 @@ async fn milestone_cutover_proves_bootstrap_workflow_todoist_and_google_on_one_l
     )
     .unwrap();
 
-    assert_eq!(todoist_json["data"]["dispatch"]["downstream_status"], "succeeded");
-    assert_eq!(google_json["data"]["dispatch"]["downstream_status"], "succeeded");
+    assert_eq!(
+        todoist_json["data"]["dispatch"]["downstream_status"],
+        "succeeded"
+    );
+    assert_eq!(
+        google_json["data"]["dispatch"]["downstream_status"],
+        "succeeded"
+    );
 
     let runner = WorkflowRunner::default();
     let mut modules = BTreeMap::new();
@@ -298,10 +312,16 @@ async fn milestone_cutover_proves_bootstrap_workflow_todoist_and_google_on_one_l
     let write_intents = list_runtime_records(storage.sql_pool(), "write_intent")
         .await
         .unwrap();
-    let runs = list_runtime_records(storage.sql_pool(), "run").await.unwrap();
-    let audits = list_runtime_records(storage.sql_pool(), "audit").await.unwrap();
+    let runs = list_runtime_records(storage.sql_pool(), "run")
+        .await
+        .unwrap();
+    let audits = list_runtime_records(storage.sql_pool(), "audit")
+        .await
+        .unwrap();
 
     assert_eq!(write_intents.len(), 6);
     assert!(runs.iter().any(|record| record.status == "completed"));
-    assert!(audits.iter().any(|record| record.status == "dispatch_succeeded"));
+    assert!(audits
+        .iter()
+        .any(|record| record.status == "dispatch_succeeded"));
 }

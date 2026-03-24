@@ -86,13 +86,15 @@ fn disabled_feature_gate_returns_unsupported_capability_without_breaking_activat
     ));
 
     let error = bridge
-        .evaluate(&veld::services::module_policy_bridge::ModulePolicyBridgeInput {
-            module_id: "module.integration.google-calendar".to_string(),
-            requested_capabilities: profile,
-            enabled_feature_gates: vec![],
-            grant: grant_for(&["google.calendar.read"], false),
-            read_only: false,
-        })
+        .evaluate(
+            &veld::services::module_policy_bridge::ModulePolicyBridgeInput {
+                module_id: "module.integration.google-calendar".to_string(),
+                requested_capabilities: profile,
+                enabled_feature_gates: vec![],
+                grant: grant_for(&["google.calendar.read"], false),
+                read_only: false,
+            },
+        )
         .unwrap_err();
 
     assert!(matches!(
@@ -137,21 +139,28 @@ fn core_modules_still_pass_through_policy_mediation() {
         }],
         Some(true),
     ));
-    profile.requested_capabilities.push(vel_core::RequestedCapability {
-        capability: "object.write".to_string(),
-        feature_gate: None,
-        read_only: false,
-    });
+    profile
+        .requested_capabilities
+        .push(vel_core::RequestedCapability {
+            capability: "object.write".to_string(),
+            feature_gate: None,
+            read_only: false,
+        });
 
     let error = bridge
-        .evaluate(&veld::services::module_policy_bridge::ModulePolicyBridgeInput {
-            module_id: "module.core.orientation".to_string(),
-            requested_capabilities: profile,
-            enabled_feature_gates: vec![],
-            grant: grant_for(&["object.read", "object.write"], false),
-            read_only: true,
-        })
+        .evaluate(
+            &veld::services::module_policy_bridge::ModulePolicyBridgeInput {
+                module_id: "module.core.orientation".to_string(),
+                requested_capabilities: profile,
+                enabled_feature_gates: vec![],
+                grant: grant_for(&["object.read", "object.write"], false),
+                read_only: true,
+            },
+        )
         .unwrap_err();
 
-    assert!(matches!(error, ModulePolicyBridgeError::ReadOnlyViolation(_)));
+    assert!(matches!(
+        error,
+        ModulePolicyBridgeError::ReadOnlyViolation(_)
+    ));
 }

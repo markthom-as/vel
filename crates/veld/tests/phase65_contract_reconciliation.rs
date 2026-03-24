@@ -1,18 +1,21 @@
-use axum::{body::{to_bytes, Body}, http::Request};
+use axum::{
+    body::{to_bytes, Body},
+    http::Request,
+};
 use serde_json::json;
 use time::OffsetDateTime;
 use tower::util::ServiceExt;
 use vel_adapters_google_calendar::{
-    GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState, GoogleCalendarPayload,
-    GoogleEventPayload, GoogleImportWindow, GoogleWindowedImportRequest,
-    import_google_window, link_google_calendar_account,
+    import_google_window, link_google_calendar_account, GoogleCalendarAccountLinkRequest,
+    GoogleCalendarCheckpointState, GoogleCalendarPayload, GoogleEventPayload, GoogleImportWindow,
+    GoogleWindowedImportRequest,
 };
 use vel_adapters_todoist::{
-    TodoistAccountLinkRequest, TodoistBacklogImportRequest, TodoistBacklogTask,
-    TodoistCheckpointState, import_todoist_backlog, link_todoist_account,
+    import_todoist_backlog, link_todoist_account, TodoistAccountLinkRequest,
+    TodoistBacklogImportRequest, TodoistBacklogTask, TodoistCheckpointState,
 };
 use vel_config::AppConfig;
-use vel_storage::{Storage, list_runtime_records};
+use vel_storage::{list_runtime_records, Storage};
 use veld::{app::build_app, policy_config::PolicyConfig};
 
 const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
@@ -105,7 +108,10 @@ async fn canonical_todoist_write_route_uses_write_intent_contract_and_preserves_
         serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap()).unwrap();
     assert_eq!(json["data"]["explain"]["action_name"], "todoist.task.write");
     assert_eq!(json["data"]["dispatch"]["downstream_status"], "succeeded");
-    assert_eq!(json["data"]["task_events"][0]["provenance"], "local_write_applied");
+    assert_eq!(
+        json["data"]["task_events"][0]["provenance"],
+        "local_write_applied"
+    );
     assert!(json["data"]["kind"].is_null());
 
     let runtime_records = list_runtime_records(storage.sql_pool(), "write_intent")
@@ -162,7 +168,9 @@ async fn canonical_google_write_route_uses_write_intent_contract_and_supports_dr
                 summary: "Focus block".to_string(),
                 description: None,
                 start: OffsetDateTime::now_utc() + time::Duration::days(1),
-                end: OffsetDateTime::now_utc() + time::Duration::days(1) + time::Duration::minutes(30),
+                end: OffsetDateTime::now_utc()
+                    + time::Duration::days(1)
+                    + time::Duration::minutes(30),
                 transparency: "opaque".to_string(),
                 remote_version: Some("etag-1".to_string()),
             }],
@@ -202,7 +210,10 @@ async fn canonical_google_write_route_uses_write_intent_contract_and_supports_dr
 
     let json: serde_json::Value =
         serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap()).unwrap();
-    assert_eq!(json["data"]["explain"]["action_name"], "google.calendar.write");
+    assert_eq!(
+        json["data"]["explain"]["action_name"],
+        "google.calendar.write"
+    );
     assert_eq!(json["data"]["explain"]["dry_run"], true);
     assert!(json["data"]["dispatch"].is_null());
 }

@@ -11,10 +11,10 @@ use vel_api_types::{
     CanonicalGoogleCalendarWriteIntentRequestData, CanonicalTodoistWriteIntentRequestData,
     CanonicalTodoistWriteIntentResponseData, CanonicalWriteIntentResponseData,
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
-    IntegrationConnectionData, IntegrationConnectionEventData,
-    IntegrationConnectionSettingRefData, IntegrationGuidanceData, IntegrationLogEventData,
-    IntegrationsData, LocalIntegrationData, LocalIntegrationPathSelectionData, TaskEventData,
-    TaskFieldChangeData, TodoistIntegrationData,
+    IntegrationConnectionData, IntegrationConnectionEventData, IntegrationConnectionSettingRefData,
+    IntegrationGuidanceData, IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
+    LocalIntegrationPathSelectionData, TaskEventData, TaskFieldChangeData, TodoistIntegrationData,
+    TodoistWriteCapabilitiesData,
 };
 
 use crate::{
@@ -22,12 +22,14 @@ use crate::{
     services::{
         audit_emitter::AuditEmitter,
         gcal_write_bridge::{
-            GoogleCalendarWriteBridgeRequest, GoogleCalendarWriteBridgeOutcome,
-            bridge_google_calendar_write,
+            bridge_google_calendar_write, GoogleCalendarWriteBridgeOutcome,
+            GoogleCalendarWriteBridgeRequest,
         },
         integrations,
         legacy_compat::deprecated_write_path_error,
-        todoist_write_bridge::{TodoistWriteBridgeRequest, TodoistWriteBridgeOutcome, bridge_todoist_write},
+        todoist_write_bridge::{
+            bridge_todoist_write, TodoistWriteBridgeOutcome, TodoistWriteBridgeRequest,
+        },
     },
     state::AppState,
 };
@@ -153,7 +155,11 @@ fn map_todoist_write_response(
         write_intent_id: outcome.write_intent_id,
         explain: ActionExplainData::from(outcome.explain),
         dispatch: outcome.dispatch.map(map_execution_dispatch_dto),
-        task_events: outcome.task_events.into_iter().map(map_task_event_dto).collect(),
+        task_events: outcome
+            .task_events
+            .into_iter()
+            .map(map_task_event_dto)
+            .collect(),
     }
 }
 
@@ -217,6 +223,11 @@ impl From<integrations::TodoistIntegrationOutput> for TodoistIntegrationData {
             last_error: value.last_error,
             last_item_count: value.last_item_count,
             guidance: value.guidance.map(Into::into),
+            write_capabilities: TodoistWriteCapabilitiesData {
+                completion_status: value.write_capabilities.completion_status,
+                due_date: value.write_capabilities.due_date,
+                tags: value.write_capabilities.tags,
+            },
         }
     }
 }
@@ -461,8 +472,16 @@ pub async fn google_calendar_oauth_callback(
 }
 
 #[derive(Debug, Deserialize)]
+pub struct TodoistWriteCapabilitiesUpdateRequest {
+    pub completion_status: Option<bool>,
+    pub due_date: Option<bool>,
+    pub tags: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct TodoistUpdateRequest {
     pub api_token: Option<String>,
+    pub write_capabilities: Option<TodoistWriteCapabilitiesUpdateRequest>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -475,7 +494,18 @@ pub async fn patch_todoist(
     State(state): State<AppState>,
     Json(payload): Json<TodoistUpdateRequest>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    integrations::update_todoist_settings(&state.storage, payload.api_token).await?;
+    integrations::update_todoist_settings(
+        &state.storage,
+        payload.api_token,
+        payload.write_capabilities.map(|capabilities| {
+            crate::services::integrations_todoist::TodoistWriteCapabilitiesPatch {
+                completion_status: capabilities.completion_status,
+                due_date: capabilities.due_date,
+                tags: capabilities.tags,
+            }
+        }),
+    )
+    .await?;
     let data: IntegrationsData =
         integrations::get_integrations_with_config(&state.storage, &state.config)
             .await?

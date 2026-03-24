@@ -53,8 +53,8 @@ prefixed_id_type!(WriteIntentId, "write_intent");
 #[cfg(test)]
 mod tests {
     use super::{
-        CalendarId, EventId, IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId,
-        ToolId, WorkflowId, WriteIntentId,
+        CalendarId, EventId, IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId,
+        WorkflowId, WriteIntentId,
     };
 
     #[test]

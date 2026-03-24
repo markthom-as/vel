@@ -5,9 +5,8 @@ use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_core::{
     ActionStep, ApprovalStep, CapabilityRequest, Grant, GrantEnvelope, GrantScope,
-    PersistedOverlay, RegistryKind, RegistryObject, RegistryStatus, SkillStep,
-    WorkflowBinding, WorkflowContext, WorkflowContextValue, WorkflowObjectRef, WorkflowStep,
-    WorkflowRunStatus,
+    PersistedOverlay, RegistryKind, RegistryObject, RegistryStatus, SkillStep, WorkflowBinding,
+    WorkflowContext, WorkflowContextValue, WorkflowObjectRef, WorkflowRunStatus, WorkflowStep,
 };
 use vel_storage::{
     get_canonical_object, insert_canonical_object, list_runtime_records, migrate_storage,
@@ -115,7 +114,9 @@ fn grant_envelope(capability: &str, action: &str) -> GrantEnvelope {
 async fn pool() -> SqlitePool {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
-    insert_canonical_object(&pool, &task_record()).await.unwrap();
+    insert_canonical_object(&pool, &task_record())
+        .await
+        .unwrap();
     pool
 }
 
@@ -147,7 +148,10 @@ async fn manual_invocation_emits_created_ready_running_and_completed_run_records
     assert_eq!(outcome.status, WorkflowRunStatus::Completed);
 
     let runs = list_runtime_records(&pool, "run").await.unwrap();
-    let statuses = runs.iter().map(|record| record.status.as_str()).collect::<Vec<_>>();
+    let statuses = runs
+        .iter()
+        .map(|record| record.status.as_str())
+        .collect::<Vec<_>>();
     assert_eq!(statuses, vec!["created", "ready", "running", "completed"]);
 }
 
@@ -181,7 +185,9 @@ async fn manual_invocation_pauses_on_approval_and_emits_approval_record() {
 
     let runs = list_runtime_records(&pool, "run").await.unwrap();
     let approvals = list_runtime_records(&pool, "approval").await.unwrap();
-    assert!(runs.iter().any(|record| record.status == "awaiting_approval"));
+    assert!(runs
+        .iter()
+        .any(|record| record.status == "awaiting_approval"));
     assert_eq!(approvals.len(), 1);
     assert_eq!(approvals[0].status, "pending");
 }
@@ -192,7 +198,10 @@ async fn dry_run_skill_invocation_records_runtime_evidence_without_canonical_mut
     let runner = WorkflowRunner::default();
 
     let mut modules = BTreeMap::new();
-    modules.insert("module.core.orientation".to_string(), module_registry("object.read"));
+    modules.insert(
+        "module.core.orientation".to_string(),
+        module_registry("object.read"),
+    );
     let mut skills = BTreeMap::new();
     skills.insert("skill.core.daily-brief".to_string(), skill_registry());
     let mut grants = BTreeMap::new();
@@ -235,7 +244,9 @@ async fn dry_run_skill_invocation_records_runtime_evidence_without_canonical_mut
 
     assert_eq!(outcome.status, WorkflowRunStatus::DryRunComplete);
     assert_eq!(before.revision, after.revision);
-    assert!(runs.iter().any(|record| record.status == "dry_run_complete"));
+    assert!(runs
+        .iter()
+        .any(|record| record.status == "dry_run_complete"));
     assert_eq!(audits.len(), 1);
     assert_eq!(audits[0].status, "dry_run");
 }

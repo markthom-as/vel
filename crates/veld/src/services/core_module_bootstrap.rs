@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_core::{
     reconcile_seeded_workflow, CoreBootstrapPolicy, CoreBootstrapReport, CoreBootstrapSource,
-    SeededWorkflowRecord, SeededWorkflowReconciliationState,
+    SeededWorkflowReconciliationState, SeededWorkflowRecord,
 };
 use vel_storage::{
     get_canonical_object, insert_canonical_object, update_canonical_object, CanonicalObjectRecord,
@@ -167,7 +167,9 @@ fn seeded_workflow_facets(workflow: &SeededWorkflowRecord) -> serde_json::Value 
     })
 }
 
-fn canonical_to_seeded_workflow(record: CanonicalObjectRecord) -> Result<SeededWorkflowRecord, String> {
+fn canonical_to_seeded_workflow(
+    record: CanonicalObjectRecord,
+) -> Result<SeededWorkflowRecord, String> {
     let facets = &record.facets_json;
     Ok(SeededWorkflowRecord {
         workflow_id: record.id,
@@ -224,7 +226,9 @@ fn canonical_to_seeded_workflow(record: CanonicalObjectRecord) -> Result<SeededW
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_to_seeded_workflow, normalize_persisted_workflow, seeded_workflow_facets};
+    use super::{
+        canonical_to_seeded_workflow, normalize_persisted_workflow, seeded_workflow_facets,
+    };
     use serde_json::json;
     use time::OffsetDateTime;
     use vel_core::{

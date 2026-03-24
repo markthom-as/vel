@@ -201,9 +201,15 @@ mod tests {
         assert_eq!(write_intents.len(), 3);
         assert_eq!(downstream.len(), 1);
         assert_eq!(outcome.downstream.status, "succeeded");
-        assert!(write_intents.iter().any(|record| record.status == "approved"));
-        assert!(write_intents.iter().any(|record| record.status == "executing"));
-        assert!(write_intents.iter().any(|record| record.status == "succeeded"));
+        assert!(write_intents
+            .iter()
+            .any(|record| record.status == "approved"));
+        assert!(write_intents
+            .iter()
+            .any(|record| record.status == "executing"));
+        assert!(write_intents
+            .iter()
+            .any(|record| record.status == "succeeded"));
     }
 
     #[tokio::test]
@@ -235,7 +241,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(outcome.downstream.status, "failed");
-        assert_eq!(downstream[0].payload_json["error"], json!("provider unavailable"));
+        assert_eq!(
+            downstream[0].payload_json["error"],
+            json!("provider unavailable")
+        );
         assert!(write_intents.iter().any(|record| record.status == "failed"));
     }
 }

@@ -26,7 +26,12 @@ impl ParticipantStub {
             return Err("participant stub stable_key must not be empty".to_string());
         }
         if self.email.as_deref().unwrap_or_default().trim().is_empty()
-            && self.display_name.as_deref().unwrap_or_default().trim().is_empty()
+            && self
+                .display_name
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty()
         {
             return Err("participant stub requires email or display_name".to_string());
         }

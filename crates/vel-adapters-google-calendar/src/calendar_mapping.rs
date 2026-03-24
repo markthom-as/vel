@@ -1,7 +1,7 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use vel_core::{Calendar, CalendarId, CalendarVisibility};
 
-use crate::google_ids::{GOOGLE_CALENDAR_MODULE_ID, google_provider_object_ref};
+use crate::google_ids::{google_provider_object_ref, GOOGLE_CALENDAR_MODULE_ID};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GoogleCalendarMappingPayload {
@@ -55,7 +55,7 @@ fn visibility(access_role: &str) -> CalendarVisibility {
 
 #[cfg(test)]
 mod tests {
-    use super::{GoogleCalendarMappingPayload, map_google_calendar};
+    use super::{map_google_calendar, GoogleCalendarMappingPayload};
     use vel_core::{CalendarId, CalendarVisibility};
 
     #[test]

@@ -112,7 +112,9 @@ fn grant_envelope(capability: &str, action: &str, read_only: bool) -> GrantEnvel
 async fn pool() -> SqlitePool {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
-    insert_canonical_object(&pool, &task_record()).await.unwrap();
+    insert_canonical_object(&pool, &task_record())
+        .await
+        .unwrap();
     pool
 }
 
@@ -121,7 +123,10 @@ async fn workflow_runtime_error_surface_keeps_approvalrequired_stable() {
     let pool = pool().await;
     let runner = WorkflowRunner::default();
     let mut modules = BTreeMap::new();
-    modules.insert("module.core.orientation".to_string(), module_registry("object.read"));
+    modules.insert(
+        "module.core.orientation".to_string(),
+        module_registry("object.read"),
+    );
     let mut skills = BTreeMap::new();
     skills.insert("skill.core.daily-brief".to_string(), skill_registry());
     let mut grants = BTreeMap::new();
@@ -154,11 +159,15 @@ async fn workflow_runtime_error_surface_keeps_approvalrequired_stable() {
 }
 
 #[tokio::test]
-async fn workflow_runtime_error_surface_keeps_readonlyviolation_and_unsupportedcapability_explicit() {
+async fn workflow_runtime_error_surface_keeps_readonlyviolation_and_unsupportedcapability_explicit()
+{
     let pool = pool().await;
     let runner = WorkflowRunner::default();
     let mut modules = BTreeMap::new();
-    modules.insert("module.core.orientation".to_string(), module_registry("object.write"));
+    modules.insert(
+        "module.core.orientation".to_string(),
+        module_registry("object.write"),
+    );
     let mut skills = BTreeMap::new();
     skills.insert("skill.core.daily-brief".to_string(), skill_registry());
     let mut grants = BTreeMap::new();

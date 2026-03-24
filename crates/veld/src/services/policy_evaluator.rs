@@ -14,7 +14,10 @@ pub enum PolicyEvaluatorError {
 pub struct PolicyEvaluator;
 
 impl PolicyEvaluator {
-    pub fn evaluate(&self, input: &PolicyEvaluationInput) -> Result<PolicyDecision, PolicyEvaluatorError> {
+    pub fn evaluate(
+        &self,
+        input: &PolicyEvaluationInput,
+    ) -> Result<PolicyDecision, PolicyEvaluatorError> {
         let layers = [
             &input.workspace,
             &input.module,
@@ -23,7 +26,10 @@ impl PolicyEvaluator {
             &input.action,
             &input.execution,
         ];
-        let reasons = layers.iter().map(|layer| layer.reason.clone()).collect::<Vec<_>>();
+        let reasons = layers
+            .iter()
+            .map(|layer| layer.reason.clone())
+            .collect::<Vec<_>>();
 
         if input.allows_external_write && layers.iter().any(|layer| layer.read_only) {
             return Err(PolicyEvaluatorError::ReadOnlyViolation(format!(
@@ -32,10 +38,11 @@ impl PolicyEvaluator {
             )));
         }
 
-        let effective_confirmation = layers.iter().fold(
-            ConfirmationMode::Auto,
-            |current, layer| more_restrictive_confirmation(current, layer.confirmation.clone()),
-        );
+        let effective_confirmation = layers
+            .iter()
+            .fold(ConfirmationMode::Auto, |current, layer| {
+                more_restrictive_confirmation(current, layer.confirmation.clone())
+            });
 
         match effective_confirmation {
             ConfirmationMode::Deny => Err(PolicyEvaluatorError::PolicyDenied(format!(
@@ -45,12 +52,12 @@ impl PolicyEvaluator {
             ConfirmationMode::Ask
             | ConfirmationMode::AskIfCrossSource
             | ConfirmationMode::AskIfDestructive
-            | ConfirmationMode::AskIfExternalWrite => Err(
-                PolicyEvaluatorError::ConfirmationRequired(format!(
+            | ConfirmationMode::AskIfExternalWrite => {
+                Err(PolicyEvaluatorError::ConfirmationRequired(format!(
                     "confirmation required for {} with mode {:?}",
                     input.action_name, effective_confirmation
-                )),
-            ),
+                )))
+            }
             ConfirmationMode::Auto => Ok(PolicyDecision {
                 kind: PolicyDecisionKind::Allowed,
                 confirmation: ConfirmationMode::Auto,
@@ -100,7 +107,8 @@ mod tests {
     use vel_core::{ConfirmationMode, PolicyEvaluationInput, PolicyLayerKind};
 
     #[test]
-    fn policy_evaluator_applies_workspace_module_integration_account_object_action_execution_precedence() {
+    fn policy_evaluator_applies_workspace_module_integration_account_object_action_execution_precedence(
+    ) {
         let evaluator = PolicyEvaluator;
         let mut module = default_layer(PolicyLayerKind::Module);
         module.confirmation = ConfirmationMode::AskIfExternalWrite;
@@ -151,4 +159,3 @@ mod tests {
         ));
     }
 }
-

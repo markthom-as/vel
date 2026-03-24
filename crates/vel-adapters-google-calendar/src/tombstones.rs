@@ -1,4 +1,4 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_storage::{CanonicalObjectRecord, SyncLinkRecord};
 
@@ -84,7 +84,7 @@ fn mark_deleted(mut facets: JsonValue, deleted: bool) -> JsonValue {
 #[cfg(test)]
 mod tests {
     use super::{apply_upstream_delete, restore_from_tombstone};
-    use serde_json::{Value as JsonValue, json};
+    use serde_json::{json, Value as JsonValue};
     use time::OffsetDateTime;
     use vel_storage::{CanonicalObjectRecord, SyncLinkRecord};
 

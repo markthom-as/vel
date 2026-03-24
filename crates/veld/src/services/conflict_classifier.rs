@@ -12,9 +12,7 @@ impl ConflictClassifier {
         (expected_revision != actual_revision).then(|| MembraneConflict {
             kind: MembraneConflictKind::StaleVersion,
             field: Some("revision".to_string()),
-            reason: format!(
-                "expected revision {expected_revision}, found {actual_revision}"
-            ),
+            reason: format!("expected revision {expected_revision}, found {actual_revision}"),
         })
     }
 
@@ -106,4 +104,3 @@ mod tests {
         );
     }
 }
-

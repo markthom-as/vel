@@ -49,4 +49,3 @@ mod tests {
         assert!(matches!(overlay.owner, OwnershipClass::VelOwned));
     }
 }
-

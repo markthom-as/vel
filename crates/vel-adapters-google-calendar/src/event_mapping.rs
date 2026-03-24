@@ -1,12 +1,12 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use vel_core::{
     CalendarId, Event, EventId, EventLocation, EventMoment, EventMomentKind, EventTransparency,
     Participation,
 };
 
 use crate::{
-    attendee_mapping::{GoogleAttendeePayload, map_google_attendee},
-    google_ids::{GOOGLE_CALENDAR_MODULE_ID, google_provider_object_ref},
+    attendee_mapping::{map_google_attendee, GoogleAttendeePayload},
+    google_ids::{google_provider_object_ref, GOOGLE_CALENDAR_MODULE_ID},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,8 +96,8 @@ fn transparency(value: &str) -> EventTransparency {
 #[cfg(test)]
 mod tests {
     use super::{
-        GoogleEventLocationPayload, GoogleEventMappingPayload, GoogleEventMomentPayload,
-        map_google_event,
+        map_google_event, GoogleEventLocationPayload, GoogleEventMappingPayload,
+        GoogleEventMomentPayload,
     };
     use crate::attendee_mapping::GoogleAttendeePayload;
     use vel_core::{CalendarId, EventId, EventMomentKind, EventTransparency, ParticipantRef};

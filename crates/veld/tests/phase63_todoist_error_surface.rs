@@ -29,13 +29,15 @@ fn todoist_error_surface_keeps_unsupported_capability_and_ownership_conflict_typ
     );
 
     let unsupported = ModulePolicyBridge::default()
-        .evaluate(&veld::services::module_policy_bridge::ModulePolicyBridgeInput {
-            module_id: "module.integration.todoist".to_string(),
-            requested_capabilities: profile,
-            enabled_feature_gates: vec![],
-            grant: todoist_grant(&["todoist.read", "todoist.write"], false),
-            read_only: false,
-        })
+        .evaluate(
+            &veld::services::module_policy_bridge::ModulePolicyBridgeInput {
+                module_id: "module.integration.todoist".to_string(),
+                requested_capabilities: profile,
+                enabled_feature_gates: vec![],
+                grant: todoist_grant(&["todoist.read", "todoist.write"], false),
+                read_only: false,
+            },
+        )
         .unwrap_err();
     assert!(matches!(
         unsupported,

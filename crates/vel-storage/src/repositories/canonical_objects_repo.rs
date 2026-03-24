@@ -251,16 +251,8 @@ mod tests {
         assert_eq!(updated.revision, 2);
         assert_eq!(updated.status, "archived");
 
-        let stale = update_canonical_object(
-            &pool,
-            &record.id,
-            1,
-            "deleted",
-            &json!({}),
-            None,
-            None,
-        )
-        .await;
+        let stale =
+            update_canonical_object(&pool, &record.id, 1, "deleted", &json!({}), None, None).await;
 
         assert!(stale.is_err(), "stale revision should fail");
     }

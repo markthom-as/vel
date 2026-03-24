@@ -41,8 +41,14 @@ fn membrane_error_surface_matches_the_canonical_matrix() {
 
 #[test]
 fn membrane_error_surface_remains_typed_instead_of_collapsing_into_generic_failure() {
-    assert_ne!(ActionErrorKind::PolicyDenied, ActionErrorKind::ReadOnlyViolation);
-    assert_ne!(ActionErrorKind::StaleVersion, ActionErrorKind::OwnershipConflict);
+    assert_ne!(
+        ActionErrorKind::PolicyDenied,
+        ActionErrorKind::ReadOnlyViolation
+    );
+    assert_ne!(
+        ActionErrorKind::StaleVersion,
+        ActionErrorKind::OwnershipConflict
+    );
     assert_ne!(
         ActionErrorKind::ExecutionDispatchFailed,
         ActionErrorKind::AuditCaptureFailed

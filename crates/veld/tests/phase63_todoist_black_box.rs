@@ -3,10 +3,10 @@ use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_adapters_todoist::{
     apply_upstream_delete, import_todoist_backlog, link_todoist_account, map_todoist_comment,
-    map_todoist_project, restore_from_tombstone, todoist_module_manifest,
-    AttachedCommentRecord, TodoistAccountLinkRequest, TodoistBacklogImportRequest,
-    TodoistBacklogTask, TodoistCheckpointState, TodoistCommentAuthorStub, TodoistCommentPayload,
-    TodoistProjectPayload, TodoistSectionFacet,
+    map_todoist_project, restore_from_tombstone, todoist_module_manifest, AttachedCommentRecord,
+    TodoistAccountLinkRequest, TodoistBacklogImportRequest, TodoistBacklogTask,
+    TodoistCheckpointState, TodoistCommentAuthorStub, TodoistCommentPayload, TodoistProjectPayload,
+    TodoistSectionFacet,
 };
 use vel_storage::{
     get_canonical_object, list_sync_links_for_object, migrate_storage, query_canonical_objects,
@@ -15,8 +15,8 @@ use vel_storage::{
 use veld::services::todoist_write_bridge::{bridge_todoist_write, TodoistWriteBridgeRequest};
 
 #[tokio::test]
-async fn todoist_black_box_proves_account_import_task_project_tag_attached_comment_tombstone_and_write_flow()
-{
+async fn todoist_black_box_proves_account_import_task_project_tag_attached_comment_tombstone_and_write_flow(
+) {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
 
@@ -90,7 +90,10 @@ async fn todoist_black_box_proves_account_import_task_project_tag_attached_comme
 
     assert_eq!(tasks.len(), 1);
     assert_eq!(task.object_type, "task");
-    assert_eq!(task.provenance_json["source_refs"][0], "module.integration.todoist");
+    assert_eq!(
+        task.provenance_json["source_refs"][0],
+        "module.integration.todoist"
+    );
     assert_eq!(task.facets_json["task_type"], "maintain");
     assert_eq!(task.facets_json["tags"][1], "time:morning");
     assert_eq!(

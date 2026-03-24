@@ -123,9 +123,7 @@ mod tests {
             .unwrap();
         }
 
-        let write_intents = list_runtime_records(&pool, "write_intent")
-            .await
-            .unwrap();
+        let write_intents = list_runtime_records(&pool, "write_intent").await.unwrap();
         assert_eq!(write_intents.len(), 1);
         assert_eq!(write_intents[0].status, "proposed");
     }

@@ -185,7 +185,10 @@ mod tests {
         let record = reconcile_seeded_workflow(None, &spec());
 
         assert_eq!(record.origin, SeededWorkflowOrigin::Seeded);
-        assert_eq!(record.reconciliation_state, SeededWorkflowReconciliationState::New);
+        assert_eq!(
+            record.reconciliation_state,
+            SeededWorkflowReconciliationState::New
+        );
         assert_eq!(record.forked_from_workflow_id, None);
     }
 

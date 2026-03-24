@@ -28,6 +28,18 @@ const REVIEW_STATE_LABEL_PREFIX: &str = "review_state:";
 const SCHEDULED_FOR_LABEL_PREFIX: &str = "scheduled_for:";
 const PRIORITY_LABEL_PREFIX: &str = "priority:";
 
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct TodoistCompletedTaskSnapshot {
+    pub id: String,
+    pub content: String,
+    pub labels: Vec<String>,
+    pub project_id: Option<String>,
+    pub due: Option<TodoistDue>,
+    pub deadline: Option<TodoistDue>,
+    pub updated_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct IntegrationGuidance {
     pub title: String,
@@ -45,6 +57,7 @@ pub(crate) struct TodoistStatus {
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
     pub guidance: Option<IntegrationGuidance>,
+    pub write_capabilities: TodoistWriteCapabilities,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -54,6 +67,9 @@ pub(crate) struct TodoistSettings {
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
+    pub inbox_project_id: Option<String>,
+    #[serde(default)]
+    pub write_capabilities: TodoistWriteCapabilities,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -62,11 +78,41 @@ pub(crate) struct TodoistPublicSettings {
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
+    pub inbox_project_id: Option<String>,
+    #[serde(default)]
+    pub write_capabilities: TodoistWriteCapabilities,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct TodoistSecrets {
     pub api_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TodoistWriteCapabilities {
+    #[serde(default = "default_true")]
+    pub completion_status: bool,
+    #[serde(default = "default_true")]
+    pub due_date: bool,
+    #[serde(default)]
+    pub tags: bool,
+}
+
+impl Default for TodoistWriteCapabilities {
+    fn default() -> Self {
+        Self {
+            completion_status: true,
+            due_date: true,
+            tags: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TodoistWriteCapabilitiesPatch {
+    pub completion_status: Option<bool>,
+    pub due_date: Option<bool>,
+    pub tags: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -77,6 +123,7 @@ pub(crate) struct TodoistTaskMutation {
     pub priority: Option<u8>,
     pub waiting_on: Option<String>,
     pub review_state: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -168,16 +215,29 @@ pub(crate) fn todoist_status(settings: &TodoistSettings) -> TodoistStatus {
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
         guidance: todoist_guidance(settings),
+        write_capabilities: settings.write_capabilities.clone(),
     }
 }
 
 pub(crate) async fn update_todoist_settings(
     storage: &Storage,
     api_token: Option<String>,
+    write_capabilities: Option<TodoistWriteCapabilitiesPatch>,
 ) -> Result<(), AppError> {
     let mut settings = load_todoist_settings(storage).await?;
     if let Some(value) = api_token {
         settings.api_token = normalize_optional(value);
+    }
+    if let Some(patch) = write_capabilities {
+        if let Some(value) = patch.completion_status {
+            settings.write_capabilities.completion_status = value;
+        }
+        if let Some(value) = patch.due_date {
+            settings.write_capabilities.due_date = value;
+        }
+        if let Some(value) = patch.tags {
+            settings.write_capabilities.tags = value;
+        }
     }
     save_todoist_settings(storage, &settings).await
 }
@@ -187,6 +247,7 @@ pub(crate) async fn disconnect_todoist(storage: &Storage) -> Result<(), AppError
     settings.api_token = None;
     settings.last_sync_status = Some("disconnected".to_string());
     settings.last_error = None;
+    settings.inbox_project_id = None;
     save_todoist_settings(storage, &settings).await
 }
 
@@ -200,6 +261,10 @@ pub(crate) async fn sync_todoist(storage: &Storage) -> Result<Option<u32>, AppEr
     let tasks = todoist_sync_request_list::<TodoistTask>(&client, &api_token, "/tasks").await?;
     let projects =
         todoist_sync_request_list::<TodoistProject>(&client, &api_token, "/projects").await?;
+    settings.inbox_project_id = projects
+        .iter()
+        .find(|project| project.is_inbox_project)
+        .map(|project| project.id.clone());
     let project_names = projects
         .into_iter()
         .map(|project| (project.id, project.name))
@@ -225,6 +290,7 @@ pub(crate) async fn sync_todoist(storage: &Storage) -> Result<Option<u32>, AppEr
             project_names
                 .get(item.project_id.as_deref().unwrap_or(""))
                 .map(String::as_str),
+            settings.inbox_project_id.as_deref(),
             DEFAULT_ORDERING_NODE_ID,
             true,
         )
@@ -240,6 +306,29 @@ pub(crate) async fn sync_todoist(storage: &Storage) -> Result<Option<u32>, AppEr
     settings.last_item_count = Some(signals_count);
     save_todoist_settings(storage, &settings).await?;
     Ok(Some(signals_count))
+}
+
+pub(crate) async fn list_completed_todoist_tasks_for_window(
+    storage: &Storage,
+    start_ts: i64,
+    end_ts: i64,
+) -> Result<Vec<TodoistCompletedTaskSnapshot>, AppError> {
+    let settings = load_todoist_settings(storage).await?;
+    let Some(api_token) = settings.api_token else {
+        return Ok(Vec::new());
+    };
+
+    let client = reqwest::Client::new();
+    let since = OffsetDateTime::from_unix_timestamp(start_ts)
+        .map_err(|error| AppError::internal(format!("todoist completed window start: {error}")))?
+        .format(&Rfc3339)
+        .map_err(|error| AppError::internal(format!("todoist completed window start: {error}")))?;
+    let until = OffsetDateTime::from_unix_timestamp(end_ts)
+        .map_err(|error| AppError::internal(format!("todoist completed window end: {error}")))?
+        .format(&Rfc3339)
+        .map_err(|error| AppError::internal(format!("todoist completed window end: {error}")))?;
+
+    todoist_completed_request_list(&client, &api_token, &since, &until).await
 }
 
 pub(crate) async fn record_sync_error(storage: &Storage, error: &str) -> Result<(), AppError> {
@@ -260,6 +349,8 @@ pub(crate) async fn load_todoist_settings(storage: &Storage) -> Result<TodoistSe
         last_sync_status: public_settings.last_sync_status,
         last_error: public_settings.last_error,
         last_item_count: public_settings.last_item_count,
+        inbox_project_id: public_settings.inbox_project_id,
+        write_capabilities: public_settings.write_capabilities,
     })
 }
 
@@ -268,6 +359,13 @@ pub(crate) async fn plan_todoist_create_task(
     requested_by_node_id: &str,
     mutation: TodoistTaskMutation,
 ) -> Result<TodoistWritePlan, AppError> {
+    let settings = load_todoist_settings(storage).await?;
+    if mutation.scheduled_for.is_some() {
+        ensure_write_capability(&settings, TodoistWriteCapability::DueDate)?;
+    }
+    if mutation.tags.is_some() {
+        ensure_write_capability(&settings, TodoistWriteCapability::Tags)?;
+    }
     let connection_id = ensure_todoist_connection(storage).await?;
     let project = resolve_local_project(storage, mutation.project_id.as_deref()).await?;
     let has_project = project.project_id.is_some();
@@ -303,10 +401,18 @@ pub(crate) async fn plan_todoist_update_task(
         && mutation.priority.is_none()
         && mutation.waiting_on.is_none()
         && mutation.review_state.is_none()
+        && mutation.tags.is_none()
     {
         return Err(AppError::bad_request(
             "todoist_update_task requires at least one changed field",
         ));
+    }
+    let settings = load_todoist_settings(storage).await?;
+    if mutation.scheduled_for.is_some() {
+        ensure_write_capability(&settings, TodoistWriteCapability::DueDate)?;
+    }
+    if mutation.tags.is_some() {
+        ensure_write_capability(&settings, TodoistWriteCapability::Tags)?;
     }
     let connection_id = ensure_todoist_connection(storage).await?;
     let commitment = storage
@@ -414,6 +520,7 @@ async fn execute_todoist_write_plan_with_base_url(
                 project
                     .as_ref()
                     .and_then(|value| value.display_name.as_deref()),
+                None,
                 &plan.requested_by_node_id,
                 true,
             )
@@ -473,6 +580,7 @@ async fn execute_todoist_write_plan_with_base_url(
                 resolved_project
                     .as_ref()
                     .and_then(|value| value.display_name.as_deref()),
+                None,
                 &plan.requested_by_node_id,
                 true,
             )
@@ -516,6 +624,7 @@ async fn execute_todoist_write_plan_with_base_url(
                 &refreshed,
                 connection_id,
                 None,
+                None,
                 &plan.requested_by_node_id,
                 true,
             )
@@ -558,6 +667,7 @@ async fn execute_todoist_write_plan_with_base_url(
                 Some(commitment),
                 &refreshed,
                 connection_id,
+                None,
                 None,
                 &plan.requested_by_node_id,
                 true,
@@ -606,6 +716,8 @@ async fn save_todoist_settings(
         last_sync_status: settings.last_sync_status.clone(),
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
+        inbox_project_id: settings.inbox_project_id.clone(),
+        write_capabilities: settings.write_capabilities.clone(),
     };
     let secrets = TodoistSecrets {
         api_token: settings.api_token.clone(),
@@ -670,6 +782,38 @@ fn normalize_optional(value: String) -> Option<String> {
     }
 }
 
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TodoistWriteCapability {
+    CompletionStatus,
+    DueDate,
+    Tags,
+}
+
+fn ensure_write_capability(
+    settings: &TodoistSettings,
+    capability: TodoistWriteCapability,
+) -> Result<(), AppError> {
+    let (enabled, label) = match capability {
+        TodoistWriteCapability::CompletionStatus => (
+            settings.write_capabilities.completion_status,
+            "completion status",
+        ),
+        TodoistWriteCapability::DueDate => (settings.write_capabilities.due_date, "due date"),
+        TodoistWriteCapability::Tags => (settings.write_capabilities.tags, "tags"),
+    };
+    if enabled {
+        Ok(())
+    } else {
+        Err(AppError::forbidden(format!(
+            "todoist {label} writeback is disabled in system settings"
+        )))
+    }
+}
+
 fn normalize_requested_by_node_id(node_id: &str) -> String {
     let trimmed = node_id.trim();
     if trimmed.is_empty() {
@@ -690,14 +834,24 @@ fn parse_rfc3339(value: &str) -> Option<i64> {
 }
 
 fn parse_iso_datetime(value: &str) -> Option<i64> {
-    parse_rfc3339(value).or_else(|| {
-        let normalized = if value.ends_with('Z') {
-            value.to_string()
-        } else {
-            format!("{}Z", value)
-        };
-        parse_rfc3339(&normalized)
-    })
+    let trimmed = value.trim();
+    parse_rfc3339(trimmed)
+        .or_else(|| {
+            let normalized = if trimmed.ends_with('Z') {
+                trimmed.to_string()
+            } else {
+                format!("{trimmed}Z")
+            };
+            parse_rfc3339(&normalized)
+        })
+        .or_else(|| {
+            let normalized = if trimmed.len() == 10 {
+                format!("{trimmed}T00:00:00Z")
+            } else {
+                return None;
+            };
+            parse_rfc3339(&normalized)
+        })
 }
 
 async fn ensure_todoist_connection(storage: &Storage) -> Result<IntegrationConnectionId, AppError> {
@@ -787,6 +941,65 @@ async fn todoist_sync_request_json(
         .map_err(|error| AppError::internal(format!("todoist decode: {}", error)))
 }
 
+async fn todoist_completed_request_list(
+    client: &reqwest::Client,
+    api_token: &str,
+    since: &str,
+    until: &str,
+) -> Result<Vec<TodoistCompletedTaskSnapshot>, AppError> {
+    let mut all_items = Vec::new();
+    let mut cursor: Option<String> = None;
+
+    loop {
+        let page =
+            todoist_completed_request_page(client, api_token, since, until, cursor.as_deref())
+                .await?;
+        all_items.extend(page.items);
+        match page.next_cursor {
+            Some(next_cursor) if !next_cursor.is_empty() => {
+                cursor = Some(next_cursor);
+            }
+            _ => break,
+        }
+    }
+
+    Ok(all_items)
+}
+
+async fn todoist_completed_request_page(
+    client: &reqwest::Client,
+    api_token: &str,
+    since: &str,
+    until: &str,
+    cursor: Option<&str>,
+) -> Result<TodoistCompletedPage, AppError> {
+    let mut url = Url::parse(&format!(
+        "{}/tasks/completed/by_completion_date",
+        TODOIST_SYNC_API_BASE_URL
+    ))
+    .map_err(|error| AppError::internal(format!("todoist url: {}", error)))?;
+    {
+        let mut query = url.query_pairs_mut();
+        query.append_pair("since", since);
+        query.append_pair("until", until);
+        if let Some(cursor) = cursor {
+            query.append_pair("cursor", cursor);
+        }
+    }
+
+    client
+        .get(url)
+        .bearer_auth(api_token)
+        .send()
+        .await
+        .map_err(|error| AppError::internal(format!("todoist request: {}", error)))?
+        .error_for_status()
+        .map_err(|error| AppError::internal(format!("todoist request: {}", error)))?
+        .json()
+        .await
+        .map_err(|error| AppError::internal(format!("todoist decode: {}", error)))
+}
+
 async fn todoist_rest_request<T>(
     client: &reqwest::Client,
     api_token: &str,
@@ -841,12 +1054,28 @@ async fn persist_todoist_task(
     item: &TodoistTask,
     connection_id: &IntegrationConnectionId,
     project_name_hint: Option<&str>,
+    inbox_project_id: Option<&str>,
     requested_by_node_id: &str,
     emit_signal: bool,
 ) -> Result<PersistedTodoistTask, AppError> {
-    let resolved_project =
+    let persisted_inbox_project_id = match inbox_project_id {
+        Some(value) => Some(value.to_string()),
+        None => load_todoist_settings(storage).await?.inbox_project_id,
+    };
+    let is_named_inbox = project_name_hint
+        .map(|value| value.trim().eq_ignore_ascii_case("Inbox"))
+        .unwrap_or(false);
+    let is_inbox_project = item.project_id.as_deref() == persisted_inbox_project_id.as_deref()
+        || (persisted_inbox_project_id.is_none() && is_named_inbox);
+    let resolved_project = if is_inbox_project {
+        ResolvedTodoistProject {
+            upstream_id: item.project_id.clone(),
+            ..ResolvedTodoistProject::default()
+        }
+    } else {
         resolve_synced_todoist_project(storage, item.project_id.as_deref(), project_name_hint)
-            .await?;
+            .await?
+    };
     let task_fields = typed_todoist_task_fields(item, &resolved_project);
     let source_ref = todoist_source_ref(connection_id, &item.id);
     let project_source_ref = item
@@ -855,6 +1084,9 @@ async fn persist_todoist_task(
         .map(|project_id| todoist_source_ref(connection_id, project_id));
     let due_ts = parse_due_timestamp(item);
     let due_at = due_ts.and_then(|timestamp| OffsetDateTime::from_unix_timestamp(timestamp).ok());
+    let deadline_ts = parse_deadline_timestamp(item);
+    let deadline_at =
+        deadline_ts.and_then(|timestamp| OffsetDateTime::from_unix_timestamp(timestamp).ok());
     let source_id = format!("todoist_{}", item.id);
     let metadata = json!({
         "todoist_id": item.id,
@@ -868,13 +1100,20 @@ async fn persist_todoist_task(
         "review_state": task_fields.review_state,
         "updated_at": item.updated_at,
         "checked": item.checked.unwrap_or(false),
+        "is_inbox_project": is_inbox_project,
+        "deadline_at": deadline_at.and_then(|value| value.format(&Rfc3339).ok()),
+        "deadline": item.deadline,
     });
     let commitment_kind = infer_todoist_kind(item);
-    let project_label = resolved_project
-        .project_slug
-        .clone()
-        .or_else(|| project_name_hint.map(ToOwned::to_owned))
-        .or_else(|| item.project_id.clone());
+    let project_label = if is_inbox_project {
+        None
+    } else {
+        resolved_project
+            .project_slug
+            .clone()
+            .or_else(|| project_name_hint.map(ToOwned::to_owned))
+            .or_else(|| item.project_id.clone())
+    };
     let commitment_id = if let Some(commitment) = existing {
         storage
             .update_commitment(
@@ -891,6 +1130,11 @@ async fn persist_todoist_task(
                 Some(&metadata),
             )
             .await?;
+        if is_inbox_project && commitment.project.is_some() {
+            storage
+                .set_commitment_project(commitment.id.as_ref(), None)
+                .await?;
+        }
         commitment.id.as_ref().to_string()
     } else {
         storage
@@ -964,9 +1208,10 @@ async fn persist_todoist_task(
                     "scheduled_for": task_fields.scheduled_for,
                     "priority": task_fields.priority,
                     "waiting_on": task_fields.waiting_on,
-                    "review_state": task_fields.review_state,
-                    "upstream_project_id": item.project_id,
-                })),
+                "review_state": task_fields.review_state,
+                "upstream_project_id": item.project_id,
+                "is_inbox_project": is_inbox_project,
+            })),
             })
             .await?;
     }
@@ -1088,6 +1333,7 @@ fn todoist_requested_payload(
         "priority": mutation.priority,
         "waiting_on": mutation.waiting_on,
         "review_state": mutation.review_state,
+        "tags": mutation.tags,
     })
 }
 
@@ -1129,10 +1375,15 @@ fn todoist_upstream_payload(
     }
     let labels = todoist_compatibility_labels(
         current.map(|task| task.labels.as_slice()).unwrap_or(&[]),
+        mutation.tags.as_deref(),
         mutation.waiting_on.as_deref(),
         mutation.review_state.as_deref(),
     );
-    if !labels.is_empty() || mutation.waiting_on.is_some() || mutation.review_state.is_some() {
+    if mutation.tags.is_some()
+        || !labels.is_empty()
+        || mutation.waiting_on.is_some()
+        || mutation.review_state.is_some()
+    {
         body.insert("labels".to_string(), json!(labels));
     }
     Ok(JsonValue::Object(body))
@@ -1140,20 +1391,29 @@ fn todoist_upstream_payload(
 
 fn todoist_compatibility_labels(
     existing_labels: &[String],
+    requested_tags: Option<&[String]>,
     waiting_on: Option<&str>,
     review_state: Option<&str>,
 ) -> Vec<String> {
-    let mut labels = existing_labels
-        .iter()
-        .filter(|label| {
-            let lower = label.to_ascii_lowercase();
-            !lower.starts_with(WAITING_ON_LABEL_PREFIX)
-                && !lower.starts_with(REVIEW_STATE_LABEL_PREFIX)
-                && !lower.starts_with(SCHEDULED_FOR_LABEL_PREFIX)
-                && !lower.starts_with(PRIORITY_LABEL_PREFIX)
+    let mut labels = requested_tags
+        .map(|tags| {
+            tags.iter()
+                .filter_map(|label| normalize_optional(label.clone()))
+                .collect::<Vec<_>>()
         })
-        .cloned()
-        .collect::<Vec<_>>();
+        .unwrap_or_else(|| {
+            existing_labels
+                .iter()
+                .filter(|label| {
+                    let lower = label.to_ascii_lowercase();
+                    !lower.starts_with(WAITING_ON_LABEL_PREFIX)
+                        && !lower.starts_with(REVIEW_STATE_LABEL_PREFIX)
+                        && !lower.starts_with(SCHEDULED_FOR_LABEL_PREFIX)
+                        && !lower.starts_with(PRIORITY_LABEL_PREFIX)
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        });
     if let Some(waiting_on) = waiting_on.and_then(|value| normalize_optional(value.to_string())) {
         labels.push(format!("{WAITING_ON_LABEL_PREFIX}{waiting_on}"));
     }
@@ -1188,6 +1448,7 @@ fn detect_upstream_conflict(
         "project_id",
         "scheduled_for",
         "priority",
+        "labels",
     ] {
         if upstream_ref.metadata_json.get(key) != current_payload.get(key) {
             return Some(ConflictCaseKind::UpstreamVsLocal);
@@ -1250,6 +1511,13 @@ fn parse_due_timestamp(task: &TodoistTask) -> Option<i64> {
         .and_then(parse_iso_datetime)
 }
 
+fn parse_deadline_timestamp(task: &TodoistTask) -> Option<i64> {
+    task.deadline
+        .as_ref()
+        .and_then(|deadline| deadline.datetime.as_deref().or(deadline.date.as_deref()))
+        .and_then(parse_iso_datetime)
+}
+
 fn todoist_signal_source_ref(task: &TodoistTask, due_ts: Option<i64>) -> String {
     let state = if task.checked.unwrap_or(false) {
         "done"
@@ -1307,6 +1575,8 @@ async fn plan_existing_todoist_task(
     commitment_id: &str,
     action: TodoistExistingAction,
 ) -> Result<TodoistWritePlan, AppError> {
+    let settings = load_todoist_settings(storage).await?;
+    ensure_write_capability(&settings, TodoistWriteCapability::CompletionStatus)?;
     let connection_id = ensure_todoist_connection(storage).await?;
     let commitment = storage
         .get_commitment_by_id(commitment_id.trim())
@@ -1365,26 +1635,38 @@ struct TodoistTask {
     #[serde(default)]
     due: Option<TodoistDue>,
     #[serde(default)]
+    deadline: Option<TodoistDue>,
+    #[serde(default)]
     updated_at: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct TodoistDue {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct TodoistDue {
     #[serde(default)]
-    date: Option<String>,
+    pub(crate) date: Option<String>,
     #[serde(default)]
-    datetime: Option<String>,
+    pub(crate) datetime: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct TodoistProject {
     id: String,
     name: String,
+    #[serde(default, alias = "inbox_project")]
+    is_inbox_project: bool,
 }
 
 #[derive(Debug, Deserialize)]
 struct TodoistPage<T> {
     results: Vec<T>,
+    #[serde(default)]
+    next_cursor: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TodoistCompletedPage {
+    #[serde(default)]
+    items: Vec<TodoistCompletedTaskSnapshot>,
     #[serde(default)]
     next_cursor: Option<String>,
 }
@@ -1419,6 +1701,29 @@ mod tests {
         assert_eq!(parsed.review_state.as_deref(), Some("needs_review"));
         assert_eq!(parsed.priority, Some(4));
         assert_eq!(parsed.scheduled_for.as_deref(), Some("2026-03-20"));
+    }
+
+    #[test]
+    fn parses_date_only_todoist_due_values() {
+        let task = TodoistTask {
+            id: "task_1".to_string(),
+            content: "Follow up".to_string(),
+            labels: vec![],
+            project_id: None,
+            priority: None,
+            checked: Some(false),
+            due: Some(TodoistDue {
+                date: Some("2026-03-22".to_string()),
+                datetime: None,
+            }),
+            deadline: None,
+            updated_at: None,
+        };
+
+        let due_ts = parse_due_timestamp(&task).expect("date-only due should parse");
+        let due_at = OffsetDateTime::from_unix_timestamp(due_ts).expect("valid timestamp");
+        assert_eq!(due_at.date().to_string(), "2026-03-22");
+        assert_eq!(due_at.time().to_string(), "0:00:00.0");
     }
 
     #[tokio::test]
@@ -1469,6 +1774,366 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn persist_todoist_task_treats_real_inbox_project_as_unprojected() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                TODOIST_SETTINGS_KEY,
+                &json!({
+                    "inbox_project_id": "todo-inbox-1"
+                }),
+            )
+            .await
+            .unwrap();
+        let connection_id = ensure_todoist_connection(&storage).await.unwrap();
+        let task = TodoistTask {
+            id: "task_inbox_1".to_string(),
+            content: "Inbox follow up".to_string(),
+            labels: vec![],
+            project_id: Some("todo-inbox-1".to_string()),
+            priority: None,
+            checked: Some(false),
+            due: None,
+            deadline: None,
+            updated_at: None,
+        };
+
+        let persisted = persist_todoist_task(
+            &storage,
+            None,
+            &task,
+            &connection_id,
+            Some("Inbox"),
+            None,
+            DEFAULT_ORDERING_NODE_ID,
+            true,
+        )
+        .await
+        .unwrap();
+
+        let commitment = storage
+            .get_commitment_by_id(&persisted.commitment_id)
+            .await
+            .unwrap()
+            .expect("persisted commitment should exist");
+        assert_eq!(commitment.project, None);
+        assert_eq!(
+            commitment.metadata_json["is_inbox_project"].as_bool(),
+            Some(true)
+        );
+    }
+
+    #[tokio::test]
+    async fn persist_todoist_task_uses_sync_discovered_inbox_project_without_saved_settings() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let connection_id = ensure_todoist_connection(&storage).await.unwrap();
+        let task = TodoistTask {
+            id: "task_inbox_sync_1".to_string(),
+            content: "Inbox during sync".to_string(),
+            labels: vec![],
+            project_id: Some("todo-inbox-1".to_string()),
+            priority: None,
+            checked: Some(false),
+            due: None,
+            deadline: None,
+            updated_at: None,
+        };
+
+        let persisted = persist_todoist_task(
+            &storage,
+            None,
+            &task,
+            &connection_id,
+            Some("Inbox"),
+            Some("todo-inbox-1"),
+            DEFAULT_ORDERING_NODE_ID,
+            true,
+        )
+        .await
+        .unwrap();
+
+        let commitment = storage
+            .get_commitment_by_id(&persisted.commitment_id)
+            .await
+            .unwrap()
+            .expect("persisted commitment should exist");
+        assert_eq!(commitment.project, None);
+        assert_eq!(
+            commitment.metadata_json["is_inbox_project"].as_bool(),
+            Some(true)
+        );
+    }
+
+    #[tokio::test]
+    async fn persist_todoist_task_clears_stale_inbox_project_on_update() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let connection_id = ensure_todoist_connection(&storage).await.unwrap();
+        let commitment_id = storage
+            .insert_commitment(CommitmentInsert {
+                text: "Inbox during sync".to_string(),
+                source_type: TODOIST_PROVIDER_KEY.to_string(),
+                source_id: "todoist_task_inbox_sync_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("inbox".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({})),
+            })
+            .await
+            .unwrap();
+        let existing = storage
+            .get_commitment_by_id(commitment_id.as_ref())
+            .await
+            .unwrap()
+            .expect("existing commitment should exist");
+        let task = TodoistTask {
+            id: "task_inbox_sync_1".to_string(),
+            content: "Inbox during sync".to_string(),
+            labels: vec![],
+            project_id: Some("todo-inbox-1".to_string()),
+            priority: None,
+            checked: Some(false),
+            due: None,
+            deadline: None,
+            updated_at: None,
+        };
+
+        let persisted = persist_todoist_task(
+            &storage,
+            Some(&existing),
+            &task,
+            &connection_id,
+            Some("Inbox"),
+            Some("todo-inbox-1"),
+            DEFAULT_ORDERING_NODE_ID,
+            true,
+        )
+        .await
+        .unwrap();
+
+        let updated = storage
+            .get_commitment_by_id(&persisted.commitment_id)
+            .await
+            .unwrap()
+            .expect("updated commitment should exist");
+        assert_eq!(updated.project, None);
+        assert_eq!(
+            updated.metadata_json["is_inbox_project"].as_bool(),
+            Some(true)
+        );
+    }
+
+    #[tokio::test]
+    async fn todoist_update_task_rejects_due_date_write_when_disabled() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                TODOIST_SETTINGS_KEY,
+                &json!({
+                    "write_capabilities": {
+                        "completion_status": true,
+                        "due_date": false,
+                        "tags": false
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(CommitmentInsert {
+                text: "Follow up".to_string(),
+                source_type: TODOIST_PROVIDER_KEY.to_string(),
+                source_id: "todoist_task_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("runtime".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({ "todoist_id": "task_1" })),
+            })
+            .await
+            .unwrap();
+        storage
+            .upsert_upstream_object_ref(&UpstreamObjectRefRecord {
+                id: "uor_task_due_disabled".to_string(),
+                family: IntegrationFamily::Tasks,
+                provider_key: TODOIST_PROVIDER_KEY.to_string(),
+                project_id: None,
+                local_object_kind: "commitment".to_string(),
+                local_object_id: commitment_id.as_ref().to_string(),
+                external_id: "task_1".to_string(),
+                external_parent_id: Some("todo-proj-1".to_string()),
+                ordering_stamp: OrderingStamp::new(
+                    1,
+                    0,
+                    NodeIdentity::from(DEFAULT_ORDERING_NODE_ID.to_string()),
+                ),
+                last_seen_at: OffsetDateTime::now_utc(),
+                metadata_json: json!({
+                    "content": "Follow up",
+                    "checked": false,
+                    "project_id": "todo-proj-1",
+                    "updated_at": "2026-03-18T08:00:00Z"
+                }),
+            })
+            .await
+            .unwrap();
+
+        let error = plan_todoist_update_task(
+            &storage,
+            "node-local",
+            commitment_id.as_ref(),
+            TodoistTaskMutation {
+                scheduled_for: Some("2026-03-28".to_string()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect_err("due-date write should be blocked");
+
+        assert!(error.to_string().contains("due date writeback is disabled"));
+    }
+
+    #[tokio::test]
+    async fn todoist_update_task_rejects_tag_write_when_disabled() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                TODOIST_SETTINGS_KEY,
+                &json!({
+                    "write_capabilities": {
+                        "completion_status": true,
+                        "due_date": true,
+                        "tags": false
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(CommitmentInsert {
+                text: "Follow up".to_string(),
+                source_type: TODOIST_PROVIDER_KEY.to_string(),
+                source_id: "todoist_task_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("runtime".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({ "todoist_id": "task_1" })),
+            })
+            .await
+            .unwrap();
+        storage
+            .upsert_upstream_object_ref(&UpstreamObjectRefRecord {
+                id: "uor_task_tags_disabled".to_string(),
+                family: IntegrationFamily::Tasks,
+                provider_key: TODOIST_PROVIDER_KEY.to_string(),
+                project_id: None,
+                local_object_kind: "commitment".to_string(),
+                local_object_id: commitment_id.as_ref().to_string(),
+                external_id: "task_1".to_string(),
+                external_parent_id: Some("todo-proj-1".to_string()),
+                ordering_stamp: OrderingStamp::new(
+                    1,
+                    0,
+                    NodeIdentity::from(DEFAULT_ORDERING_NODE_ID.to_string()),
+                ),
+                last_seen_at: OffsetDateTime::now_utc(),
+                metadata_json: json!({
+                    "content": "Follow up",
+                    "checked": false,
+                    "project_id": "todo-proj-1",
+                    "updated_at": "2026-03-18T08:00:00Z"
+                }),
+            })
+            .await
+            .unwrap();
+
+        let error = plan_todoist_update_task(
+            &storage,
+            "node-local",
+            commitment_id.as_ref(),
+            TodoistTaskMutation {
+                tags: Some(vec!["focus".to_string()]),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect_err("tag write should be blocked");
+
+        assert!(error.to_string().contains("tags writeback is disabled"));
+    }
+
+    #[tokio::test]
+    async fn todoist_complete_task_rejects_completion_write_when_disabled() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                TODOIST_SETTINGS_KEY,
+                &json!({
+                    "write_capabilities": {
+                        "completion_status": false,
+                        "due_date": true,
+                        "tags": false
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(CommitmentInsert {
+                text: "Follow up".to_string(),
+                source_type: TODOIST_PROVIDER_KEY.to_string(),
+                source_id: "todoist_task_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("runtime".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({ "todoist_id": "task_1" })),
+            })
+            .await
+            .unwrap();
+        storage
+            .upsert_upstream_object_ref(&UpstreamObjectRefRecord {
+                id: "uor_task_completion_disabled".to_string(),
+                family: IntegrationFamily::Tasks,
+                provider_key: TODOIST_PROVIDER_KEY.to_string(),
+                project_id: None,
+                local_object_kind: "commitment".to_string(),
+                local_object_id: commitment_id.as_ref().to_string(),
+                external_id: "task_1".to_string(),
+                external_parent_id: Some("todo-proj-1".to_string()),
+                ordering_stamp: OrderingStamp::new(
+                    1,
+                    0,
+                    NodeIdentity::from(DEFAULT_ORDERING_NODE_ID.to_string()),
+                ),
+                last_seen_at: OffsetDateTime::now_utc(),
+                metadata_json: json!({
+                    "content": "Follow up",
+                    "checked": false,
+                    "project_id": "todo-proj-1",
+                    "updated_at": "2026-03-18T08:00:00Z"
+                }),
+            })
+            .await
+            .unwrap();
+
+        let error = plan_todoist_complete_task(&storage, "node-local", commitment_id.as_ref())
+            .await
+            .expect_err("completion write should be blocked");
+
+        assert!(error
+            .to_string()
+            .contains("completion status writeback is disabled"));
+    }
+
+    #[tokio::test]
     async fn todoist_write_plan_detects_stale_write_conflicts() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1509,6 +2174,7 @@ mod tests {
                 metadata_json: json!({
                     "content": "Follow up",
                     "checked": false,
+                    "labels": [],
                     "project_id": "todo-proj-1",
                     "scheduled_for": "2026-03-19",
                     "priority": 2,
@@ -1567,6 +2233,19 @@ mod tests {
             .set_setting(TODOIST_SECRETS_KEY, &json!({ "api_token": "todo-token" }))
             .await
             .unwrap();
+        storage
+            .set_setting(
+                TODOIST_SETTINGS_KEY,
+                &json!({
+                    "write_capabilities": {
+                        "completion_status": true,
+                        "due_date": true,
+                        "tags": true
+                    }
+                }),
+            )
+            .await
+            .unwrap();
         let commitment_id = storage
             .insert_commitment(CommitmentInsert {
                 text: "Follow up".to_string(),
@@ -1599,6 +2278,7 @@ mod tests {
                 metadata_json: json!({
                     "content": "Follow up",
                     "checked": false,
+                    "labels": [],
                     "project_id": "todo-proj-1",
                     "scheduled_for": "2026-03-19",
                     "priority": 2,
@@ -1615,6 +2295,7 @@ mod tests {
                 content: Some("Follow up today".to_string()),
                 waiting_on: Some("alex".to_string()),
                 review_state: Some("needs_review".to_string()),
+                tags: Some(vec!["focus".to_string(), "ops".to_string()]),
                 ..Default::default()
             },
         )
@@ -1659,6 +2340,10 @@ mod tests {
         assert_eq!(updated.text, "Follow up today");
         assert_eq!(updated.metadata_json["waiting_on"], "alex");
         assert_eq!(updated.metadata_json["review_state"], "needs_review");
+        assert_eq!(
+            updated.metadata_json["labels"],
+            json!(["focus", "ops", "review_state:needs_review", "waiting_on:alex"])
+        );
     }
 
     #[derive(Clone)]

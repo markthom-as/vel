@@ -2,13 +2,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use sqlx::SqlitePool;
 use time::OffsetDateTime;
-use vel_core::{
-    ActionResponseEnvelope, OBJECT_EXPLAIN, OBJECT_GET, OBJECT_QUERY, OBJECT_UPDATE,
-};
+use vel_core::{ActionResponseEnvelope, OBJECT_EXPLAIN, OBJECT_GET, OBJECT_QUERY, OBJECT_UPDATE};
 use vel_storage::{
     get_canonical_object, list_sync_links_for_object, query_canonical_objects,
-    update_canonical_object, CanonicalObjectQuery, CanonicalObjectSort,
-    CanonicalObjectSortField, QuerySortDirection, StorageError,
+    update_canonical_object, CanonicalObjectQuery, CanonicalObjectSort, CanonicalObjectSortField,
+    QuerySortDirection, StorageError,
 };
 
 use crate::errors::AppError;
@@ -48,7 +46,8 @@ pub async fn execute_object_get(
 
     Ok(ActionResponseEnvelope {
         action_name: OBJECT_GET.to_string(),
-        output: serde_json::to_value(object).map_err(|error| AppError::internal(error.to_string()))?,
+        output: serde_json::to_value(object)
+            .map_err(|error| AppError::internal(error.to_string()))?,
         explain: None,
     })
 }
@@ -77,7 +76,8 @@ pub async fn execute_object_query(
 
     Ok(ActionResponseEnvelope {
         action_name: OBJECT_QUERY.to_string(),
-        output: serde_json::to_value(results).map_err(|error| AppError::internal(error.to_string()))?,
+        output: serde_json::to_value(results)
+            .map_err(|error| AppError::internal(error.to_string()))?,
         explain: None,
     })
 }
@@ -100,7 +100,8 @@ pub async fn execute_object_update(
 
     Ok(ActionResponseEnvelope {
         action_name: OBJECT_UPDATE.to_string(),
-        output: serde_json::to_value(updated).map_err(|error| AppError::internal(error.to_string()))?,
+        output: serde_json::to_value(updated)
+            .map_err(|error| AppError::internal(error.to_string()))?,
         explain: None,
     })
 }

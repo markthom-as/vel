@@ -34,7 +34,10 @@ mod tests {
     fn todoist_manifest_uses_canonical_registry_identity() {
         let manifest = todoist_module_manifest();
 
-        assert_eq!(manifest.registry_id.as_string(), "module.integration.todoist");
+        assert_eq!(
+            manifest.registry_id.as_string(),
+            "module.integration.todoist"
+        );
         assert_eq!(manifest.version, "0.5");
         assert_eq!(manifest.capability_requests.len(), 2);
     }

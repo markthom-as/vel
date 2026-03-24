@@ -95,7 +95,10 @@ pub fn generic_object_action_contracts() -> Vec<ActionContract> {
             },
             confirmation: ConfirmationMode::Auto,
             audit: AuditRequirement::Optional,
-            errors: vec![ActionErrorKind::ValidationError, ActionErrorKind::StorageFailure],
+            errors: vec![
+                ActionErrorKind::ValidationError,
+                ActionErrorKind::StorageFailure,
+            ],
         },
         ActionContract {
             action_name: OBJECT_CREATE.to_string(),
@@ -206,11 +209,9 @@ mod tests {
         assert_eq!(update.capability.capability, "object.write");
         assert_eq!(update.confirmation, ConfirmationMode::AskIfExternalWrite);
         assert_eq!(update.audit, AuditRequirement::Required);
-        assert!(
-            update
-                .errors
-                .iter()
-                .any(|error| format!("{error:?}") == "StaleVersion")
-        );
+        assert!(update
+            .errors
+            .iter()
+            .any(|error| format!("{error:?}") == "StaleVersion"));
     }
 }

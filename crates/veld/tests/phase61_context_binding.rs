@@ -31,7 +31,9 @@ fn task_record() -> CanonicalObjectRecord {
 async fn context_binding_resolves_canonical_object_refs_and_runtime_values() {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
-    insert_canonical_object(&pool, &task_record()).await.unwrap();
+    insert_canonical_object(&pool, &task_record())
+        .await
+        .unwrap();
 
     let bound = ContextBinding::bind(
         &pool,
@@ -68,7 +70,9 @@ async fn context_binding_resolves_canonical_object_refs_and_runtime_values() {
 async fn context_binding_rejects_wrong_canonical_object_shape() {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
-    insert_canonical_object(&pool, &task_record()).await.unwrap();
+    insert_canonical_object(&pool, &task_record())
+        .await
+        .unwrap();
 
     let error = ContextBinding::bind(
         &pool,

@@ -1,24 +1,27 @@
-pub mod apple;
 pub mod action_contracts;
 pub mod actions;
-pub mod availability;
+pub mod apple;
+pub mod approvals;
+pub mod attendees;
 pub mod audit;
+pub mod availability;
 pub mod bootstrap;
-pub mod capability;
 pub mod calendar;
 pub mod calendar_relations;
+pub mod capability;
 pub mod command;
 pub mod commitment;
 pub mod conflicts;
 pub mod connect;
 pub mod context;
 pub mod daily_loop;
-pub mod explain;
 pub mod event;
 pub mod execution;
+pub mod explain;
+pub mod grants;
+pub mod ids;
 pub mod integration;
 pub mod intervention;
-pub mod ids;
 pub mod linking;
 pub mod loops;
 pub mod message;
@@ -26,37 +29,42 @@ pub mod module_capabilities;
 pub mod module_registry;
 pub mod node_identity;
 pub mod object_envelope;
-pub mod ownership;
 pub mod operator_queue;
 pub mod ordering;
+pub mod ownership;
 pub mod people;
 pub mod planning;
 pub mod policy;
 pub mod project;
 pub mod protocol;
 pub mod provenance;
+pub mod recurrence;
+pub mod registry_ids;
 pub mod risk;
 pub mod run;
 pub mod sandbox;
 pub mod scheduler;
 pub mod seeded_workflows;
 pub mod semantic;
+pub mod skill_runtime;
 pub mod time;
 pub mod types;
 pub mod uncertainty;
 pub mod vocabulary;
-pub mod writeback;
-pub mod approvals;
-pub mod attendees;
-pub mod grants;
-pub mod registry_ids;
-pub mod recurrence;
-pub mod skill_runtime;
 pub mod workflow_context;
 pub mod workflow_grants;
 pub mod workflow_runs;
 pub mod workflow_steps;
+pub mod writeback;
 
+pub use action_contracts::{
+    generic_object_action_contracts, ActionCapability, ActionContract, ActionErrorKind,
+    ActionRequestEnvelope, ActionResponseEnvelope, AuditRequirement,
+};
+pub use actions::{
+    generic_object_action_names, OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET,
+    OBJECT_LINK, OBJECT_QUERY, OBJECT_UPDATE,
+};
 pub use apple::{
     AppleBehaviorMetric, AppleBehaviorSummary, AppleBehaviorSummaryScope, AppleClientSurface,
     AppleRequestedOperation, AppleResponseEvidence, AppleResponseMode, AppleScheduleEvent,
@@ -68,25 +76,19 @@ pub use attendees::{
     ParticipantConfidence, ParticipantRef, ParticipantStub, Participation,
     ParticipationResponseStatus,
 };
-pub use action_contracts::{
-    generic_object_action_contracts, ActionCapability, ActionContract, ActionErrorKind,
-    ActionRequestEnvelope, ActionResponseEnvelope, AuditRequirement,
-};
-pub use actions::{
-    generic_object_action_names, OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET,
-    OBJECT_LINK, OBJECT_QUERY, OBJECT_UPDATE,
-};
+pub use audit::{AuditBeforeAfter, AuditEventKind, AuditFieldCapture, AuditRecord};
 pub use availability::{
     AllDayHandlingRule, AvailabilityBasis, AvailabilityConfidence, AvailabilityPolicyConfig,
     AvailabilityResult, AvailabilityWindow, BlockingInterval, DeclinedResponsePolicy,
 };
-pub use audit::{AuditBeforeAfter, AuditEventKind, AuditFieldCapture, AuditRecord};
-pub use bootstrap::{CoreBootstrapBundle, CoreBootstrapPolicy, CoreBootstrapReport, CoreBootstrapSource};
-pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
+pub use bootstrap::{
+    CoreBootstrapBundle, CoreBootstrapPolicy, CoreBootstrapReport, CoreBootstrapSource,
+};
 pub use calendar::{Calendar, CalendarVisibility};
 pub use calendar_relations::{
     belongs_to_calendar, CalendarRelation, CalendarRelationKind, CalendarRelationRef,
 };
+pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
     RelationOperation, ResolutionConfidence, ResolutionMeta, ResolvedCommand, TargetSelector,
@@ -115,16 +117,16 @@ pub use daily_loop::{
     MorningFrictionCallout, MorningIntentSignal, MorningOverviewState, DAILY_LOOP_MAX_COMMITMENTS,
     DAILY_LOOP_MAX_QUESTIONS,
 };
+pub use event::{Event, EventLocation, EventMoment, EventMomentKind, EventTransparency};
 pub use execution::{
     AgentProfile, ExecutionHandoff, ExecutionPolicyInput, ExecutionReviewGate, ExecutionTaskKind,
     LocalAgentManifest, LocalRuntimeKind, ProjectExecutionContext, RepoWorktreeRef,
     TokenBudgetClass,
 };
 pub use explain::{
-    action_explain, object_explain, ownership_explain, policy_explain, ActionExplain,
-    ExplainBasis, ObjectExplain, OwnershipExplain, PolicyExplain,
+    action_explain, object_explain, ownership_explain, policy_explain, ActionExplain, ExplainBasis,
+    ObjectExplain, OwnershipExplain, PolicyExplain,
 };
-pub use event::{Event, EventLocation, EventMoment, EventMomentKind, EventTransparency};
 pub use ids::{
     CalendarId, EventId, IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId,
     WorkflowId, WriteIntentId,
@@ -146,15 +148,14 @@ pub use module_capabilities::{
 };
 pub use module_registry::{
     materialize_registry_object, CapabilityRequest, DefaultRegistryReconciler, ManifestSource,
-    PersistedOverlay, ReconciliationResult, ReconciliationState, RegistryLoader,
-    RegistryManifest, RegistryObject, RegistryReconciler, RegistryStatus,
+    PersistedOverlay, ReconciliationResult, ReconciliationState, RegistryLoader, RegistryManifest,
+    RegistryObject, RegistryReconciler, RegistryStatus,
 };
 pub use node_identity::NodeIdentity;
 pub use object_envelope::{
-    CanonicalObjectEnvelope, DurableStatus, ObjectClass, ObjectProvenance, SourceSummary,
-    CalendarEnvelope, EventEnvelope, TaskEnvelope,
+    CalendarEnvelope, CanonicalObjectEnvelope, DurableStatus, EventEnvelope, ObjectClass,
+    ObjectProvenance, SourceSummary, TaskEnvelope,
 };
-pub use ownership::{OwnershipClass, OwnershipDefault, OwnershipEvaluation, OwnershipOverlay};
 pub use operator_queue::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionPermissionMode,
     ActionScopeAffinity, ActionState, ActionSurface, ActionThreadRoute, ActionThreadRouteTarget,
@@ -169,6 +170,7 @@ pub use operator_queue::{
     RoutineBlockSourceKind, ScheduleRuleFacet, ScheduleRuleFacetKind,
 };
 pub use ordering::OrderingStamp;
+pub use ownership::{OwnershipClass, OwnershipDefault, OwnershipEvaluation, OwnershipOverlay};
 pub use people::{PersonAlias, PersonId, PersonLinkRef, PersonRecord};
 pub use planning::{
     DurableRoutineBlock, PlanningConstraint, PlanningConstraintKind, PlanningProfileContinuity,
@@ -187,6 +189,14 @@ pub use protocol::{
     ProtocolSender, ProtocolTraceContext,
 };
 pub use provenance::{Ref, RefRelationType};
+pub use recurrence::{
+    Exception, ExceptionStatus, Occurrence, RecurrenceFrequency, RecurrenceWeekday, Series,
+    SeriesRule,
+};
+pub use registry_ids::{
+    RegistryKind, SemanticRegistryId, MODULE_INTEGRATION_GOOGLE_CALENDAR,
+    MODULE_INTEGRATION_TODOIST, SKILL_CORE_DAILY_BRIEF, TOOL_OBJECT_GET,
+};
 pub use risk::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 pub use run::{
     HandoffEnvelope, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, TraceId, TraceLink,
@@ -206,6 +216,7 @@ pub use semantic::{
     RetrievalStrategy, SemanticHit, SemanticMemoryRecord, SemanticProvenance, SemanticQuery,
     SemanticQueryFilters, SemanticRecordId, SemanticSourceKind,
 };
+pub use skill_runtime::{SkillInvocation, SkillInvocationMode, SkillInvocationOutcome};
 pub use time::{Clock, FixedClock, SystemClock};
 pub use types::{ConversationId, IntegrationConnectionId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
@@ -214,29 +225,19 @@ pub use vocabulary::{
     normalize_should_command_verb, should_command_verb_entries, GlossaryCategory, GlossaryEntry,
     SHOULD_COMMAND_VERBS,
 };
-pub use writeback::{
-    WritebackOperationId, WritebackOperationKind, WritebackOperationRecord, WritebackRisk,
-    WritebackStatus, WritebackTargetRef,
-};
 pub use workflow_context::{
     WorkflowBinding, WorkflowContext, WorkflowContextValue, WorkflowContextValueKind,
     WorkflowObjectRef, WorkflowRuntimeValue,
 };
+pub use workflow_grants::GrantEnvelope;
 pub use workflow_runs::{RunRecord, WorkflowRunStatus};
 pub use workflow_steps::{
-    ActionStep, ApprovalStep, ConditionStep, SkillStep, SyncStep, WorkflowStep,
-    WorkflowStepKind,
+    ActionStep, ApprovalStep, ConditionStep, SkillStep, SyncStep, WorkflowStep, WorkflowStepKind,
 };
-pub use registry_ids::{
-    SemanticRegistryId, RegistryKind, MODULE_INTEGRATION_GOOGLE_CALENDAR,
-    MODULE_INTEGRATION_TODOIST, SKILL_CORE_DAILY_BRIEF, TOOL_OBJECT_GET,
+pub use writeback::{
+    WritebackOperationId, WritebackOperationKind, WritebackOperationRecord, WritebackRisk,
+    WritebackStatus, WritebackTargetRef,
 };
-pub use recurrence::{
-    Exception, ExceptionStatus, Occurrence, RecurrenceFrequency, RecurrenceWeekday, Series,
-    SeriesRule,
-};
-pub use skill_runtime::{SkillInvocation, SkillInvocationMode, SkillInvocationOutcome};
-pub use workflow_grants::GrantEnvelope;
 
 use ::time::OffsetDateTime;
 use serde::{Deserialize, Serialize};

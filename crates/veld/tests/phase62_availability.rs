@@ -44,12 +44,20 @@ fn event(
         start: EventMoment {
             kind: kind.clone(),
             value: start.to_string(),
-            timezone: if all_day { None } else { Some("UTC".to_string()) },
+            timezone: if all_day {
+                None
+            } else {
+                Some("UTC".to_string())
+            },
         },
         end: EventMoment {
             kind,
             value: end.to_string(),
-            timezone: if all_day { None } else { Some("UTC".to_string()) },
+            timezone: if all_day {
+                None
+            } else {
+                Some("UTC".to_string())
+            },
         },
         transparency,
         location: Some(EventLocation {
@@ -151,7 +159,10 @@ async fn availability_derives_from_canonical_state_and_stays_projection_only() {
     .unwrap();
 
     assert_eq!(stored.projection_type, "availability");
-    assert!(canonical.is_empty(), "availability must not become canonical content");
+    assert!(
+        canonical.is_empty(),
+        "availability must not become canonical content"
+    );
 }
 
 #[test]
@@ -186,5 +197,8 @@ fn availability_explain_reports_basis_sources_filters_and_decision() {
     assert_eq!(explain["basis"], "exact");
     assert!(explain["sources_consulted"].as_array().unwrap().len() == 1);
     assert!(!explain["filters_applied"].as_array().unwrap().is_empty());
-    assert!(explain["decision_reason"].as_str().unwrap().contains("rejected"));
+    assert!(explain["decision_reason"]
+        .as_str()
+        .unwrap()
+        .contains("rejected"));
 }

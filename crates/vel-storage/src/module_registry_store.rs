@@ -3,11 +3,11 @@ use serde_json::Value as JsonValue;
 use sqlx::SqlitePool;
 use time::OffsetDateTime;
 
+use crate::storage_backend::StoredRecord;
 use crate::{
     get_registry_object, upsert_registry_object, CanonicalRegistryRecord, RegistryStore,
     StorageContractError,
 };
-use crate::storage_backend::StoredRecord;
 
 #[derive(Clone)]
 pub struct SqliteModuleRegistryStore {
@@ -70,7 +70,9 @@ impl RegistryStore for SqliteModuleRegistryStore {
                 }),
             })
             .map(Some)
-            .ok_or_else(|| StorageContractError::NotFound(format!("module registry {id} not found")))
+            .ok_or_else(|| {
+                StorageContractError::NotFound(format!("module registry {id} not found"))
+            })
             .or(Ok(None))
     }
 }
@@ -86,8 +88,8 @@ fn payload_value(payload: &JsonValue, field: &str) -> Result<String, StorageCont
 #[cfg(test)]
 mod tests {
     use super::SqliteModuleRegistryStore;
-    use crate::{migrate_storage, RegistryStore};
     use crate::storage_backend::StoredRecord;
+    use crate::{migrate_storage, RegistryStore};
     use sqlx::SqlitePool;
 
     #[tokio::test]

@@ -1220,6 +1220,7 @@ mod tests {
                 kind: "general".to_string(),
                 pinned: false,
                 archived: false,
+                call_mode_active: false,
             })
             .await
             .unwrap();

@@ -33,7 +33,7 @@ pub fn legacy_disposition_note(
 
 #[cfg(test)]
 mod tests {
-    use super::{LegacyCompatDisposition, deprecated_write_path_error, legacy_disposition_note};
+    use super::{deprecated_write_path_error, legacy_disposition_note, LegacyCompatDisposition};
 
     #[test]
     fn deprecated_write_path_error_names_cutover_and_canonical_replacement() {
@@ -44,7 +44,9 @@ mod tests {
         );
 
         assert!(error.to_string().contains("0.5 canonical backend cutover"));
-        assert!(error.to_string().contains("/api/integrations/todoist/write-intent"));
+        assert!(error
+            .to_string()
+            .contains("/api/integrations/todoist/write-intent"));
     }
 
     #[test]

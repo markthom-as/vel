@@ -1,7 +1,7 @@
 use serde_json::Value as JsonValue;
 use vel_core::{
-    DefaultRegistryReconciler, ManifestSource, PersistedOverlay, RegistryLoader as RegistryLoaderRole,
-    RegistryObject, RegistryReconciler, ReconciliationResult,
+    DefaultRegistryReconciler, ManifestSource, PersistedOverlay, ReconciliationResult,
+    RegistryLoader as RegistryLoaderRole, RegistryObject, RegistryReconciler,
 };
 use vel_storage::{RegistryStore, StoredRecord};
 
@@ -67,9 +67,9 @@ where
                 .transpose()
                 .map_err(AppError::bad_request)?;
 
-            let result = self
-                .reconciler
-                .reconcile(&manifest, persisted_overlay, existing_object.as_ref());
+            let result =
+                self.reconciler
+                    .reconcile(&manifest, persisted_overlay, existing_object.as_ref());
 
             self.store
                 .put_registry_object(registry_object_to_stored_record(&result.object))
@@ -151,9 +151,8 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
     use vel_core::{
-        CapabilityRequest, ManifestSource, MODULE_INTEGRATION_GOOGLE_CALENDAR,
-        MODULE_INTEGRATION_TODOIST, RegistryKind, RegistryManifest, RegistryStatus,
-        SemanticRegistryId,
+        CapabilityRequest, ManifestSource, RegistryKind, RegistryManifest, RegistryStatus,
+        SemanticRegistryId, MODULE_INTEGRATION_GOOGLE_CALENDAR, MODULE_INTEGRATION_TODOIST,
     };
     use vel_storage::{RegistryStore, StorageContractError, StoredRecord};
 
@@ -209,7 +208,10 @@ mod tests {
             &self,
             record: StoredRecord,
         ) -> Result<(), StorageContractError> {
-            self.records.lock().unwrap().insert(record.id.clone(), record);
+            self.records
+                .lock()
+                .unwrap()
+                .insert(record.id.clone(), record);
             Ok(())
         }
 
@@ -229,7 +231,9 @@ mod tests {
         let results = loader.load_all().await.unwrap();
 
         assert_eq!(results.len(), 2);
-        assert!(results.iter().any(|result| result.object.id == MODULE_INTEGRATION_TODOIST));
+        assert!(results
+            .iter()
+            .any(|result| result.object.id == MODULE_INTEGRATION_TODOIST));
         assert!(results
             .iter()
             .any(|result| result.object.id == MODULE_INTEGRATION_GOOGLE_CALENDAR));

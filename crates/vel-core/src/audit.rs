@@ -72,6 +72,9 @@ mod tests {
         assert!(record.dry_run);
         assert!(record.approval_required);
         assert!(matches!(record.outcome, AuditEventKind::DryRun));
-        assert_eq!(record.field_captures[0].reference.as_deref(), Some("sync_link_01audit"));
+        assert_eq!(
+            record.field_captures[0].reference.as_deref(),
+            Some("sync_link_01audit")
+        );
     }
 }

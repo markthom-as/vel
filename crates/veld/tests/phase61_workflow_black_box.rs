@@ -6,9 +6,11 @@ use time::OffsetDateTime;
 use vel_core::{
     ActionStep, ApprovalStep, CapabilityRequest, Grant, GrantEnvelope, GrantScope,
     PersistedOverlay, RegistryKind, RegistryObject, RegistryStatus, SkillStep, WorkflowBinding,
-    WorkflowContext, WorkflowContextValue, WorkflowObjectRef, WorkflowStep, WorkflowRunStatus,
+    WorkflowContext, WorkflowContextValue, WorkflowObjectRef, WorkflowRunStatus, WorkflowStep,
 };
-use vel_storage::{insert_canonical_object, list_runtime_records, migrate_storage, CanonicalObjectRecord};
+use vel_storage::{
+    insert_canonical_object, list_runtime_records, migrate_storage, CanonicalObjectRecord,
+};
 use veld::services::workflow_runner::{ManualWorkflowInvocationRequest, WorkflowRunner};
 
 fn task_record() -> CanonicalObjectRecord {
@@ -111,7 +113,9 @@ fn grant_envelope(capability: &str, action: &str, read_only: bool) -> GrantEnvel
 async fn pool() -> SqlitePool {
     let pool = SqlitePool::connect(":memory:").await.unwrap();
     migrate_storage(&pool).await.unwrap();
-    insert_canonical_object(&pool, &task_record()).await.unwrap();
+    insert_canonical_object(&pool, &task_record())
+        .await
+        .unwrap();
     pool
 }
 
@@ -120,7 +124,10 @@ async fn manual_invocation_black_box_executes_action_and_skill_steps() {
     let pool = pool().await;
     let runner = WorkflowRunner::default();
     let mut modules = BTreeMap::new();
-    modules.insert("module.core.orientation".to_string(), module_registry("object.read"));
+    modules.insert(
+        "module.core.orientation".to_string(),
+        module_registry("object.read"),
+    );
     let mut skills = BTreeMap::new();
     skills.insert("skill.core.daily-brief".to_string(), skill_registry());
     let mut grants = BTreeMap::new();
@@ -193,7 +200,9 @@ async fn manual_invocation_black_box_pauses_on_approval() {
     let approvals = list_runtime_records(&pool, "approval").await.unwrap();
 
     assert_eq!(outcome.status, WorkflowRunStatus::AwaitingApproval);
-    assert!(runs.iter().any(|record| record.status == "awaiting_approval"));
+    assert!(runs
+        .iter()
+        .any(|record| record.status == "awaiting_approval"));
     assert_eq!(approvals.len(), 1);
 }
 
@@ -202,7 +211,10 @@ async fn manual_invocation_black_box_refused_skill_path_stays_mediated_and_audit
     let pool = pool().await;
     let runner = WorkflowRunner::default();
     let mut modules = BTreeMap::new();
-    modules.insert("module.core.orientation".to_string(), module_registry("object.write"));
+    modules.insert(
+        "module.core.orientation".to_string(),
+        module_registry("object.write"),
+    );
     let mut skills = BTreeMap::new();
     skills.insert("skill.core.daily-brief".to_string(), skill_registry());
     let mut grants = BTreeMap::new();
@@ -244,7 +256,10 @@ async fn manual_invocation_black_box_dry_run_keeps_runtime_evidence_only() {
     let pool = pool().await;
     let runner = WorkflowRunner::default();
     let mut modules = BTreeMap::new();
-    modules.insert("module.core.orientation".to_string(), module_registry("object.read"));
+    modules.insert(
+        "module.core.orientation".to_string(),
+        module_registry("object.read"),
+    );
     let mut skills = BTreeMap::new();
     skills.insert("skill.core.daily-brief".to_string(), skill_registry());
     let mut grants = BTreeMap::new();
@@ -277,6 +292,8 @@ async fn manual_invocation_black_box_dry_run_keeps_runtime_evidence_only() {
     let audits = list_runtime_records(&pool, "audit").await.unwrap();
 
     assert_eq!(outcome.status, WorkflowRunStatus::DryRunComplete);
-    assert!(runs.iter().any(|record| record.status == "dry_run_complete"));
+    assert!(runs
+        .iter()
+        .any(|record| record.status == "dry_run_complete"));
     assert!(audits.iter().any(|record| record.status == "dry_run"));
 }

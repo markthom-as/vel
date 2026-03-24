@@ -2,11 +2,11 @@ use chrono::{TimeZone, Utc};
 use serde_json::Value;
 use time::OffsetDateTime;
 use vel_adapters_google_calendar::{
-    GoogleAttendeePayload, GoogleAvailabilityBridgeInput, GoogleCalendarMappingPayload,
-    GoogleEventLocationPayload, GoogleEventMappingPayload, GoogleEventMomentPayload,
-    GoogleRecurrencePayload, apply_google_upstream_delete, bridge_google_availability_input,
+    apply_google_upstream_delete, bridge_google_availability_input,
     google_availability_projection_envelope, map_google_calendar, map_google_event,
-    map_google_recurrence, restore_google_from_tombstone,
+    map_google_recurrence, restore_google_from_tombstone, GoogleAttendeePayload,
+    GoogleAvailabilityBridgeInput, GoogleCalendarMappingPayload, GoogleEventLocationPayload,
+    GoogleEventMappingPayload, GoogleEventMomentPayload, GoogleRecurrencePayload,
 };
 use vel_core::{
     AllDayHandlingRule, AvailabilityPolicyConfig, AvailabilityResult, CalendarId,

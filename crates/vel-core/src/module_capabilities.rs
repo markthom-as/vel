@@ -46,7 +46,9 @@ impl ModuleCapabilityProfile {
             .map(requested_capability_from)
             .collect::<Vec<_>>();
         let overlay_enabled = object.persisted_overlay.enabled.unwrap_or(true);
-        let read_only = requested_capabilities.iter().all(|capability| capability.read_only);
+        let read_only = requested_capabilities
+            .iter()
+            .all(|capability| capability.read_only);
         let lifecycle_state = ModuleLifecycleState::Reconciled;
         let eligible = object.status == RegistryStatus::Active && overlay_enabled;
         let activated = eligible;
@@ -67,12 +69,17 @@ impl ModuleCapabilityProfile {
         }
     }
 
-    pub fn registered(module_id: impl Into<String>, capability_requests: &[CapabilityRequest]) -> Self {
+    pub fn registered(
+        module_id: impl Into<String>,
+        capability_requests: &[CapabilityRequest],
+    ) -> Self {
         let requested_capabilities = capability_requests
             .iter()
             .map(requested_capability_from)
             .collect::<Vec<_>>();
-        let read_only = requested_capabilities.iter().all(|capability| capability.read_only);
+        let read_only = requested_capabilities
+            .iter()
+            .all(|capability| capability.read_only);
 
         Self {
             module_id: module_id.into(),

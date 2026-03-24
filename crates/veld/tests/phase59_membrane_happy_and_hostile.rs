@@ -18,7 +18,9 @@ use veld::services::{
     object_actions::{execute_object_update, ObjectUpdateInput},
     ownership_resolver::OwnershipResolver,
     policy_evaluator::{default_layer, PolicyEvaluator, PolicyEvaluatorError},
-    write_intent_dispatch::{dispatch_write_intent, DispatchDisposition, WriteIntentDispatchRequest},
+    write_intent_dispatch::{
+        dispatch_write_intent, DispatchDisposition, WriteIntentDispatchRequest,
+    },
 };
 
 fn wide_grant() -> Grant {
@@ -198,7 +200,10 @@ async fn allowed_action_path_updates_object_and_dispatches_write_intent() {
     .unwrap();
 
     let explain = action_explain_for_object(
-        &get_canonical_object(&pool, &object.id).await.unwrap().unwrap(),
+        &get_canonical_object(&pool, &object.id)
+            .await
+            .unwrap()
+            .unwrap(),
         PolicyDecisionKind::Allowed,
         ConfirmationMode::Auto,
         OwnershipResolver.resolve(
@@ -224,13 +229,18 @@ async fn allowed_action_path_updates_object_and_dispatches_write_intent() {
                 reason: "allowed path dispatched write intent".to_string(),
                 field_captures: vec![],
                 write_intent_ref: Some(dispatch.write_intent_id.clone()),
-                downstream_operation_ref: Some(dispatch.downstream.downstream_operation_ref.clone()),
+                downstream_operation_ref: Some(
+                    dispatch.downstream.downstream_operation_ref.clone(),
+                ),
             },
         )
         .await
         .unwrap();
 
-    let stored = get_canonical_object(&pool, &object.id).await.unwrap().unwrap();
+    let stored = get_canonical_object(&pool, &object.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(stored.revision, 2);
     assert_eq!(stored.status, "ready");
     assert_eq!(updated.action_name, "object.update");
@@ -340,11 +350,7 @@ async fn read_only_external_write_path_returns_typed_read_only_violation() {
     let object = seed_object(&pool, "task_01phase59read_only").await;
 
     let denied = PolicyEvaluator
-        .evaluate(&phase59_policy_input(
-            ConfirmationMode::Auto,
-            true,
-            true,
-        ))
+        .evaluate(&phase59_policy_input(ConfirmationMode::Auto, true, true))
         .unwrap_err();
     assert!(matches!(denied, PolicyEvaluatorError::ReadOnlyViolation(_)));
 
@@ -367,7 +373,10 @@ async fn read_only_external_write_path_returns_typed_read_only_violation() {
         .unwrap();
 
     assert_eq!(audit.status, "denied");
-    assert_eq!(ActionErrorKind::ReadOnlyViolation, ActionErrorKind::ReadOnlyViolation);
+    assert_eq!(
+        ActionErrorKind::ReadOnlyViolation,
+        ActionErrorKind::ReadOnlyViolation
+    );
 }
 
 #[tokio::test]
@@ -460,12 +469,18 @@ async fn dry_run_path_is_auditable_and_non_mutating() {
         .await
         .unwrap();
 
-    let stored = get_canonical_object(&pool, &object.id).await.unwrap().unwrap();
+    let stored = get_canonical_object(&pool, &object.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(stored.revision, 1);
     assert_eq!(stored.status, "active");
     assert_eq!(audit.status, "dry_run");
     assert!(explain.dry_run);
-    assert!(explain.ownership_explain.iter().any(|entry| entry.pending_write_intent));
+    assert!(explain
+        .ownership_explain
+        .iter()
+        .any(|entry| entry.pending_write_intent));
 }
 
 #[tokio::test]
@@ -491,7 +506,10 @@ async fn ownership_conflict_explain_is_accurate_under_source_owned_field_pressur
         false,
     );
 
-    assert_eq!(conflict.kind, vel_core::MembraneConflictKind::OwnershipConflict);
+    assert_eq!(
+        conflict.kind,
+        vel_core::MembraneConflictKind::OwnershipConflict
+    );
     assert_eq!(explain.ownership_explain[0].field, "due");
     assert!(explain.ownership_explain[0].source_favored);
 }

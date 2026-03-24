@@ -69,7 +69,9 @@ impl Exception {
         if matches!(self.status, ExceptionStatus::Modified)
             && (self.replacement_start.is_none() || self.replacement_end.is_none())
         {
-            return Err("modified recurrence exception requires replacement start and end".to_string());
+            return Err(
+                "modified recurrence exception requires replacement start and end".to_string(),
+            );
         }
         Ok(())
     }
@@ -134,7 +136,10 @@ mod tests {
             replacement_start: None,
             replacement_end: None,
         };
-        assert!(invalid_exception.validate().unwrap_err().contains("replacement"));
+        assert!(invalid_exception
+            .validate()
+            .unwrap_err()
+            .contains("replacement"));
 
         let valid = Series {
             series_id: "series_01".to_string(),

@@ -3,27 +3,31 @@ use sqlx::SqlitePool;
 use time::OffsetDateTime;
 
 use crate::{
-    db::StorageError,
-    get_canonical_object, list_sync_links_for_object, rebuild_projection, upsert_projection,
-    ProjectionRecord,
+    db::StorageError, get_canonical_object, list_sync_links_for_object, rebuild_projection,
+    upsert_projection, ProjectionRecord,
 };
 
 pub async fn rebuild_source_summary_projection(
     pool: &SqlitePool,
     object_id: &str,
 ) -> Result<ProjectionRecord, StorageError> {
-    let object = get_canonical_object(pool, object_id).await?.ok_or_else(|| {
-        StorageError::NotFound(format!(
-            "canonical object {object_id} missing for projection rebuild"
-        ))
-    })?;
+    let object = get_canonical_object(pool, object_id)
+        .await?
+        .ok_or_else(|| {
+            StorageError::NotFound(format!(
+                "canonical object {object_id} missing for projection rebuild"
+            ))
+        })?;
     let links = list_sync_links_for_object(pool, object_id).await?;
 
     let active_links: Vec<_> = links
         .iter()
         .filter(|link| !matches!(link.state.as_str(), "deleted_upstream" | "superseded"))
         .collect();
-    let providers: Vec<String> = active_links.iter().map(|link| link.provider.clone()).collect();
+    let providers: Vec<String> = active_links
+        .iter()
+        .map(|link| link.provider.clone())
+        .collect();
     let primary_provider = providers.first().cloned();
     let sync_state = if active_links.iter().any(|link| link.state == "conflicted") {
         "conflicted"
@@ -82,4 +86,3 @@ pub async fn rebuild_source_summary_projection(
     )
     .await
 }
-

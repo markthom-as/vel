@@ -44,7 +44,10 @@ impl AvailabilityProjectionService {
             sources_consulted.push(input.calendar.id.to_string());
 
             if !config.included_calendar_ids.is_empty()
-                && !config.included_calendar_ids.iter().any(|id| id == &input.calendar.id)
+                && !config
+                    .included_calendar_ids
+                    .iter()
+                    .any(|id| id == &input.calendar.id)
             {
                 continue;
             }
@@ -162,12 +165,16 @@ fn blocking_bounds(
         (EventMomentKind::AllDay, EventMomentKind::AllDay) => match all_day_rule {
             AllDayHandlingRule::RespectTransparency => {
                 let start = NaiveDate::parse_from_str(&event.start.value, "%Y-%m-%d")
-                    .map_err(|error| AppError::bad_request(format!("invalid all-day start: {error}")))?
+                    .map_err(|error| {
+                        AppError::bad_request(format!("invalid all-day start: {error}"))
+                    })?
                     .and_hms_opt(0, 0, 0)
                     .ok_or_else(|| AppError::bad_request("invalid all-day start time"))?
                     .and_utc();
                 let end = NaiveDate::parse_from_str(&event.end.value, "%Y-%m-%d")
-                    .map_err(|error| AppError::bad_request(format!("invalid all-day end: {error}")))?
+                    .map_err(|error| {
+                        AppError::bad_request(format!("invalid all-day end: {error}"))
+                    })?
                     .and_hms_opt(23, 59, 59)
                     .ok_or_else(|| AppError::bad_request("invalid all-day end time"))?
                     .and_utc();

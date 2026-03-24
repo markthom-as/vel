@@ -1,4 +1,4 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use vel_core::{
     Event, EventMoment, Exception, ExceptionStatus, Occurrence, RecurrenceFrequency,
     RecurrenceWeekday, Series, SeriesRule,
@@ -6,7 +6,7 @@ use vel_core::{
 
 use crate::{
     event_mapping::GoogleEventMomentPayload,
-    google_ids::{GOOGLE_CALENDAR_MODULE_ID, google_provider_object_ref},
+    google_ids::{google_provider_object_ref, GOOGLE_CALENDAR_MODULE_ID},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,7 +228,7 @@ fn parse_weekday(token: &str) -> Result<RecurrenceWeekday, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{GoogleRecurrencePayload, map_google_recurrence};
+    use super::{map_google_recurrence, GoogleRecurrencePayload};
     use crate::event_mapping::GoogleEventMomentPayload;
     use serde_json::Value as JsonValue;
     use vel_core::{

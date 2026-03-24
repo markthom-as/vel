@@ -106,9 +106,7 @@ pub trait StorageTransaction: Send + Sync {
 
 #[async_trait]
 pub trait TransactionManager: Send + Sync {
-    async fn begin_transaction(
-        &self,
-    ) -> Result<Box<dyn StorageTransaction>, StorageContractError>;
+    async fn begin_transaction(&self) -> Result<Box<dyn StorageTransaction>, StorageContractError>;
 }
 
 #[cfg(test)]

@@ -1,12 +1,12 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use sqlx::SqlitePool;
 use time::OffsetDateTime;
 use vel_storage::{
-    IntegrationAccountRecord, StorageError, get_integration_account, upsert_integration_account,
+    get_integration_account, upsert_integration_account, IntegrationAccountRecord, StorageError,
 };
 
 use crate::google_ids::{
-    GOOGLE_CALENDAR_MODULE_ID, GOOGLE_CALENDAR_PROVIDER, google_calendar_integration_account_id,
+    google_calendar_integration_account_id, GOOGLE_CALENDAR_MODULE_ID, GOOGLE_CALENDAR_PROVIDER,
 };
 
 #[derive(Debug, Clone)]
@@ -97,11 +97,11 @@ fn merge_metadata(
 #[cfg(test)]
 mod tests {
     use super::{
-        GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState,
-        link_google_calendar_account,
+        link_google_calendar_account, GoogleCalendarAccountLinkRequest,
+        GoogleCalendarCheckpointState,
     };
-    use serde_json::{Value as JsonValue, json};
-    use sqlx::{SqlitePool, migrate::Migrator};
+    use serde_json::{json, Value as JsonValue};
+    use sqlx::{migrate::Migrator, SqlitePool};
 
     static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
 
