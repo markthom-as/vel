@@ -13,10 +13,12 @@ export function AppShell({ navigation, main, nudgeZone, actionBar }: AppShellPro
     <div className={shellChrome.app}>
       {navigation}
       <div className={shellChrome.workspace}>
-        <main className={shellChrome.workspaceMain}>{main}</main>
+        <main data-testid="app-shell-main" className={shellChrome.workspaceMain}>{main}</main>
         {nudgeZone ? (
           <div className={shellChrome.workspaceAside}>
-            <div className={shellChrome.workspaceAsideInner}>{nudgeZone}</div>
+            <div data-testid="app-shell-nudges" className={shellChrome.workspaceAsideInner}>
+              <div data-testid="app-shell-nudges-scroll" className={shellChrome.workspaceAsideScroll}>{nudgeZone}</div>
+            </div>
           </div>
         ) : null}
       </div>

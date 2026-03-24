@@ -2,8 +2,8 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
-use serde_json::{Map as JsonMap, Value as JsonValue};
 use serde::Deserialize;
+use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::str::FromStr;
 use uuid::Uuid;
 use vel_api_types::{
@@ -15,7 +15,7 @@ use vel_storage::CommitmentInsert;
 
 use crate::{
     errors::AppError,
-    services::commitment_write_bridge::{CommitmentWriteBridgeRequest, bridge_commitment_write},
+    services::commitment_write_bridge::{bridge_commitment_write, CommitmentWriteBridgeRequest},
     state::AppState,
 };
 

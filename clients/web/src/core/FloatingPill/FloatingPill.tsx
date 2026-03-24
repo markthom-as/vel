@@ -9,6 +9,7 @@ export interface FloatingPillProps {
   className?: string;
   contentClassName?: string;
   decorationOffsetClassName?: string;
+  onPress?: () => void;
 }
 
 /**
@@ -22,9 +23,20 @@ export function FloatingPill({
   className,
   contentClassName,
   decorationOffsetClassName,
+  onPress,
 }: FloatingPillProps) {
   return (
-    <article className={cn('relative overflow-visible', className)}>
+    <article
+      className={cn('relative overflow-visible', onPress ? 'cursor-pointer' : null, className)}
+      onClick={(event) => {
+        if (!onPress) return;
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('button, a, input, textarea, select, [role=\"button\"]')) {
+          return;
+        }
+        onPress();
+      }}
+    >
       {decoration ? (
         <span
           aria-hidden
@@ -40,7 +52,7 @@ export function FloatingPill({
       <div
         className={cn(
           itemPillCard('queue', 'laneRow'),
-          'flex min-w-0 items-center justify-between gap-2 overflow-hidden border px-4 py-2.5',
+          'flex min-w-0 items-center justify-between gap-2 overflow-visible border px-4 py-2.5',
           contentClassName,
         )}
       >

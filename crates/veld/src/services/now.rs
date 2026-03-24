@@ -1,11 +1,13 @@
 use chrono::{DateTime, Timelike, Utc};
 use serde_json::{json, Value as JsonValue};
+use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
 use vel_config::{AppConfig, NowCountDisplayMode, NowTitleMode};
 use vel_core::{
     normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
     ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal, ReflowCard,
-    ReflowSeverity, ReviewSnapshot, WritebackOperationRecord,
+    ReflowSeverity, ReviewSnapshot, WritebackOperationKind, WritebackOperationRecord,
+    WritebackStatus,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -131,6 +133,7 @@ pub struct NowTaskLaneOutput {
     pub pending: Vec<NowTaskLaneItemOutput>,
     pub active_items: Vec<NowTaskLaneItemOutput>,
     pub next_up: Vec<NowTaskLaneItemOutput>,
+    pub inbox: Vec<NowTaskLaneItemOutput>,
     pub if_time_allows: Vec<NowTaskLaneItemOutput>,
     pub completed: Vec<NowTaskLaneItemOutput>,
     pub recent_completed: Vec<NowTaskLaneItemOutput>,
@@ -150,6 +153,12 @@ pub struct NowTaskLaneItemOutput {
     pub sort_order: Option<u32>,
     pub project: Option<String>,
     pub primary_thread_id: Option<String>,
+    pub due_at: Option<OffsetDateTime>,
+    pub deadline: Option<OffsetDateTime>,
+    pub due_label: Option<String>,
+    pub is_overdue: bool,
+    pub deadline_label: Option<String>,
+    pub deadline_passed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -238,6 +247,7 @@ pub struct NowTaskOutput {
     pub tags: Vec<String>,
     pub source_type: String,
     pub due_at: Option<OffsetDateTime>,
+    pub deadline: Option<OffsetDateTime>,
     pub project: Option<String>,
     pub commitment_kind: Option<String>,
 }
@@ -417,11 +427,21 @@ async fn get_now_internal(
     };
 
     let commitments = storage
-        .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
+        .list_commitments(Some(CommitmentStatus::Open), None, None, 200)
         .await?;
     let completed_commitments = storage
-        .list_commitments(Some(CommitmentStatus::Done), None, None, 32)
+        .list_commitments(Some(CommitmentStatus::Done), None, None, 64)
         .await?;
+    let completed_today = build_completed_today_tasks(
+        storage,
+        &timezone,
+        &current_day,
+        now,
+        &commitments,
+        &completed_commitments,
+        &action_queue.pending_writebacks,
+    )
+    .await?;
     let sorted_commitments = sort_commitments(commitments, &timezone, now);
     let all_open_tasks = sorted_commitments.iter().map(now_task).collect::<Vec<_>>();
     let task_buckets = split_now_tasks(&context, sorted_commitments, &timezone, now, &current_day);
@@ -549,19 +569,27 @@ async fn get_now_internal(
         next_event.as_ref(),
         &trust_readiness,
     ));
+    let task_lane = Some(build_task_lane(
+        &context,
+        &task_buckets,
+        &all_open_tasks,
+        &timezone,
+        now,
+        &current_day,
+        completed_today,
+    ));
+    let docked_input = Some(build_docked_input());
     let nudge_bars = build_nudge_bars(
         check_in.as_ref(),
         reflow.as_ref(),
         &action_queue.action_items,
         mesh_summary.as_ref(),
-    );
-    let task_lane = Some(build_task_lane(
-        &context,
-        &task_buckets,
+        task_lane.as_ref(),
         &all_open_tasks,
-        completed_commitments,
-    ));
-    let docked_input = Some(build_docked_input());
+        context_line.as_ref(),
+        docked_input.as_ref(),
+        now,
+    );
 
     Ok(NowOutput {
         computed_at,
@@ -947,12 +975,19 @@ fn empty_now(
             None,
             &action_queue.action_items,
             mesh_summary.as_ref(),
+            None,
+            &[],
+            None,
+            None,
+            OffsetDateTime::from_unix_timestamp(now_ts)
+                .expect("empty now timestamp should convert to offset datetime"),
         ),
         task_lane: Some(NowTaskLaneOutput {
             active: None,
             pending: Vec::new(),
             active_items: Vec::new(),
             next_up: Vec::new(),
+            inbox: Vec::new(),
             if_time_allows: Vec::new(),
             completed: Vec::new(),
             recent_completed: Vec::new(),
@@ -1324,6 +1359,11 @@ fn build_nudge_bars(
     reflow: Option<&ReflowCard>,
     action_items: &[ActionItem],
     mesh_summary: Option<&NowMeshSummaryOutput>,
+    task_lane: Option<&NowTaskLaneOutput>,
+    all_open_tasks: &[NowTaskOutput],
+    context_line: Option<&NowContextLineOutput>,
+    docked_input: Option<&NowDockedInputOutput>,
+    now: OffsetDateTime,
 ) -> Vec<NowNudgeBarOutput> {
     let mut bars = Vec::new();
 
@@ -1393,9 +1433,20 @@ fn build_nudge_bars(
         });
     }
 
+    if let Some(overdue_bar) = build_overdue_nudge_bar(
+        task_lane,
+        all_open_tasks,
+        context_line,
+        docked_input,
+        now,
+    ) {
+        bars.push(overdue_bar);
+    }
+
     for item in action_items
         .iter()
         .filter(|item| item.surface == vel_core::ActionSurface::Now)
+        .filter(|item| !suppress_action_item_nudge(item))
         .take(3)
     {
         bars.push(NowNudgeBarOutput {
@@ -1422,6 +1473,81 @@ fn build_nudge_bars(
     bars
 }
 
+fn build_overdue_nudge_bar(
+    task_lane: Option<&NowTaskLaneOutput>,
+    all_open_tasks: &[NowTaskOutput],
+    context_line: Option<&NowContextLineOutput>,
+    docked_input: Option<&NowDockedInputOutput>,
+    now: OffsetDateTime,
+) -> Option<NowNudgeBarOutput> {
+    let overdue_ids = all_open_tasks
+        .iter()
+        .filter_map(|task| {
+            task.due_at
+                .filter(|due_at| due_at.unix_timestamp() < now.unix_timestamp())
+                .map(|_| task.id.clone())
+        })
+        .collect::<Vec<_>>();
+    if overdue_ids.is_empty() {
+        return None;
+    }
+
+    let primary_thread_id = context_line
+        .and_then(|line| line.thread_id.clone())
+        .or_else(|| docked_input.and_then(|input| input.day_thread_id.clone()))
+        .or_else(|| {
+            task_lane
+                .into_iter()
+                .flat_map(|lane| {
+                    lane.active_items
+                        .iter()
+                        .chain(lane.next_up.iter())
+                        .chain(lane.inbox.iter())
+                        .chain(lane.if_time_allows.iter())
+                        .chain(lane.completed.iter())
+                })
+                .find_map(|item| item.primary_thread_id.clone())
+        });
+    let overdue_count = overdue_ids.len();
+
+    let mut actions = vec![
+        NowNudgeActionOutput {
+            kind: format!("reschedule_today:{}", overdue_ids.join(",")),
+            label: "Reschedule all to today".to_string(),
+        },
+        NowNudgeActionOutput {
+            kind: "jump_backlog:now-backlog".to_string(),
+            label: "Review backlog".to_string(),
+        },
+    ];
+    if primary_thread_id.is_some() {
+        actions.push(NowNudgeActionOutput {
+            kind: "open_thread".to_string(),
+            label: "Open thread".to_string(),
+        });
+    }
+
+    Some(NowNudgeBarOutput {
+        id: "todoist_overdue_backlog".to_string(),
+        kind: "nudge".to_string(),
+        title: format!(
+            "{} overdue {} still unresolved",
+            overdue_count,
+            if overdue_count == 1 { "item is" } else { "items are" }
+        ),
+        summary: "Overdue work stays visible until you commit it into the day, keep it in backlog, or reschedule it to today without committing it.".to_string(),
+        urgent: true,
+        primary_thread_id,
+        actions,
+    })
+}
+
+fn suppress_action_item_nudge(item: &ActionItem) -> bool {
+    item.kind == ActionKind::NextStep
+        && item.summary == "This commitment is overdue and should be handled or rescheduled."
+        && item.evidence.iter().any(|evidence| evidence.source_kind == "commitment")
+}
+
 fn map_action_item_to_bar_kind(kind: ActionKind) -> String {
     match kind {
         ActionKind::Review => "review_request",
@@ -1436,28 +1562,41 @@ fn build_task_lane(
     context: &CurrentContextV1,
     task_buckets: &NowTaskBuckets,
     all_open_tasks: &[NowTaskOutput],
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
     completed_commitments: Vec<Commitment>,
 ) -> NowTaskLaneOutput {
-    use std::collections::{HashMap, HashSet};
-
     let mut open_by_id = HashMap::new();
-    let mut default_active = Vec::new();
-    if let Some(task) = task_buckets.next_commitment.as_ref() {
-        default_active.push(task.clone());
-    }
-    default_active.extend(task_buckets.in_play.iter().cloned());
-    let default_next_up = task_buckets.in_play.clone();
-    let default_if_time_allows = task_buckets.pullable.clone();
+    let default_active = Vec::new();
+    let (default_inbox, default_next_up): (Vec<_>, Vec<_>) = task_buckets
+        .next_commitment
+        .iter()
+        .cloned()
+        .chain(task_buckets.in_play.iter().cloned())
+        .partition(is_server_inbox_task);
+    let (default_inbox_pullable, default_if_time_allows): (Vec<_>, Vec<_>) = task_buckets
+        .pullable
+        .clone()
+        .into_iter()
+        .partition(is_server_inbox_task);
+    let default_inbox = default_inbox
+        .into_iter()
+        .chain(default_inbox_pullable)
+        .collect::<Vec<_>>();
 
     for task in default_active
         .iter()
         .chain(default_next_up.iter())
+        .chain(default_inbox.iter())
         .chain(default_if_time_allows.iter())
     {
         open_by_id.insert(task.id.clone(), task.clone());
     }
     for task in all_open_tasks {
-        open_by_id.entry(task.id.clone()).or_insert_with(|| task.clone());
+        open_by_id
+            .entry(task.id.clone())
+            .or_insert_with(|| task.clone());
     }
 
     let completed_by_id = completed_commitments
@@ -1466,54 +1605,116 @@ fn build_task_lane(
         .collect::<HashMap<_, _>>();
 
     let mut consumed = HashSet::new();
-    let mut assign_items =
-        |ids: &[String], lane: &str, source: &HashMap<String, NowTaskOutput>| {
-            let mut items = Vec::new();
-            for (index, id) in ids.iter().enumerate() {
-                if let Some(task) = source.get(id) {
-                    consumed.insert(id.clone());
-                    items.push(task_output_to_lane_item(task, lane, Some(index as u32)));
-                }
+    let mut assign_items = |ids: &[String], lane: &str, source: &HashMap<String, NowTaskOutput>| {
+        let mut items = Vec::new();
+        for (index, id) in ids.iter().enumerate() {
+            if let Some(task) = source.get(id) {
+                consumed.insert(id.clone());
+                items.push(task_output_to_lane_item(
+                    task,
+                    lane,
+                    Some(index as u32),
+                    timezone,
+                    now,
+                    current_day,
+                ));
             }
-            items
-        };
+        }
+        items
+    };
 
-    let mut active_items =
-        assign_items(&context.task_lanes.active_commitment_ids, "active", &open_by_id);
+    let mut active_items = assign_items(
+        &context.task_lanes.active_commitment_ids,
+        "active",
+        &open_by_id,
+    );
     let mut next_up = assign_items(
         &context.task_lanes.next_up_commitment_ids,
         "next_up",
         &open_by_id,
     );
+    let mut inbox = Vec::new();
     let mut if_time_allows = assign_items(
         &context.task_lanes.if_time_allows_commitment_ids,
         "if_time_allows",
         &open_by_id,
     );
-    let completed = assign_items(
-        &context.task_lanes.completed_commitment_ids,
-        "completed",
-        &completed_by_id,
-    );
+    let mut completed = Vec::new();
 
     for task in default_active {
         if consumed.insert(task.id.clone()) {
-            active_items.push(task_output_to_lane_item(&task, "active", None));
+            active_items.push(task_output_to_lane_item(
+                &task,
+                "active",
+                None,
+                timezone,
+                now,
+                current_day,
+            ));
         }
     }
     for task in default_next_up {
         if consumed.insert(task.id.clone()) {
-            next_up.push(task_output_to_lane_item(&task, "next_up", None));
+            next_up.push(task_output_to_lane_item(
+                &task,
+                "next_up",
+                None,
+                timezone,
+                now,
+                current_day,
+            ));
+        }
+    }
+    for task in default_inbox {
+        if consumed.insert(task.id.clone()) {
+            inbox.push(task_output_to_lane_item(
+                &task,
+                "inbox",
+                None,
+                timezone,
+                now,
+                current_day,
+            ));
         }
     }
     for task in default_if_time_allows {
         if consumed.insert(task.id.clone()) {
-            if_time_allows.push(task_output_to_lane_item(&task, "if_time_allows", None));
+            if_time_allows.push(task_output_to_lane_item(
+                &task,
+                "if_time_allows",
+                None,
+                timezone,
+                now,
+                current_day,
+            ));
+        }
+    }
+    for commitment in completed_commitments {
+        let id = commitment.id.as_ref().to_string();
+        if consumed.insert(id.clone()) {
+            completed.push(task_output_to_lane_item(
+                &now_task(&commitment),
+                "completed",
+                Some(completed.len() as u32),
+                timezone,
+                now,
+                current_day,
+            ));
+        } else if let Some(task) = completed_by_id.get(&id) {
+            completed.push(task_output_to_lane_item(
+                task,
+                "completed",
+                Some(completed.len() as u32),
+                timezone,
+                now,
+                current_day,
+            ));
         }
     }
 
     let active = active_items.first().cloned();
     let mut pending = next_up.clone();
+    pending.extend(inbox.clone());
     pending.extend(if_time_allows.clone());
 
     NowTaskLaneOutput {
@@ -1521,6 +1722,7 @@ fn build_task_lane(
         pending,
         active_items,
         next_up,
+        inbox,
         if_time_allows,
         completed: completed.clone(),
         recent_completed: completed,
@@ -1528,11 +1730,216 @@ fn build_task_lane(
     }
 }
 
+fn is_server_inbox_task(task: &NowTaskOutput) -> bool {
+    task.source_type.eq_ignore_ascii_case("todoist")
+        && task
+            .project
+            .as_deref()
+            .map(|value| value.trim().eq_ignore_ascii_case("inbox"))
+            .unwrap_or(true)
+}
+
+async fn build_completed_today_tasks(
+    storage: &Storage,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+    now: OffsetDateTime,
+    open_commitments: &[Commitment],
+    done_commitments: &[Commitment],
+    pending_writebacks: &[WritebackOperationRecord],
+) -> Result<Vec<Commitment>, AppError> {
+    let provider_completed = crate::services::integrations_todoist::list_completed_todoist_tasks_for_window(
+        storage,
+        current_day.start_ts,
+        current_day.end_ts,
+    )
+    .await?;
+
+    Ok(merge_completed_today_commitments(
+        open_commitments,
+        done_commitments,
+        &provider_completed,
+        pending_writebacks,
+        timezone,
+        current_day,
+        now,
+    ))
+}
+
+fn merge_completed_today_commitments(
+    open_commitments: &[Commitment],
+    done_commitments: &[Commitment],
+    provider_completed: &[crate::services::integrations_todoist::TodoistCompletedTaskSnapshot],
+    pending_writebacks: &[WritebackOperationRecord],
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+    now: OffsetDateTime,
+) -> Vec<Commitment> {
+    let mut by_local_id = HashMap::new();
+    let mut by_source_id = HashMap::new();
+
+    for commitment in open_commitments.iter().chain(done_commitments.iter()) {
+        by_local_id.insert(commitment.id.as_ref().to_string(), commitment.clone());
+        if let Some(source_id) = commitment.source_id.as_ref() {
+            by_source_id.insert(source_id.clone(), commitment.clone());
+        }
+    }
+
+    let mut merged = Vec::new();
+    let mut seen = HashSet::new();
+
+    for commitment in done_commitments.iter().cloned() {
+        if resolved_within_current_day(&commitment, current_day)
+            && seen.insert(commitment.id.as_ref().to_string())
+        {
+            merged.push(commitment);
+        }
+    }
+
+    for item in provider_completed {
+        let source_id = format!("todoist_{}", item.id);
+        let Some(base) = by_source_id.get(&source_id) else {
+            continue;
+        };
+        let resolved_at = item
+            .completed_at
+            .as_deref()
+            .and_then(parse_rfc3339_timestamp)
+            .or_else(|| item.updated_at.as_deref().and_then(parse_rfc3339_timestamp))
+            .unwrap_or(now);
+        let local_date = crate::services::timezone::local_date_string(timezone, resolved_at);
+        if local_date != current_day.session_date {
+            continue;
+        }
+        let mut synthetic = base.clone();
+        synthetic.text = item.content.clone();
+        synthetic.status = CommitmentStatus::Done;
+        synthetic.due_at = item
+            .due
+            .as_ref()
+            .and_then(|due| due.datetime.as_deref().or(due.date.as_deref()))
+            .and_then(parse_iso_timestamp);
+        synthetic.resolved_at = Some(resolved_at);
+        if let Some(deadline) = item.deadline.as_ref() {
+            let deadline_at = deadline
+                .datetime
+                .as_deref()
+                .or(deadline.date.as_deref())
+                .map(str::to_string);
+            if let Some(deadline_at) = deadline_at {
+                synthetic.metadata_json["deadline_at"] = JsonValue::String(deadline_at);
+            }
+        }
+        synthetic.metadata_json["labels"] = JsonValue::Array(
+            item.labels
+                .iter()
+                .cloned()
+                .map(JsonValue::String)
+                .collect::<Vec<_>>(),
+        );
+        if seen.insert(synthetic.id.as_ref().to_string()) {
+            merged.push(synthetic);
+        }
+    }
+
+    for writeback in pending_writebacks {
+        if writeback.kind != WritebackOperationKind::TodoistCompleteTask {
+            continue;
+        }
+        if !matches!(
+            writeback.status,
+            WritebackStatus::Queued | WritebackStatus::InProgress | WritebackStatus::Conflicted
+        ) {
+            continue;
+        }
+
+        let local_id = writeback
+            .requested_payload
+            .get("commitment_id")
+            .and_then(JsonValue::as_str)
+            .map(str::to_string)
+            .or_else(|| {
+                writeback
+                    .target
+                    .external_id
+                    .as_ref()
+                    .and_then(|external_id| by_source_id.get(&format!("todoist_{external_id}")))
+                    .map(|commitment| commitment.id.as_ref().to_string())
+            });
+        let Some(local_id) = local_id else {
+            continue;
+        };
+        let Some(base) = by_local_id.get(&local_id) else {
+            continue;
+        };
+
+        let mut synthetic = base.clone();
+        synthetic.status = CommitmentStatus::Done;
+        synthetic.resolved_at = Some(writeback.requested_at);
+        if resolved_within_current_day(&synthetic, current_day)
+            && seen.insert(synthetic.id.as_ref().to_string())
+        {
+            merged.push(synthetic);
+        }
+    }
+
+    merged.sort_by(|left, right| {
+        right
+            .resolved_at
+            .cmp(&left.resolved_at)
+            .then_with(|| right.created_at.cmp(&left.created_at))
+            .then_with(|| left.id.as_ref().cmp(right.id.as_ref()))
+    });
+    merged
+}
+
+fn resolved_within_current_day(
+    commitment: &Commitment,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> bool {
+    commitment
+        .resolved_at
+        .map(|value| {
+            let ts = value.unix_timestamp();
+            ts >= current_day.start_ts && ts < current_day.end_ts
+        })
+        .unwrap_or(false)
+}
+
+fn parse_rfc3339_timestamp(value: &str) -> Option<OffsetDateTime> {
+    OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok()
+}
+
+fn parse_iso_timestamp(value: &str) -> Option<OffsetDateTime> {
+    let trimmed = value.trim();
+    parse_rfc3339_timestamp(trimmed)
+        .or_else(|| {
+            let normalized = if trimmed.ends_with('Z') {
+                trimmed.to_string()
+            } else {
+                format!("{trimmed}Z")
+            };
+            parse_rfc3339_timestamp(&normalized)
+        })
+        .or_else(|| {
+            (trimmed.len() == 10)
+                .then(|| format!("{trimmed}T00:00:00Z"))
+                .and_then(|normalized| parse_rfc3339_timestamp(&normalized))
+        })
+}
+
 fn task_output_to_lane_item(
     task: &NowTaskOutput,
     lane: &str,
     sort_order: Option<u32>,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
 ) -> NowTaskLaneItemOutput {
+    let (due_label, is_overdue) =
+        due_label_for_lane_item(task.due_at, lane, timezone, now, current_day);
+    let (deadline_label, deadline_passed) =
+        deadline_label_for_lane_item(task.deadline, timezone, now);
     NowTaskLaneItemOutput {
         id: task.id.clone(),
         task_kind: "commitment".to_string(),
@@ -1549,7 +1956,73 @@ fn task_output_to_lane_item(
         sort_order,
         project: task.project.clone(),
         primary_thread_id: None,
+        due_at: task.due_at,
+        deadline: task.deadline,
+        due_label,
+        is_overdue,
+        deadline_label,
+        deadline_passed,
     }
+}
+
+fn due_label_for_lane_item(
+    due_at: Option<OffsetDateTime>,
+    lane: &str,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> (Option<String>, bool) {
+    let Some(due_at) = due_at else {
+        return (
+            match lane {
+                "active" => Some("Committed".to_string()),
+                "completed" => Some("Done".to_string()),
+                _ => None,
+            },
+            false,
+        );
+    };
+
+    if due_at.unix_timestamp() < now.unix_timestamp() {
+        return (Some("Overdue".to_string()), true);
+    }
+
+    let due_session_date =
+        crate::services::timezone::current_day_date_string(timezone, due_at).ok();
+    if due_session_date.as_deref() == Some(current_day.session_date.as_str()) {
+        return (Some("Today".to_string()), false);
+    }
+
+    if matches!(lane, "if_time_allows" | "inbox" | "completed") {
+        return (Some(format_local_calendar_label(timezone, due_at, "Due")), false);
+    }
+
+    (None, false)
+}
+
+fn deadline_label_for_lane_item(
+    deadline: Option<OffsetDateTime>,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+) -> (Option<String>, bool) {
+    let Some(deadline) = deadline else {
+        return (None, false);
+    };
+    (
+        Some(format_local_calendar_label(timezone, deadline, "Deadline")),
+        deadline.unix_timestamp() < now.unix_timestamp(),
+    )
+}
+
+fn format_local_calendar_label(
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    value: OffsetDateTime,
+    prefix: &str,
+) -> String {
+    let local = DateTime::<Utc>::from_timestamp(value.unix_timestamp(), value.nanosecond())
+        .expect("offset datetime should convert to chrono datetime")
+        .with_timezone(&timezone.tz());
+    format!("{prefix} {}", local.format("%b %-d"))
 }
 
 fn build_docked_input() -> NowDockedInputOutput {
@@ -2072,12 +2545,10 @@ fn split_now_tasks(
     let in_play = in_play_commitments
         .into_iter()
         .skip(1)
-        .take(5)
         .map(|commitment| now_task(&commitment))
         .collect::<Vec<_>>();
     let pullable = pullable_tasks
         .into_iter()
-        .take(6)
         .map(|commitment| now_task(&commitment))
         .collect::<Vec<_>>();
 
@@ -2136,22 +2607,38 @@ fn commitment_is_in_play(
     now: OffsetDateTime,
     current_day: &crate::services::timezone::CurrentDayWindow,
 ) -> bool {
+    let matches_due_context =
+        commitment_matches_next_up_due_context(commitment, timezone, now, current_day);
     if context
         .next_commitment_id
         .as_deref()
         .is_some_and(|id| id == commitment.id.as_ref())
     {
-        return true;
+        return matches_due_context;
     }
     if context
         .commitments_used
         .iter()
         .any(|id| id == commitment.id.as_ref())
     {
-        return true;
+        return matches_due_context;
     }
 
-    commitment_priority_key(commitment, timezone, now, current_day).0 <= 3
+    matches_due_context
+}
+
+fn commitment_matches_next_up_due_context(
+    commitment: &Commitment,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> bool {
+    let due_ts = commitment.due_at.map(|value| value.unix_timestamp());
+    let due_session_date = commitment
+        .due_at
+        .and_then(|value| crate::services::timezone::current_day_date_string(timezone, value).ok());
+    due_ts.is_some_and(|value| value < now.unix_timestamp())
+        || due_session_date.as_deref() == Some(current_day.session_date.as_str())
 }
 
 fn commitment_priority_key(
@@ -2231,6 +2718,23 @@ fn now_task(commitment: &Commitment) -> NowTaskOutput {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    let deadline = commitment
+        .metadata_json
+        .get("deadline_at")
+        .and_then(|value| value.as_str())
+        .and_then(|value| OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok())
+        .or_else(|| {
+            commitment
+                .metadata_json
+                .get("deadline")
+                .and_then(|value| value.get("date"))
+                .and_then(|value| value.as_str())
+                .and_then(|value| OffsetDateTime::parse(
+                    &format!("{value}T00:00:00Z"),
+                    &time::format_description::well_known::Rfc3339,
+                )
+                .ok())
+        });
     NowTaskOutput {
         id: commitment.id.as_ref().to_string(),
         text: commitment.text.clone(),
@@ -2239,8 +2743,28 @@ fn now_task(commitment: &Commitment) -> NowTaskOutput {
         tags,
         source_type: commitment.source_type.clone(),
         due_at: commitment.due_at,
-        project: commitment.project.clone(),
+        deadline,
+        project: normalized_now_task_project(commitment),
         commitment_kind: commitment.commitment_kind.clone(),
+    }
+}
+
+fn normalized_now_task_project(commitment: &Commitment) -> Option<String> {
+    let is_todoist = commitment.source_type.eq_ignore_ascii_case("todoist");
+    let is_inbox_project = commitment
+        .metadata_json
+        .get("is_inbox_project")
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false);
+    let literal_inbox = commitment
+        .project
+        .as_deref()
+        .map(|value| value.trim().eq_ignore_ascii_case("inbox"))
+        .unwrap_or(false);
+    if is_todoist && (is_inbox_project || literal_inbox) {
+        None
+    } else {
+        commitment.project.clone()
     }
 }
 
@@ -2324,7 +2848,8 @@ mod tests {
     use time::{Duration, Month};
     use vel_core::{
         ActionEvidenceRef, ActionPermissionMode, ActionScopeAffinity, ActionState, ActionSurface,
-        CommitmentId, CommitmentStatus, ContextMigrator,
+        CommitmentId, CommitmentStatus, ContextMigrator, IntegrationFamily, WritebackOperationId,
+        WritebackOperationKind, WritebackRisk, WritebackStatus, WritebackTargetRef,
     };
 
     #[test]
@@ -2447,6 +2972,288 @@ mod tests {
     }
 
     #[test]
+    fn split_now_tasks_preserves_full_in_play_and_pullable_sets() {
+        let timezone = crate::services::timezone::ResolvedTimeZone::utc();
+        let now = fixed_now();
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let context = CurrentContextV1::default();
+        let mut commitments = Vec::new();
+
+        for index in 0..8 {
+            commitments.push(commitment_fixture(
+                &format!("Overdue {}", index + 1),
+                Some(now - Duration::hours((index + 1) as i64)),
+                Some("todo"),
+                json!({ "has_due_time": true }),
+            ));
+        }
+
+        for index in 0..7 {
+            commitments.push(commitment_fixture(
+                &format!("Backlog {}", index + 1),
+                None,
+                Some("todo"),
+                json!({}),
+            ));
+        }
+
+        let buckets = split_now_tasks(&context, commitments, &timezone, now, &current_day);
+
+        assert_eq!(
+            buckets.next_commitment.as_ref().map(|task| task.text.as_str()),
+            Some("Overdue 1")
+        );
+        assert_eq!(buckets.in_play.len(), 7);
+        assert_eq!(buckets.pullable.len(), 7);
+        assert_eq!(buckets.in_play[0].text, "Overdue 2");
+        assert_eq!(buckets.pullable[0].text, "Backlog 1");
+    }
+
+    #[test]
+    fn default_task_lane_keeps_uncommitted_items_in_next_up() {
+        let timezone = crate::services::timezone::ResolvedTimeZone::utc();
+        let now = fixed_now();
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let context = CurrentContextV1::default();
+        let commitments = sort_commitments(
+            vec![
+                commitment_fixture(
+                    "Backlog cleanup",
+                    None,
+                    Some("todo"),
+                    json!({}),
+                ),
+                commitment_fixture(
+                    "Today task",
+                    Some(now + Duration::hours(2)),
+                    Some("todo"),
+                    json!({ "has_due_time": true }),
+                ),
+                commitment_fixture(
+                    "Overdue task",
+                    Some(now - Duration::hours(1)),
+                    Some("todo"),
+                    json!({ "has_due_time": true }),
+                ),
+            ],
+            &timezone,
+            now,
+        );
+        let all_open_tasks = commitments.iter().map(now_task).collect::<Vec<_>>();
+        let buckets = split_now_tasks(&context, commitments, &timezone, now, &current_day);
+
+        let lane = build_task_lane(
+            &context,
+            &buckets,
+            &all_open_tasks,
+            &timezone,
+            now,
+            &current_day,
+            Vec::new(),
+        );
+
+        assert!(lane.active.is_none());
+        assert!(lane.active_items.is_empty());
+        assert_eq!(
+            lane.next_up.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            vec!["Overdue task", "Today task"]
+        );
+        assert_eq!(
+            lane.if_time_allows.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            vec!["Backlog cleanup"]
+        );
+    }
+
+    #[test]
+    fn default_task_lane_reserves_todoist_inbox_items_into_inbox() {
+        let timezone = crate::services::timezone::ResolvedTimeZone::utc();
+        let now = fixed_now();
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let context = CurrentContextV1::default();
+
+        let due_inbox = commitment_fixture(
+            "Inbox due today",
+            Some(now + Duration::hours(2)),
+            Some("todo"),
+            json!({ "has_due_time": true, "is_inbox_project": true }),
+        );
+        let unscheduled_inbox = commitment_fixture(
+            "Inbox unscheduled",
+            None,
+            Some("todo"),
+            json!({ "is_inbox_project": true }),
+        );
+        let mut projected_task = commitment_fixture(
+            "Projected task",
+            Some(now + Duration::hours(3)),
+            Some("todo"),
+            json!({ "has_due_time": true }),
+        );
+        projected_task.project = Some("ops".to_string());
+
+        let commitments = sort_commitments(
+            vec![due_inbox, unscheduled_inbox, projected_task],
+            &timezone,
+            now,
+        );
+        let all_open_tasks = commitments.iter().map(now_task).collect::<Vec<_>>();
+        let buckets = split_now_tasks(&context, commitments, &timezone, now, &current_day);
+
+        let lane = build_task_lane(
+            &context,
+            &buckets,
+            &all_open_tasks,
+            &timezone,
+            now,
+            &current_day,
+            Vec::new(),
+        );
+
+        assert_eq!(
+            lane.next_up.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            vec!["Projected task"]
+        );
+        assert_eq!(
+            lane.inbox.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            vec!["Inbox due today", "Inbox unscheduled"]
+        );
+        assert!(lane.if_time_allows.is_empty());
+    }
+
+    #[test]
+    fn commitments_used_does_not_pull_undated_or_future_tasks_into_next_up() {
+        let timezone =
+            crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now = fixed_now();
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let due_today_at = now + Duration::hours(1);
+        let due_tomorrow_at = now + Duration::hours(3);
+        let due_today = commitment_fixture(
+            "Due today",
+            Some(due_today_at),
+            Some("todo"),
+            json!({ "has_due_time": true }),
+        );
+        let tomorrow = commitment_fixture(
+            "Due tomorrow",
+            Some(due_tomorrow_at),
+            Some("todo"),
+            json!({ "has_due_time": true }),
+        );
+        let undated = commitment_fixture("Undated task", None, Some("todo"), json!({}));
+        let commitments = sort_commitments(vec![undated, tomorrow, due_today], &timezone, now);
+        let mut context = CurrentContextV1::default();
+        context.commitments_used = commitments
+            .iter()
+            .map(|commitment| commitment.id.as_ref().to_string())
+            .collect();
+
+        let buckets = split_now_tasks(&context, commitments, &timezone, now, &current_day);
+
+        assert_eq!(
+            buckets.next_commitment.as_ref().map(|task| task.text.as_str()),
+            Some("Due today")
+        );
+        assert!(buckets.in_play.is_empty());
+        assert_eq!(buckets.pullable.len(), 2);
+        assert_eq!(buckets.pullable[0].text, "Due tomorrow");
+        assert_eq!(buckets.pullable[1].text, "Undated task");
+    }
+
+    #[test]
+    fn completed_today_merges_provider_results_and_pending_local_completions() {
+        let timezone = crate::services::timezone::ResolvedTimeZone::utc();
+        let now = fixed_now();
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let open_commitment = commitment_fixture(
+            "Reply to Dimitri",
+            Some(now - Duration::hours(2)),
+            Some("todo"),
+            json!({ "labels": ["Urgent"] }),
+        );
+        let mut open_commitment = open_commitment;
+        open_commitment.source_type = "todoist".to_string();
+        open_commitment.source_id = Some("todoist_task_provider".to_string());
+
+        let local_done = commitment_fixture(
+            "Finish weekly review",
+            None,
+            Some("todo"),
+            json!({}),
+        );
+        let mut local_done = local_done;
+        local_done.status = CommitmentStatus::Done;
+        local_done.resolved_at = Some(now - Duration::minutes(15));
+
+        let optimistic_open = commitment_fixture(
+            "Call Apria",
+            None,
+            Some("todo"),
+            json!({}),
+        );
+        let mut optimistic_open = optimistic_open;
+        optimistic_open.source_type = "todoist".to_string();
+        optimistic_open.source_id = Some("todoist_task_optimistic".to_string());
+
+        let provider_completed = vec![
+            crate::services::integrations_todoist::TodoistCompletedTaskSnapshot {
+                id: "task_provider".to_string(),
+                content: "Reply to Dimitri".to_string(),
+                labels: vec!["Urgent".to_string()],
+                project_id: Some("proj_ops".to_string()),
+                due: Some(crate::services::integrations_todoist::TodoistDue {
+                    date: Some("2026-03-24".to_string()),
+                    datetime: None,
+                }),
+                deadline: None,
+                updated_at: Some("2026-03-24T15:00:00Z".to_string()),
+                completed_at: Some("2026-03-24T15:00:00Z".to_string()),
+            },
+        ];
+        let pending_writebacks = vec![WritebackOperationRecord {
+            id: WritebackOperationId::new(),
+            kind: WritebackOperationKind::TodoistCompleteTask,
+            risk: WritebackRisk::Safe,
+            status: WritebackStatus::Queued,
+            target: WritebackTargetRef {
+                family: IntegrationFamily::Tasks,
+                provider_key: "todoist".to_string(),
+                project_id: None,
+                connection_id: None,
+                external_id: Some("task_optimistic".to_string()),
+            },
+            requested_payload: json!({
+                "commitment_id": optimistic_open.id.as_ref().to_string(),
+            }),
+            result_payload: None,
+            provenance: Vec::new(),
+            conflict_case_id: None,
+            requested_by_node_id: "vel-local".to_string(),
+            requested_at: now - Duration::minutes(5),
+            applied_at: None,
+            updated_at: now - Duration::minutes(5),
+        }];
+
+        let merged = merge_completed_today_commitments(
+            &[open_commitment.clone(), optimistic_open.clone()],
+            &[local_done.clone()],
+            &provider_completed,
+            &pending_writebacks,
+            &timezone,
+            &current_day,
+            now,
+        );
+
+        assert_eq!(
+            merged.iter().map(|item| item.text.as_str()).collect::<Vec<_>>(),
+            vec!["Call Apria", "Finish weekly review", "Reply to Dimitri"]
+        );
+        assert_eq!(merged[0].status, CommitmentStatus::Done);
+        assert_eq!(merged[2].source_id.as_deref(), Some("todoist_task_provider"));
+        assert_eq!(merged[2].metadata_json["labels"], json!(["Urgent"]));
+    }
+
+    #[test]
     fn risk_summary_normalizes_unrecognized_levels_to_unknown() {
         let summary = risk_summary("danger", Some(0.4));
 
@@ -2507,6 +3314,72 @@ mod tests {
     }
 
     #[test]
+    fn build_nudge_bars_suppresses_individual_overdue_commitment_follow_through() {
+        let overdue_item = ActionItem {
+            id: "act_commitment_overdue_1".to_string().into(),
+            surface: ActionSurface::Now,
+            kind: ActionKind::NextStep,
+            permission_mode: ActionPermissionMode::UserConfirm,
+            scope_affinity: ActionScopeAffinity::Global,
+            title: "Reply to overdue thread".to_string(),
+            summary: "This commitment is overdue and should be handled or rescheduled."
+                .to_string(),
+            project_id: None,
+            project_label: None,
+            project_family: None,
+            state: ActionState::Active,
+            rank: 90,
+            surfaced_at: OffsetDateTime::UNIX_EPOCH,
+            snoozed_until: None,
+            evidence: vec![ActionEvidenceRef {
+                source_kind: "commitment".to_string(),
+                source_id: "com_overdue_1".to_string(),
+                label: "Reply to overdue thread".to_string(),
+                detail: Some("todo".to_string()),
+            }],
+            thread_route: None,
+        };
+        let ordinary_item = ActionItem {
+            id: "act_follow_up_1".to_string().into(),
+            surface: ActionSurface::Now,
+            kind: ActionKind::NextStep,
+            permission_mode: ActionPermissionMode::UserConfirm,
+            scope_affinity: ActionScopeAffinity::Global,
+            title: "Review morning plan".to_string(),
+            summary: "A review request is ready.".to_string(),
+            project_id: None,
+            project_label: None,
+            project_family: None,
+            state: ActionState::Active,
+            rank: 70,
+            surfaced_at: OffsetDateTime::UNIX_EPOCH,
+            snoozed_until: None,
+            evidence: vec![ActionEvidenceRef {
+                source_kind: "intervention".to_string(),
+                source_id: "intv_1".to_string(),
+                label: "review".to_string(),
+                detail: None,
+            }],
+            thread_route: None,
+        };
+
+        let bars = build_nudge_bars(
+            None,
+            None,
+            &[overdue_item, ordinary_item.clone()],
+            None,
+            None,
+            &[],
+            None,
+            None,
+            fixed_now(),
+        );
+
+        assert_eq!(bars.len(), 1);
+        assert_eq!(bars[0].title, ordinary_item.title);
+    }
+
+    #[test]
     fn now_context_shape_parses_with_typed_context_migrator() {
         let context = json!({
             "computed_at": 1_700_000_000i64,
@@ -2522,6 +3395,18 @@ mod tests {
         let typed = ContextMigrator::from_json_value(context).expect("context should parse");
         assert_eq!(typed.mode, "morning_mode");
         assert_eq!(typed.attention_confidence, Some(0.9));
+    }
+
+    #[test]
+    fn now_task_normalizes_todoist_inbox_project_to_none() {
+        let mut commitment = commitment_fixture("Message Connie", None, Some("todo"), json!({
+            "is_inbox_project": true
+        }));
+        commitment.project = Some("inbox".to_string());
+
+        let task = now_task(&commitment);
+
+        assert_eq!(task.project, None);
     }
 
     fn fixed_now() -> OffsetDateTime {

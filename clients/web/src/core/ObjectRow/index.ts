@@ -2,7 +2,7 @@ export {
   ObjectRowFrame,
   ObjectRowLayout,
   ObjectRowTitleMetaBand,
-  objectRowFrameClass,
   type ObjectRowDensity,
   type ObjectRowTone,
 } from './ObjectRow';
+export { objectRowFrameClass } from './objectRowFrameClass';

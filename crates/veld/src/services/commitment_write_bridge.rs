@@ -1,17 +1,18 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use sqlx::SqlitePool;
 use vel_core::{
+    action_explain, generic_object_action_contracts, object_explain, policy_explain,
     ConfirmationMode, ExplainBasis, PolicyDecisionKind, PolicyEvaluationInput, PolicyLayerKind,
-    WriteIntentId, action_explain, generic_object_action_contracts, object_explain, policy_explain,
+    WriteIntentId,
 };
 
 use crate::{
     errors::AppError,
     services::{
-        policy_evaluator::{PolicyEvaluator, PolicyEvaluatorError, default_layer},
+        policy_evaluator::{default_layer, PolicyEvaluator, PolicyEvaluatorError},
         write_intent_dispatch::{
-            DispatchDisposition, ExecutionDispatch, WriteIntentDispatchRequest,
-            dispatch_write_intent,
+            dispatch_write_intent, DispatchDisposition, ExecutionDispatch,
+            WriteIntentDispatchRequest,
         },
     },
 };
@@ -136,7 +137,7 @@ fn map_policy_error(error: PolicyEvaluatorError) -> AppError {
 
 #[cfg(test)]
 mod tests {
-    use super::{CommitmentWriteBridgeRequest, bridge_commitment_write};
+    use super::{bridge_commitment_write, CommitmentWriteBridgeRequest};
     use serde_json::json;
     use sqlx::SqlitePool;
     use vel_storage::{list_runtime_records, migrate_storage};
@@ -188,11 +189,9 @@ mod tests {
         .unwrap();
 
         assert!(outcome.dispatch.is_none());
-        assert!(
-            list_runtime_records(&pool, "write_intent")
-                .await
-                .unwrap()
-                .is_empty()
-        );
+        assert!(list_runtime_records(&pool, "write_intent")
+            .await
+            .unwrap()
+            .is_empty());
     }
 }

@@ -19,21 +19,23 @@ afterEach(() => {
 describe('Navbar', () => {
   function renderNavbar(activeView: 'now' | 'threads' | 'system' = 'now') {
     const onSelectView = vi.fn()
+    const onDeepLink = vi.fn()
 
     render(
       <Navbar
         activeView={activeView}
         onSelectView={onSelectView}
+        onDeepLink={onDeepLink}
       />,
     )
 
-    return { onSelectView }
+    return { onSelectView, onDeepLink }
   }
 
   it('renders top nav items and routes clicks through handlers', () => {
     const { onSelectView } = renderNavbar()
 
-    fireEvent.click(screen.getByRole('button', { name: /System/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'System' }))
 
     expect(onSelectView).toHaveBeenCalledWith('system')
   })
@@ -59,10 +61,14 @@ describe('Navbar', () => {
     expect(screen.queryByRole('button', { name: /open info/i })).not.toBeInTheDocument()
   })
 
-  it('links the info affordance to the repo-local system documentation', () => {
-    renderNavbar()
-    const link = screen.getByRole('link', { name: /system documentation/i })
-    expect(link.getAttribute('href')).toMatch(/system.*\.md/i)
+  it('routes the docs affordance into the in-frame system documentation view', () => {
+    const { onDeepLink } = renderNavbar()
+    fireEvent.click(screen.getByRole('button', { name: /system documentation/i }))
+    expect(onDeepLink).toHaveBeenCalledWith({
+      view: 'system',
+      systemTarget: { section: 'overview', subsection: 'trust' },
+      anchor: 'system-docs',
+    })
   })
 
   it('keeps icon plus label visible for every primary surface control', () => {

@@ -16,7 +16,7 @@ import { uiTheme } from '../../core/Theme';
 
 const NUDGE_TAG_ICON = 10;
 /** Lead glyph (floating left of the nudge card). */
-const NUDGE_LEAD_ICON = 16;
+const NUDGE_LEAD_ICON = 14;
 
 export function nudgeIcon(kind: string): ReactNode {
   switch (kind) {
@@ -52,11 +52,38 @@ export function nudgeKindTagIcon(kind: string): ReactNode {
   }
 }
 
-export function nudgeBadgeTone(kind: string, urgent: boolean): string {
-  if (kind === 'trust_warning' || kind === 'freshness_warning' || urgent) {
-    return 'text-amber-300';
+function nudgeOrbColorFamily(kind: string): 'brand' | 'warm' | 'sky' | 'emerald' | 'orange' {
+  switch (kind) {
+    case 'trust_warning':
+      return 'warm';
+    case 'freshness_warning':
+      return 'sky';
+    case 'review_request':
+      return 'emerald';
+    case 'reflow_proposal':
+      return 'orange';
+    case 'needs_input':
+    case 'thread_continuation':
+    case 'nudge':
+    default:
+      return 'brand';
   }
-  return uiTheme.brandSoftText;
+}
+
+export function nudgeBadgeTone(kind: string, urgent: boolean): string {
+  switch (nudgeOrbColorFamily(kind)) {
+    case 'warm':
+      return 'text-amber-300';
+    case 'sky':
+      return 'text-sky-300';
+    case 'emerald':
+      return 'text-emerald-300';
+    case 'orange':
+      return 'text-orange-300';
+    case 'brand':
+    default:
+      return urgent ? 'text-[var(--vel-color-accent-strong)]' : uiTheme.brandSoftText;
+  }
 }
 
 /**
@@ -74,18 +101,20 @@ export function NudgeLeadOrb({
   warmSurface: boolean;
   isPrimary: boolean;
 }) {
-  const ringClass = warmSurface ? 'vel-nudge-orb-ring--warm' : 'vel-nudge-orb-ring--brand';
+  const family = warmSurface && nudgeOrbColorFamily(kind) === 'brand' ? 'warm' : nudgeOrbColorFamily(kind);
+  const ringClass = `vel-nudge-orb-ring--${family}`;
+  const iconClass = `vel-nudge-orb-icon--${family}`;
 
   return (
     <div
       className={cn(
-        'relative size-9 shrink-0',
-        isPrimary ? 'scale-105' : 'scale-100',
+        'relative size-[1.875rem] shrink-0',
+        isPrimary ? 'scale-100' : 'scale-[0.98]',
       )}
     >
       <div
         className={cn(
-          'pointer-events-none absolute inset-[3px] rounded-full p-[2px]',
+          'pointer-events-none absolute inset-[2px] rounded-full p-[1.5px]',
           ringClass,
         )}
         aria-hidden
@@ -94,6 +123,7 @@ export function NudgeLeadOrb({
           <span
             className={cn(
               'vel-nudge-orb-icon flex items-center justify-center',
+              iconClass,
               nudgeBadgeTone(kind, urgent),
             )}
           >
@@ -132,12 +162,18 @@ export function NudgeActionIcon({ kind, ...props }: IconProps & { kind: string }
     case 'open_inbox':
       return <InboxIcon {...props} />;
     default:
+      if (kind.startsWith('open_settings')) {
+        return <SettingsIcon {...props} />;
+      }
       return <SparkIcon {...props} />;
   }
 }
 
 /** Visible label next to the action icon (short; deep-link context is encoded in navigation, not API copy). */
 export function nudgeActionButtonLabel(action: { kind: string; label: string }, bar: { id: string }): string {
+  if (action.kind.startsWith('open_settings:core_settings:')) {
+    return action.label;
+  }
   switch (action.kind) {
     case 'open_thread':
     case 'expand':
@@ -146,10 +182,14 @@ export function nudgeActionButtonLabel(action: { kind: string; label: string }, 
     case 'open_inbox':
       return 'Inbox';
     case 'open_settings':
+      if (bar.id === 'core_setup_required') return 'Core settings';
       if (bar.id === 'backup_trust_warning') return 'Backups';
       if (bar.id === 'mesh_summary_warning') return 'Sync & clients';
       return 'Settings';
     default:
+      if (action.kind.startsWith('open_settings')) {
+        return action.label;
+      }
       return action.label.length > 28 ? `${action.label.slice(0, 25)}…` : action.label;
   }
 }

@@ -2,14 +2,44 @@ import type {
   ActionItemData,
   ClusterBootstrapData,
   NowData,
+  NowNudgeActionData,
   NowTaskData,
   RoutineBlockData,
   WorkerPresenceData,
 } from '../../types';
 import type { SystemNavigationTarget } from '../system';
 
+function coreSetupChecklistTarget(actionKind: string): SystemNavigationTarget | null {
+  const parts = actionKind.split(':');
+  if (parts[0] !== 'open_settings' || parts[1] !== 'core_settings') {
+    return null;
+  }
+  const item = parts[2] ?? null;
+  switch (item) {
+    case 'user_display_name':
+      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-user-display-name' };
+    case 'node_display_name':
+      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-node-display-name' };
+    case 'agent_profile':
+      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-agent-profile-freeform' };
+    case 'llm_provider':
+      return { section: 'integrations', subsection: 'providers', anchor: 'providers-llm-routing' };
+    case 'synced_provider':
+      return { section: 'integrations', subsection: 'providers', anchor: 'providers-google-calendar' };
+    default:
+      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-required-setup' };
+  }
+}
+
 /** Maps legacy `open_settings` nudges onto the canonical `/system` surface. */
-export function nudgeOpenSystemTarget(bar: { id: string }): SystemNavigationTarget {
+export function nudgeOpenSystemTarget(
+  bar: { id: string },
+  action?: Pick<NowNudgeActionData, 'kind'> | null,
+): SystemNavigationTarget {
+  if (bar.id === 'core_setup_required') {
+    return coreSetupChecklistTarget(action?.kind ?? 'open_settings:core_settings')
+      ?? { section: 'core', subsection: 'core_settings', anchor: 'core-settings-required-setup' };
+  }
   if (bar.id === 'backup_trust_warning') {
     return { section: 'integrations', subsection: 'providers' };
   }

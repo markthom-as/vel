@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { uiFonts } from '../Theme';
 import { cn } from '../cn';
 import { ObjectCard } from '../ObjectCard';
-import { ObjectRowFrame, objectRowFrameClass } from '../ObjectRow';
+import { ObjectRowFrame } from '../ObjectRow';
+import { objectRowFrameClass } from '../ObjectRow/objectRowFrameClass';
 import { SurfaceTagChip } from '../SurfaceChips';
 
 type PanelBandSurface = 'brand' | 'warm' | 'muted' | 'emphasis' | 'ghost' | 'queue';

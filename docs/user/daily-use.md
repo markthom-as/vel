@@ -75,6 +75,8 @@ echo "snippet from terminal" | cargo run -p vel-cli -- capture -
 
 On desktop web, hold the microphone button to use local browser speech-to-text. Vel keeps the transcript local until you send it, then submits it through the same assistant route as typed text with explicit voice provenance. `Now` and `Threads` share that backend-owned entry seam. The backend decides whether what you said belongs inline, in `Inbox`, or in `Threads`; the shell should follow that returned route instead of guessing capture-versus-conversation locally.
 
+If you want a two-way voice loop in `Threads`, start call mode on the active thread first. That thread flag is now explicit and persisted through the normal conversation API. The shell still uses browser-local speech-to-text and text-to-speech, but the assistant turn itself remains the same backend-owned thread flow instead of switching to a second realtime-only path.
+
 When Vel answers from recall, treat it as bounded local recall over persisted Vel data, not as ambient general memory. The backend now assembles a typed assistant-context pack with summary, focus lines, source breakdown, scores, and provenance so the same recall story can surface consistently across chat and assistant entry.
 
 That assistant context can also surface canonical scheduler semantics from open commitments. Today that means bounded facets like `block:*`, duration, `time:*`, `cal:free`, `urgent`, and `defer` can show up consistently in recall or grounding without each shell re-parsing raw provider labels.

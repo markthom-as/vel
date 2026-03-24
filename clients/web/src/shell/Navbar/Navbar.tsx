@@ -3,6 +3,7 @@ import type { MainView } from '../../data/operatorSurfaces';
 import { useMemo } from 'react';
 import { useQuery } from '../../data/query';
 import { cn } from '../../core/cn';
+import { ActionChipButton } from '../../core/FilterToggleTag';
 import { CalendarIcon, CheckCircleIcon, SparkIcon, SyncIcon, WarningIcon } from '../../core/Icons';
 import { uiFonts } from '../../core/Theme';
 import { NAVBAR_HEADER_CLASSNAME, NAVBAR_INNER_CLASSNAME } from './navbarChrome';
@@ -59,15 +60,15 @@ export function Navbar({ activeView, onSelectView, onDeepLink }: NavbarProps) {
         </div>
         <div className="mx-auto hidden min-w-0 items-center gap-2 lg:flex">
           {activeView !== 'now' ? (
-            <button
-              type="button"
+            <ActionChipButton
+              tone="ghost"
               onClick={() => onDeepLink?.({ view: 'now', anchor: 'now-next-up' }) ?? onSelectView('now')}
               aria-label={`Current event ${activeEvent?.title ?? 'No current event'}`}
-              className="inline-flex max-w-[12rem] items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)] transition hover:text-[var(--vel-color-text)]"
+              className="max-w-[12rem] !gap-1.5 !px-2 !py-1 !text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]"
             >
               <CalendarIcon size={11} className="shrink-0" />
               <span className="truncate">{activeEvent?.title ?? 'No current event'}</span>
-            </button>
+            </ActionChipButton>
           ) : null}
           <button
             type="button"
@@ -96,19 +97,19 @@ export function Navbar({ activeView, onSelectView, onDeepLink }: NavbarProps) {
             <SyncIcon size={11} className={syncTone.includes('sync') ? 'animate-spin' : ''} />
           </button>
           {activeView !== 'now' ? (
-            <button
-              type="button"
+            <ActionChipButton
+              tone="ghost"
               onClick={() => onDeepLink?.({ view: 'now', anchor: 'now-active' }) ?? onSelectView('now')}
               aria-label={`Active task ${activeTask}`}
-              className="inline-flex max-w-[12rem] items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)] transition hover:text-[var(--vel-color-text)]"
+              className="max-w-[12rem] !gap-1.5 !px-2 !py-1 !text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]"
             >
               <SparkIcon size={11} className="shrink-0 text-[var(--vel-color-accent-soft)]" />
               <span className="truncate">{activeTask}</span>
-            </button>
+            </ActionChipButton>
           ) : null}
         </div>
         <div className="flex min-w-0 items-center gap-3">
-          <NavbarNavLinks activeView={activeView} onSelectView={onSelectView} />
+          <NavbarNavLinks activeView={activeView} onSelectView={onSelectView} onDeepLink={onDeepLink} />
         </div>
       </div>
     </header>

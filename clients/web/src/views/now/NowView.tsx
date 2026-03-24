@@ -1,24 +1,31 @@
-import type { DragEvent } from 'react';
+import type { DragEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { contextQueryKeys, loadNow, updateNowTaskLane } from '../../data/context';
+import {
+  contextQueryKeys,
+  loadNow,
+  rescheduleNowTasksToToday,
+  updateNowTaskLane,
+} from '../../data/context';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
-import type { NowData } from '../../types';
+import type { NowData, NowNudgeBarData } from '../../types';
 import { ActionChipButton, FilterDenseTag, ProjectTag } from '../../core/FilterToggleTag';
-import { CalendarIcon, CheckCircleIcon, ClockIcon, OpenThreadIcon, SparkIcon } from '../../core/Icons';
+import { ArchiveIcon, CalendarIcon, CheckCircleIcon, ChevronRightIcon, ClockIcon, InboxIcon, OpenThreadIcon, SparkIcon } from '../../core/Icons';
 import { cn } from '../../core/cn';
 import { ObjectRowFrame, ObjectRowLayout, ObjectRowTitleMetaBand } from '../../core/ObjectRow';
 import { SurfaceState } from '../../core/SurfaceState';
 import { surfaceShell, uiFonts } from '../../core/Theme';
 import {
-  dedupeTasks,
   findActiveEvent,
   formatTime,
 } from './nowModel';
 import type { SystemNavigationTarget } from '../system';
+import { NowNudgeStrip } from './components/NowNudgeStrip';
 
 interface NowViewProps {
   onOpenThread?: (conversationId: string) => void;
   onOpenSystem?: (target?: SystemNavigationTarget) => void;
+  onRaiseNudge?: (nudge: NowNudgeBarData) => void;
+  onClearNudge?: (nudgeId: string) => void;
   hideNudgeLane?: boolean;
 }
 
@@ -27,7 +34,7 @@ interface CommitmentMessage {
   message: string;
 }
 
-type TaskSectionKey = 'active' | 'next' | 'later' | 'completed';
+type TaskSectionKey = 'active' | 'next' | 'inbox' | 'later' | 'completed';
 type TaskDisplay = {
   id: string;
   text: string;
@@ -36,6 +43,9 @@ type TaskDisplay = {
   tags: string[];
   project: string | null;
   dueLabel: string | null;
+  isOverdue: boolean;
+  deadlineLabel: string | null;
+  deadlinePassed: boolean;
   threadId: string | null;
 };
 
@@ -46,6 +56,15 @@ type NextUpItem =
       title: string;
       meta: string;
       detail: string;
+      dueLabel?: never;
+      deadlineLabel?: never;
+      deadlinePassed?: never;
+      isOverdue?: never;
+      threadId?: never;
+      project?: never;
+      text?: never;
+      description?: never;
+      tags?: never;
     }
   | ({
       kind: 'task';
@@ -56,6 +75,7 @@ function laneForSection(section: TaskSectionKey): 'active' | 'next_up' | 'if_tim
     case 'active':
       return 'active';
     case 'next':
+    case 'inbox':
       return 'next_up';
     case 'later':
       return 'if_time_allows';
@@ -86,7 +106,10 @@ function eventWindowLabel(
   return end ? `${start}–${end}` : start;
 }
 
-function normalizeTaskTags(tags: string[] | undefined, project: string | null | undefined): string[] {
+function normalizeTaskTags(
+  tags: string[] | undefined,
+  project: string | null | undefined,
+): string[] {
   const projectKey = project?.trim().toLowerCase() ?? null;
   return (tags ?? []).filter((tag, index, all) => {
     const normalized = tag.trim().toLowerCase();
@@ -97,7 +120,17 @@ function normalizeTaskTags(tags: string[] | undefined, project: string | null | 
   });
 }
 
-export function NowView({ onOpenThread }: NowViewProps) {
+function normalizeTaskProject(
+  project: string | null | undefined,
+): string | null {
+  const trimmed = project?.trim() ?? null;
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
@@ -113,12 +146,21 @@ export function NowView({ onOpenThread }: NowViewProps) {
   const [sectionTasks, setSectionTasks] = useState<Record<TaskSectionKey, TaskDisplay[]>>({
     active: [],
     next: [],
+    inbox: [],
     later: [],
     completed: [],
   });
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [laneEdited, setLaneEdited] = useState(false);
-
+  const [reschedulingOverdue, setReschedulingOverdue] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<TaskSectionKey, boolean>>({
+    active: true,
+    next: true,
+    inbox: false,
+    later: false,
+    completed: false,
+  });
   useEffect(() => {
     const handleFocus = () => {
       void refetch();
@@ -147,54 +189,99 @@ export function NowView({ onOpenThread }: NowViewProps) {
     }
     const activeItems = data.task_lane?.active_items ?? (data.task_lane?.active ? [data.task_lane.active] : []);
     const nextItems = data.task_lane?.next_up ?? data.task_lane?.pending ?? [];
+    const inboxItems = data.task_lane?.inbox ?? [];
     const laterItems = data.task_lane?.if_time_allows ?? [];
     const completedItems = data.task_lane?.completed ?? data.task_lane?.recent_completed ?? [];
     if (laneEdited) {
       return;
     }
     setSectionTasks({
-      active: activeItems.map((task) => ({
+      active: activeItems.map((task) => {
+        return {
         id: task.id,
         text: task.text,
         title: task.title ?? task.text,
         description: task.description ?? null,
         tags: normalizeTaskTags(task.tags, task.project ?? null),
-        project: task.project ?? null,
-        dueLabel: 'Committed task',
+        project: normalizeTaskProject(task.project ?? null),
+        dueLabel: task.due_label ?? null,
+        isOverdue: task.is_overdue,
+        deadlineLabel: task.deadline_label ?? null,
+        deadlinePassed: task.deadline_passed,
         threadId: task.primary_thread_id ?? null,
-      })),
-      next: nextItems.map((task) => ({
+      };
+      }),
+      next: nextItems.map((task) => {
+        return {
         id: task.id,
         text: task.text,
         title: task.title ?? task.text,
         description: task.description ?? null,
         tags: normalizeTaskTags(task.tags, task.project ?? null),
-        dueLabel: 'Committed task',
+        dueLabel: task.due_label ?? null,
+        isOverdue: task.is_overdue,
+        deadlineLabel: task.deadline_label ?? null,
+        deadlinePassed: task.deadline_passed,
         threadId: task.primary_thread_id ?? null,
-        project: task.project ?? null,
-      })),
-      later: laterItems.map((task) => ({
+        project: normalizeTaskProject(task.project ?? null),
+      };
+      }),
+      later: laterItems.map((task) => {
+        return {
         id: task.id,
         text: task.text,
         title: task.title ?? task.text,
         description: task.description ?? null,
         tags: normalizeTaskTags(task.tags, task.project ?? null),
-        project: task.project ?? null,
-        dueLabel: null,
+        project: normalizeTaskProject(task.project ?? null),
+        dueLabel: task.due_label ?? null,
+        isOverdue: task.is_overdue,
+        deadlineLabel: task.deadline_label ?? null,
+        deadlinePassed: task.deadline_passed,
         threadId: task.primary_thread_id ?? null,
-      })),
-      completed: completedItems.map((item) => ({
-        id: item.id,
-        text: item.text,
-        title: item.title ?? item.text,
-        description: item.description ?? null,
-        tags: normalizeTaskTags(item.tags, item.project ?? null),
-        project: item.project ?? null,
-        dueLabel: 'Done',
-        threadId: item.primary_thread_id ?? null,
-      })),
+      };
+      }),
+      completed: completedItems.map((item) => {
+        return {
+          id: item.id,
+          text: item.text,
+          title: item.title ?? item.text,
+          description: item.description ?? null,
+          tags: normalizeTaskTags(item.tags, item.project ?? null),
+          project: normalizeTaskProject(item.project ?? null),
+          dueLabel: item.due_label ?? null,
+          isOverdue: item.is_overdue,
+          deadlineLabel: item.deadline_label ?? null,
+          deadlinePassed: item.deadline_passed,
+          threadId: item.primary_thread_id ?? null,
+        };
+      }),
+      inbox: inboxItems.map((task) => {
+        return {
+          id: task.id,
+          text: task.text,
+          title: task.title ?? task.text,
+          description: task.description ?? null,
+          tags: normalizeTaskTags(task.tags, task.project ?? null),
+          project: normalizeTaskProject(task.project ?? null),
+          dueLabel: task.due_label ?? null,
+          isOverdue: task.is_overdue,
+          deadlineLabel: task.deadline_label ?? null,
+          deadlinePassed: task.deadline_passed,
+          threadId: task.primary_thread_id ?? null,
+        };
+      }),
     });
   }, [data, laneEdited]);
+
+  const nowTs = data?.computed_at ?? 0;
+  const overdueCount =
+    sectionTasks.active.filter((task) => task.isOverdue).length
+    + sectionTasks.next.filter((task) => task.isOverdue).length
+    + sectionTasks.inbox.filter((task) => task.isOverdue).length
+    + sectionTasks.later.filter((task) => task.isOverdue).length;
+  const overdueSidebarNudge =
+    data?.nudge_bars.find((bar) => bar.id === 'todoist_overdue_backlog') ?? null;
 
   if (loading) {
     return <SurfaceState message="Loading your current state…" layout="centered" />;
@@ -213,25 +300,15 @@ export function NowView({ onOpenThread }: NowViewProps) {
     );
   }
 
-  const nowTs = data.computed_at;
   const upcomingEvents = data.schedule?.upcoming_events ?? [];
   const activeEvent = findActiveEvent(upcomingEvents, nowTs);
   const currentEventLabel = activeEvent?.title ?? 'No current event';
   const contextLabel = data.status_row?.context_label ?? data.context_line?.text ?? 'No context';
-  const activeTaskLabel = sectionTasks.active[0]?.text ?? 'NONE';
-  const taskSummary = data.tasks ?? { next_commitment: null, other_open: [], todoist: [] };
-  const overdueCount = dedupeTasks([
-    taskSummary.next_commitment,
-    ...(taskSummary.other_open ?? []),
-    ...(taskSummary.todoist ?? []),
-  ]).filter((task) => {
-    if (!task.due_at) return false;
-    const dueTs = Date.parse(task.due_at);
-    return Number.isFinite(dueTs) && dueTs < nowTs * 1000;
-  }).length;
   const progressBaseCount = Math.max(1, sectionTasks.active.length + sectionTasks.next.length + sectionTasks.completed.length);
   const completedRatio = Math.min(1, sectionTasks.completed.length / progressBaseCount);
-  const overflowRatio = sectionTasks.later.length > 0 ? Math.min(1, sectionTasks.later.length / progressBaseCount) : 0;
+  const stretchGoals = sectionTasks.later;
+  const overflowRatio = stretchGoals.length > 0 ? Math.min(1, stretchGoals.length / progressBaseCount) : 0;
+  const inboxCount = sectionTasks.inbox.length;
   const nextUpEvents = upcomingEvents.filter((event) => {
     if (activeEvent) {
       return event !== activeEvent && event.start_ts >= activeEvent.start_ts;
@@ -251,6 +328,9 @@ export function NowView({ onOpenThread }: NowViewProps) {
       id: task.id,
       title: task.title,
       dueLabel: task.dueLabel,
+      deadlineLabel: task.deadlineLabel,
+      deadlinePassed: task.deadlinePassed,
+      isOverdue: task.isOverdue,
       threadId: task.threadId,
       project: task.project,
       text: task.text,
@@ -258,7 +338,8 @@ export function NowView({ onOpenThread }: NowViewProps) {
       tags: task.tags,
     })),
   ];
-  const stretchGoals = sectionTasks.later;
+  const overdueNudgeBars: NowData['nudge_bars'] = overdueSidebarNudge ? [overdueSidebarNudge] : [];
+  const showInlineOverdueNudge = !hideNudgeLane;
 
   const updateCommitmentStatus = async (commitmentId: string, status: 'done' | 'active') => {
     setPendingCommitments((current) => ({ ...current, [commitmentId]: true }));
@@ -312,6 +393,10 @@ export function NowView({ onOpenThread }: NowViewProps) {
           if (task.id === taskId) moved = task;
           return task.id !== taskId;
         }),
+        inbox: current.inbox.filter((task) => {
+          if (task.id === taskId) moved = task;
+          return task.id !== taskId;
+        }),
         later: current.later.filter((task) => {
           if (task.id === taskId) moved = task;
           return task.id !== taskId;
@@ -333,15 +418,27 @@ export function NowView({ onOpenThread }: NowViewProps) {
     })();
   };
 
-  const renderTaskRow = (task: TaskDisplay, section: Exclude<TaskSectionKey, 'completed'> | 'completed') => {
+  const renderTaskRow = (task: TaskDisplay, section: TaskSectionKey) => {
     const isActive = section === 'active';
     const isLater = section === 'later';
     const isCompleted = section === 'completed';
+    const isInbox = section === 'inbox';
     const metaTags = (
       <>
         {task.dueLabel ? (
-          <FilterDenseTag tone="muted">
+          <FilterDenseTag
+            tone="muted"
+            className={task.isOverdue ? 'border-red-700/35 bg-red-950/18 text-red-200' : undefined}
+          >
             {task.dueLabel}
+          </FilterDenseTag>
+        ) : null}
+        {task.deadlineLabel ? (
+          <FilterDenseTag
+            tone="muted"
+            className={task.deadlinePassed ? 'border-red-700/35 bg-red-950/18 text-red-200' : undefined}
+          >
+            {task.deadlineLabel}
           </FilterDenseTag>
         ) : null}
         {task.project ? (
@@ -358,7 +455,7 @@ export function NowView({ onOpenThread }: NowViewProps) {
     return (
       <div
         key={task.id}
-        draggable={!isCompleted}
+        draggable={!isCompleted && !isInbox}
         onDragStart={() => setDraggedTaskId(task.id)}
         onDragEnd={() => setDraggedTaskId(null)}
       >
@@ -371,6 +468,7 @@ export function NowView({ onOpenThread }: NowViewProps) {
               ? 'scale-[1.045] bg-[color:var(--vel-color-panel-2)]/72'
               : '',
             isLater ? 'opacity-75' : '',
+            isInbox ? 'border-[color:var(--vel-color-border)]/80 bg-[color:var(--vel-color-panel)]/55' : '',
           )}
         >
           <ObjectRowLayout
@@ -406,7 +504,6 @@ export function NowView({ onOpenThread }: NowViewProps) {
               <ObjectRowTitleMetaBand
                 title={
                   <span className={cn('inline-flex items-center gap-2 text-[15px] font-medium', isCompleted ? 'text-[var(--vel-color-muted)] line-through' : 'text-[var(--vel-color-text)]')}>
-                    {isActive ? <SparkIcon size={13} className="text-[var(--vel-color-accent-soft)]" /> : null}
                     <span className="text-[14px]">{task.title}</span>
                   </span>
                 }
@@ -439,9 +536,99 @@ export function NowView({ onOpenThread }: NowViewProps) {
     },
   });
 
+  const toggleSection = (section: TaskSectionKey) => {
+    if (section === 'later') {
+      setBacklogOpen((current) => {
+        const next = !current;
+        setExpandedSections((state) => ({ ...state, later: next }));
+        return next;
+      });
+      return;
+    }
+    setExpandedSections((current) => ({ ...current, [section]: !current[section] }));
+  };
+
+  const renderSectionTrigger = (
+    section: TaskSectionKey,
+    options: {
+      icon: ReactNode;
+      label: string;
+      toneClass?: string;
+      controlsId: string;
+    },
+  ) => {
+    const expanded = section === 'later' ? backlogOpen : expandedSections[section];
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSection(section)}
+        className={cn(
+          uiFonts.display,
+          'flex w-full items-center gap-1 text-[5px] uppercase leading-none tracking-[0.05em] transition hover:text-[var(--vel-color-text)]',
+          options.toneClass ?? 'text-[var(--vel-color-muted)]',
+        )}
+        aria-expanded={expanded}
+        aria-controls={options.controlsId}
+      >
+        <span className="inline-flex min-w-0 items-center gap-1">
+          {options.icon}
+          <span>{options.label}</span>
+        </span>
+        <span className="ml-auto inline-flex min-w-0 flex-1 items-center justify-end gap-1.5">
+          <span className="h-px min-w-4 flex-1 bg-[var(--vel-color-border)]/80" aria-hidden />
+          <ChevronRightIcon
+            size={9}
+            className={cn('shrink-0 transition-transform', expanded ? 'rotate-90' : '')}
+          />
+        </span>
+      </button>
+    );
+  };
+
+  const handleOverdueNudgeAction = async (
+    bar: typeof overdueNudgeBars[number],
+    action: typeof overdueNudgeBars[number]['actions'][number],
+  ) => {
+    if (action.kind.startsWith('jump_backlog')) {
+      setBacklogOpen(true);
+      window.setTimeout(() => {
+        document.getElementById('now-backlog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+      return;
+    }
+    if (action.kind === 'open_thread' && bar.primary_thread_id) {
+      onOpenThread?.(bar.primary_thread_id);
+      return;
+    }
+    if (!action.kind.startsWith('reschedule_today') || reschedulingOverdue) {
+      return;
+    }
+    const [, encodedIds = ''] = action.kind.split(':', 2);
+    const commitmentIds = encodedIds
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (commitmentIds.length === 0) {
+      return;
+    }
+
+    setReschedulingOverdue(true);
+    try {
+      const response = await rescheduleNowTasksToToday(commitmentIds);
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to reschedule overdue items');
+      }
+      setQueryData(nowKey, () => response.data ?? null);
+      invalidateQuery(nowKey, { refetch: true });
+      invalidateQuery(commitmentsKey, { refetch: true });
+    } finally {
+      setReschedulingOverdue(false);
+    }
+  };
+
   return (
     <div className={surfaceShell.mainColumn}>
-      <div className={surfaceShell.scrollColumn}>
+      <div className={surfaceShell.flowColumn}>
         <div className={surfaceShell.mainContent}>
           <section className="flex flex-col gap-5">
             <div className="space-y-3">
@@ -455,10 +642,6 @@ export function NowView({ onOpenThread }: NowViewProps) {
                   <p className="flex max-w-3xl items-center gap-2 text-sm leading-6 text-[var(--vel-color-muted)]">
                     <CalendarIcon size={14} className="shrink-0 text-[var(--vel-color-dim)]" />
                     <span className="truncate">{currentEventLabel} | {contextLabel}</span>
-                  </p>
-                  <p className="flex max-w-3xl items-center gap-2 text-sm leading-6 text-[var(--vel-color-muted)]">
-                    <SparkIcon size={14} className="shrink-0 text-[var(--vel-color-accent-soft)]" />
-                    <span className="truncate uppercase tracking-[0.12em]">{activeTaskLabel}</span>
                   </p>
                   <div className="max-w-3xl space-y-1 pt-1">
                     <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">
@@ -483,6 +666,12 @@ export function NowView({ onOpenThread }: NowViewProps) {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  {sectionTasks.completed.length ? (
+                    <FilterDenseTag tone="muted" className="border-emerald-700/35 bg-emerald-950/18 text-emerald-200">
+                      <CheckCircleIcon size={11} />
+                      <span>{sectionTasks.completed.length} COMPLETED</span>
+                    </FilterDenseTag>
+                  ) : null}
                   <FilterDenseTag tone="brand" className="border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)]/78 text-[var(--vel-color-accent-soft)]">
                     <SparkIcon size={11} />
                     <span>{sectionTasks.active.length} ACTIVE</span>
@@ -491,10 +680,14 @@ export function NowView({ onOpenThread }: NowViewProps) {
                     <CalendarIcon size={11} />
                     <span>{nextUpItems.length} NEXT</span>
                   </FilterDenseTag>
-                  {sectionTasks.completed.length ? (
-                    <FilterDenseTag tone="muted" className="border-emerald-700/35 bg-emerald-950/18 text-emerald-200">
-                      <CheckCircleIcon size={11} />
-                      <span>{sectionTasks.completed.length} COMPLETED</span>
+                  <FilterDenseTag tone="muted" className="border-amber-700/35 bg-amber-950/18 text-amber-200">
+                    <InboxIcon size={11} />
+                    <span>{inboxCount} INBOX</span>
+                  </FilterDenseTag>
+                  {stretchGoals.length ? (
+                    <FilterDenseTag tone="muted" className="border-stone-700/35 bg-stone-950/18 text-stone-200">
+                      <ArchiveIcon size={11} />
+                      <span>{stretchGoals.length} BACKLOG</span>
                     </FilterDenseTag>
                   ) : null}
                   {overdueCount ? (
@@ -507,82 +700,126 @@ export function NowView({ onOpenThread }: NowViewProps) {
               </div>
             </div>
 
-            <section id="now-active" className="space-y-2 pt-4" {...dropZoneProps('active')}>
-              <div className="flex items-center justify-between gap-3">
-                <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)]`}>
-                  {sectionTasks.active.length > 1 ? `ACTIVE TASKS (${sectionTasks.active.length})` : `ACTIVE TASK (${sectionTasks.active.length})`}
-                </p>
-              </div>
-              {sectionTasks.active.length > 0 ? (
-                <div className="space-y-2">
-                  {sectionTasks.active.map((task) => renderTaskRow(task, 'active'))}
-                </div>
-              ) : (
-                <p className={`text-sm uppercase tracking-[0.14em] text-[var(--vel-color-muted)] ${uiFonts.display}`}>NONE</p>
-              )}
-            </section>
-
-            <section id="now-next-up" className="space-y-3 pt-3" {...dropZoneProps('next')}>
-              <div className="flex items-center justify-between gap-3">
-                <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-muted)]`}>
-                  <CalendarIcon size={11} />
-                  NEXT UP ({nextUpItems.length})
-                </p>
-              </div>
-              {nextUpItems.length > 0 ? (
-                <div className="space-y-2">
-                  {nextUpItems.map((item) => (
-                    item.kind === 'event' ? (
-                      <ObjectRowFrame key={item.id} tone="neutral" density="standard" className="px-4 py-3">
-                        <ObjectRowLayout
-                          leading={(
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)] text-[var(--vel-color-offline)]">
-                      <CalendarIcon size={16} />
-                    </span>
-                  )}
-                        >
-                          <ObjectRowTitleMetaBand
-                            title={<h3 className="text-base font-medium text-[var(--vel-color-text)]">{item.title}</h3>}
-                            meta={<FilterDenseTag tone="muted">{item.meta}</FilterDenseTag>}
-                          />
-                          <p className="text-sm leading-6 text-[var(--vel-color-muted)]">{item.detail}</p>
-                        </ObjectRowLayout>
-                      </ObjectRowFrame>
-                    ) : (
-                      renderTaskRow(item, 'next')
-                    )
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-[var(--vel-color-muted)]">No next item is staged right now.</p>
-              )}
-            </section>
-
-            {stretchGoals.length > 0 ? (
-              <section id="now-if-time-allows" className="space-y-2" {...dropZoneProps('later')}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-muted)]`}>
-                    <ClockIcon size={11} />
-                    IF TIME ALLOWS ({stretchGoals.length})
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  {stretchGoals.map((task) => renderTaskRow(task, 'later'))}
-                </div>
-              </section>
+            {showInlineOverdueNudge ? (
+              <NowNudgeStrip
+                bars={overdueNudgeBars}
+                nowTs={nowTs}
+                actionItems={data.action_items ?? []}
+                onBarAction={(bar, action) => {
+                  void handleOverdueNudgeAction(bar, action);
+                }}
+              />
             ) : null}
 
             {sectionTasks.completed.length ? (
-              <details id="now-completed" className="space-y-2" {...dropZoneProps('completed')}>
-                <summary className={`${uiFonts.display} inline-flex cursor-pointer items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-muted)]`}>
-                  <CheckCircleIcon size={11} />
-                  COMPLETED ({sectionTasks.completed.length})
-                </summary>
-                <div className="space-y-2 pt-2">
-                  {sectionTasks.completed.map((task) => renderTaskRow(task, 'completed'))}
-                </div>
-              </details>
+              <section id="now-completed" className="space-y-2 pt-4" {...dropZoneProps('completed')}>
+                {renderSectionTrigger('completed', {
+                  icon: <CheckCircleIcon size={11} />,
+                  label: `COMPLETED (${sectionTasks.completed.length})`,
+                  controlsId: 'now-completed-drawer',
+                })}
+                {expandedSections.completed ? (
+                  <div id="now-completed-drawer" className="space-y-2 pt-2">
+                    {sectionTasks.completed.map((task) => renderTaskRow(task, 'completed'))}
+                  </div>
+                ) : null}
+              </section>
             ) : null}
+
+            <section id="now-active" className="space-y-2 pt-4" {...dropZoneProps('active')}>
+              {renderSectionTrigger('active', {
+                icon: <SparkIcon size={11} />,
+                label: sectionTasks.active.length > 1 ? `ACTIVE TASKS (${sectionTasks.active.length})` : `ACTIVE TASK (${sectionTasks.active.length})`,
+                toneClass: 'text-[var(--vel-color-accent-soft)]',
+                controlsId: 'now-active-drawer',
+              })}
+              {expandedSections.active ? (
+                sectionTasks.active.length > 0 ? (
+                  <div id="now-active-drawer" className="space-y-2">
+                    {sectionTasks.active.map((task) => renderTaskRow(task, 'active'))}
+                  </div>
+                ) : (
+                  <p id="now-active-drawer" className={`text-sm uppercase tracking-[0.14em] text-[var(--vel-color-muted)] ${uiFonts.display}`}>NONE</p>
+                )
+              ) : null}
+            </section>
+
+            <section id="now-next-up" className="space-y-3 pt-3" {...dropZoneProps('next')}>
+              {renderSectionTrigger('next', {
+                icon: <CalendarIcon size={11} />,
+                label: `NEXT UP (${nextUpItems.length})`,
+                controlsId: 'now-next-up-drawer',
+              })}
+              {expandedSections.next ? (
+                nextUpItems.length > 0 ? (
+                  <div id="now-next-up-drawer" className="space-y-2">
+                    {nextUpItems.map((item) => (
+                      item.kind === 'event' ? (
+                        <ObjectRowFrame key={item.id} tone="neutral" density="standard" className="px-4 py-3">
+                          <ObjectRowLayout
+                            leading={(
+                              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)] text-[var(--vel-color-offline)]">
+                                <CalendarIcon size={16} />
+                              </span>
+                            )}
+                          >
+                            <ObjectRowTitleMetaBand
+                              title={<h3 className="text-base font-medium text-[var(--vel-color-text)]">{item.title}</h3>}
+                              meta={<FilterDenseTag tone="muted">{item.meta}</FilterDenseTag>}
+                            />
+                            <p className="text-sm leading-6 text-[var(--vel-color-muted)]">{item.detail}</p>
+                          </ObjectRowLayout>
+                        </ObjectRowFrame>
+                      ) : (
+                        renderTaskRow(item, 'next')
+                      )
+                    ))}
+                  </div>
+                ) : (
+                  <p id="now-next-up-drawer" className="text-sm text-[var(--vel-color-muted)]">No next item is staged right now.</p>
+                )
+              ) : null}
+            </section>
+
+            <section id="now-inbox" className="space-y-2 pt-3">
+              {renderSectionTrigger('inbox', {
+                icon: <InboxIcon size={11} />,
+                label: `INBOX (${sectionTasks.inbox.length})`,
+                controlsId: 'now-inbox-drawer',
+              })}
+              {expandedSections.inbox ? (
+                sectionTasks.inbox.length > 0 ? (
+                  <div id="now-inbox-drawer" className="space-y-2">
+                    {sectionTasks.inbox.map((task) => renderTaskRow(task, 'inbox'))}
+                  </div>
+                ) : (
+                  <p id="now-inbox-drawer" className="text-sm text-[var(--vel-color-muted)]">No Inbox tasks are waiting right now.</p>
+                )
+              ) : null}
+            </section>
+
+            {stretchGoals.length > 0 ? (
+              <section id="now-backlog" className="space-y-2" {...dropZoneProps('later')}>
+                {renderSectionTrigger('later', {
+                  icon: <ClockIcon size={11} />,
+                  label: `BACKLOG (${stretchGoals.length})`,
+                  controlsId: 'now-backlog-drawer',
+                })}
+                {backlogOpen ? (
+                  <div id="now-backlog-drawer" className="space-y-2">
+                    {stretchGoals.length > 0 ? (
+                      <p className="text-sm leading-6 text-[var(--vel-color-muted)]">
+                        Tasks outside today&apos;s due context stay here until you pull them into the day.
+                      </p>
+                    ) : null}
+                    <div className="space-y-2">
+                      {stretchGoals.map((task) => renderTaskRow(task, 'later'))}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
           </section>
         </div>
       </div>

@@ -40,6 +40,7 @@ export function CompactTaskLaneRow({
   const completed =
     emphasis === 'completed' || laneItemStateIsCompleted(item.state) || feedback?.status === 'success';
   const canComplete = Boolean(onComplete) && !completed;
+  const description = item.description ?? metadata?.description ?? null;
 
   const surface: NowItemRowSurface =
     emphasis === 'active' && !completed ? 'emphasis' : completed ? 'ghost' : flat ? 'queue' : 'muted';
@@ -113,6 +114,11 @@ export function CompactTaskLaneRow({
             ) : null}
           </div>
         </div>
+        {description ? (
+          <p className="line-clamp-2 text-sm leading-5 text-[var(--vel-color-muted)]">
+            {description}
+          </p>
+        ) : null}
         {feedback ? (
           <p className={`line-clamp-2 text-xs leading-snug ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
             {feedback.message}

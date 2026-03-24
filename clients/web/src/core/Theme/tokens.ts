@@ -8,6 +8,8 @@ export const surfaceShell = {
   mainColumn: 'flex min-h-0 flex-1 flex-col bg-transparent',
   /** Scroll region above optional bottom fade / composer. */
   scrollColumn: 'relative min-h-0 flex-1 overflow-y-auto',
+  /** Natural-flow region when the parent surface owns scrolling. */
+  flowColumn: 'relative flex-1',
   /**
    * Inner content: centered column, responsive horizontal padding, room for bottom composer (`pb-36`).
    * Matches Now hero + task stack width.
@@ -18,12 +20,13 @@ export const surfaceShell = {
 } as const;
 
 export const shellChrome = {
-  app: 'flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(44,31,22,0.78)_0%,_var(--vel-color-bg)_36%)] text-[var(--vel-color-text)]',
+  app: 'flex min-h-screen flex-col overflow-visible bg-[radial-gradient(circle_at_top,_rgba(44,31,22,0.78)_0%,_var(--vel-color-bg)_36%)] text-[var(--vel-color-text)]',
   workspace:
-    'mx-auto grid w-full max-w-[1440px] min-h-0 flex-1 gap-5 px-4 pb-36 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start',
-  workspaceMain: 'min-h-0 min-w-0',
-  workspaceAside: 'hidden min-h-0 lg:block',
-  workspaceAsideInner: 'sticky top-[5.25rem]',
+    'mx-auto grid w-full max-w-[1540px] flex-1 gap-5 overflow-visible px-4 pb-36 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-start',
+  workspaceMain: 'flex min-h-0 min-w-0 flex-col overflow-visible',
+  workspaceAside: 'hidden overflow-visible lg:block',
+  workspaceAsideInner: 'sticky top-[5.25rem] overflow-visible',
+  workspaceAsideScroll: 'max-h-[75vh] overflow-y-auto overflow-x-visible px-8 py-3',
   topBand:
     'sticky top-0 z-40 shrink-0 border-b border-[var(--vel-color-border-subtle)] bg-[color:var(--vel-color-bg-overlay)] backdrop-blur-[18px]',
   topBandInner: 'mx-auto flex w-full max-w-[1440px] min-w-0 items-center gap-4 px-4 py-3 sm:px-6',

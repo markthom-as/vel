@@ -1,4 +1,5 @@
 import { primarySurfaces, supportSurfaces, type MainView } from '../../data/operatorSurfaces';
+import { ActionChipButton } from '../../core/FilterToggleTag';
 import { cn } from '../../core/cn';
 import {
   InfoCircleIcon,
@@ -7,16 +8,17 @@ import {
   ThreadsIcon,
 } from '../../core/Icons';
 import { uiTheme } from '../../core/Theme';
-import systemDocUrl from '../../../../../docs/user/system.md?url';
+import type { SystemNavigationTarget } from '../../views/system';
 
 const ACCENT = uiTheme.brandText;
 
 interface NavbarNavLinksProps {
   activeView: MainView;
   onSelectView: (view: MainView) => void;
+  onDeepLink?: (target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => void;
 }
 
-export function NavbarNavLinks({ activeView, onSelectView }: NavbarNavLinksProps) {
+export function NavbarNavLinks({ activeView, onSelectView, onDeepLink }: NavbarNavLinksProps) {
   return (
     <nav
       className="flex min-w-0 items-center gap-x-2 sm:gap-x-3"
@@ -45,16 +47,22 @@ export function NavbarNavLinks({ activeView, onSelectView }: NavbarNavLinksProps
           <span className="leading-none">{item.label}</span>
         </button>
       ))}
-      <a
-        href={systemDocUrl}
+      <ActionChipButton
+        tone="ghost"
+        iconOnly
+        onClick={() =>
+          onDeepLink?.({
+            view: 'system',
+            systemTarget: { section: 'overview', subsection: 'trust' },
+            anchor: 'system-docs',
+          }) ?? onSelectView('system')
+        }
         aria-label="System documentation"
         title="Open system documentation"
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex shrink-0 items-center justify-center pl-1 text-[var(--vel-color-dim)] transition hover:text-[var(--vel-color-text)]"
+        className="ml-1 text-[var(--vel-color-dim)] hover:text-[var(--vel-color-text)]"
       >
         <InfoCircleIcon size={16} />
-      </a>
+      </ActionChipButton>
     </nav>
   );
 }

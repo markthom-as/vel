@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { chatQueryKeys } from '../../data/chat';
 import { appendUniqueMessages, reconcileConfirmedSend } from '../../data/chat-state';
 import { contextQueryKeys } from '../../data/context';
-import { invalidateQuery, setQueryData } from '../../data/query';
+import { buildCoreSetupStatus, loadIntegrations, loadSettings, operatorQueryKeys } from '../../data/operator';
+import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
 import type { MainView } from '../../data/operatorSurfaces';
 import type { AssistantEntryResponse, MessageData, NowDockedInputIntentData, NowNudgeBarData } from '../../types';
@@ -13,6 +14,93 @@ import { AssistantEntryFeedback } from '../../views/now/components/AssistantEntr
 import type { SystemNavigationTarget } from '../../views/system';
 import { SystemView } from '../../views/system';
 import { ThreadView } from '../../views/threads';
+import type { IntegrationsData, SettingsData } from '../../types';
+
+function assistantReplyText(response: AssistantEntryResponse): string | null {
+  const content = response.assistant_message?.content;
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    return null;
+  }
+  const text = content.text;
+  return typeof text === 'string' && text.trim() ? text.trim() : null;
+}
+
+const CORE_SETUP_CHECKLIST_ITEMS = [
+  { id: 'user_display_name', label: 'Your name' },
+  { id: 'node_display_name', label: 'Node name' },
+  { id: 'agent_profile', label: 'Agent profile' },
+  { id: 'llm_provider', label: 'LLM integration' },
+  { id: 'synced_provider', label: 'Synced provider' },
+] as const;
+
+function hasMeaningfulText(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function coreSetupChecklistValue(
+  itemId: typeof CORE_SETUP_CHECKLIST_ITEMS[number]['id'],
+  settings: SettingsData | null | undefined,
+  integrations: IntegrationsData | null | undefined,
+): string | null {
+  switch (itemId) {
+    case 'user_display_name':
+      return hasMeaningfulText(settings?.core_settings?.user_display_name)
+        ? settings.core_settings.user_display_name.trim()
+        : null;
+    case 'node_display_name':
+      return hasMeaningfulText(settings?.node_display_name)
+        ? settings.node_display_name.trim()
+        : null;
+    case 'agent_profile': {
+      const profile = settings?.core_settings?.agent_profile;
+      return [
+        profile?.role,
+        profile?.freeform,
+        profile?.preferences,
+        profile?.constraints,
+      ].find(hasMeaningfulText)?.trim() ?? null;
+    }
+    case 'llm_provider': {
+      const defaultProfileId = settings?.llm?.default_chat_profile_id ?? null;
+      const profile = defaultProfileId
+        ? settings?.llm?.profiles.find((entry) => entry.enabled && entry.id === defaultProfileId)
+        : null;
+      if (!profile) {
+        return null;
+      }
+      return [profile.model, profile.id].filter(hasMeaningfulText).join(' · ');
+    }
+    case 'synced_provider': {
+      const providers = [
+        integrations?.google_calendar.connected ? 'Google Calendar' : null,
+        integrations?.todoist.connected ? 'Todoist' : null,
+      ].filter(hasMeaningfulText);
+      return providers.length > 0 ? providers.join(', ') : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function buildCoreSetupNudgeActions(
+  status: ReturnType<typeof buildCoreSetupStatus>,
+  settings: SettingsData | null | undefined,
+  integrations: IntegrationsData | null | undefined,
+): NowNudgeBarData['actions'] {
+  const missing = new Set(status.missing);
+  return CORE_SETUP_CHECKLIST_ITEMS.map((item) => ({
+      kind: [
+        'open_settings',
+        'core_settings',
+        item.id,
+        missing.has(item.id) ? 'missing' : 'ready',
+        coreSetupChecklistValue(item.id, settings, integrations)
+          ? encodeURIComponent(coreSetupChecklistValue(item.id, settings, integrations)!)
+          : null,
+      ].filter(Boolean).join(':'),
+      label: item.label,
+    }));
+}
 
 interface MainPanelProps {
   conversationId: string | null;
@@ -23,6 +111,7 @@ interface MainPanelProps {
   onOpenSystem: (target?: SystemNavigationTarget) => void;
   onVoiceUnavailable?: () => void;
   onRaiseNudge?: (nudge: NowNudgeBarData) => void;
+  onClearNudge?: (nudgeId: string) => void;
   shellOwnsNowNudges?: boolean;
 }
 
@@ -35,15 +124,52 @@ export function MainPanel({
   onOpenSystem,
   onVoiceUnavailable,
   onRaiseNudge,
+  onClearNudge,
   shellOwnsNowNudges = false,
 }: MainPanelProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
+  const settingsKey = useMemo(() => operatorQueryKeys.settings(), []);
+  const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
   const resolvedThreadId = useResolvedThreadConversationId(conversationId, mainView === 'threads');
   const threadMessagesKey = useMemo(
     () => (resolvedThreadId ? chatQueryKeys.conversationMessages(resolvedThreadId) : null),
     [resolvedThreadId],
   );
+  const { data: settings } = useQuery(
+    settingsKey,
+    async () => {
+      const response = await loadSettings();
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to load settings');
+      }
+      return response.data ?? null;
+    },
+  );
+  const { data: integrations } = useQuery(
+    integrationsKey,
+    async () => {
+      const response = await loadIntegrations();
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to load integrations');
+      }
+      return response.data ?? null;
+    },
+  );
+  const coreSetupStatus = useMemo(
+    () => buildCoreSetupStatus(settings, integrations),
+    [settings, integrations],
+  );
+  const coreSetupNudgeSummary = coreSetupStatus.ready
+    ? null
+    : 'Finish the checklist below to enable Vel.';
+  const coreSetupNudgeActions = useMemo(
+    () => buildCoreSetupNudgeActions(coreSetupStatus, settings, integrations),
+    [coreSetupStatus, integrations, settings],
+  );
+  const composerDisabledReason = coreSetupStatus.ready
+    ? null
+    : 'Core setup is incomplete. Use the nudge to open Core settings and finish setup.';
 
   const [assistantEntryMessage, setAssistantEntryMessage] = useState<{
     status: 'success' | 'error';
@@ -54,7 +180,40 @@ export function MainPanel({
   const [assistantIntentOptions, setAssistantIntentOptions] = useState<Array<NowDockedInputIntentData | 'thread' | 'capture'>>([]);
   const [selectedIntent, setSelectedIntent] = useState<NowDockedInputIntentData | 'thread' | 'capture' | null>(null);
   const [pendingAssistantPayload, setPendingAssistantPayload] = useState<SubmittedAssistantEntryPayload | null>(null);
+  const [assistantErrorRetryable, setAssistantErrorRetryable] = useState(false);
   const [reclassifyingIntent, setReclassifyingIntent] = useState(false);
+
+  const speakAssistantReply = useCallback((response: AssistantEntryResponse) => {
+    if (!response.conversation.call_mode_active) {
+      return;
+    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      return;
+    }
+    const text = assistantReplyText(response);
+    if (!text) {
+      return;
+    }
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  }, []);
+
+  useEffect(() => {
+    if (coreSetupStatus.ready) {
+      onClearNudge?.('core_setup_required');
+      return;
+    }
+    onRaiseNudge?.({
+      id: 'core_setup_required',
+      kind: 'needs_input',
+      title: coreSetupStatus.title,
+      summary: coreSetupNudgeSummary ?? coreSetupStatus.summary,
+      timestamp: Math.floor(Date.now() / 1000),
+      urgent: true,
+      primary_thread_id: null,
+      actions: coreSetupNudgeActions,
+    });
+  }, [coreSetupNudgeActions, coreSetupStatus, onClearNudge, onRaiseNudge]);
 
   const handleAssistantEntry = useCallback(
     async (response: AssistantEntryResponse, submitted?: SubmittedAssistantEntryPayload | null) => {
@@ -65,7 +224,9 @@ export function MainPanel({
       setAssistantIntentOptions([]);
       setSelectedIntent(response.entry_intent ?? null);
       setPendingAssistantPayload(submitted ?? null);
+      setAssistantErrorRetryable(Boolean(response.assistant_error_retryable));
       setReclassifyingIntent(false);
+      speakAssistantReply(response);
 
       if (response.route_target === 'threads') {
         setPendingAssistantPayload(null);
@@ -88,14 +249,27 @@ export function MainPanel({
           status: 'error',
           message: response.assistant_error,
         });
+        if (response.assistant_error_retryable) {
+          onRaiseNudge?.({
+            id: `assistant_entry_retry_${response.user_message.id}`,
+            kind: 'trust_warning',
+            title: 'Assistant reply failed',
+            summary: 'Vel hit a retryable provider/runtime error. Retry from the inline card or inspect System if it persists.',
+            timestamp: Math.floor(Date.now() / 1000),
+            urgent: true,
+            primary_thread_id: response.conversation.id,
+            actions: [{ kind: 'expand', label: 'Open thread' }],
+          });
+        }
         return;
       }
+      setAssistantErrorRetryable(false);
       setAssistantEntryMessage({
         status: 'success',
         message: 'Handled here in Now.',
       });
     },
-    [conversationsKey, onNavigate, onOpenThread],
+    [conversationsKey, onNavigate, onOpenThread, speakAssistantReply],
   );
 
   const handleAssistantIntentSelection = useCallback(
@@ -140,26 +314,59 @@ export function MainPanel({
     [assistantEntryThreadId, handleAssistantEntry, onOpenThread, pendingAssistantPayload, reclassifyingIntent],
   );
 
+  const handleAssistantRetry = useCallback(async () => {
+    if (!pendingAssistantPayload || reclassifyingIntent) {
+      return;
+    }
+    setReclassifyingIntent(true);
+    setAssistantEntryMessage({
+      status: 'success',
+      message: 'Retrying assistant reply…',
+    });
+    try {
+      const response = await submitAssistantEntry(
+        pendingAssistantPayload.text,
+        pendingAssistantPayload.conversationId,
+        pendingAssistantPayload.voice,
+        null,
+        pendingAssistantPayload.attachments,
+      );
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Retry failed');
+      }
+      await handleAssistantEntry(response.data, pendingAssistantPayload);
+    } catch (error) {
+      setAssistantEntryMessage({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Retry failed',
+      });
+    } finally {
+      setReclassifyingIntent(false);
+    }
+  }, [handleAssistantEntry, pendingAssistantPayload, reclassifyingIntent]);
+
   let body: ReactNode;
   if (mainView === 'now') {
     body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
         <NowView
           onOpenThread={onOpenThread}
           onOpenSystem={onOpenSystem}
+          onRaiseNudge={onRaiseNudge}
+          onClearNudge={onClearNudge}
           hideNudgeLane={shellOwnsNowNudges}
         />
       </div>
     );
   } else if (mainView === 'threads') {
     body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
         <ThreadView conversationId={conversationId} onSelectConversation={onOpenThread} />
       </div>
     );
   } else if (mainView === 'system') {
     body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
         <SystemView target={systemTarget} />
       </div>
     );
@@ -177,6 +384,10 @@ export function MainPanel({
               message={assistantEntryMessage}
               inlineResponse={assistantInlineResponse}
               assistantEntryThreadId={assistantEntryThreadId}
+              canRetry={assistantErrorRetryable && Boolean(pendingAssistantPayload)}
+              onRetry={() => {
+                void handleAssistantRetry();
+              }}
               pendingIntentOptions={assistantIntentOptions}
               selectedIntent={selectedIntent}
               onSelectIntent={handleAssistantIntentSelection}
@@ -187,6 +398,7 @@ export function MainPanel({
                 setAssistantIntentOptions([]);
                 setSelectedIntent(null);
                 setPendingAssistantPayload(null);
+                setAssistantErrorRetryable(false);
                 setReclassifyingIntent(false);
               }}
               onOpenThread={onOpenThread}
@@ -199,6 +411,22 @@ export function MainPanel({
         floating
         hideHelperText
         floatingOffsetClassName="bottom-6 sm:bottom-8"
+        disabled={!coreSetupStatus.ready}
+        disabledReason={composerDisabledReason}
+        onDisabledInteract={() => {
+          if (!coreSetupStatus.ready) {
+            onRaiseNudge?.({
+              id: 'core_setup_required',
+              kind: 'needs_input',
+              title: coreSetupStatus.title,
+              summary: coreSetupNudgeSummary ?? coreSetupStatus.summary,
+              timestamp: Math.floor(Date.now() / 1000),
+              urgent: true,
+              primary_thread_id: null,
+              actions: coreSetupNudgeActions,
+            });
+          }
+        }}
         onVoiceUnavailable={onVoiceUnavailable}
         conversationId={mainView === 'threads' ? resolvedThreadId : undefined}
         onOptimisticSend={

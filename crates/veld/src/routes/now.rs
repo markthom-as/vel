@@ -1,6 +1,7 @@
 use axum::extract::State;
 use axum::Json;
 use serde::Deserialize;
+use time::OffsetDateTime;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
@@ -31,6 +32,12 @@ pub struct UpdateNowTaskLaneRequest {
     pub commitment_id: String,
     pub lane: String,
     pub position: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RescheduleNowTasksToTodayRequest {
+    #[serde(default)]
+    pub commitment_ids: Vec<String>,
 }
 
 pub async fn update_now_task_lane(
@@ -92,6 +99,10 @@ pub async fn update_now_task_lane(
             .await?;
     }
 
+    if lane == "next_up" {
+        assign_commitment_to_current_day(&state, &commitment).await?;
+    }
+
     let target = match lane {
         "active" => &mut context.task_lanes.active_commitment_ids,
         "next_up" => &mut context.task_lanes.next_up_commitment_ids,
@@ -110,8 +121,39 @@ pub async fn update_now_task_lane(
         .map_err(|error| AppError::internal(format!("serialize current context: {error}")))?;
     state
         .storage
-        .set_current_context(time::OffsetDateTime::now_utc().unix_timestamp(), &context_json)
+        .set_current_context(
+            time::OffsetDateTime::now_utc().unix_timestamp(),
+            &context_json,
+        )
         .await?;
+
+    let data = services::now::get_now_with_state(&state).await?;
+    Ok(response::success(data.into()))
+}
+
+pub async fn reschedule_now_tasks_to_today(
+    State(state): State<AppState>,
+    Json(payload): Json<RescheduleNowTasksToTodayRequest>,
+) -> Result<Json<ApiResponse<NowData>>, AppError> {
+    let commitment_ids = payload
+        .commitment_ids
+        .into_iter()
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty())
+        .collect::<Vec<_>>();
+
+    if commitment_ids.is_empty() {
+        return Err(AppError::bad_request("commitment_ids must not be empty"));
+    }
+
+    for commitment_id in commitment_ids {
+        let commitment = state
+            .storage
+            .get_commitment_by_id(&commitment_id)
+            .await?
+            .ok_or_else(|| AppError::not_found("commitment not found"))?;
+        assign_commitment_to_current_day(&state, &commitment).await?;
+    }
 
     let data = services::now::get_now_with_state(&state).await?;
     Ok(response::success(data.into()))
@@ -134,6 +176,34 @@ fn remove_commitment_from_all_lanes(context: &mut vel_core::CurrentContextV1, co
         .task_lanes
         .completed_commitment_ids
         .retain(|id| id != commitment_id);
+}
+
+async fn assign_commitment_to_current_day(
+    state: &AppState,
+    commitment: &vel_core::Commitment,
+) -> Result<(), AppError> {
+    let timezone = crate::services::timezone::resolve_timezone(&state.storage).await?;
+    let current_day =
+        crate::services::timezone::current_day_window(&timezone, OffsetDateTime::now_utc())?;
+    let due_at = OffsetDateTime::from_unix_timestamp(current_day.end_ts - 1)
+        .map_err(|error| AppError::internal(format!("compute current-day due_at: {error}")))?;
+    let mut metadata = commitment.metadata_json.clone();
+    metadata["assigned_via_now_lane"] = serde_json::json!("next_up");
+    metadata["scheduled_for"] = serde_json::json!(current_day.session_date);
+    metadata["has_due_time"] = serde_json::json!(false);
+    state
+        .storage
+        .update_commitment(
+            commitment.id.as_ref(),
+            None,
+            None,
+            Some(Some(due_at)),
+            None,
+            None,
+            Some(&metadata),
+        )
+        .await?;
+    Ok(())
 }
 
 impl From<services::now::NowOutput> for NowData {
@@ -333,6 +403,7 @@ impl From<services::now::NowTaskLaneOutput> for NowTaskLaneData {
             pending: value.pending.into_iter().map(Into::into).collect(),
             active_items: value.active_items.into_iter().map(Into::into).collect(),
             next_up: value.next_up.into_iter().map(Into::into).collect(),
+            inbox: value.inbox.into_iter().map(Into::into).collect(),
             if_time_allows: value.if_time_allows.into_iter().map(Into::into).collect(),
             completed: value.completed.into_iter().map(Into::into).collect(),
             recent_completed: value.recent_completed.into_iter().map(Into::into).collect(),
@@ -359,6 +430,12 @@ impl From<services::now::NowTaskLaneItemOutput> for NowTaskLaneItemData {
             sort_order: value.sort_order,
             project: value.project,
             primary_thread_id: value.primary_thread_id,
+            due_at: value.due_at,
+            deadline: value.deadline,
+            due_label: value.due_label,
+            is_overdue: value.is_overdue,
+            deadline_label: value.deadline_label,
+            deadline_passed: value.deadline_passed,
         }
     }
 }
@@ -578,6 +655,7 @@ impl From<services::now::NowTaskOutput> for NowTaskData {
             tags: value.tags,
             source_type: value.source_type,
             due_at: value.due_at,
+            deadline: value.deadline,
             project: value.project,
             commitment_kind: value.commitment_kind,
         }
@@ -754,24 +832,43 @@ mod tests {
                     id: "com_1".to_string(),
                     task_kind: "commitment".to_string(),
                     text: "Ship patch".to_string(),
+                    title: "Ship patch".to_string(),
+                    description: None,
+                    tags: Vec::new(),
                     state: "active".to_string(),
                     lane: Some("active".to_string()),
                     sort_order: Some(0),
                     project: Some("Vel".to_string()),
                     primary_thread_id: None,
+                    due_at: Some(due_at),
+                    deadline: None,
+                    due_label: Some("Today".to_string()),
+                    is_overdue: false,
+                    deadline_label: None,
+                    deadline_passed: false,
                 }),
                 pending: Vec::new(),
                 active_items: vec![services::now::NowTaskLaneItemOutput {
                     id: "com_1".to_string(),
                     task_kind: "commitment".to_string(),
                     text: "Ship patch".to_string(),
+                    title: "Ship patch".to_string(),
+                    description: None,
+                    tags: Vec::new(),
                     state: "active".to_string(),
                     lane: Some("active".to_string()),
                     sort_order: Some(0),
                     project: Some("Vel".to_string()),
                     primary_thread_id: None,
+                    due_at: Some(due_at),
+                    deadline: None,
+                    due_label: Some("Today".to_string()),
+                    is_overdue: false,
+                    deadline_label: None,
+                    deadline_passed: false,
                 }],
                 next_up: Vec::new(),
+                inbox: Vec::new(),
                 if_time_allows: Vec::new(),
                 completed: Vec::new(),
                 recent_completed: Vec::new(),
@@ -861,8 +958,12 @@ mod tests {
                 todoist: vec![services::now::NowTaskOutput {
                     id: "com_1".to_string(),
                     text: "Ship patch".to_string(),
+                    title: "Ship patch".to_string(),
+                    description: None,
+                    tags: Vec::new(),
                     source_type: "todoist".to_string(),
                     due_at: Some(due_at),
+                    deadline: None,
                     project: Some("Vel".to_string()),
                     commitment_kind: Some("todo".to_string()),
                 }],

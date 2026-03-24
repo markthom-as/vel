@@ -4,7 +4,7 @@ use axum::{
 };
 use tower::util::ServiceExt;
 use vel_config::AppConfig;
-use vel_storage::{Storage, list_runtime_records};
+use vel_storage::{list_runtime_records, Storage};
 use veld::{app::build_app, policy_config::PolicyConfig};
 
 const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
@@ -64,7 +64,13 @@ async fn commitment_patch_route_records_write_intent_runtime_history() {
         .await
         .unwrap();
     assert_eq!(write_intents.len(), 3);
-    assert!(write_intents.iter().any(|record| record.status == "approved"));
-    assert!(write_intents.iter().any(|record| record.status == "executing"));
-    assert!(write_intents.iter().any(|record| record.status == "succeeded"));
+    assert!(write_intents
+        .iter()
+        .any(|record| record.status == "approved"));
+    assert!(write_intents
+        .iter()
+        .any(|record| record.status == "executing"));
+    assert!(write_intents
+        .iter()
+        .any(|record| record.status == "succeeded"));
 }

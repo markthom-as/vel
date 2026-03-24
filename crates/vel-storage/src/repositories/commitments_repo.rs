@@ -168,6 +168,26 @@ pub(crate) async fn update_commitment(
     Ok(())
 }
 
+pub(crate) async fn set_commitment_project(
+    pool: &SqlitePool,
+    id: &str,
+    project: Option<&str>,
+) -> Result<(), StorageError> {
+    sqlx::query(
+        r#"
+        UPDATE commitments
+        SET project = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(project)
+    .bind(id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
 pub(crate) async fn insert_commitment_dependency(
     pool: &SqlitePool,
     parent_commitment_id: &str,
