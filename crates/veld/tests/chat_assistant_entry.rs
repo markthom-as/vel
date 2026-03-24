@@ -227,6 +227,106 @@ async fn question_assistant_entry_routes_to_threads_and_returns_grounded_reply()
 }
 
 #[tokio::test]
+async fn assistant_entry_honors_explicit_intent_and_attachments() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage.clone(), None, None));
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{
+                        "text":"capture this",
+                        "intent":"question",
+                        "attachments":[{"kind":"file","label":"notes.md","object_id":"art_1"}]
+                    }"#
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["entry_intent"], "question");
+    assert_eq!(
+        json["data"]["user_message"]["content"]["entry_intent"],
+        "question"
+    );
+    assert_eq!(
+        json["data"]["user_message"]["content"]["attachments"][0]["kind"],
+        "file"
+    );
+}
+
+#[tokio::test]
+async fn conversation_list_includes_thread_row_metadata() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+
+    let conversation = storage
+        .create_conversation(vel_storage::ConversationInsert {
+            id: "conv_meta".to_string(),
+            title: Some("Metadata thread".to_string()),
+            kind: "general".to_string(),
+            pinned: false,
+            archived: false,
+        })
+        .await
+        .unwrap();
+    storage
+        .create_message(vel_storage::MessageInsert {
+            id: "msg_meta_1".to_string(),
+            conversation_id: conversation.id.as_ref().to_string(),
+            role: "user".to_string(),
+            kind: "text".to_string(),
+            content_json: serde_json::json!({
+                "text": "First message",
+                "project_label": "Vel"
+            })
+            .to_string(),
+            status: None,
+            importance: None,
+        })
+        .await
+        .unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage, None, None));
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/conversations")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let row = &json["data"][0];
+    assert_eq!(row["title"], "Metadata thread");
+    assert_eq!(row["project_label"], "Vel");
+    assert_eq!(row["message_count"], 1);
+    assert!(row["last_message_at"].as_i64().is_some());
+}
+
+#[tokio::test]
 async fn question_assistant_entry_can_stage_a_bounded_action_proposal() {
     let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();
@@ -274,6 +374,12 @@ async fn question_assistant_entry_can_stage_a_bounded_action_proposal() {
     assert_eq!(json["data"]["proposal"]["kind"], "intervention");
     assert_eq!(json["data"]["proposal"]["permission_mode"], "user_confirm");
     assert_eq!(json["data"]["proposal"]["title"], "Inbox intervention");
+    assert!(
+        json["data"]["follow_up"]["intervention_id"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("intv_")
+    );
     assert_eq!(
         json["data"]["proposal"]["thread_route"]["target"],
         "existing_thread"

@@ -6,7 +6,7 @@ use crate::db::StorageError;
 use crate::repositories::semantic_memory_repo;
 
 type ThreadRecord = (String, String, String, String, String, i64, i64);
-type ThreadListRecord = (String, String, String, String, i64, i64);
+type ThreadListRecord = (String, String, String, String, String, i64, i64);
 type ThreadLinkRecord = (String, String, String, String);
 type ThreadIdRecord = (String,);
 
@@ -56,7 +56,7 @@ pub(crate) async fn list_threads(
     let limit = limit.min(100) as i64;
     let rows = if let Some(status) = status_filter {
         sqlx::query_as::<Sqlite, ThreadListRecord>(
-            r#"SELECT id, thread_type, title, status, created_at, updated_at FROM threads WHERE status = ? ORDER BY updated_at DESC LIMIT ?"#,
+            r#"SELECT id, thread_type, title, status, metadata_json, created_at, updated_at FROM threads WHERE status = ? ORDER BY updated_at DESC LIMIT ?"#,
         )
         .bind(status)
         .bind(limit)
@@ -64,7 +64,7 @@ pub(crate) async fn list_threads(
         .await?
     } else {
         sqlx::query_as::<Sqlite, ThreadListRecord>(
-            r#"SELECT id, thread_type, title, status, created_at, updated_at FROM threads ORDER BY updated_at DESC LIMIT ?"#,
+            r#"SELECT id, thread_type, title, status, metadata_json, created_at, updated_at FROM threads ORDER BY updated_at DESC LIMIT ?"#,
         )
         .bind(limit)
         .fetch_all(pool)

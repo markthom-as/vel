@@ -35,6 +35,9 @@ pub(crate) async fn create_conversation(
         archived: input.archived,
         created_at: now,
         updated_at: now,
+        message_count: 0,
+        last_message_at: None,
+        project_label: None,
     })
 }
 
@@ -46,8 +49,31 @@ pub(crate) async fn list_conversations(
     let limit = limit.min(500) as i64;
     let rows = if let Some(arch) = archived {
         sqlx::query(
-            r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
-               FROM conversations WHERE archived = ? ORDER BY updated_at DESC LIMIT ?"#,
+            r#"SELECT
+                   c.id,
+                   c.title,
+                   c.kind,
+                   c.pinned,
+                   c.archived,
+                   c.created_at,
+                   c.updated_at,
+                   COALESCE((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id), 0) AS message_count,
+                   (SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = c.id) AS last_message_at,
+                   (
+                     SELECT COALESCE(
+                       json_extract(m.content_json, '$.project_label'),
+                       json_extract(m.content_json, '$.project')
+                     )
+                     FROM messages m
+                     WHERE m.conversation_id = c.id
+                       AND COALESCE(
+                         json_extract(m.content_json, '$.project_label'),
+                         json_extract(m.content_json, '$.project')
+                       ) IS NOT NULL
+                     ORDER BY m.created_at DESC
+                     LIMIT 1
+                   ) AS project_label
+               FROM conversations c WHERE c.archived = ? ORDER BY c.updated_at DESC LIMIT ?"#,
         )
         .bind(if arch { 1i32 } else { 0 })
         .bind(limit)
@@ -55,8 +81,31 @@ pub(crate) async fn list_conversations(
         .await?
     } else {
         sqlx::query(
-            r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
-               FROM conversations ORDER BY updated_at DESC LIMIT ?"#,
+            r#"SELECT
+                   c.id,
+                   c.title,
+                   c.kind,
+                   c.pinned,
+                   c.archived,
+                   c.created_at,
+                   c.updated_at,
+                   COALESCE((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id), 0) AS message_count,
+                   (SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = c.id) AS last_message_at,
+                   (
+                     SELECT COALESCE(
+                       json_extract(m.content_json, '$.project_label'),
+                       json_extract(m.content_json, '$.project')
+                     )
+                     FROM messages m
+                     WHERE m.conversation_id = c.id
+                       AND COALESCE(
+                         json_extract(m.content_json, '$.project_label'),
+                         json_extract(m.content_json, '$.project')
+                       ) IS NOT NULL
+                     ORDER BY m.created_at DESC
+                     LIMIT 1
+                   ) AS project_label
+               FROM conversations c ORDER BY c.updated_at DESC LIMIT ?"#,
         )
         .bind(limit)
         .fetch_all(pool)
@@ -72,8 +121,31 @@ pub(crate) async fn get_conversation(
     id: &str,
 ) -> Result<Option<ConversationRecord>, StorageError> {
     let row = sqlx::query(
-        r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
-           FROM conversations WHERE id = ?"#,
+        r#"SELECT
+               c.id,
+               c.title,
+               c.kind,
+               c.pinned,
+               c.archived,
+               c.created_at,
+               c.updated_at,
+               COALESCE((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id), 0) AS message_count,
+               (SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = c.id) AS last_message_at,
+               (
+                 SELECT COALESCE(
+                   json_extract(m.content_json, '$.project_label'),
+                   json_extract(m.content_json, '$.project')
+                 )
+                 FROM messages m
+                 WHERE m.conversation_id = c.id
+                   AND COALESCE(
+                     json_extract(m.content_json, '$.project_label'),
+                     json_extract(m.content_json, '$.project')
+                   ) IS NOT NULL
+                 ORDER BY m.created_at DESC
+                 LIMIT 1
+               ) AS project_label
+           FROM conversations c WHERE c.id = ?"#,
     )
     .bind(id)
     .fetch_optional(pool)
@@ -444,6 +516,9 @@ fn map_conversation_row(row: &sqlx::sqlite::SqliteRow) -> Result<ConversationRec
         archived: archived != 0,
         created_at: row.try_get("created_at")?,
         updated_at: row.try_get("updated_at")?,
+        message_count: row.try_get("message_count")?,
+        last_message_at: row.try_get("last_message_at")?,
+        project_label: row.try_get("project_label")?,
     })
 }
 

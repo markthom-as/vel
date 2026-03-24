@@ -57,6 +57,18 @@ pub struct CurrentContextReflowStatus {
     pub thread_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct CurrentContextTaskLanes {
+    #[serde(default)]
+    pub active_commitment_ids: Vec<String>,
+    #[serde(default)]
+    pub next_up_commitment_ids: Vec<String>,
+    #[serde(default)]
+    pub if_time_allows_commitment_ids: Vec<String>,
+    #[serde(default)]
+    pub completed_commitment_ids: Vec<String>,
+}
+
 /// Versioned typed representation for current context state.
 /// Unknown fields are preserved in `extra` for forward compatibility.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -73,6 +85,8 @@ pub struct CurrentContextV1 {
     pub next_commitment_id: Option<String>,
     #[serde(default)]
     pub next_commitment_due_at: Option<i64>,
+    #[serde(default)]
+    pub task_lanes: CurrentContextTaskLanes,
     #[serde(default)]
     pub prep_window_active: bool,
     #[serde(default)]
@@ -187,6 +201,7 @@ mod tests {
         assert_eq!(context.attention_state, "drifting");
         assert_eq!(context.drift_type.as_deref(), Some("morning_drift"));
         assert_eq!(context.active_nudge_ids.len(), 1);
+        assert!(context.task_lanes.active_commitment_ids.is_empty());
         assert!(context.extra.contains_key("custom_future_field"));
     }
 
@@ -196,6 +211,7 @@ mod tests {
         assert_eq!(context.mode, "");
         assert_eq!(context.meds_status, "");
         assert!(context.active_nudge_ids.is_empty());
+        assert!(context.task_lanes.next_up_commitment_ids.is_empty());
         assert!(context.extra.is_empty());
     }
 

@@ -57,6 +57,8 @@ pub(crate) enum AssistantEntryRouteTarget {
 pub(crate) struct AssistantEntryCreateInput {
     pub text: String,
     pub conversation_id: Option<String>,
+    pub intent: Option<vel_api_types::NowDockedInputIntentData>,
+    pub attachments: Vec<vel_api_types::AssistantEntryAttachmentData>,
     pub voice: Option<VoiceEntryProvenance>,
 }
 
@@ -65,6 +67,7 @@ pub(crate) struct AssistantEntryCreateResult {
     pub route_target: AssistantEntryRouteTarget,
     pub entry_intent: Option<String>,
     pub continuation_category: Option<String>,
+    pub follow_up: Option<vel_api_types::AssistantEntryFollowUpData>,
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
@@ -169,7 +172,22 @@ fn assistant_entry_route_target(
     }
 }
 
-fn assistant_entry_intent(text: &str, conversation_id: Option<&str>) -> &'static str {
+fn assistant_entry_intent_with_override(
+    text: &str,
+    conversation_id: Option<&str>,
+    override_intent: Option<&vel_api_types::NowDockedInputIntentData>,
+) -> &'static str {
+    if let Some(intent) = override_intent {
+        return match intent {
+            vel_api_types::NowDockedInputIntentData::Task => "task",
+            vel_api_types::NowDockedInputIntentData::Question => "question",
+            vel_api_types::NowDockedInputIntentData::Note => "note",
+            vel_api_types::NowDockedInputIntentData::Command => "command",
+            vel_api_types::NowDockedInputIntentData::Continuation => "continuation",
+            vel_api_types::NowDockedInputIntentData::Reflection => "reflection",
+            vel_api_types::NowDockedInputIntentData::Scheduling => "scheduling",
+        };
+    }
     let lowered = text.trim().to_ascii_lowercase();
     if conversation_id.is_some() {
         return "continuation";
@@ -671,7 +689,7 @@ fn proposal_intervention_content(
     voice: Option<&VoiceEntryProvenance>,
     proposal: &AssistantActionProposal,
 ) -> serde_json::Value {
-    let mut content = assistant_entry_content(text, route_target, voice);
+    let mut content = assistant_entry_content(text, route_target, None, &[], voice);
     if let Some(object) = content.as_object_mut() {
         object.insert(
             "title".to_string(),
@@ -720,6 +738,8 @@ pub(crate) fn voice_entry_provenance_json(provenance: &VoiceEntryProvenance) -> 
 fn assistant_entry_content(
     text: &str,
     route_target: AssistantEntryRouteTarget,
+    intent: Option<&vel_api_types::NowDockedInputIntentData>,
+    attachments: &[vel_api_types::AssistantEntryAttachmentData],
     voice: Option<&VoiceEntryProvenance>,
 ) -> serde_json::Value {
     let mut content = serde_json::json!({
@@ -731,6 +751,24 @@ fn assistant_entry_content(
         },
         "input_mode": if voice.is_some() { "voice" } else { "text" },
     });
+
+    if let Some(intent) = intent {
+        if let Some(object) = content.as_object_mut() {
+            object.insert(
+                "entry_intent".to_string(),
+                serde_json::to_value(intent).unwrap_or_else(|_| serde_json::json!("task")),
+            );
+        }
+    }
+
+    if !attachments.is_empty() {
+        if let Some(object) = content.as_object_mut() {
+            object.insert(
+                "attachments".to_string(),
+                serde_json::to_value(attachments).unwrap_or_else(|_| serde_json::json!([])),
+            );
+        }
+    }
 
     if let Some(voice) = voice {
         if let Some(object) = content.as_object_mut() {
@@ -921,7 +959,12 @@ pub(crate) async fn create_assistant_entry_response(
             text,
             planning_profile_surface_for_entry(payload.voice.as_ref()),
         );
-    let entry_intent = assistant_entry_intent(text, payload.conversation_id.as_deref()).to_string();
+    let entry_intent = assistant_entry_intent_with_override(
+        text,
+        payload.conversation_id.as_deref(),
+        payload.intent.as_ref(),
+    )
+    .to_string();
     let route_target = if planning_profile_proposal_candidate.is_some() {
         AssistantEntryRouteTarget::Threads
     } else {
@@ -963,7 +1006,13 @@ pub(crate) async fn create_assistant_entry_response(
         &ChatMessageCreateInput {
             role: "user".to_string(),
             kind: "text".to_string(),
-            content: assistant_entry_content(text, route_target, payload.voice.as_ref()),
+            content: assistant_entry_content(
+                text,
+                route_target,
+                payload.intent.as_ref(),
+                &payload.attachments,
+                payload.voice.as_ref(),
+            ),
         },
     )
     .await?;
@@ -990,6 +1039,7 @@ pub(crate) async fn create_assistant_entry_response(
             route_target: AssistantEntryRouteTarget::Inline,
             entry_intent: Some(entry_intent.clone()),
             continuation_category: Some("needs_input".to_string()),
+            follow_up: None,
             user_message,
             assistant_message,
             assistant_error: None,
@@ -1018,6 +1068,7 @@ pub(crate) async fn create_assistant_entry_response(
             route_target: AssistantEntryRouteTarget::Inline,
             entry_intent: Some(entry_intent.clone()),
             continuation_category: Some("follow_up".to_string()),
+            follow_up: None,
             user_message,
             assistant_message,
             assistant_error: None,
@@ -1055,6 +1106,7 @@ pub(crate) async fn create_assistant_entry_response(
             route_target: AssistantEntryRouteTarget::Threads,
             entry_intent: Some(entry_intent.clone()),
             continuation_category: Some("review_apply".to_string()),
+            follow_up: None,
             user_message,
             assistant_message: None,
             assistant_error: None,
@@ -1067,50 +1119,59 @@ pub(crate) async fn create_assistant_entry_response(
         });
     }
 
-    let proposal =
-        if let Some(staged) = staged_action_proposal_for_entry(state, text, route_target).await? {
-            let mut proposal = staged.proposal;
-            proposal.thread_route = Some(
-                ensure_assistant_proposal_thread(
-                    state,
-                    &user_message,
-                    &proposal,
-                    &staged.follow_through,
-                )
-                .await?,
-            );
-            emit_chat_event(
+    let mut proposal = None;
+    let mut follow_up = None;
+    if let Some(staged) = staged_action_proposal_for_entry(state, text, route_target).await? {
+        let mut staged_proposal = staged.proposal;
+        staged_proposal.thread_route = Some(
+            ensure_assistant_proposal_thread(
                 state,
-                "assistant.proposal.staged",
-                "message",
-                &user_message.id,
-                serde_json::json!({
-                    "message_id": user_message.id,
-                    "conversation_id": conversation_id,
-                    "proposal": proposal,
-                }),
+                &user_message,
+                &staged_proposal,
+                &staged.follow_through,
             )
-            .await;
-            let _ = create_intervention_for_message_if_needed(
-                state,
-                &InterventionMessageInput {
-                    id: user_message.id.clone(),
-                    conversation_id: user_message.conversation_id.clone(),
-                    role: user_message.role.clone(),
-                    kind: user_message.kind.clone(),
-                    content: proposal_intervention_content(
-                        text,
-                        route_target,
-                        payload.voice.as_ref(),
-                        &proposal,
-                    ),
-                },
-            )
-            .await?;
-            Some(proposal)
-        } else {
-            None
-        };
+            .await?,
+        );
+        emit_chat_event(
+            state,
+            "assistant.proposal.staged",
+            "message",
+            &user_message.id,
+            serde_json::json!({
+                "message_id": user_message.id,
+                "conversation_id": conversation_id,
+                "proposal": staged_proposal,
+            }),
+        )
+        .await;
+        let intervention = create_intervention_for_message_if_needed(
+            state,
+            &InterventionMessageInput {
+                id: user_message.id.clone(),
+                conversation_id: user_message.conversation_id.clone(),
+                role: user_message.role.clone(),
+                kind: user_message.kind.clone(),
+                content: proposal_intervention_content(
+                    text,
+                    route_target,
+                    payload.voice.as_ref(),
+                    &staged_proposal,
+                ),
+            },
+        )
+        .await?;
+        proposal = Some(staged_proposal);
+        follow_up = intervention.map(|item| vel_api_types::AssistantEntryFollowUpData {
+            intervention_id: item.id,
+            message_id: item.message_id,
+            conversation_id: user_message.conversation_id.clone(),
+            kind: item.kind,
+            state: item.state,
+            surfaced_at: item.surfaced_at,
+            snoozed_until: item.snoozed_until,
+            confidence: item.confidence,
+        });
+    }
 
     let (assistant_message, assistant_error) = if route_target == AssistantEntryRouteTarget::Threads
     {
@@ -1164,6 +1225,7 @@ pub(crate) async fn create_assistant_entry_response(
         assistant_context,
         conversation,
         proposal,
+        follow_up,
         planning_profile_proposal: None,
         daily_loop_session: None,
         end_of_day: None,

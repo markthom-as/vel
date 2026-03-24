@@ -36,6 +36,7 @@ import {
   decodeSyncBootstrapData,
   decodeUncertaintyData,
   decodeWsEvent,
+  decodeThreadData,
 } from './types'
 
 describe('transport decoders', () => {
@@ -213,6 +214,16 @@ describe('transport decoders', () => {
               project_id: null,
             },
           },
+          follow_up: {
+            intervention_id: 'intv_1',
+            message_id: 'msg_user',
+            conversation_id: 'conv_1',
+            kind: 'assistant_proposal',
+            state: 'active',
+            surfaced_at: 1234,
+            snoozed_until: null,
+            confidence: null,
+          },
           planning_profile_proposal: {
             source_surface: 'assistant',
             state: 'staged',
@@ -300,6 +311,7 @@ describe('transport decoders', () => {
     )
     expect(response.data?.proposal?.action_item_id).toBe('act_intervention_intv_1')
     expect(response.data?.proposal?.state).toBe('staged')
+    expect(response.data?.follow_up?.intervention_id).toBe('intv_1')
     expect(response.data?.planning_profile_proposal?.state).toBe('staged')
     expect(response.data?.planning_profile_proposal?.thread_type).toBe('planning_profile_edit')
     expect(response.data?.daily_loop_session?.phase).toBe('morning_overview')
@@ -307,6 +319,29 @@ describe('transport decoders', () => {
     expect(response.data?.end_of_day?.what_was_done[0]?.content_text).toBe('finished draft')
     expect(response.data?.end_of_day?.what_remains_open).toEqual(['follow up'])
     expect(response.data?.end_of_day?.what_may_matter_tomorrow).toEqual(['budget review'])
+  })
+
+  it('decodes thread rows with project metadata', () => {
+    const data = decodeThreadData({
+      id: 'thr_1',
+      thread_type: 'project_review',
+      title: 'Vel review',
+      status: 'open',
+      planning_kind: null,
+      lifecycle_stage: null,
+      created_at: 1,
+      updated_at: 2,
+      continuation: null,
+      metadata: { project_id: 'proj_vel', project_label: 'Vel' },
+      links: [
+        { id: 'tl_1', entity_type: 'project', entity_id: 'proj_vel', relation_type: 'about' },
+      ],
+      project_id: 'proj_vel',
+      project_label: 'Vel',
+    })
+
+    expect(data.project_id).toBe('proj_vel')
+    expect(data.links?.[0].entity_type).toBe('project')
   })
 
   it('decodes current-context responses with nullable data', () => {
@@ -2138,6 +2173,7 @@ describe('transport decoders', () => {
           title: 'One answer is still needed',
           summary: 'Standup is waiting on the next short answer.',
           urgent: true,
+          timestamp: null,
           primary_thread_id: 'thr_check_in_dls_1_standup_prompt_1',
           actions: [
             {
@@ -2156,6 +2192,9 @@ describe('transport decoders', () => {
           id: 'task_active_1',
           task_kind: 'commitment',
           text: 'Standup check-in',
+          title: 'Standup check-in',
+          description: null,
+          tags: [],
           state: 'active',
           project: 'Vel',
           primary_thread_id: 'thr_day_2026_03_20',
@@ -2165,6 +2204,9 @@ describe('transport decoders', () => {
             id: 'task_pending_1',
             task_kind: 'task',
             text: 'Review operator queue',
+            title: 'Review operator queue',
+            description: null,
+            tags: [],
             state: 'pending',
             project: 'Vel',
             primary_thread_id: null,
@@ -2175,6 +2217,9 @@ describe('transport decoders', () => {
             id: 'task_done_1',
             task_kind: 'task',
             text: 'Check calendar drift',
+            title: 'Check calendar drift',
+            description: null,
+            tags: [],
             state: 'completed',
             project: null,
             primary_thread_id: null,
@@ -2363,6 +2408,7 @@ describe('transport decoders', () => {
         },
         latest_failed: null,
       },
+      planning_profile_summary: undefined,
       check_in: {
         id: 'act_check_in_1',
         source_kind: 'daily_loop',

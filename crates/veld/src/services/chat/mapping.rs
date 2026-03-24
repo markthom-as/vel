@@ -11,6 +11,9 @@ pub(crate) struct ConversationServiceData {
     pub archived: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    pub message_count: i64,
+    pub last_message_at: Option<i64>,
+    pub project_label: Option<String>,
     pub continuation: Option<ConversationContinuationData>,
 }
 
@@ -57,6 +60,9 @@ pub(crate) fn conversation_record_to_data(
         archived: r.archived,
         created_at: r.created_at,
         updated_at: r.updated_at,
+        message_count: r.message_count,
+        last_message_at: r.last_message_at,
+        project_label: r.project_label,
         continuation: None,
     }
 }

@@ -1,5 +1,6 @@
 use axum::extract::State;
 use axum::Json;
+use serde::Deserialize;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
@@ -23,6 +24,116 @@ pub async fn get_now(
 ) -> Result<Json<ApiResponse<NowData>>, AppError> {
     let data = services::now::get_now_with_state(&state).await?;
     Ok(response::success(data.into()))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateNowTaskLaneRequest {
+    pub commitment_id: String,
+    pub lane: String,
+    pub position: Option<usize>,
+}
+
+pub async fn update_now_task_lane(
+    State(state): State<AppState>,
+    Json(payload): Json<UpdateNowTaskLaneRequest>,
+) -> Result<Json<ApiResponse<NowData>>, AppError> {
+    use vel_core::{CommitmentStatus, CurrentContextV1};
+
+    let commitment_id = payload.commitment_id.trim();
+    if commitment_id.is_empty() {
+        return Err(AppError::bad_request("commitment_id must not be empty"));
+    }
+    let lane = match payload.lane.trim() {
+        "active" | "next_up" | "if_time_allows" | "completed" => payload.lane.trim(),
+        _ => return Err(AppError::bad_request("invalid lane")),
+    };
+
+    let (_, mut context) = state
+        .storage
+        .get_current_context()
+        .await?
+        .unwrap_or((0, CurrentContextV1::default()));
+
+    let commitment = state
+        .storage
+        .get_commitment_by_id(commitment_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("commitment not found"))?;
+
+    remove_commitment_from_all_lanes(&mut context, commitment_id);
+
+    if lane == "completed" {
+        if commitment.status != CommitmentStatus::Done {
+            state
+                .storage
+                .update_commitment(
+                    commitment_id,
+                    None,
+                    Some(CommitmentStatus::Done),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await?;
+        }
+    } else if commitment.status == CommitmentStatus::Done {
+        state
+            .storage
+            .update_commitment(
+                commitment_id,
+                None,
+                Some(CommitmentStatus::Open),
+                None,
+                None,
+                None,
+                None,
+            )
+            .await?;
+    }
+
+    let target = match lane {
+        "active" => &mut context.task_lanes.active_commitment_ids,
+        "next_up" => &mut context.task_lanes.next_up_commitment_ids,
+        "if_time_allows" => &mut context.task_lanes.if_time_allows_commitment_ids,
+        _ => &mut context.task_lanes.completed_commitment_ids,
+    };
+    let position = payload.position.unwrap_or(target.len()).min(target.len());
+    target.insert(position, commitment_id.to_string());
+    context.next_commitment_id = context
+        .task_lanes
+        .active_commitment_ids
+        .first()
+        .cloned()
+        .or_else(|| context.task_lanes.next_up_commitment_ids.first().cloned());
+    let context_json = serde_json::to_string(&context)
+        .map_err(|error| AppError::internal(format!("serialize current context: {error}")))?;
+    state
+        .storage
+        .set_current_context(time::OffsetDateTime::now_utc().unix_timestamp(), &context_json)
+        .await?;
+
+    let data = services::now::get_now_with_state(&state).await?;
+    Ok(response::success(data.into()))
+}
+
+fn remove_commitment_from_all_lanes(context: &mut vel_core::CurrentContextV1, commitment_id: &str) {
+    context
+        .task_lanes
+        .active_commitment_ids
+        .retain(|id| id != commitment_id);
+    context
+        .task_lanes
+        .next_up_commitment_ids
+        .retain(|id| id != commitment_id);
+    context
+        .task_lanes
+        .if_time_allows_commitment_ids
+        .retain(|id| id != commitment_id);
+    context
+        .task_lanes
+        .completed_commitment_ids
+        .retain(|id| id != commitment_id);
 }
 
 impl From<services::now::NowOutput> for NowData {
@@ -220,6 +331,10 @@ impl From<services::now::NowTaskLaneOutput> for NowTaskLaneData {
         Self {
             active: value.active.map(Into::into),
             pending: value.pending.into_iter().map(Into::into).collect(),
+            active_items: value.active_items.into_iter().map(Into::into).collect(),
+            next_up: value.next_up.into_iter().map(Into::into).collect(),
+            if_time_allows: value.if_time_allows.into_iter().map(Into::into).collect(),
+            completed: value.completed.into_iter().map(Into::into).collect(),
             recent_completed: value.recent_completed.into_iter().map(Into::into).collect(),
             overflow_count: value.overflow_count,
         }
@@ -236,7 +351,12 @@ impl From<services::now::NowTaskLaneItemOutput> for NowTaskLaneItemData {
                 _ => NowTaskKindData::Commitment,
             },
             text: value.text,
+            title: value.title,
+            description: value.description,
+            tags: value.tags,
             state: value.state,
+            lane: value.lane,
+            sort_order: value.sort_order,
             project: value.project,
             primary_thread_id: value.primary_thread_id,
         }
@@ -453,6 +573,9 @@ impl From<services::now::NowTaskOutput> for NowTaskData {
         Self {
             id: value.id,
             text: value.text,
+            title: value.title,
+            description: value.description,
+            tags: value.tags,
             source_type: value.source_type,
             due_at: value.due_at,
             project: value.project,
@@ -632,10 +755,25 @@ mod tests {
                     task_kind: "commitment".to_string(),
                     text: "Ship patch".to_string(),
                     state: "active".to_string(),
+                    lane: Some("active".to_string()),
+                    sort_order: Some(0),
                     project: Some("Vel".to_string()),
                     primary_thread_id: None,
                 }),
                 pending: Vec::new(),
+                active_items: vec![services::now::NowTaskLaneItemOutput {
+                    id: "com_1".to_string(),
+                    task_kind: "commitment".to_string(),
+                    text: "Ship patch".to_string(),
+                    state: "active".to_string(),
+                    lane: Some("active".to_string()),
+                    sort_order: Some(0),
+                    project: Some("Vel".to_string()),
+                    primary_thread_id: None,
+                }],
+                next_up: Vec::new(),
+                if_time_allows: Vec::new(),
+                completed: Vec::new(),
                 recent_completed: Vec::new(),
                 overflow_count: 0,
             }),

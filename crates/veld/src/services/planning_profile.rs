@@ -63,7 +63,7 @@ pub async fn load_planning_profile_proposal_summary(
     let rows = storage.list_threads(None, 100).await?;
     let mut summary = PlanningProfileProposalSummary::default();
 
-    for (thread_id, thread_type, title, _, _, updated_at) in rows {
+    for (thread_id, thread_type, title, _, _metadata_json, _, updated_at) in rows {
         if thread_type != "planning_profile_edit" {
             continue;
         }

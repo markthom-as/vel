@@ -285,6 +285,9 @@ pub struct ConversationRecord {
     pub archived: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    pub message_count: i64,
+    pub last_message_at: Option<i64>,
+    pub project_label: Option<String>,
 }
 
 pub struct MessageInsert {
@@ -1549,7 +1552,7 @@ impl Storage {
         &self,
         status_filter: Option<&str>,
         limit: u32,
-    ) -> Result<Vec<(String, String, String, String, i64, i64)>, StorageError> {
+    ) -> Result<Vec<(String, String, String, String, String, i64, i64)>, StorageError> {
         threads_repo::list_threads(self.pool(), status_filter, limit).await
     }
 

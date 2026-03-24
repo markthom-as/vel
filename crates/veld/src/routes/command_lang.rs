@@ -245,6 +245,8 @@ fn map_thread_to_data(payload: services::command_lang::ThreadPayload) -> ThreadD
                 })
                 .collect()
         }),
+        project_id: None,
+        project_label: None,
     }
 }
 

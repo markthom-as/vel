@@ -49,6 +49,7 @@ import {
   type ProjectListResponseData,
   type RunSummaryData,
   type SettingsData,
+  type WebSettingsData,
   type WritebackOperationData,
 } from '../types';
 
@@ -546,6 +547,14 @@ export function updateSettings(
     patch,
     (value) => decodeApiResponse(value, decodeSettingsData),
   );
+}
+
+export function updateWebSettings(
+  patch: Partial<WebSettingsData>,
+): Promise<ApiResponse<SettingsData>> {
+  return updateSettings({
+    web_settings: patch,
+  });
 }
 
 export function loadRecentRuns(limit: number): Promise<ApiResponse<RunSummaryData[]>> {

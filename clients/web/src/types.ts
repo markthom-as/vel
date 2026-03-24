@@ -72,6 +72,29 @@ export interface ConversationContinuationData {
   continuation: ThreadContinuationData;
 }
 
+export interface ThreadLinkData {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  relation_type: string;
+}
+
+export interface ThreadData {
+  id: string;
+  thread_type: string;
+  title: string;
+  status: string;
+  planning_kind?: string | null;
+  lifecycle_stage?: string | null;
+  created_at: UnixSeconds;
+  updated_at: UnixSeconds;
+  continuation?: ThreadContinuationData | null;
+  metadata?: JsonValue | null;
+  links?: ThreadLinkData[] | null;
+  project_id?: string | null;
+  project_label?: string | null;
+}
+
 export interface ConversationData {
   id: string;
   title: string | null;
@@ -80,6 +103,9 @@ export interface ConversationData {
   archived: boolean;
   created_at: UnixSeconds;
   updated_at: UnixSeconds;
+  message_count: number;
+  last_message_at?: UnixSeconds | null;
+  project_label?: string | null;
   continuation: ConversationContinuationData | null;
 }
 
@@ -114,9 +140,21 @@ export interface AssistantEntryVoiceProvenanceData {
   queued_at?: string | null;
 }
 
+export type AssistantEntryAttachmentKindData = 'file' | 'image' | 'person' | 'event' | 'task';
+
+export interface AssistantEntryAttachmentData {
+  kind: AssistantEntryAttachmentKindData;
+  label?: string | null;
+  object_id?: string | null;
+  mime_type?: string | null;
+  metadata?: JsonValue | null;
+}
+
 export interface AssistantEntryRequest {
   text: string;
   conversation_id?: string | null;
+  intent?: NowDockedInputIntentData | null;
+  attachments?: AssistantEntryAttachmentData[] | null;
   voice?: AssistantEntryVoiceProvenanceData | null;
 }
 
@@ -124,6 +162,7 @@ export interface AssistantEntryResponse {
   route_target: AssistantEntryRouteTargetData;
   entry_intent?: NowDockedInputIntentData | null;
   continuation_category?: NowHeaderBucketKindData | null;
+  follow_up?: AssistantEntryFollowUpData | null;
   user_message: MessageData;
   assistant_message?: MessageData | null;
   assistant_error?: string | null;
@@ -133,6 +172,17 @@ export interface AssistantEntryResponse {
   planning_profile_proposal?: PlanningProfileEditProposalData | null;
   daily_loop_session?: DailyLoopSessionData | null;
   end_of_day?: EndOfDayData | null;
+}
+
+export interface AssistantEntryFollowUpData {
+  intervention_id: string;
+  message_id: string;
+  conversation_id: string;
+  kind: string;
+  state: string;
+  surfaced_at: UnixSeconds;
+  snoozed_until?: UnixSeconds | null;
+  confidence?: number | null;
 }
 
 export interface AssistantActionProposalData {
@@ -438,6 +488,15 @@ export interface SettingsData {
     commute_buffer_source_accepted_at?: UnixSeconds | null;
   };
   backup?: BackupSettingsData;
+  web_settings?: WebSettingsData;
+}
+
+export interface WebSettingsData {
+  dense_rows: boolean;
+  tabular_numbers: boolean;
+  reduced_motion: boolean;
+  strong_focus: boolean;
+  docked_action_bar: boolean;
 }
 
 export interface LlmProfileSettingsData {
@@ -1403,6 +1462,9 @@ export interface NowEventData {
 export interface NowTaskData {
   id: string;
   text: string;
+  title: string;
+  description: string | null;
+  tags: string[];
   source_type: string;
   due_at: string | null;
   project: string | null;
@@ -1623,6 +1685,7 @@ export interface NowNudgeBarData {
   kind: NowNudgeBarKindData;
   title: string;
   summary: string;
+  timestamp?: UnixSeconds | null;
   urgent: boolean;
   primary_thread_id?: string | null;
   actions: NowNudgeActionData[];
@@ -1634,7 +1697,12 @@ export interface NowTaskLaneItemData {
   id: string;
   task_kind: NowTaskKindData;
   text: string;
+  title: string;
+  description?: string | null;
+  tags: string[];
   state: string;
+  lane?: string | null;
+  sort_order?: number | null;
   project?: string | null;
   primary_thread_id?: string | null;
 }
@@ -1642,6 +1710,10 @@ export interface NowTaskLaneItemData {
 export interface NowTaskLaneData {
   active: NowTaskLaneItemData | null;
   pending: NowTaskLaneItemData[];
+  active_items?: NowTaskLaneItemData[];
+  next_up?: NowTaskLaneItemData[];
+  if_time_allows?: NowTaskLaneItemData[];
+  completed?: NowTaskLaneItemData[];
   recent_completed: NowTaskLaneItemData[];
   overflow_count: number;
 }
@@ -2034,10 +2106,70 @@ export function decodeConversationData(value: unknown): ConversationData {
     archived: expectBoolean(record.archived, 'conversation.archived'),
     created_at: expectUnixSeconds(record.created_at, 'conversation.created_at'),
     updated_at: expectUnixSeconds(record.updated_at, 'conversation.updated_at'),
+    message_count:
+      record.message_count === undefined
+        ? 0
+        : expectNumber(record.message_count, 'conversation.message_count'),
+    last_message_at:
+      record.last_message_at === undefined
+        ? undefined
+        : expectNullableUnixSeconds(record.last_message_at, 'conversation.last_message_at'),
+    project_label:
+      record.project_label === undefined
+        ? undefined
+        : expectNullableString(record.project_label, 'conversation.project_label'),
     continuation:
       record.continuation === undefined
         ? null
         : decodeNullable(record.continuation, decodeConversationContinuationData),
+  };
+}
+
+export function decodeThreadLinkData(value: unknown): ThreadLinkData {
+  const record = expectRecord(value, 'thread link');
+  return {
+    id: expectString(record.id, 'thread link.id'),
+    entity_type: expectString(record.entity_type, 'thread link.entity_type'),
+    entity_id: expectString(record.entity_id, 'thread link.entity_id'),
+    relation_type: expectString(record.relation_type, 'thread link.relation_type'),
+  };
+}
+
+export function decodeThreadData(value: unknown): ThreadData {
+  const record = expectRecord(value, 'thread');
+  return {
+    id: expectString(record.id, 'thread.id'),
+    thread_type: expectString(record.thread_type, 'thread.thread_type'),
+    title: expectString(record.title, 'thread.title'),
+    status: expectString(record.status, 'thread.status'),
+    planning_kind:
+      record.planning_kind === undefined
+        ? undefined
+        : expectNullableString(record.planning_kind, 'thread.planning_kind'),
+    lifecycle_stage:
+      record.lifecycle_stage === undefined
+        ? undefined
+        : expectNullableString(record.lifecycle_stage, 'thread.lifecycle_stage'),
+    created_at: expectUnixSeconds(record.created_at, 'thread.created_at'),
+    updated_at: expectUnixSeconds(record.updated_at, 'thread.updated_at'),
+    continuation:
+      record.continuation === undefined
+        ? undefined
+        : decodeNullable(record.continuation, decodeThreadContinuationData),
+    metadata:
+      record.metadata === undefined ? undefined : decodeJsonValue(record.metadata),
+    links:
+      record.links === undefined
+        ? undefined
+        : decodeNullable(record.links, (value) => decodeArray(value, decodeThreadLinkData)),
+    project_id:
+      record.project_id === undefined
+        ? undefined
+        : expectNullableString(record.project_id, 'thread.project_id'),
+    project_label:
+      record.project_label === undefined
+        ? undefined
+        : expectNullableString(record.project_label, 'thread.project_label'),
   };
 }
 
@@ -2122,6 +2254,10 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
       record.continuation_category === undefined
         ? undefined
         : decodeNullable(record.continuation_category, decodeNowHeaderBucketKindData),
+    follow_up:
+      record.follow_up === undefined
+        ? undefined
+        : decodeNullable(record.follow_up, decodeAssistantEntryFollowUpData),
     user_message: decodeMessageData(record.user_message),
     assistant_message:
       record.assistant_message === undefined
@@ -2152,6 +2288,32 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
       record.end_of_day === undefined
         ? undefined
         : decodeNullable(record.end_of_day, decodeEndOfDayData),
+  };
+}
+
+export function decodeAssistantEntryFollowUpData(value: unknown): AssistantEntryFollowUpData {
+  const record = expectRecord(value, 'assistant entry follow-up');
+  return {
+    intervention_id: expectString(
+      record.intervention_id,
+      'assistant entry follow-up.intervention_id',
+    ),
+    message_id: expectString(record.message_id, 'assistant entry follow-up.message_id'),
+    conversation_id: expectString(
+      record.conversation_id,
+      'assistant entry follow-up.conversation_id',
+    ),
+    kind: expectString(record.kind, 'assistant entry follow-up.kind'),
+    state: expectString(record.state, 'assistant entry follow-up.state'),
+    surfaced_at: expectUnixSeconds(record.surfaced_at, 'assistant entry follow-up.surfaced_at'),
+    snoozed_until:
+      record.snoozed_until === undefined
+        ? undefined
+        : expectNullableUnixSeconds(record.snoozed_until, 'assistant entry follow-up.snoozed_until'),
+    confidence:
+      record.confidence === undefined
+        ? undefined
+        : expectNullableNumber(record.confidence, 'assistant entry follow-up.confidence'),
   };
 }
 
@@ -3687,6 +3849,9 @@ export function decodeNowTaskData(value: unknown): NowTaskData {
   return {
     id: expectString(record.id, 'now task.id'),
     text: expectString(record.text, 'now task.text'),
+    title: expectString(record.title ?? record.text, 'now task.title'),
+    description: expectNullableString(record.description ?? null, 'now task.description'),
+    tags: decodeArray(record.tags ?? [], (item) => expectString(item, 'now task.tags[]')),
     source_type: expectString(record.source_type, 'now task.source_type'),
     due_at: expectNullableRfc3339Timestamp(record.due_at, 'now task.due_at'),
     project: expectNullableString(record.project, 'now task.project'),
@@ -3892,6 +4057,7 @@ function decodeNowNudgeBarData(value: unknown): NowNudgeBarData {
     kind: decodeNowNudgeBarKindData(record.kind),
     title: expectString(record.title, 'now nudge bar.title'),
     summary: expectString(record.summary, 'now nudge bar.summary'),
+    timestamp: expectNullableNumber(record.timestamp ?? null, 'now nudge bar.timestamp'),
     urgent: expectBoolean(record.urgent, 'now nudge bar.urgent'),
     primary_thread_id: expectNullableString(
       record.primary_thread_id ?? null,
@@ -3911,7 +4077,21 @@ function decodeNowTaskLaneItemData(value: unknown): NowTaskLaneItemData {
     id: expectString(record.id, 'now task lane item.id'),
     task_kind: decodeNowTaskKindData(record.task_kind),
     text: expectString(record.text, 'now task lane item.text'),
+    title: expectString(record.title ?? record.text, 'now task lane item.title'),
+    description: expectNullableString(record.description ?? null, 'now task lane item.description'),
+    tags: decodeArray(record.tags ?? [], (item) => expectString(item, 'now task lane item.tags[]')),
     state: expectString(record.state, 'now task lane item.state'),
+    ...(record.lane === undefined
+      ? {}
+      : { lane: expectNullableString(record.lane, 'now task lane item.lane') }),
+    ...(record.sort_order === undefined
+      ? {}
+      : {
+          sort_order: expectNullableNumber(
+            record.sort_order,
+            'now task lane item.sort_order',
+          ),
+        }),
     project: expectNullableString(record.project ?? null, 'now task lane item.project'),
     primary_thread_id: expectNullableString(
       record.primary_thread_id ?? null,
@@ -3925,11 +4105,34 @@ function decodeNowTaskLaneData(value: unknown): NowTaskLaneData {
   return {
     active: decodeNullable(record.active ?? null, decodeNowTaskLaneItemData),
     pending: decodeArray(record.pending ?? [], decodeNowTaskLaneItemData),
+    ...(record.active_items === undefined
+      ? {}
+      : { active_items: decodeArray(record.active_items, decodeNowTaskLaneItemData) }),
+    ...(record.next_up === undefined
+      ? {}
+      : { next_up: decodeArray(record.next_up, decodeNowTaskLaneItemData) }),
+    ...(record.if_time_allows === undefined
+      ? {}
+      : { if_time_allows: decodeArray(record.if_time_allows, decodeNowTaskLaneItemData) }),
+    ...(record.completed === undefined
+      ? {}
+      : { completed: decodeArray(record.completed, decodeNowTaskLaneItemData) }),
     recent_completed: decodeArray(
       record.recent_completed ?? [],
       decodeNowTaskLaneItemData,
     ),
     overflow_count: expectNumber(record.overflow_count, 'now task lane.overflow_count'),
+  };
+}
+
+function decodeWebSettingsData(value: unknown): WebSettingsData {
+  const record = expectRecord(value, 'web settings');
+  return {
+    dense_rows: expectBoolean(record.dense_rows, 'web settings.dense_rows'),
+    tabular_numbers: expectBoolean(record.tabular_numbers, 'web settings.tabular_numbers'),
+    reduced_motion: expectBoolean(record.reduced_motion, 'web settings.reduced_motion'),
+    strong_focus: expectBoolean(record.strong_focus, 'web settings.strong_focus'),
+    docked_action_bar: expectBoolean(record.docked_action_bar, 'web settings.docked_action_bar'),
   };
 }
 
@@ -4712,6 +4915,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.backup === undefined
         ? undefined
         : decodeBackupSettingsData(record.backup),
+    web_settings:
+      record.web_settings === undefined
+        ? undefined
+        : decodeWebSettingsData(record.web_settings),
   };
 }
 

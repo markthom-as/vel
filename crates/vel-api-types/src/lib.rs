@@ -4977,6 +4977,12 @@ pub struct ConversationData {
     pub archived: bool,
     pub created_at: UnixSeconds,
     pub updated_at: UnixSeconds,
+    #[serde(default)]
+    pub message_count: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_message_at: Option<UnixSeconds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continuation: Option<ConversationContinuationData>,
 }
@@ -5066,10 +5072,37 @@ pub struct AssistantEntryVoiceProvenanceData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssistantEntryAttachmentKindData {
+    File,
+    Image,
+    Person,
+    Event,
+    Task,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantEntryAttachmentData {
+    pub kind: AssistantEntryAttachmentKindData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantEntryRequest {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conversation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intent: Option<NowDockedInputIntentData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attachments: Option<Vec<AssistantEntryAttachmentData>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub voice: Option<AssistantEntryVoiceProvenanceData>,
 }
@@ -5081,6 +5114,8 @@ pub struct AssistantEntryResponse {
     pub entry_intent: Option<NowDockedInputIntentData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub continuation_category: Option<NowHeaderBucketKindData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow_up: Option<AssistantEntryFollowUpData>,
     pub user_message: MessageData,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_message: Option<MessageData>,
@@ -5098,6 +5133,20 @@ pub struct AssistantEntryResponse {
     pub daily_loop_session: Option<DailyLoopSessionData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_of_day: Option<EndOfDayData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantEntryFollowUpData {
+    pub intervention_id: String,
+    pub message_id: String,
+    pub conversation_id: String,
+    pub kind: String,
+    pub state: String,
+    pub surfaced_at: UnixSeconds,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snoozed_until: Option<UnixSeconds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6753,7 +6802,16 @@ pub struct NowTaskLaneItemData {
     pub id: String,
     pub task_kind: NowTaskKindData,
     pub text: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lane: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6767,8 +6825,58 @@ pub struct NowTaskLaneData {
     #[serde(default)]
     pub pending: Vec<NowTaskLaneItemData>,
     #[serde(default)]
+    pub active_items: Vec<NowTaskLaneItemData>,
+    #[serde(default)]
+    pub next_up: Vec<NowTaskLaneItemData>,
+    #[serde(default)]
+    pub if_time_allows: Vec<NowTaskLaneItemData>,
+    #[serde(default)]
+    pub completed: Vec<NowTaskLaneItemData>,
+    #[serde(default)]
     pub recent_completed: Vec<NowTaskLaneItemData>,
     pub overflow_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebSettingsData {
+    #[serde(default = "default_web_settings_dense_rows")]
+    pub dense_rows: bool,
+    #[serde(default = "default_web_settings_tabular_numbers")]
+    pub tabular_numbers: bool,
+    #[serde(default)]
+    pub reduced_motion: bool,
+    #[serde(default = "default_web_settings_strong_focus")]
+    pub strong_focus: bool,
+    #[serde(default = "default_web_settings_docked_action_bar")]
+    pub docked_action_bar: bool,
+}
+
+impl Default for WebSettingsData {
+    fn default() -> Self {
+        Self {
+            dense_rows: default_web_settings_dense_rows(),
+            tabular_numbers: default_web_settings_tabular_numbers(),
+            reduced_motion: false,
+            strong_focus: default_web_settings_strong_focus(),
+            docked_action_bar: default_web_settings_docked_action_bar(),
+        }
+    }
+}
+
+fn default_web_settings_dense_rows() -> bool {
+    true
+}
+
+fn default_web_settings_tabular_numbers() -> bool {
+    true
+}
+
+fn default_web_settings_strong_focus() -> bool {
+    true
+}
+
+fn default_web_settings_docked_action_bar() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -6832,6 +6940,11 @@ pub struct NowEventData {
 pub struct NowTaskData {
     pub id: String,
     pub text: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub source_type: String,
     #[serde(with = "time::serde::rfc3339::option")]
     pub due_at: Option<OffsetDateTime>,
@@ -7011,6 +7124,10 @@ pub struct ThreadData {
     pub metadata: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Vec<ThreadLinkData>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<ProjectId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7182,6 +7299,9 @@ mod tests {
         let task = NowTaskData {
             id: "commit_1".to_string(),
             text: "Reply to Dimitri".to_string(),
+            title: "Reply to Dimitri".to_string(),
+            description: None,
+            tags: vec!["follow_up".to_string()],
             source_type: "todoist".to_string(),
             due_at: Some(datetime!(2026-03-16 19:00:00 UTC)),
             project: None,
@@ -7197,6 +7317,9 @@ mod tests {
         let task = NowTaskData {
             id: "commit_2".to_string(),
             text: "Inbox zero".to_string(),
+            title: "Inbox zero".to_string(),
+            description: None,
+            tags: vec![],
             source_type: "manual".to_string(),
             due_at: None,
             project: None,

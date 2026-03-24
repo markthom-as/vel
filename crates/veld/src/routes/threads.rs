@@ -10,6 +10,7 @@ use vel_api_types::{
     ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
     ThreadUpdateRequest,
 };
+use vel_core::ProjectId;
 
 use crate::{
     errors::AppError,
@@ -40,15 +41,34 @@ fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, O
     (planning_kind, lifecycle_stage)
 }
 
+fn thread_project_details(metadata: Option<&serde_json::Value>) -> (Option<ProjectId>, Option<String>) {
+    let Some(metadata) = metadata else {
+        return (None, None);
+    };
+    let project_id = metadata
+        .get("project_id")
+        .and_then(serde_json::Value::as_str)
+        .map(|value| ProjectId::from(value.to_string()));
+    let project_label = metadata
+        .get("project_label")
+        .or_else(|| metadata.get("project"))
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string);
+    (project_id, project_label)
+}
+
 fn thread_data_from_summary(
     id: String,
     thread_type: String,
     title: String,
     status: String,
+    metadata_json: String,
     created_at: i64,
     updated_at: i64,
 ) -> ThreadData {
+    let metadata = parse_thread_metadata(&metadata_json);
     let (planning_kind, lifecycle_stage) = planning_thread_fields(&thread_type, &status);
+    let (project_id, project_label) = thread_project_details(metadata.as_ref());
     ThreadData {
         id,
         thread_type,
@@ -59,8 +79,10 @@ fn thread_data_from_summary(
         created_at,
         updated_at,
         continuation: None,
-        metadata: None,
+        metadata,
         links: None,
+        project_id,
+        project_label,
     }
 }
 
@@ -71,6 +93,7 @@ fn thread_data_from_row(
     let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
     let metadata = parse_thread_metadata(&metadata_json);
     let continuation = thread_continuation_data(&thread_type, metadata.as_ref());
+    let (project_id, project_label) = thread_project_details(metadata.as_ref());
     let (planning_kind, lifecycle_stage) = if thread_type == "assistant_proposal"
         || thread_type == "planning_profile_edit"
         || thread_type == "reflow_edit"
@@ -95,6 +118,8 @@ fn thread_data_from_row(
         continuation,
         metadata,
         links,
+        project_id,
+        project_label,
     }
 }
 
@@ -112,13 +137,21 @@ pub async fn list_threads(
         && q.continuation_category.is_none()
     {
         rows.into_iter()
-            .map(|(id, thread_type, title, status, created_at, updated_at)| {
-                thread_data_from_summary(id, thread_type, title, status, created_at, updated_at)
+            .map(|(id, thread_type, title, status, metadata_json, created_at, updated_at)| {
+                thread_data_from_summary(
+                    id,
+                    thread_type,
+                    title,
+                    status,
+                    metadata_json,
+                    created_at,
+                    updated_at,
+                )
             })
             .collect()
     } else {
         let mut data = Vec::new();
-        for (id, thread_type, title, status, created_at, updated_at) in rows {
+        for (id, thread_type, title, status, metadata_json, created_at, updated_at) in rows {
             if !matches_thread_filters(&state, &id, &thread_type, q.project_id.as_deref()).await? {
                 continue;
             }
@@ -137,6 +170,7 @@ pub async fn list_threads(
                 thread_type,
                 title,
                 status,
+                metadata_json,
                 created_at,
                 updated_at,
             ));
@@ -224,7 +258,7 @@ mod tests {
                 "project_review",
                 "Vel review",
                 "open",
-                r#"{"project_id":"proj_vel"}"#,
+                r#"{"project_id":"proj_vel","project_label":"Vel"}"#,
             )
             .await
             .unwrap();
@@ -264,6 +298,8 @@ mod tests {
         let data = response.data.expect("thread data");
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].id, "thr_project_review_1");
+        assert_eq!(data[0].project_id.as_ref().map(|id| id.as_ref()), Some("proj_vel"));
+        assert_eq!(data[0].project_label.as_deref(), Some("Vel"));
     }
 
     #[test]
@@ -530,6 +566,7 @@ pub async fn create_thread(
         payload.thread_type,
         payload.title,
         "open".to_string(),
+        metadata.clone(),
         now,
         now,
     );

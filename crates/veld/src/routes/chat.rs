@@ -13,7 +13,7 @@ use vel_api_types::{
     AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationContinuationData,
     ConversationCreateRequest, ConversationData, ConversationUpdateRequest, CreateMessageResponse,
     InboxItemData, InterventionActionData, MessageCreateRequest, MessageData,
-    PlanningProfileEditProposalData, ProvenanceData, ProvenanceEvent,
+    PlanningProfileEditProposalData, ProvenanceData, ProvenanceEvent, WebSettingsData,
 };
 
 use crate::services::chat::{
@@ -53,6 +53,9 @@ fn map_conversation_data(
         archived: data.archived,
         created_at: data.created_at,
         updated_at: data.updated_at,
+        message_count: data.message_count,
+        last_message_at: data.last_message_at,
+        project_label: data.project_label,
         continuation: data.continuation,
     }
 }
@@ -177,6 +180,7 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
             .continuation_category
             .as_deref()
             .map(map_continuation_category),
+        follow_up: data.follow_up,
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
@@ -372,6 +376,8 @@ pub async fn create_assistant_entry(
         &AssistantEntryCreateInput {
             text: payload.text,
             conversation_id: payload.conversation_id,
+            intent: payload.intent,
+            attachments: payload.attachments.unwrap_or_default(),
             voice: payload.voice.map(|voice| VoiceEntryProvenance {
                 surface: voice.surface,
                 source_device: voice.source_device,
@@ -476,7 +482,17 @@ pub struct SettingsUpdateRequest {
     pub tailscale_preferred: Option<bool>,
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
+    pub web_settings: Option<WebSettingsUpdateRequest>,
     pub llm: Option<crate::services::llm_settings::LlmSettingsUpdateRequest>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct WebSettingsUpdateRequest {
+    pub dense_rows: Option<bool>,
+    pub tabular_numbers: Option<bool>,
+    pub reduced_motion: Option<bool>,
+    pub strong_focus: Option<bool>,
+    pub docked_action_bar: Option<bool>,
 }
 
 pub async fn patch_settings(
@@ -539,6 +555,34 @@ pub async fn patch_settings(
     }
     if let Some(value) = payload.lan_base_url {
         write_optional_url_setting(&state, "lan_base_url", &value).await?;
+    }
+    if let Some(patch) = payload.web_settings.as_ref() {
+        let map = state.storage.get_all_settings().await?;
+        let mut web_settings = crate::services::chat::settings::load_web_settings_from_map(&map)?;
+        if let Some(value) = patch.dense_rows {
+            web_settings.dense_rows = value;
+        }
+        if let Some(value) = patch.tabular_numbers {
+            web_settings.tabular_numbers = value;
+        }
+        if let Some(value) = patch.reduced_motion {
+            web_settings.reduced_motion = value;
+        }
+        if let Some(value) = patch.strong_focus {
+            web_settings.strong_focus = value;
+        }
+        if let Some(value) = patch.docked_action_bar {
+            web_settings.docked_action_bar = value;
+        }
+        let value = serde_json::to_value(WebSettingsData {
+            dense_rows: web_settings.dense_rows,
+            tabular_numbers: web_settings.tabular_numbers,
+            reduced_motion: web_settings.reduced_motion,
+            strong_focus: web_settings.strong_focus,
+            docked_action_bar: web_settings.docked_action_bar,
+        })
+        .map_err(|error| AppError::internal(format!("serialize web_settings: {error}")))?;
+        state.storage.set_setting("web_settings", &value).await?;
     }
     if let Some(request) = payload.llm.as_ref() {
         crate::services::llm_settings::apply_llm_settings_update(request)?;

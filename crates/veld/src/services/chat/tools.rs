@@ -323,18 +323,16 @@ pub(crate) async fn execute_chat_tool(
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
             let mut threads = Vec::new();
-            for (id, thread_type, title, status, created_at, updated_at) in state
+            for (id, thread_type, title, status, metadata_json, created_at, updated_at) in state
                 .storage
                 .list_threads(status, limit as u32)
                 .await?
                 .into_iter()
-                .filter(|(_, current_thread_type, _, _, _, _)| {
+                .filter(|(_, current_thread_type, _, _, _, _, _)| {
                     thread_type.is_none_or(|expected| current_thread_type == expected)
                 })
             {
-                let metadata = state.storage.get_thread_by_id(&id).await?.and_then(
-                    |(_, _, _, _, metadata_json, _, _)| parse_thread_metadata(&metadata_json),
-                );
+                let metadata = parse_thread_metadata(&metadata_json);
                 threads.push(json!({
                     "id": id,
                     "thread_type": thread_type,

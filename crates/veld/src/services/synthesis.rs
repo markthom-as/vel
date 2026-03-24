@@ -283,7 +283,7 @@ async fn execute_week_synthesis(state: &AppState, run_id: &RunId) -> Result<Arti
         .unwrap_or_default();
     let top_threads: Vec<serde_json::Value> = thread_rows
         .into_iter()
-        .map(|(id, thread_type, title, status, _ca, _ua)| {
+        .map(|(id, thread_type, title, status, _metadata_json, _ca, _ua)| {
             serde_json::json!({ "id": id, "thread_type": thread_type, "title": title, "status": status })
         })
         .collect();
@@ -475,7 +475,7 @@ async fn execute_project_synthesis(
         .unwrap_or_default();
     let top_threads: Vec<serde_json::Value> = thread_rows
         .into_iter()
-        .map(|(id, thread_type, title, status, _ca, _ua)| {
+        .map(|(id, thread_type, title, status, _metadata_json, _ca, _ua)| {
             serde_json::json!({ "id": id, "thread_type": thread_type, "title": title, "status": status })
         })
         .collect();

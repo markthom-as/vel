@@ -129,6 +129,10 @@ pub struct NowNudgeActionOutput {
 pub struct NowTaskLaneOutput {
     pub active: Option<NowTaskLaneItemOutput>,
     pub pending: Vec<NowTaskLaneItemOutput>,
+    pub active_items: Vec<NowTaskLaneItemOutput>,
+    pub next_up: Vec<NowTaskLaneItemOutput>,
+    pub if_time_allows: Vec<NowTaskLaneItemOutput>,
+    pub completed: Vec<NowTaskLaneItemOutput>,
     pub recent_completed: Vec<NowTaskLaneItemOutput>,
     pub overflow_count: u32,
 }
@@ -138,7 +142,12 @@ pub struct NowTaskLaneItemOutput {
     pub id: String,
     pub task_kind: String,
     pub text: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
     pub state: String,
+    pub lane: Option<String>,
+    pub sort_order: Option<u32>,
     pub project: Option<String>,
     pub primary_thread_id: Option<String>,
 }
@@ -224,6 +233,9 @@ pub struct NowEventOutput {
 pub struct NowTaskOutput {
     pub id: String,
     pub text: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
     pub source_type: String,
     pub due_at: Option<OffsetDateTime>,
     pub project: Option<String>,
@@ -407,7 +419,11 @@ async fn get_now_internal(
     let commitments = storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
         .await?;
+    let completed_commitments = storage
+        .list_commitments(Some(CommitmentStatus::Done), None, None, 32)
+        .await?;
     let sorted_commitments = sort_commitments(commitments, &timezone, now);
+    let all_open_tasks = sorted_commitments.iter().map(now_task).collect::<Vec<_>>();
     let task_buckets = split_now_tasks(&context, sorted_commitments, &timezone, now, &current_day);
 
     let signal_ids = context.signals_used.clone();
@@ -539,7 +555,12 @@ async fn get_now_internal(
         &action_queue.action_items,
         mesh_summary.as_ref(),
     );
-    let task_lane = Some(build_task_lane(&task_buckets));
+    let task_lane = Some(build_task_lane(
+        &context,
+        &task_buckets,
+        &all_open_tasks,
+        completed_commitments,
+    ));
     let docked_input = Some(build_docked_input());
 
     Ok(NowOutput {
@@ -930,6 +951,10 @@ fn empty_now(
         task_lane: Some(NowTaskLaneOutput {
             active: None,
             pending: Vec::new(),
+            active_items: Vec::new(),
+            next_up: Vec::new(),
+            if_time_allows: Vec::new(),
+            completed: Vec::new(),
             recent_completed: Vec::new(),
             overflow_count: 0,
         }),
@@ -1407,38 +1432,121 @@ fn map_action_item_to_bar_kind(kind: ActionKind) -> String {
     .to_string()
 }
 
-fn build_task_lane(task_buckets: &NowTaskBuckets) -> NowTaskLaneOutput {
-    let active = task_buckets
-        .next_commitment
-        .as_ref()
-        .map(task_output_to_lane_item)
-        .map(|mut item| {
-            item.state = "active".to_string();
-            item
-        });
-    let mut pending = task_buckets
-        .in_play
+fn build_task_lane(
+    context: &CurrentContextV1,
+    task_buckets: &NowTaskBuckets,
+    all_open_tasks: &[NowTaskOutput],
+    completed_commitments: Vec<Commitment>,
+) -> NowTaskLaneOutput {
+    use std::collections::{HashMap, HashSet};
+
+    let mut open_by_id = HashMap::new();
+    let mut default_active = Vec::new();
+    if let Some(task) = task_buckets.next_commitment.as_ref() {
+        default_active.push(task.clone());
+    }
+    default_active.extend(task_buckets.in_play.iter().cloned());
+    let default_next_up = task_buckets.in_play.clone();
+    let default_if_time_allows = task_buckets.pullable.clone();
+
+    for task in default_active
         .iter()
-        .map(task_output_to_lane_item)
-        .collect::<Vec<_>>();
-    pending.extend(task_buckets.pullable.iter().map(task_output_to_lane_item));
-    let overflow_count = pending.len().saturating_sub(3) as u32;
-    pending.truncate(3);
+        .chain(default_next_up.iter())
+        .chain(default_if_time_allows.iter())
+    {
+        open_by_id.insert(task.id.clone(), task.clone());
+    }
+    for task in all_open_tasks {
+        open_by_id.entry(task.id.clone()).or_insert_with(|| task.clone());
+    }
+
+    let completed_by_id = completed_commitments
+        .iter()
+        .map(|commitment| (commitment.id.as_ref().to_string(), now_task(commitment)))
+        .collect::<HashMap<_, _>>();
+
+    let mut consumed = HashSet::new();
+    let mut assign_items =
+        |ids: &[String], lane: &str, source: &HashMap<String, NowTaskOutput>| {
+            let mut items = Vec::new();
+            for (index, id) in ids.iter().enumerate() {
+                if let Some(task) = source.get(id) {
+                    consumed.insert(id.clone());
+                    items.push(task_output_to_lane_item(task, lane, Some(index as u32)));
+                }
+            }
+            items
+        };
+
+    let mut active_items =
+        assign_items(&context.task_lanes.active_commitment_ids, "active", &open_by_id);
+    let mut next_up = assign_items(
+        &context.task_lanes.next_up_commitment_ids,
+        "next_up",
+        &open_by_id,
+    );
+    let mut if_time_allows = assign_items(
+        &context.task_lanes.if_time_allows_commitment_ids,
+        "if_time_allows",
+        &open_by_id,
+    );
+    let completed = assign_items(
+        &context.task_lanes.completed_commitment_ids,
+        "completed",
+        &completed_by_id,
+    );
+
+    for task in default_active {
+        if consumed.insert(task.id.clone()) {
+            active_items.push(task_output_to_lane_item(&task, "active", None));
+        }
+    }
+    for task in default_next_up {
+        if consumed.insert(task.id.clone()) {
+            next_up.push(task_output_to_lane_item(&task, "next_up", None));
+        }
+    }
+    for task in default_if_time_allows {
+        if consumed.insert(task.id.clone()) {
+            if_time_allows.push(task_output_to_lane_item(&task, "if_time_allows", None));
+        }
+    }
+
+    let active = active_items.first().cloned();
+    let mut pending = next_up.clone();
+    pending.extend(if_time_allows.clone());
 
     NowTaskLaneOutput {
         active,
         pending,
-        recent_completed: Vec::new(),
-        overflow_count,
+        active_items,
+        next_up,
+        if_time_allows,
+        completed: completed.clone(),
+        recent_completed: completed,
+        overflow_count: 0,
     }
 }
 
-fn task_output_to_lane_item(task: &NowTaskOutput) -> NowTaskLaneItemOutput {
+fn task_output_to_lane_item(
+    task: &NowTaskOutput,
+    lane: &str,
+    sort_order: Option<u32>,
+) -> NowTaskLaneItemOutput {
     NowTaskLaneItemOutput {
         id: task.id.clone(),
         task_kind: "commitment".to_string(),
         text: task.text.clone(),
-        state: "pending".to_string(),
+        title: task.title.clone(),
+        description: task.description.clone(),
+        tags: task.tags.clone(),
+        state: if lane == "completed" {
+            "done".to_string()
+        } else {
+            lane.to_string()
+        },
+        lane: Some(lane.to_string()),
+        sort_order,
         project: task.project.clone(),
         primary_thread_id: None,
     }
@@ -2102,9 +2210,33 @@ fn was_recently_updated(commitment: &Commitment, now: OffsetDateTime) -> bool {
 }
 
 fn now_task(commitment: &Commitment) -> NowTaskOutput {
+    let description = commitment
+        .metadata_json
+        .get("description")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let tags = commitment
+        .metadata_json
+        .get("labels")
+        .and_then(|value| value.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     NowTaskOutput {
         id: commitment.id.as_ref().to_string(),
         text: commitment.text.clone(),
+        title: commitment.text.clone(),
+        description,
+        tags,
         source_type: commitment.source_type.clone(),
         due_at: commitment.due_at,
         project: commitment.project.clone(),

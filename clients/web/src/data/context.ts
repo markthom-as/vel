@@ -89,6 +89,22 @@ export function updateCommitment(
   );
 }
 
+export function updateNowTaskLane(
+  commitmentId: string,
+  lane: 'active' | 'next_up' | 'if_time_allows' | 'completed',
+  position?: number,
+): Promise<ApiResponse<NowData>> {
+  return canonicalPatchMutation<NowData>(
+    '/v1/now/task-lane',
+    {
+      commitment_id: commitmentId,
+      lane,
+      position: position ?? null,
+    },
+    (value) => decodeApiResponse(value, decodeNowData),
+  );
+}
+
 export function loadActiveDailyLoopSession(
   sessionDate: string,
   phase: DailyLoopPhaseData,
