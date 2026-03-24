@@ -30,6 +30,8 @@ export function AssistantEntryFeedback({
   message,
   inlineResponse,
   assistantEntryThreadId,
+  canRetry = false,
+  onRetry,
   onOpenThread,
   pendingIntentOptions,
   selectedIntent,
@@ -39,6 +41,8 @@ export function AssistantEntryFeedback({
   message: { status: 'success' | 'error'; message: string } | null;
   inlineResponse: AssistantEntryResponse | null;
   assistantEntryThreadId: string | null;
+  canRetry?: boolean;
+  onRetry?: () => void;
   onOpenThread?: (conversationId: string) => void;
   pendingIntentOptions?: Array<NowDockedInputIntentData | 'thread' | 'capture'>;
   selectedIntent?: NowDockedInputIntentData | 'thread' | 'capture' | null;
@@ -61,9 +65,16 @@ export function AssistantEntryFeedback({
         >
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm leading-6">{message.message}</p>
-            <ActionChipButton tone="ghost" onClick={onDismiss}>
-              Dismiss
-            </ActionChipButton>
+            <div className="flex items-center gap-2">
+              {message.status === 'error' && canRetry ? (
+                <ActionChipButton tone="brand" onClick={onRetry}>
+                  Retry
+                </ActionChipButton>
+              ) : null}
+              <ActionChipButton tone="ghost" onClick={onDismiss}>
+                Dismiss
+              </ActionChipButton>
+            </div>
           </div>
           {pendingIntentOptions?.length ? (
             <div className="mt-3 sm:mt-0 sm:absolute sm:right-3 sm:top-1/2 sm:-translate-y-1/2">

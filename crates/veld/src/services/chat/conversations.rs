@@ -14,6 +14,7 @@ pub(crate) struct ConversationUpdateInput {
     pub title: Option<String>,
     pub pinned: Option<bool>,
     pub archived: Option<bool>,
+    pub call_mode_active: Option<bool>,
 }
 
 pub(crate) async fn create_conversation(
@@ -30,6 +31,7 @@ pub(crate) async fn create_conversation(
             kind: kind.clone(),
             pinned: false,
             archived: false,
+            call_mode_active: false,
         })
         .await?;
     emit_chat_event(
@@ -62,6 +64,12 @@ pub(crate) async fn update_conversation(
     }
     if let Some(archived) = payload.archived {
         state.storage.archive_conversation(id, archived).await?;
+    }
+    if let Some(call_mode_active) = payload.call_mode_active {
+        state
+            .storage
+            .set_conversation_call_mode(id, call_mode_active)
+            .await?;
     }
     emit_chat_event(
         state,

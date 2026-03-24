@@ -4,6 +4,7 @@ This page explains the web `System` surface as it exists for the current operato
 
 Use `System` when you need:
 
+- Core setup required before Vel can operate normally,
 - capability and integration status,
 - sync and trust inspection,
 - configuration and preferences,
@@ -14,7 +15,9 @@ Use `System` when you need:
 
 ## What belongs here
 
+- top-level `Core settings` for required setup and host identity,
 - integration connection status and configuration,
+- `LLM routing` controls for handshake and localhost OpenAI OAuth proxy launch,
 - sync health and recovery affordances,
 - preferences and accessibility settings,
 - object/control inspection,
@@ -29,6 +32,7 @@ Use `System` when you need:
 
 ## Operator posture
 
+- keep required setup at the top so incomplete Core identity is obvious,
 - prefer direct, inspectable rows over decorative panels,
 - keep status summary near the top of each section,
 - keep config fields colocated with the thing they affect,

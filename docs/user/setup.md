@@ -61,9 +61,12 @@ Vel's assistant path uses the configured model routing under `configs/models/`.
 
 - local models use `provider = "llama_cpp"`
 - localhost OAuth-backed OpenAI-compatible proxies use `provider = "openai_oauth"`
+- direct OpenAI API profiles use `provider = "openai_api"`
 - `openai_oauth` profiles are enabled from the checked-in model profile itself
 - for safety, `openai_oauth` base URLs must still point to `localhost` or `127.0.0.1`
 - the checked-in `chat` routing now prefers `oauth-openai` when that profile exists and falls back to `local-qwen3-coder` otherwise
+- the checked-in `oauth-openai` profile expects `http://127.0.0.1:8014/v1`, started by `make dev` through `npx openai-oauth@latest --host 127.0.0.1 --port 8014`
+- if the local Codex auth file is missing, create it with `npx @openai/codex login` before starting the proxy
 
 The web `Settings` `Runtime` tab now exposes the same daemon-owned LLM routing surface:
 
@@ -71,8 +74,18 @@ The web `Settings` `Runtime` tab now exposes the same daemon-owned LLM routing s
 - choose the fallback chat profile
 - inspect checked-in model profiles
 - add, edit, disable, or remove localhost OpenAI-compatible profiles without hand-editing TOML
+- add, edit, disable, or remove direct OpenAI API profiles in the UI
+- enter or replace an OpenAI API key in the UI without hand-editing local files
+- run `Handshake` from the UI before saving a new profile
 
-Saving that form updates the daemon-side model profile files and `routing.toml`. The Settings UI only permits `openai_oauth` profiles that target localhost-style URLs; non-local OAuth proxy endpoints still fail closed in the backend.
+Saving that form updates the daemon-side model profile files and `routing.toml`. Direct OpenAI API keys are stored in daemon-owned settings records instead of checked-in model TOML. The Settings UI only permits `openai_oauth` profiles that target localhost-style URLs; non-local OAuth proxy endpoints still fail closed in the backend.
+
+Handshake behavior:
+
+- handshake checks use provider metadata endpoints only, not a completion request
+- for OpenAI-compatible providers this uses the models endpoint, so the operator can verify auth and reachability without spending completion tokens
+- draft direct OpenAI API profiles can be handshaken before the profile is saved
+- when the localhost OpenAI OAuth proxy is missing or broken, the daemon now returns an actionable startup command instead of only a raw transport error
 
 The assistant chat path can now use a bounded read-only Vel tool surface on top of the configured LLM profile. That means the model can answer from `Now`, projects, people, commitments, local semantic recall, active daily-loop state, and filtered threads instead of only seeing bare conversation history.
 

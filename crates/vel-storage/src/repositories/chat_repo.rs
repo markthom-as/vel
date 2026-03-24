@@ -14,14 +14,15 @@ pub(crate) async fn create_conversation(
 ) -> Result<ConversationRecord, StorageError> {
     let now = OffsetDateTime::now_utc().unix_timestamp();
     sqlx::query(
-        r#"INSERT INTO conversations (id, title, kind, pinned, archived, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)"#,
+        r#"INSERT INTO conversations (id, title, kind, pinned, archived, call_mode_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(&input.id)
     .bind(input.title.as_deref())
     .bind(&input.kind)
     .bind(if input.pinned { 1i32 } else { 0 })
     .bind(if input.archived { 1i32 } else { 0 })
+    .bind(if input.call_mode_active { 1i32 } else { 0 })
     .bind(now)
     .bind(now)
     .execute(pool)
@@ -33,6 +34,7 @@ pub(crate) async fn create_conversation(
         kind: input.kind,
         pinned: input.pinned,
         archived: input.archived,
+        call_mode_active: input.call_mode_active,
         created_at: now,
         updated_at: now,
         message_count: 0,
@@ -55,6 +57,7 @@ pub(crate) async fn list_conversations(
                    c.kind,
                    c.pinned,
                    c.archived,
+                   c.call_mode_active,
                    c.created_at,
                    c.updated_at,
                    COALESCE((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id), 0) AS message_count,
@@ -87,6 +90,7 @@ pub(crate) async fn list_conversations(
                    c.kind,
                    c.pinned,
                    c.archived,
+                   c.call_mode_active,
                    c.created_at,
                    c.updated_at,
                    COALESCE((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id), 0) AS message_count,
@@ -127,6 +131,7 @@ pub(crate) async fn get_conversation(
                c.kind,
                c.pinned,
                c.archived,
+               c.call_mode_active,
                c.created_at,
                c.updated_at,
                COALESCE((SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id), 0) AS message_count,
@@ -396,6 +401,21 @@ pub(crate) async fn snooze_intervention(
     Ok(())
 }
 
+pub(crate) async fn set_conversation_call_mode(
+    pool: &SqlitePool,
+    id: &str,
+    call_mode_active: bool,
+) -> Result<(), StorageError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    sqlx::query(r#"UPDATE conversations SET call_mode_active = ?, updated_at = ? WHERE id = ?"#)
+        .bind(if call_mode_active { 1i32 } else { 0 })
+        .bind(now)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub(crate) async fn acknowledge_intervention(
     pool: &SqlitePool,
     id: &str,
@@ -434,7 +454,10 @@ pub(crate) async fn dismiss_intervention(pool: &SqlitePool, id: &str) -> Result<
 }
 
 /// Return intervention to the active queue (operator "mark unread").
-pub(crate) async fn reactivate_intervention(pool: &SqlitePool, id: &str) -> Result<(), StorageError> {
+pub(crate) async fn reactivate_intervention(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<(), StorageError> {
     sqlx::query(
         r#"UPDATE interventions SET state = 'active', resolved_at = NULL, snoozed_until = NULL WHERE id = ?"#,
     )
@@ -508,12 +531,14 @@ pub(crate) async fn list_events_by_aggregate(
 fn map_conversation_row(row: &sqlx::sqlite::SqliteRow) -> Result<ConversationRecord, StorageError> {
     let pinned: i64 = row.try_get("pinned")?;
     let archived: i64 = row.try_get("archived")?;
+    let call_mode_active: i64 = row.try_get("call_mode_active")?;
     Ok(ConversationRecord {
         id: ConversationId::from(row.try_get::<String, _>("id")?),
         title: row.try_get("title")?,
         kind: row.try_get("kind")?,
         pinned: pinned != 0,
         archived: archived != 0,
+        call_mode_active: call_mode_active != 0,
         created_at: row.try_get("created_at")?,
         updated_at: row.try_get("updated_at")?,
         message_count: row.try_get("message_count")?,

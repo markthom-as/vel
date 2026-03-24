@@ -75,6 +75,17 @@ export function updateConversationArchive(
   );
 }
 
+export function updateConversationCallMode(
+  conversationId: string,
+  callModeActive: boolean,
+): Promise<ApiResponse<ConversationData>> {
+  return canonicalPatchMutation<ConversationData>(
+    `/api/conversations/${conversationId}`,
+    { call_mode_active: callModeActive },
+    (value) => decodeApiResponse(value, decodeConversationData),
+  );
+}
+
 export function submitAssistantEntry(
   text: string,
   conversationId?: string | null,

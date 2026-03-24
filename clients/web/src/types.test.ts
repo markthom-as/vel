@@ -1305,6 +1305,18 @@ describe('transport decoders', () => {
         tailscale_base_url_auto_discovered: true,
         lan_base_url: 'http://192.168.1.50:4130',
         lan_base_url_auto_discovered: true,
+        core_settings: {
+          user_display_name: 'Jove',
+          client_location_label: 'Denver, CO',
+          developer_mode: false,
+          bypass_setup_gate: false,
+          agent_profile: {
+            role: 'Solo operator',
+            preferences: 'Local-first, concise output',
+            constraints: 'No broad automation by default',
+            freeform: 'Prefers explainable actions.',
+          },
+        },
         llm: {
           models_dir: 'configs/models',
           default_chat_profile_id: 'oauth-openai',
@@ -1389,6 +1401,18 @@ describe('transport decoders', () => {
       tailscale_base_url_auto_discovered: true,
       lan_base_url: 'http://192.168.1.50:4130',
       lan_base_url_auto_discovered: true,
+      core_settings: {
+        user_display_name: 'Jove',
+        client_location_label: 'Denver, CO',
+        developer_mode: false,
+        bypass_setup_gate: false,
+        agent_profile: {
+          role: 'Solo operator',
+          preferences: 'Local-first, concise output',
+          constraints: 'No broad automation by default',
+          freeform: 'Prefers explainable actions.',
+        },
+      },
       llm: {
         models_dir: 'configs/models',
         default_chat_profile_id: 'oauth-openai',

@@ -12,8 +12,10 @@ use vel_api_types::{
     ActionEvidenceRefData, ApiResponse, AssistantActionProposalData, AssistantEntryRequest,
     AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationContinuationData,
     ConversationCreateRequest, ConversationData, ConversationUpdateRequest, CreateMessageResponse,
-    InboxItemData, InterventionActionData, MessageCreateRequest, MessageData,
-    PlanningProfileEditProposalData, ProvenanceData, ProvenanceEvent, WebSettingsData,
+    InboxItemData, InterventionActionData, LlmOpenAiOauthLaunchRequestData,
+    LlmProfileHandshakeRequestData, LlmProfileHealthData, MessageCreateRequest, MessageData,
+    PlanningProfileEditProposalData, ProvenanceData,
+    ProvenanceEvent, WebSettingsData,
 };
 
 use crate::services::chat::{
@@ -35,8 +37,8 @@ use crate::services::chat::{
     },
     reads::{
         build_message_provenance_data, list_conversation_intervention_items,
-        list_inbox_archived_items, list_inbox_items, list_message_intervention_items, MessageProvenance,
-        ProvenanceMessageEvent,
+        list_inbox_archived_items, list_inbox_items, list_message_intervention_items,
+        MessageProvenance, ProvenanceMessageEvent,
     },
     settings::settings_payload,
 };
@@ -51,6 +53,7 @@ fn map_conversation_data(
         kind: data.kind,
         pinned: data.pinned,
         archived: data.archived,
+        call_mode_active: data.call_mode_active,
         created_at: data.created_at,
         updated_at: data.updated_at,
         message_count: data.message_count,
@@ -164,6 +167,7 @@ fn map_create_message_response(data: ChatMessageCreateResult) -> CreateMessageRe
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
+        assistant_error_retryable: data.assistant_error_retryable,
         assistant_context: data.assistant_context,
     }
 }
@@ -184,6 +188,7 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
+        assistant_error_retryable: data.assistant_error_retryable,
         assistant_context: data.assistant_context,
         conversation: data.conversation.map(map_conversation_data),
         proposal: data.proposal.map(AssistantActionProposalData::from),
@@ -308,6 +313,7 @@ pub async fn update_conversation(
             title: payload.title,
             pinned: payload.pinned,
             archived: payload.archived,
+            call_mode_active: payload.call_mode_active,
         },
     )
     .await?;
@@ -470,6 +476,65 @@ pub async fn get_settings(
     Ok(Json(ApiResponse::success(data, request_id)))
 }
 
+pub async fn get_llm_profile_health(
+    State(state): State<AppState>,
+    Path(profile_id): Path<String>,
+) -> Result<Json<ApiResponse<LlmProfileHealthData>>, AppError> {
+    let health = crate::llm::profile_health(&state.storage, profile_id.trim()).await?;
+    let data = LlmProfileHealthData {
+        profile_id: profile_id.trim().to_string(),
+        healthy: health.healthy,
+        message: if health.healthy {
+            "Provider handshake succeeded.".to_string()
+        } else {
+            "Provider reported an unhealthy handshake.".to_string()
+        },
+    };
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn post_llm_profile_handshake(
+    Json(payload): Json<LlmProfileHandshakeRequestData>,
+) -> Result<Json<ApiResponse<LlmProfileHealthData>>, AppError> {
+    let health = crate::llm::handshake_profile(&payload).await?;
+    let data = LlmProfileHealthData {
+        profile_id: payload
+            .profile_id
+            .clone()
+            .unwrap_or_else(|| payload.provider.clone()),
+        healthy: health.healthy,
+        message: if health.healthy {
+            "Provider handshake succeeded.".to_string()
+        } else {
+            "Provider reported an unhealthy handshake.".to_string()
+        },
+    };
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn post_llm_openai_oauth_launch(
+    Json(payload): Json<LlmOpenAiOauthLaunchRequestData>,
+) -> Result<Json<ApiResponse<LlmProfileHealthData>>, AppError> {
+    let health = crate::llm::launch_openai_oauth_proxy(&payload).await?;
+    let data = LlmProfileHealthData {
+        profile_id: payload
+            .profile_id
+            .clone()
+            .unwrap_or_else(|| "openai_oauth".to_string()),
+        healthy: health.healthy,
+        message: if health.healthy {
+            "OpenAI OAuth proxy started and handshake succeeded.".to_string()
+        } else {
+            "OpenAI OAuth proxy launched but the provider still reports an unhealthy handshake."
+                .to_string()
+        },
+    };
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SettingsUpdateRequest {
     pub quiet_hours: Option<serde_json::Value>,
@@ -483,6 +548,7 @@ pub struct SettingsUpdateRequest {
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
     pub web_settings: Option<WebSettingsUpdateRequest>,
+    pub core_settings: Option<CoreSettingsUpdateRequest>,
     pub llm: Option<crate::services::llm_settings::LlmSettingsUpdateRequest>,
 }
 
@@ -493,6 +559,23 @@ pub struct WebSettingsUpdateRequest {
     pub reduced_motion: Option<bool>,
     pub strong_focus: Option<bool>,
     pub docked_action_bar: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AgentProfileSettingsUpdateRequest {
+    pub role: Option<String>,
+    pub preferences: Option<String>,
+    pub constraints: Option<String>,
+    pub freeform: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct CoreSettingsUpdateRequest {
+    pub user_display_name: Option<String>,
+    pub client_location_label: Option<String>,
+    pub developer_mode: Option<bool>,
+    pub bypass_setup_gate: Option<bool>,
+    pub agent_profile: Option<AgentProfileSettingsUpdateRequest>,
 }
 
 pub async fn patch_settings(
@@ -584,8 +667,53 @@ pub async fn patch_settings(
         .map_err(|error| AppError::internal(format!("serialize web_settings: {error}")))?;
         state.storage.set_setting("web_settings", &value).await?;
     }
+    if let Some(patch) = payload.core_settings.as_ref() {
+        let map = state.storage.get_all_settings().await?;
+        let mut core_settings = crate::services::operator_settings::load_core_settings(&map)?;
+        if let Some(value) = patch.user_display_name.as_deref() {
+            core_settings.user_display_name =
+                crate::services::operator_settings::normalize_optional_string(value);
+        }
+        if let Some(value) = patch.client_location_label.as_deref() {
+            core_settings.client_location_label =
+                crate::services::operator_settings::normalize_optional_string(value);
+        }
+        if let Some(value) = patch.developer_mode {
+            core_settings.developer_mode = value;
+        }
+        if let Some(value) = patch.bypass_setup_gate {
+            core_settings.bypass_setup_gate = value;
+        }
+        if let Some(agent_patch) = patch.agent_profile.as_ref() {
+            if let Some(value) = agent_patch.role.as_deref() {
+                core_settings.agent_profile.role =
+                    crate::services::operator_settings::normalize_optional_string(value);
+            }
+            if let Some(value) = agent_patch.preferences.as_deref() {
+                core_settings.agent_profile.preferences =
+                    crate::services::operator_settings::normalize_optional_string(value);
+            }
+            if let Some(value) = agent_patch.constraints.as_deref() {
+                core_settings.agent_profile.constraints =
+                    crate::services::operator_settings::normalize_optional_string(value);
+            }
+            if let Some(value) = agent_patch.freeform.as_deref() {
+                core_settings.agent_profile.freeform =
+                    crate::services::operator_settings::normalize_optional_string(value);
+            }
+        }
+        let value = serde_json::to_value(core_settings)
+            .map_err(|error| AppError::internal(format!("serialize core_settings: {error}")))?;
+        state
+            .storage
+            .set_setting(
+                crate::services::operator_settings::CORE_SETTINGS_KEY,
+                &value,
+            )
+            .await?;
+    }
     if let Some(request) = payload.llm.as_ref() {
-        crate::services::llm_settings::apply_llm_settings_update(request)?;
+        crate::services::llm_settings::apply_llm_settings_update(&state.storage, request).await?;
     }
     let data = settings_payload(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
@@ -736,13 +864,19 @@ pub fn chat_routes() -> Router<AppState> {
         )
         .route("/api/messages/:id/provenance", get(get_message_provenance))
         .route("/api/settings", get(get_settings).patch(patch_settings))
+        .route("/api/llm/handshake", post(post_llm_profile_handshake))
+        .route("/api/llm/openai-oauth/launch", post(post_llm_openai_oauth_launch))
+        .route("/api/llm/profiles/:id/health", get(get_llm_profile_health))
         .route(
             "/api/interventions/:id/acknowledge",
             post(intervention_acknowledge),
         )
         .route("/api/interventions/:id/snooze", post(intervention_snooze))
         .route("/api/interventions/:id/resolve", post(intervention_resolve))
-        .route("/api/interventions/:id/reactivate", post(intervention_reactivate))
+        .route(
+            "/api/interventions/:id/reactivate",
+            post(intervention_reactivate),
+        )
         .route("/api/interventions/:id/dismiss", post(intervention_dismiss))
 }
 

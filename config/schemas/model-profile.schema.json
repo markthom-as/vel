@@ -13,7 +13,8 @@
       "type": "string",
       "enum": [
         "llama_cpp",
-        "openai_oauth"
+        "openai_oauth",
+        "openai_api"
       ]
     },
     "base_url": {

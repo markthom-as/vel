@@ -105,6 +105,18 @@ export function updateNowTaskLane(
   );
 }
 
+export function rescheduleNowTasksToToday(
+  commitmentIds: string[],
+): Promise<ApiResponse<NowData>> {
+  return canonicalPostMutation<NowData>(
+    '/v1/now/tasks/reschedule-today',
+    {
+      commitment_ids: commitmentIds,
+    },
+    (value) => decodeApiResponse(value, decodeNowData),
+  );
+}
+
 export function loadActiveDailyLoopSession(
   sessionDate: string,
   phase: DailyLoopPhaseData,

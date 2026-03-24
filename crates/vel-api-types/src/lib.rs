@@ -4591,6 +4591,13 @@ pub struct GoogleCalendarIntegrationData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodoistWriteCapabilitiesData {
+    pub completion_status: bool,
+    pub due_date: bool,
+    pub tags: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodoistIntegrationData {
     pub configured: bool,
     pub connected: bool,
@@ -4600,6 +4607,7 @@ pub struct TodoistIntegrationData {
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
     pub guidance: Option<IntegrationGuidanceData>,
+    pub write_capabilities: TodoistWriteCapabilitiesData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4975,6 +4983,8 @@ pub struct ConversationData {
     pub kind: String,
     pub pinned: bool,
     pub archived: bool,
+    #[serde(default)]
+    pub call_mode_active: bool,
     pub created_at: UnixSeconds,
     pub updated_at: UnixSeconds,
     #[serde(default)]
@@ -5012,6 +5022,7 @@ pub struct ConversationUpdateRequest {
     pub title: Option<String>,
     pub pinned: Option<bool>,
     pub archived: Option<bool>,
+    pub call_mode_active: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5034,6 +5045,8 @@ pub struct CreateMessageResponse {
     pub assistant_message: Option<MessageData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assistant_error: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub assistant_error_retryable: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_context: Option<AssistantContextData>,
 }
@@ -5121,6 +5134,8 @@ pub struct AssistantEntryResponse {
     pub assistant_message: Option<MessageData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_error: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub assistant_error_retryable: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_context: Option<AssistantContextData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6816,6 +6831,18 @@ pub struct NowTaskLaneItemData {
     pub project: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_thread_id: Option<String>,
+    #[serde(default, with = "time::serde::rfc3339::option", skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<OffsetDateTime>,
+    #[serde(default, with = "time::serde::rfc3339::option", skip_serializing_if = "Option::is_none")]
+    pub deadline: Option<OffsetDateTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due_label: Option<String>,
+    #[serde(default)]
+    pub is_overdue: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deadline_label: Option<String>,
+    #[serde(default)]
+    pub deadline_passed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6828,6 +6855,8 @@ pub struct NowTaskLaneData {
     pub active_items: Vec<NowTaskLaneItemData>,
     #[serde(default)]
     pub next_up: Vec<NowTaskLaneItemData>,
+    #[serde(default)]
+    pub inbox: Vec<NowTaskLaneItemData>,
     #[serde(default)]
     pub if_time_allows: Vec<NowTaskLaneItemData>,
     #[serde(default)]
@@ -6861,6 +6890,29 @@ impl Default for WebSettingsData {
             docked_action_bar: default_web_settings_docked_action_bar(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LlmProfileHealthData {
+    pub profile_id: String,
+    pub healthy: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LlmProfileHandshakeRequestData {
+    pub profile_id: Option<String>,
+    pub provider: String,
+    pub base_url: String,
+    pub model: String,
+    pub context_window: Option<u32>,
+    pub api_key: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LlmOpenAiOauthLaunchRequestData {
+    pub profile_id: Option<String>,
+    pub base_url: String,
 }
 
 fn default_web_settings_dense_rows() -> bool {
@@ -6948,6 +7000,8 @@ pub struct NowTaskData {
     pub source_type: String,
     #[serde(with = "time::serde::rfc3339::option")]
     pub due_at: Option<OffsetDateTime>,
+    #[serde(default, with = "time::serde::rfc3339::option", skip_serializing_if = "Option::is_none")]
+    pub deadline: Option<OffsetDateTime>,
     pub project: Option<String>,
     pub commitment_kind: Option<String>,
 }
@@ -7304,12 +7358,14 @@ mod tests {
             tags: vec!["follow_up".to_string()],
             source_type: "todoist".to_string(),
             due_at: Some(datetime!(2026-03-16 19:00:00 UTC)),
+            deadline: Some(datetime!(2026-03-18 00:00:00 UTC)),
             project: None,
             commitment_kind: Some("todo".to_string()),
         };
 
         let value = serde_json::to_value(task).expect("now task should serialize");
         assert_eq!(value["due_at"], "2026-03-16T19:00:00Z");
+        assert_eq!(value["deadline"], "2026-03-18T00:00:00Z");
     }
 
     #[test]
@@ -7322,6 +7378,7 @@ mod tests {
             tags: vec![],
             source_type: "manual".to_string(),
             due_at: None,
+            deadline: None,
             project: None,
             commitment_kind: None,
         };

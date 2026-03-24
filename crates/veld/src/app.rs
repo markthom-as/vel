@@ -209,7 +209,14 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::linking::revoke_link),
         )
         .route("/v1/now", get(routes::now::get_now))
-        .route("/v1/now/task-lane", patch(routes::now::update_now_task_lane))
+        .route(
+            "/v1/now/task-lane",
+            patch(routes::now::update_now_task_lane),
+        )
+        .route(
+            "/v1/now/tasks/reschedule-today",
+            post(routes::now::reschedule_now_tasks_to_today),
+        )
         .route(
             "/v1/commitment-scheduling/proposals/:id/apply",
             post(routes::commitment_scheduling::apply_commitment_scheduling_proposal),
@@ -7849,6 +7856,7 @@ mod tests {
                 kind: "general".to_string(),
                 pinned: false,
                 archived: false,
+                call_mode_active: false,
             })
             .await
             .unwrap();
@@ -8069,6 +8077,7 @@ mod tests {
                 kind: "general".to_string(),
                 pinned: false,
                 archived: false,
+                call_mode_active: false,
             })
             .await
             .unwrap();
@@ -10000,6 +10009,83 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn chat_settings_patch_persists_core_settings() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/settings")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"core_settings":{"user_display_name":"Jove","client_location_label":"Denver, CO","developer_mode":true,"bypass_setup_gate":true,"agent_profile":{"role":"Solo operator","preferences":"Local-first","constraints":"Confirm risky changes","freeform":"Keep actions explainable."}}}"#
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["core_settings"]["user_display_name"], "Jove");
+        assert_eq!(
+            json["data"]["core_settings"]["client_location_label"],
+            "Denver, CO"
+        );
+        assert_eq!(json["data"]["core_settings"]["developer_mode"], true);
+        assert_eq!(json["data"]["core_settings"]["bypass_setup_gate"], true);
+        assert_eq!(
+            json["data"]["core_settings"]["agent_profile"]["role"],
+            "Solo operator"
+        );
+        assert_eq!(
+            json["data"]["core_settings"]["agent_profile"]["freeform"],
+            "Keep actions explainable."
+        );
+
+        let get_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/settings")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get_resp.status(), StatusCode::OK);
+        let get_body = axum::body::to_bytes(get_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let get_json: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
+        assert_eq!(
+            get_json["data"]["core_settings"]["user_display_name"],
+            "Jove"
+        );
+        assert_eq!(
+            get_json["data"]["core_settings"]["client_location_label"],
+            "Denver, CO"
+        );
+        assert_eq!(get_json["data"]["core_settings"]["developer_mode"], true);
+        assert_eq!(
+            get_json["data"]["core_settings"]["agent_profile"]["preferences"],
+            "Local-first"
+        );
+    }
+
+    #[tokio::test]
     async fn chat_settings_include_adaptive_policy_overrides() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -11681,12 +11767,10 @@ END:VCALENDAR
                     .method(Method::PATCH)
                     .uri("/v1/now/task-lane")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        format!(
-                            r#"{{"commitment_id":"{}","lane":"active","position":1}}"#,
-                            second_id.as_ref()
-                        ),
-                    ))
+                    .body(Body::from(format!(
+                        r#"{{"commitment_id":"{}","lane":"active","position":1}}"#,
+                        second_id.as_ref()
+                    )))
                     .unwrap(),
             )
             .await
@@ -11712,12 +11796,10 @@ END:VCALENDAR
                     .method(Method::PATCH)
                     .uri("/v1/now/task-lane")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        format!(
-                            r#"{{"commitment_id":"{}","lane":"completed"}}"#,
-                            second_id.as_ref()
-                        ),
-                    ))
+                    .body(Body::from(format!(
+                        r#"{{"commitment_id":"{}","lane":"completed"}}"#,
+                        second_id.as_ref()
+                    )))
                     .unwrap(),
             )
             .await
@@ -11748,6 +11830,77 @@ END:VCALENDAR
             context.task_lanes.completed_commitment_ids,
             vec![second_id.as_ref().to_string()]
         );
+    }
+
+    #[tokio::test]
+    async fn now_task_lane_patch_assigns_next_up_commitment_to_current_day() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Commit to today".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_3".to_string(),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("Vel".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "priority": 2
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                time::OffsetDateTime::now_utc().unix_timestamp(),
+                &current_context_json(CurrentContextV1::default()),
+            )
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/now/task-lane")
+                    .header("content-type", "application/json")
+                    .body(Body::from(format!(
+                        r#"{{"commitment_id":"{}","lane":"next_up"}}"#,
+                        commitment_id.as_ref()
+                    )))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let updated = storage
+            .get_commitment_by_id(commitment_id.as_ref())
+            .await
+            .unwrap()
+            .expect("updated commitment should exist");
+        let timezone =
+            crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap();
+        let due_at = updated
+            .due_at
+            .expect("moving to next up should assign current day");
+        let due_session_date =
+            crate::services::timezone::current_day_date_string(&timezone, due_at).unwrap();
+        assert_eq!(updated.metadata_json["scheduled_for"], due_session_date);
+        assert_eq!(updated.metadata_json["assigned_via_now_lane"], "next_up");
+        assert_eq!(updated.metadata_json["has_due_time"], false);
     }
 
     #[tokio::test]
@@ -12634,6 +12787,7 @@ END:VCALENDAR
                 kind: "general".to_string(),
                 pinned: false,
                 archived: false,
+                call_mode_active: false,
             })
             .await
             .unwrap();

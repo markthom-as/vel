@@ -14,6 +14,7 @@ import {
   decodeIntegrationsData,
   decodeLocalIntegrationPathSelectionData,
   decodeLinkedNodeData,
+  decodeLlmProfileHealthData,
   decodeLoopData,
   decodePairingTokenData,
   decodePlanningProfileResponseData,
@@ -38,6 +39,9 @@ import {
   type LocalIntegrationPathSelectionData,
   type LinkScopeData,
   type LinkedNodeData,
+  type LlmOpenAiOauthLaunchRequestData,
+  type LlmProfileHandshakeRequestData,
+  type LlmProfileHealthData,
   type LoopData,
   type NowData,
   type PairingTokenData,
@@ -96,6 +100,13 @@ export interface OperatorOnboardingGuideData {
   headline: string;
   nextAction: string;
   steps: OperatorOnboardingStepData[];
+}
+
+export interface CoreSetupStatusData {
+  ready: boolean;
+  missing: Array<'user_display_name' | 'node_display_name' | 'agent_profile' | 'llm_provider' | 'synced_provider'>;
+  title: string;
+  summary: string;
 }
 
 function decodeSyncResultData(value: unknown): SyncResultData {
@@ -171,6 +182,82 @@ export function buildOperatorReviewStatus(
     open_conflicts: now?.conflicts ?? [],
     people_needing_review: [...peopleNeedingReview.values()],
     pending_execution_handoffs: handoffs ?? [],
+  };
+}
+
+function hasMeaningfulText(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+export function buildCoreSetupStatus(
+  settings: SettingsData | null | undefined,
+  integrations: IntegrationsData | null | undefined,
+): CoreSetupStatusData {
+  const core = settings?.core_settings;
+  if (core?.bypass_setup_gate) {
+    return {
+      ready: true,
+      missing: [],
+      title: 'Core setup override is active',
+      summary: 'Developer bypass is allowing the composer before minimum Core setup is complete.',
+    };
+  }
+
+  const missing: CoreSetupStatusData['missing'] = [];
+  if (!hasMeaningfulText(core?.user_display_name)) {
+    missing.push('user_display_name');
+  }
+  if (!hasMeaningfulText(settings?.node_display_name)) {
+    missing.push('node_display_name');
+  }
+  if (
+    !hasMeaningfulText(core?.agent_profile?.role)
+    && !hasMeaningfulText(core?.agent_profile?.preferences)
+    && !hasMeaningfulText(core?.agent_profile?.constraints)
+    && !hasMeaningfulText(core?.agent_profile?.freeform)
+  ) {
+    missing.push('agent_profile');
+  }
+
+  const defaultProfileId = settings?.llm?.default_chat_profile_id ?? null;
+  const hasConfiguredLlm = Boolean(
+    defaultProfileId
+    && settings?.llm?.profiles.some((profile) => profile.enabled && profile.id === defaultProfileId),
+  );
+  if (!hasConfiguredLlm) {
+    missing.push('llm_provider');
+  }
+
+  const hasSyncedProvider = Boolean(
+    integrations?.google_calendar.configured
+    || integrations?.todoist.configured,
+  );
+  if (!hasSyncedProvider) {
+    missing.push('synced_provider');
+  }
+
+  if (missing.length === 0) {
+    return {
+      ready: true,
+      missing,
+      title: 'Core setup is complete',
+      summary: 'The composer is available because Core identity, provider routing, and synced provider setup are in place.',
+    };
+  }
+
+  const labels: Record<CoreSetupStatusData['missing'][number], string> = {
+    user_display_name: 'your name',
+    node_display_name: 'node name',
+    agent_profile: 'agent profile',
+    llm_provider: 'an LLM provider',
+    synced_provider: 'a synced provider',
+  };
+
+  return {
+    ready: false,
+    missing,
+    title: 'Finish Core setup to enable the composer',
+    summary: `Missing ${missing.map((item) => labels[item]).join(', ')}. Vel will not be fully functional until required Core setup is submitted.`,
   };
 }
 
@@ -555,6 +642,35 @@ export function updateWebSettings(
   return updateSettings({
     web_settings: patch,
   });
+}
+
+export function loadLlmProfileHealth(
+  profileId: string,
+): Promise<ApiResponse<LlmProfileHealthData>> {
+  return canonicalQuery<LlmProfileHealthData>(
+    `/api/llm/profiles/${encodeURIComponent(profileId)}/health`,
+    (value) => decodeApiResponse(value, decodeLlmProfileHealthData),
+  );
+}
+
+export function runLlmProfileHandshake(
+  payload: LlmProfileHandshakeRequestData,
+): Promise<ApiResponse<LlmProfileHealthData>> {
+  return canonicalPostMutation<LlmProfileHealthData>(
+    '/api/llm/handshake',
+    payload,
+    (value) => decodeApiResponse(value, decodeLlmProfileHealthData),
+  );
+}
+
+export function launchOpenAiOauthProxy(
+  payload: LlmOpenAiOauthLaunchRequestData,
+): Promise<ApiResponse<LlmProfileHealthData>> {
+  return canonicalPostMutation<LlmProfileHealthData>(
+    '/api/llm/openai-oauth/launch',
+    payload,
+    (value) => decodeApiResponse(value, decodeLlmProfileHealthData),
+  );
 }
 
 export function loadRecentRuns(limit: number): Promise<ApiResponse<RunSummaryData[]>> {

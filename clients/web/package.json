@@ -23,7 +23,8 @@
     "proof:phase75:threads-read": "node scripts/proof/phase75-threads-read.mjs",
     "proof:phase76:system-read": "node scripts/proof/phase76-system-read.mjs",
     "proof:phase77:operator-loop": "node scripts/proof/phase77-operator-loop.mjs",
-    "proof:phase89:ui-proof": "node scripts/proof/phase89-ui-proof.mjs"
+    "proof:phase89:ui-proof": "node scripts/proof/phase89-ui-proof.mjs",
+    "proof:phase100:feedback": "node scripts/proof/phase100-feedback-proof.mjs"
   },
   "dependencies": {
     "@fontsource-variable/outfit": "^5.2.8",

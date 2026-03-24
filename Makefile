@@ -1,7 +1,7 @@
 # Vel — top-level build and dev
 # veld binds 127.0.0.1:4130 by default; web client uses VITE_API_URL (default http://localhost:4130).
 
-.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-build-watch-sim apple-run-ios-sim apple-run-watch-sim apple-run-all-sim apple-build apple-run apple-build-ios-device apple-install-ios-device apple-build-watch-device apple-install-watch-device apple-install-devices apple-list-devices apple-test install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
+.PHONY: build build-api build-web clean dev dev-api dev-web dev-openai-oauth download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-build-watch-sim apple-run-ios-sim apple-run-watch-sim apple-run-all-sim apple-build apple-run apple-build-ios-device apple-install-ios-device apple-build-watch-device apple-install-watch-device apple-install-devices apple-list-devices apple-test install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
 
 build: build-api build-web
 
@@ -13,7 +13,11 @@ build-web: install-web
 
 # Run API only (migrations run on startup). Use in one terminal.
 dev-api:
-	cargo run -p veld
+	@bash scripts/dev-api.sh
+
+# Run the localhost OpenAI OAuth proxy expected by the checked-in oauth-openai profile.
+dev-openai-oauth:
+	@bash scripts/openai-oauth.sh run --base-url http://127.0.0.1:8014/v1
 
 # Run web dev server only. Set VITE_API_URL if veld is not on localhost:4130. Use in another terminal.
 dev-web:

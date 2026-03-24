@@ -101,6 +101,7 @@ export interface ConversationData {
   kind: string;
   pinned: boolean;
   archived: boolean;
+  call_mode_active: boolean;
   created_at: UnixSeconds;
   updated_at: UnixSeconds;
   message_count: number;
@@ -125,6 +126,7 @@ export interface CreateMessageResponse {
   user_message: MessageData;
   assistant_message?: MessageData | null;
   assistant_error?: string | null;
+  assistant_error_retryable?: boolean;
   assistant_context?: AssistantContextData | null;
 }
 
@@ -166,6 +168,7 @@ export interface AssistantEntryResponse {
   user_message: MessageData;
   assistant_message?: MessageData | null;
   assistant_error?: string | null;
+  assistant_error_retryable?: boolean;
   assistant_context?: AssistantContextData | null;
   conversation: ConversationData;
   proposal?: AssistantActionProposalData | null;
@@ -489,6 +492,7 @@ export interface SettingsData {
   };
   backup?: BackupSettingsData;
   web_settings?: WebSettingsData;
+  core_settings?: CoreSettingsData;
 }
 
 export interface WebSettingsData {
@@ -499,6 +503,21 @@ export interface WebSettingsData {
   docked_action_bar: boolean;
 }
 
+export interface AgentProfileSettingsData {
+  role: string | null;
+  preferences: string | null;
+  constraints: string | null;
+  freeform: string | null;
+}
+
+export interface CoreSettingsData {
+  user_display_name: string | null;
+  client_location_label: string | null;
+  developer_mode: boolean;
+  bypass_setup_gate: boolean;
+  agent_profile: AgentProfileSettingsData;
+}
+
 export interface LlmProfileSettingsData {
   id: string;
   provider: string;
@@ -507,6 +526,7 @@ export interface LlmProfileSettingsData {
   context_window: number | null;
   enabled: boolean;
   editable: boolean;
+  has_api_key?: boolean;
 }
 
 export interface LlmSettingsData {
@@ -514,6 +534,26 @@ export interface LlmSettingsData {
   default_chat_profile_id: string | null;
   fallback_chat_profile_id: string | null;
   profiles: LlmProfileSettingsData[];
+}
+
+export interface LlmProfileHealthData {
+  profile_id: string;
+  healthy: boolean;
+  message: string;
+}
+
+export interface LlmOpenAiOauthLaunchRequestData {
+  profile_id?: string | null;
+  base_url: string;
+}
+
+export interface LlmProfileHandshakeRequestData {
+  profile_id?: string | null;
+  provider: string;
+  base_url: string;
+  model: string;
+  context_window?: number | null;
+  api_key?: string | null;
 }
 
 export type BackupStatusStateData = 'ready' | 'stale' | 'missing' | 'degraded';
@@ -597,6 +637,12 @@ export interface GoogleCalendarIntegrationData {
   guidance: IntegrationGuidanceData | null;
 }
 
+export interface TodoistWriteCapabilitiesData {
+  completion_status: boolean;
+  due_date: boolean;
+  tags: boolean;
+}
+
 export interface TodoistIntegrationData {
   configured: boolean;
   connected: boolean;
@@ -606,6 +652,7 @@ export interface TodoistIntegrationData {
   last_error: string | null;
   last_item_count: number | null;
   guidance: IntegrationGuidanceData | null;
+  write_capabilities: TodoistWriteCapabilitiesData;
 }
 
 export interface LocalIntegrationData {
@@ -1467,6 +1514,7 @@ export interface NowTaskData {
   tags: string[];
   source_type: string;
   due_at: string | null;
+  deadline: string | null;
   project: string | null;
   commitment_kind: string | null;
 }
@@ -1705,6 +1753,12 @@ export interface NowTaskLaneItemData {
   sort_order?: number | null;
   project?: string | null;
   primary_thread_id?: string | null;
+  due_at?: string | null;
+  deadline?: string | null;
+  due_label?: string | null;
+  is_overdue: boolean;
+  deadline_label?: string | null;
+  deadline_passed: boolean;
 }
 
 export interface NowTaskLaneData {
@@ -1712,6 +1766,7 @@ export interface NowTaskLaneData {
   pending: NowTaskLaneItemData[];
   active_items?: NowTaskLaneItemData[];
   next_up?: NowTaskLaneItemData[];
+  inbox?: NowTaskLaneItemData[];
   if_time_allows?: NowTaskLaneItemData[];
   completed?: NowTaskLaneItemData[];
   recent_completed: NowTaskLaneItemData[];
@@ -1958,6 +2013,7 @@ export interface DriftExplainData {
 export interface TextMessageContent {
   text: string;
   actions?: MessageActionContent[];
+  attachments?: AssistantEntryAttachmentData[];
 }
 
 export interface MessageActionContent {
@@ -2104,6 +2160,10 @@ export function decodeConversationData(value: unknown): ConversationData {
     kind: expectString(record.kind, 'conversation.kind'),
     pinned: expectBoolean(record.pinned, 'conversation.pinned'),
     archived: expectBoolean(record.archived, 'conversation.archived'),
+    call_mode_active:
+      record.call_mode_active === undefined
+        ? false
+        : expectBoolean(record.call_mode_active, 'conversation.call_mode_active'),
     created_at: expectUnixSeconds(record.created_at, 'conversation.created_at'),
     updated_at: expectUnixSeconds(record.updated_at, 'conversation.updated_at'),
     message_count:
@@ -2231,6 +2291,10 @@ export function decodeCreateMessageResponse(value: unknown): CreateMessageRespon
       record.assistant_error === undefined
         ? undefined
         : expectNullableString(record.assistant_error, 'create message response.assistant_error'),
+    assistant_error_retryable:
+      record.assistant_error_retryable === undefined
+        ? undefined
+        : expectBoolean(record.assistant_error_retryable, 'create message response.assistant_error_retryable'),
     assistant_context:
       record.assistant_context === undefined
         ? undefined
@@ -2267,6 +2331,10 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
       record.assistant_error === undefined
         ? undefined
         : expectNullableString(record.assistant_error, 'assistant entry response.assistant_error'),
+    assistant_error_retryable:
+      record.assistant_error_retryable === undefined
+        ? undefined
+        : expectBoolean(record.assistant_error_retryable, 'assistant entry response.assistant_error_retryable'),
     assistant_context:
       record.assistant_context === undefined
         ? undefined
@@ -3854,6 +3922,7 @@ export function decodeNowTaskData(value: unknown): NowTaskData {
     tags: decodeArray(record.tags ?? [], (item) => expectString(item, 'now task.tags[]')),
     source_type: expectString(record.source_type, 'now task.source_type'),
     due_at: expectNullableRfc3339Timestamp(record.due_at, 'now task.due_at'),
+    deadline: expectNullableRfc3339Timestamp(record.deadline ?? null, 'now task.deadline'),
     project: expectNullableString(record.project, 'now task.project'),
     commitment_kind: expectNullableString(record.commitment_kind, 'now task.commitment_kind'),
   };
@@ -4097,6 +4166,18 @@ function decodeNowTaskLaneItemData(value: unknown): NowTaskLaneItemData {
       record.primary_thread_id ?? null,
       'now task lane item.primary_thread_id',
     ),
+    due_at: expectNullableRfc3339Timestamp(record.due_at ?? null, 'now task lane item.due_at'),
+    deadline: expectNullableRfc3339Timestamp(record.deadline ?? null, 'now task lane item.deadline'),
+    due_label: expectNullableString(record.due_label ?? null, 'now task lane item.due_label'),
+    is_overdue: expectBoolean(record.is_overdue ?? false, 'now task lane item.is_overdue'),
+    deadline_label: expectNullableString(
+      record.deadline_label ?? null,
+      'now task lane item.deadline_label',
+    ),
+    deadline_passed: expectBoolean(
+      record.deadline_passed ?? false,
+      'now task lane item.deadline_passed',
+    ),
   };
 }
 
@@ -4111,6 +4192,9 @@ function decodeNowTaskLaneData(value: unknown): NowTaskLaneData {
     ...(record.next_up === undefined
       ? {}
       : { next_up: decodeArray(record.next_up, decodeNowTaskLaneItemData) }),
+    ...(record.inbox === undefined
+      ? {}
+      : { inbox: decodeArray(record.inbox, decodeNowTaskLaneItemData) }),
     ...(record.if_time_allows === undefined
       ? {}
       : { if_time_allows: decodeArray(record.if_time_allows, decodeNowTaskLaneItemData) }),
@@ -4133,6 +4217,27 @@ function decodeWebSettingsData(value: unknown): WebSettingsData {
     reduced_motion: expectBoolean(record.reduced_motion, 'web settings.reduced_motion'),
     strong_focus: expectBoolean(record.strong_focus, 'web settings.strong_focus'),
     docked_action_bar: expectBoolean(record.docked_action_bar, 'web settings.docked_action_bar'),
+  };
+}
+
+function decodeAgentProfileSettingsData(value: unknown): AgentProfileSettingsData {
+  const record = expectRecord(value, 'agent profile settings');
+  return {
+    role: expectNullableString(record.role ?? null, 'agent profile settings.role'),
+    preferences: expectNullableString(record.preferences ?? null, 'agent profile settings.preferences'),
+    constraints: expectNullableString(record.constraints ?? null, 'agent profile settings.constraints'),
+    freeform: expectNullableString(record.freeform ?? null, 'agent profile settings.freeform'),
+  };
+}
+
+function decodeCoreSettingsData(value: unknown): CoreSettingsData {
+  const record = expectRecord(value, 'core settings');
+  return {
+    user_display_name: expectNullableString(record.user_display_name ?? null, 'core settings.user_display_name'),
+    client_location_label: expectNullableString(record.client_location_label ?? null, 'core settings.client_location_label'),
+    developer_mode: expectBoolean(record.developer_mode ?? false, 'core settings.developer_mode'),
+    bypass_setup_gate: expectBoolean(record.bypass_setup_gate ?? false, 'core settings.bypass_setup_gate'),
+    agent_profile: decodeAgentProfileSettingsData(record.agent_profile ?? {}),
   };
 }
 
@@ -4768,6 +4873,19 @@ export function decodeLlmProfileSettingsData(value: unknown): LlmProfileSettings
         : expectNullableNumber(record.context_window, 'llm profile settings.context_window'),
     enabled: expectBoolean(record.enabled, 'llm profile settings.enabled'),
     editable: expectBoolean(record.editable, 'llm profile settings.editable'),
+    has_api_key:
+      record.has_api_key === undefined
+        ? undefined
+        : expectBoolean(record.has_api_key, 'llm profile settings.has_api_key'),
+  };
+}
+
+export function decodeLlmProfileHealthData(value: unknown): LlmProfileHealthData {
+  const record = expectRecord(value, 'llm profile health');
+  return {
+    profile_id: expectString(record.profile_id, 'llm profile health.profile_id'),
+    healthy: expectBoolean(record.healthy, 'llm profile health.healthy'),
+    message: expectString(record.message, 'llm profile health.message'),
   };
 }
 
@@ -4919,6 +5037,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.web_settings === undefined
         ? undefined
         : decodeWebSettingsData(record.web_settings),
+    core_settings:
+      record.core_settings === undefined
+        ? undefined
+        : decodeCoreSettingsData(record.core_settings),
   };
 }
 
@@ -5223,6 +5345,25 @@ export function decodeTodoistIntegrationData(value: unknown): TodoistIntegration
     last_error: expectNullableString(record.last_error, 'todoist integration.last_error'),
     last_item_count: expectNullableNumber(record.last_item_count, 'todoist integration.last_item_count'),
     guidance: decodeNullable(record.guidance, decodeIntegrationGuidanceData),
+    write_capabilities: decodeTodoistWriteCapabilitiesData(record.write_capabilities ?? {}),
+  };
+}
+
+export function decodeTodoistWriteCapabilitiesData(value: unknown): TodoistWriteCapabilitiesData {
+  const record = expectRecord(value, 'todoist write capabilities');
+  return {
+    completion_status:
+      record.completion_status === undefined
+        ? true
+        : expectBoolean(record.completion_status, 'todoist write capabilities.completion_status'),
+    due_date:
+      record.due_date === undefined
+        ? true
+        : expectBoolean(record.due_date, 'todoist write capabilities.due_date'),
+    tags:
+      record.tags === undefined
+        ? false
+        : expectBoolean(record.tags, 'todoist write capabilities.tags'),
   };
 }
 
@@ -5714,6 +5855,29 @@ export function decodeTextMessageContent(value: JsonValue): TextMessageContent |
   return {
     text: record.text,
     actions: decodeMessageActions(record.actions),
+    attachments:
+      Array.isArray(record.attachments)
+        ? decodeArray(record.attachments, decodeAssistantEntryAttachmentData)
+        : undefined,
+  };
+}
+
+export function decodeAssistantEntryAttachmentData(value: unknown): AssistantEntryAttachmentData {
+  const record = expectRecord(value, 'assistant entry attachment');
+  const kind = expectString(record.kind, 'assistant entry attachment.kind');
+  if (!['file', 'image', 'person', 'event', 'task'].includes(kind)) {
+    throw new Error(`Unsupported assistant entry attachment kind: ${kind}`);
+  }
+  return {
+    kind: kind as AssistantEntryAttachmentKindData,
+    label:
+      record.label === undefined ? undefined : expectNullableString(record.label, 'assistant entry attachment.label'),
+    object_id:
+      record.object_id === undefined ? undefined : expectNullableString(record.object_id, 'assistant entry attachment.object_id'),
+    mime_type:
+      record.mime_type === undefined ? undefined : expectNullableString(record.mime_type, 'assistant entry attachment.mime_type'),
+    metadata:
+      record.metadata === undefined ? undefined : (record.metadata as JsonValue | null),
   };
 }
 

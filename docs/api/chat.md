@@ -12,7 +12,8 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 ### `PATCH /api/conversations/:id`
 
 - list, create, inspect, and update conversations
-- conversation records include identifiers, title, kind, pinned/archive state, and timestamps
+- conversation records include identifiers, title, kind, pinned/archive state, thread-level `call_mode_active`, and timestamps
+- `PATCH /api/conversations/:id` now also owns the browser call-mode flag for that thread, so shells can start or end call mode without inventing a second runtime state model
 
 ## Messages and interventions
 
@@ -28,6 +29,7 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
   - `inline` when the backend can answer directly or route into a typed bounded flow such as morning overview or standup without pushing the operator into thread continuity first
 - the web shell now uses this same route from both `Now` and `Threads`, so entry routing stays backend-owned instead of client-guessed
 - desktop/browser push-to-talk feeds this same route after local speech-to-text; transcript provenance stays explicit and the backend still owns routing into `Now`, `Inbox`, or `Threads`
+- when a thread has `call_mode_active`, browser shells may also speak the returned assistant reply locally through platform TTS, but that still rides on the same persisted conversation and assistant-entry path instead of a separate call transport
 - may also return conversation continuity data, optional assistant reply/error state, and optional typed `daily_loop_session` data when assistant entry starts or resumes the canonical morning/standup flow
 - may also return typed `end_of_day` data when assistant entry starts the run-backed closeout flow inline
 - may also return typed `assistant_context` data: a backend-owned bounded recall pack with summary, focus lines, hit counts, source breakdown, scores, and provenance for the current request
@@ -82,6 +84,19 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 ### `PATCH /api/settings`
 
 - read and update chat/operator UI settings
+- `PATCH /api/settings` now also owns daemon-held LLM routing updates for:
+  - `openai_compat_profiles` for localhost OpenAI-compatible OAuth proxies
+  - `openai_api_profiles` for direct OpenAI API profiles
+- direct OpenAI API keys are stored server-side in daemon settings records, not written back into checked-in model profile TOML
+
+### `GET /api/llm/profiles/:id/health`
+### `POST /api/llm/handshake`
+
+- inspect saved-profile health or run a draft handshake for an LLM profile from the `System` UI
+- handshake checks use provider metadata endpoints only:
+  - `llama_cpp` and OpenAI-compatible providers use `GET /models`
+  - the handshake confirms auth and reachability without sending a chat completion request
+- `POST /api/llm/handshake` accepts draft profile data so operators can verify a new OpenAI proxy or direct OpenAI API key before saving it
 
 ## Components
 

@@ -13,6 +13,8 @@ You can add an `openai_oauth` profile (example: `oauth-openai`) for optional ove
 
 The checked-in routing prefers `oauth-openai` for `chat` when that profile exists, then falls back to `local-qwen3-coder` if the OAuth profile is absent or fails.
 
+The checked-in `oauth-openai` profile expects a localhost proxy at `http://127.0.0.1:8014/v1`. Vel starts that proxy through [scripts/openai-oauth.sh](/home/jove/code/vel/scripts/openai-oauth.sh) during `make dev`, and you can launch it manually with `make dev-openai-oauth`.
+
 ## Local dev (make dev)
 
 Chat assistant replies use the profile in `routing.toml` under `chat` (e.g. `local-qwen3-coder`, port 8012). The fast utility profile uses `local-qwen25-fast` on port 8013. To run the LLM backend as part of `make dev`:
@@ -33,8 +35,13 @@ Chat assistant replies use the profile in `routing.toml` under `chat` (e.g. `loc
    - `VEL_LLM_MODEL`
    - `VEL_LLM_FAST_MODEL`
 
-4. Run `make dev`. The script starts the primary server when `VEL_LLM_MODEL` is available and the fast server when `VEL_LLM_FAST_MODEL` is set, then starts veld and the web app. Ctrl+C stops all.
+4. If chat routing uses `oauth-openai`, make sure a Codex auth file exists. If needed, run:
+   ```bash
+   npx @openai/codex login
+   ```
 
-To run the servers manually, use `scripts/llm-server.sh` for the primary model and `scripts/llm-server-fast.sh` for the fast model.
+5. Run `make dev`. The script starts the primary server when `VEL_LLM_MODEL` is available, the fast server when `VEL_LLM_FAST_MODEL` is set, and the localhost OpenAI OAuth proxy when the active chat or fallback profile requires it, then starts veld and the web app. Ctrl+C stops all.
 
-Before starting, use `make check-llm-setup` to confirm model paths, `llama-server`, and GPU visibility from the current shell.
+To run the servers manually, use `scripts/llm-server.sh` for the primary model, `scripts/llm-server-fast.sh` for the fast model, and `scripts/openai-oauth.sh run --base-url http://127.0.0.1:8014/v1` for the checked-in OAuth proxy.
+
+Before starting, use `make check-llm-setup` to confirm model paths, `llama-server`, GPU visibility, and localhost OpenAI OAuth readiness from the current shell.

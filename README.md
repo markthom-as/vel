@@ -63,8 +63,10 @@ Vel uses Nix for a reproducible toolchain. Ensure you are in the `nix-shell` bef
 |--------|-------------|
 | `make build` | Build veld and the web client. |
 | `make dev` | Start **veld** and the **web dev server** (Vite UI at http://localhost:5173). |
-| `make dev-api` | Start only `veld` for runtime and API work. |
+| `make dev-api` | Start only `veld` for runtime and API work. Fails early if active chat routing requires a missing localhost OpenAI OAuth proxy. |
 | `make dev-web` | Start only the web dev server against an existing daemon. |
+| `make dev-openai-oauth` | Start the checked-in localhost OpenAI OAuth proxy on `127.0.0.1:8014`. |
+| `make check-llm-setup` | Inspect local model paths, `llama-server`, GPU visibility, and localhost OpenAI OAuth readiness. |
 | `make verify` | Run Rust fmt/clippy and full test suite. |
 | `make ci` | Run local CI verification (install, check, test, build). |
 | `make seed` | Populate local API with sample captures and commitments. |
@@ -80,6 +82,8 @@ vel today                   # Generate morning briefing
 vel runs                    # View active worker runs
 vel config show             # Inspect local node configuration
 ```
+
+If chat routing points at the checked-in `oauth-openai` profile, `make dev` now starts the localhost proxy via `npx openai-oauth@latest --host 127.0.0.1 --port 8014`. That proxy depends on a local Codex auth file; if startup reports it missing, run `npx @openai/codex login` and retry.
 
 ---
 

@@ -97,9 +97,9 @@ describe('ThreadView', () => {
     expect(screen.getByText(/CURRENT THREAD \| 1 MESSAGE \| PARTICIPANTS/i)).toBeInTheDocument()
     expect(screen.getAllByText('Vel').length).toBeGreaterThan(0)
     expect(screen.getByPlaceholderText('Find thread')).toBeInTheDocument()
-    expect(screen.getAllByText(/LAST /i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/LATEST /i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/CREATED /i).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archive thread' })).toBeInTheDocument()
     expect(screen.getByText(/proposal review gated/i)).toBeInTheDocument()
     expect(screen.getByText(/source message id/i)).toBeInTheDocument()
     expect(screen.getAllByText('Can you help shape the rollout plan?').length).toBeGreaterThan(0)
@@ -296,12 +296,86 @@ describe('ThreadView', () => {
 
     render(<ThreadView conversationId="conv_1" onSelectConversation={onSelectConversation} />)
 
-    await screen.findByRole('button', { name: 'Archive' })
-    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    await screen.findByRole('button', { name: 'Archive thread' })
+    fireEvent.click(screen.getByRole('button', { name: 'Archive thread' }))
 
     await waitFor(() => {
       expect(api.apiPatch).toHaveBeenCalledWith('/api/conversations/conv_1', { archived: true }, expect.any(Function))
       expect(onSelectConversation).toHaveBeenCalledWith('conv_2')
     })
+  })
+
+  it('toggles thread call mode through the conversation patch seam', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'conv_1',
+              title: 'Call thread',
+              kind: 'general',
+              pinned: false,
+              archived: false,
+              call_mode_active: false,
+              created_at: 1,
+              updated_at: 20,
+              continuation: null,
+            },
+          ],
+          meta: { request_id: 'req_conversations' },
+        } as never
+      }
+      if (path === '/api/conversations/conv_1/messages') {
+        return { ok: true, data: [], meta: { request_id: 'req_messages' } } as never
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+    vi.mocked(api.apiPatch).mockResolvedValue({
+      ok: true,
+      data: {
+        id: 'conv_1',
+        title: 'Call thread',
+        kind: 'general',
+        pinned: false,
+        archived: false,
+        call_mode_active: true,
+        created_at: 1,
+        updated_at: 21,
+        continuation: null,
+      },
+      meta: { request_id: 'req_call_mode' },
+    } as never)
+
+    render(<ThreadView conversationId="conv_1" onSelectConversation={vi.fn()} />)
+
+    await screen.findByRole('button', { name: 'Start call' })
+    fireEvent.click(screen.getByRole('button', { name: 'Start call' }))
+
+    await waitFor(() => {
+      expect(api.apiPatch).toHaveBeenCalledWith(
+        '/api/conversations/conv_1',
+        { call_mode_active: true },
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('shows the intentional empty state when no threads exist yet', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return {
+          ok: true,
+          data: [],
+          meta: { request_id: 'req_conversations' },
+        } as never
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<ThreadView conversationId={null} onSelectConversation={vi.fn()} />)
+
+    await screen.findByText('No thread selected yet')
+    expect(screen.getByText(/latest thread will land here/i)).toBeInTheDocument()
   })
 })

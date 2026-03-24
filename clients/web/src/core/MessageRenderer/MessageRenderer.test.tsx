@@ -20,6 +20,7 @@ describe('MessageRenderer', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument()
     expect(screen.getByText('YOU')).toBeInTheDocument()
     expect(screen.getByText('USER TEXT')).toBeInTheDocument()
+    expect(screen.getByText('Hello world').closest('[data-chat-bubble-variant="user"]')).toBeTruthy()
   })
 
   it('renders reminder card with title', () => {
@@ -155,6 +156,49 @@ describe('MessageRenderer', () => {
       'https://example.com/status',
     )
     expect(screen.getByText('careful')).toBeInTheDocument()
+  })
+
+  it('renders persisted text-message attachments as visible chips', () => {
+    const message: MessageData = {
+      id: 'msg_attached',
+      conversation_id: 'conv_1',
+      role: 'user',
+      kind: 'text',
+      content: {
+        text: 'See attached files',
+        attachments: [
+          { kind: 'file', label: 'brief.txt', mime_type: 'text/plain', metadata: { size_bytes: 5 } },
+          { kind: 'image', label: 'diagram.png', mime_type: 'image/png', metadata: { size_bytes: 42 } },
+        ],
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('brief.txt · text/plain')).toBeInTheDocument()
+    expect(screen.getByText('diagram.png · image/png')).toBeInTheDocument()
+  })
+
+  it('uses the tail-less chat bubble chrome for assistant messages', () => {
+    const message: MessageData = {
+      id: 'msg_tail_less',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'text',
+      content: { text: 'Assistant response' },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('Assistant response').closest('[data-chat-bubble-variant="assistant"]')).toBeTruthy()
   })
 
   it('renders fenced code blocks with copy affordance', async () => {

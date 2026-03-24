@@ -43,6 +43,14 @@ function formatMessageTime(createdAt: number): string {
   }
 }
 
+function attachmentDescriptor(attachment: { kind: string; label?: string | null; mime_type?: string | null; metadata?: unknown }): string {
+  const label = attachment.label?.trim() || attachment.mime_type?.trim() || attachment.kind.replaceAll('_', ' ');
+  if (!attachment.mime_type) {
+    return label;
+  }
+  return `${label} · ${attachment.mime_type}`;
+}
+
 export function MessageRenderer({
   message,
   interventionId,
@@ -161,6 +169,15 @@ export function MessageRenderer({
       {message.kind === 'text' && textContent && (
         <>
           <MarkdownMessage text={textContent.text} />
+          {textContent.attachments?.length ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {textContent.attachments.map((attachment, index) => (
+                <MessageTypeTag key={`${attachment.kind}-${attachment.label ?? index}-${index}`} variant={isUser ? 'user' : 'assistant'}>
+                  {attachmentDescriptor(attachment)}
+                </MessageTypeTag>
+              ))}
+            </div>
+          ) : null}
           {renderMessageActions(textContent.actions)}
         </>
       )}

@@ -97,11 +97,103 @@ describe('MessageComposer', () => {
     })
   })
 
+  it('sends attachment mime type and basic file metadata through the assistant-entry seam', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'threads',
+        user_message: {
+          id: 'msg_attach_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'See attached' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_attach_1' },
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    fireEvent.click(within(container).getByRole('button', { name: /add attachment/i }))
+
+    const file = new File(['hello'], 'brief.txt', { type: 'text/plain' })
+    const fileInputs = container.querySelectorAll('input[type="file"]')
+    fireEvent.change(fileInputs[0] as HTMLInputElement, { target: { files: [file] } })
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), { target: { value: 'See attached' } })
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: 'See attached',
+          conversation_id: 'conv_1',
+          attachments: [
+            {
+              kind: 'file',
+              label: 'brief.txt',
+              mime_type: 'text/plain',
+              metadata: {
+                size_bytes: 5,
+                last_modified_ms: file.lastModified,
+              },
+            },
+          ],
+        },
+        expect.any(Function),
+      )
+    })
+  })
+
   it('disables Send when text is empty', () => {
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
     expect(sendBtn).toBeDisabled()
+  })
+
+  it('supports an explicit setup gate disabled state', () => {
+    const onDisabledInteract = vi.fn()
+    const { container } = render(
+      <MessageComposer
+        conversationId="conv_1"
+        onSent={onSent}
+        disabled
+        disabledReason="Finish Core setup to enable the composer."
+        onDisabledInteract={onDisabledInteract}
+        floating
+      />,
+    )
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
+    const textarea = requireHtmlElement(composer.querySelector('textarea'))
+    const micBtn = within(composer).getByRole('button', { name: /hold to talk locally/i })
+    const overlayButton = within(composer).getByRole('button', { name: /finish core setup to enable the composer\./i })
+    const disabledShell = composer.querySelector('.vel-composer-gradient-border') as HTMLElement | null
+
+    expect(textarea).toBeDisabled()
+    expect(micBtn).toBeDisabled()
+    expect(disabledShell).not.toBeNull()
+    expect(disabledShell?.className ?? '').toContain('opacity-45')
+    expect(within(composer).queryByText(/finish core setup to enable the composer/i)).not.toBeInTheDocument()
+
+    fireEvent.click(overlayButton)
+    expect(onDisabledInteract).toHaveBeenCalled()
   })
 
   it('calls apiPost and onSent when Send is clicked with text', async () => {
@@ -129,6 +221,7 @@ describe('MessageComposer', () => {
           kind: 'general',
           pinned: false,
           archived: false,
+          call_mode_active: false,
           created_at: 0,
           updated_at: 0,
         },
@@ -224,6 +317,7 @@ describe('MessageComposer', () => {
           kind: 'general',
           pinned: false,
           archived: false,
+          call_mode_active: false,
           created_at: 0,
           updated_at: 0,
         },

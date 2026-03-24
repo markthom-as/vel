@@ -10,8 +10,8 @@ use crate::{
     },
     state::AppState,
 };
-use vel_core::{ActionEvidenceRef, ActionItem, ProjectId};
 use vel_api_types::AvailableActionData;
+use vel_core::{ActionEvidenceRef, ActionItem, ProjectId};
 
 #[derive(Debug, Clone)]
 pub(crate) struct InboxItem {
@@ -169,7 +169,11 @@ fn action_item_to_inbox_item(item: ActionItem) -> Result<InboxItem, AppError> {
         .evidence
         .iter()
         .find(|evidence| evidence.source_kind == "message")
-        .or_else(|| item.evidence.iter().find(|evidence| evidence.source_kind == "intervention"))
+        .or_else(|| {
+            item.evidence
+                .iter()
+                .find(|evidence| evidence.source_kind == "intervention")
+        })
         .map(|evidence| evidence.source_id.clone())
         .unwrap_or_else(|| item.id.as_ref().to_string());
     let conversation_id = item
@@ -213,9 +217,10 @@ pub(crate) async fn list_inbox_items(
     state: &AppState,
     limit: u32,
 ) -> Result<Vec<InboxItem>, AppError> {
-    let action_items = crate::services::operator_queue::build_action_items(&state.storage, &state.config)
-        .await?
-        .action_items;
+    let action_items =
+        crate::services::operator_queue::build_action_items(&state.storage, &state.config)
+            .await?
+            .action_items;
     let mut items = Vec::with_capacity(action_items.len());
     for item in action_items {
         items.push(action_item_to_inbox_item(item)?);

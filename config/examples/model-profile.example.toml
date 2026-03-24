@@ -8,3 +8,7 @@ temperature = 0.2
 supports_tools = true
 supports_json = true
 enabled = true
+
+# Direct OpenAI API profiles use:
+# provider = "openai_api"
+# base_url = "https://api.openai.com/v1"

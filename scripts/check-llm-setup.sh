@@ -74,3 +74,36 @@ if ls /dev/nvidia* >/dev/null 2>&1; then
 else
   echo "NVIDIA device nodes: none found"
 fi
+
+echo
+MODELS_DIR="${VEL_MODELS_DIR:-$ROOT/configs/models}"
+ROUTING_FILE="$MODELS_DIR/routing.toml"
+if [[ -f "$ROUTING_FILE" ]]; then
+  chat_profile="$(sed -nE 's|^[[:space:]]*chat[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*$|\1|p' "$ROUTING_FILE" | head -n1)"
+  fallback_profile="$(sed -nE 's|^[[:space:]]*fallback_remote[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*$|\1|p' "$ROUTING_FILE" | head -n1)"
+  echo "Routing chat profile: ${chat_profile:-<unset>}"
+  echo "Routing fallback profile: ${fallback_profile:-<unset>}"
+fi
+
+oauth_profiles=0
+shopt -s nullglob
+for profile in "$MODELS_DIR"/*.toml; do
+  if [[ "$(basename "$profile")" == "routing.toml" ]]; then
+    continue
+  fi
+  provider="$(sed -nE 's|^[[:space:]]*provider[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*$|\1|p' "$profile" | head -n1)"
+  enabled="$(sed -nE 's#^[[:space:]]*enabled[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$#\1#p' "$profile" | head -n1)"
+  if [[ "$provider" != "openai_oauth" || "$enabled" == "false" ]]; then
+    continue
+  fi
+  oauth_profiles=1
+  base_url="$(sed -nE 's|^[[:space:]]*base_url[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*$|\1|p' "$profile" | head -n1)"
+  profile_id="$(sed -nE 's|^[[:space:]]*id[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*$|\1|p' "$profile" | head -n1)"
+  echo
+  echo "OpenAI OAuth profile: ${profile_id:-<unknown>} (${profile})"
+  "$ROOT/scripts/openai-oauth.sh" check --base-url "$base_url" || true
+done
+
+if [[ "$oauth_profiles" -eq 0 ]]; then
+  echo "OpenAI OAuth profiles: none enabled"
+fi

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { AppShell } from './shell/AppShell';
 import { MainPanel } from './shell/MainPanel';
 import { Navbar } from './shell/Navbar';
@@ -7,30 +7,58 @@ import type { MainView } from './data/operatorSurfaces';
 import type { NowNudgeBarData } from './types';
 import type { SystemNavigationTarget } from './views/system';
 
+function focusDeepLinkedNode(anchor: string) {
+  const node = document.getElementById(anchor);
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+  node.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  const focusTarget =
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLButtonElement
+      ? node
+      : node.querySelector<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])');
+  focusTarget?.focus({ preventScroll: true });
+}
+
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('now');
   const [systemTarget, setSystemTarget] = useState<SystemNavigationTarget>({});
   const [localNudges, setLocalNudges] = useState<NowNudgeBarData[]>([]);
+  const [highlightedNudge, setHighlightedNudge] = useState<{ id: string; nonce: number } | null>(null);
 
-  function pushLocalNudge(nudge: NowNudgeBarData) {
+  const pushLocalNudge = useCallback((nudge: NowNudgeBarData) => {
     setLocalNudges((current) => {
       const withoutExisting = current.filter((item) => item.id !== nudge.id);
       return [nudge, ...withoutExisting];
     });
-  }
+    setHighlightedNudge({ id: nudge.id, nonce: Date.now() });
+  }, []);
 
-  function openSystem(target: SystemNavigationTarget = {}) {
+  const clearLocalNudge = useCallback((nudgeId: string) => {
+    setLocalNudges((current) => current.filter((item) => item.id !== nudgeId));
+    setHighlightedNudge((current) => (current?.id === nudgeId ? null : current));
+  }, []);
+
+  const openSystem = useCallback((target: SystemNavigationTarget = {}) => {
     setSystemTarget(target);
     setMainView('system');
-  }
+    if (!target.anchor) return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        focusDeepLinkedNode(target.anchor!);
+      });
+    });
+  }, []);
 
-  function openConversationThread(conversationId: string) {
+  const openConversationThread = useCallback((conversationId: string) => {
     setSelectedConversationId(conversationId);
     setMainView('threads');
-  }
+  }, []);
 
-  function deepLink(target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) {
+  const deepLink = useCallback((target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => {
     if (target.systemTarget) {
       setSystemTarget(target.systemTarget);
     }
@@ -38,15 +66,12 @@ function App() {
     if (!target.anchor) return;
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        const node = document.getElementById(target.anchor!);
-        if (typeof node?.scrollIntoView === 'function') {
-          node.scrollIntoView({ block: 'start', behavior: 'smooth' });
-        }
+        focusDeepLinkedNode(target.anchor!);
       });
     });
-  }
+  }, []);
 
-  function raiseVoiceUnavailableNudge() {
+  const raiseVoiceUnavailableNudge = useCallback(() => {
     if (localNudges.some((nudge) => nudge.id === 'browser_voice_unavailable')) {
       return;
     }
@@ -60,7 +85,7 @@ function App() {
       primary_thread_id: null,
       actions: [{ kind: 'open_settings', label: 'Open system' }],
     });
-  }
+  }, [localNudges, pushLocalNudge]);
 
   return (
     <AppShell
@@ -75,6 +100,8 @@ function App() {
         <NudgeZone
           activeView={mainView}
           extraNudges={localNudges}
+          highlightedNudgeId={highlightedNudge?.id ?? null}
+          highlightedNudgeNonce={highlightedNudge?.nonce ?? null}
           onOpenThread={openConversationThread}
           onOpenSystem={openSystem}
         />
@@ -88,9 +115,14 @@ function App() {
           onOpenSystem={openSystem}
           onVoiceUnavailable={() => {
             raiseVoiceUnavailableNudge();
-            openSystem({ section: 'preferences', subsection: 'accessibility' });
+            openSystem({
+              section: 'core',
+              subsection: 'core_settings',
+              anchor: 'core-settings-required-setup',
+            });
           }}
           onRaiseNudge={pushLocalNudge}
+          onClearNudge={clearLocalNudge}
           shellOwnsNowNudges
           systemTarget={systemTarget}
         />

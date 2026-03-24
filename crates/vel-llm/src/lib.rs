@@ -13,7 +13,10 @@ pub mod types;
 
 pub use errors::{LlmError, ProviderError};
 pub use provider::LlmProvider;
-pub use providers::{LlamaCppConfig, LlamaCppProvider, OpenAiOauthConfig, OpenAiOauthProvider};
+pub use providers::{
+    LlamaCppConfig, LlamaCppProvider, OpenAiApiConfig, OpenAiApiProvider, OpenAiOauthConfig,
+    OpenAiOauthProvider,
+};
 pub use registry::{ProviderRegistry, Router};
 pub use types::{
     FinishReason, LlmRequest, LlmResponse, Message, ModelInfo, ProviderHealth, ResponseFormat,

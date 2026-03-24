@@ -3,8 +3,8 @@ use serde_json::Value as JsonValue;
 use sqlx::SqlitePool;
 
 use crate::{
-    db::StorageError,
-    get_canonical_object, insert_canonical_object, update_canonical_object, CanonicalObjectRecord,
+    db::StorageError, get_canonical_object, insert_canonical_object, update_canonical_object,
+    CanonicalObjectRecord,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

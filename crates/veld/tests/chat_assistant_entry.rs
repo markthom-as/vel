@@ -282,6 +282,7 @@ async fn conversation_list_includes_thread_row_metadata() {
             kind: "general".to_string(),
             pinned: false,
             archived: false,
+            call_mode_active: false,
         })
         .await
         .unwrap();
@@ -374,12 +375,10 @@ async fn question_assistant_entry_can_stage_a_bounded_action_proposal() {
     assert_eq!(json["data"]["proposal"]["kind"], "intervention");
     assert_eq!(json["data"]["proposal"]["permission_mode"], "user_confirm");
     assert_eq!(json["data"]["proposal"]["title"], "Inbox intervention");
-    assert!(
-        json["data"]["follow_up"]["intervention_id"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("intv_")
-    );
+    assert!(json["data"]["follow_up"]["intervention_id"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("intv_"));
     assert_eq!(
         json["data"]["proposal"]["thread_route"]["target"],
         "existing_thread"
@@ -1060,6 +1059,7 @@ async fn existing_conversation_and_missing_model_still_persist_user_message_safe
             kind: "general".to_string(),
             pinned: false,
             archived: false,
+            call_mode_active: false,
         })
         .await
         .unwrap();

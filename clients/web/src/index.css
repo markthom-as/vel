@@ -243,15 +243,43 @@ code {
   }
 }
 
-@keyframes vel-nudge-orb-icon-glint {
+@keyframes vel-nudge-orb-icon-brand {
   0%,
   100% {
-    opacity: 0.88;
-    filter: brightness(0.96);
+    color: rgb(253 186 116 / 0.92);
+    opacity: 0.9;
+    filter:
+      brightness(0.97)
+      drop-shadow(0 0 2px rgba(255, 107, 0, 0.12))
+      drop-shadow(0 0 6px rgba(255, 107, 0, 0.08));
   }
   50% {
+    color: rgb(255 237 213 / 1);
     opacity: 1;
-    filter: brightness(1.1);
+    filter:
+      brightness(1.12)
+      drop-shadow(0 0 4px rgba(255, 178, 122, 0.24))
+      drop-shadow(0 0 10px rgba(255, 107, 0, 0.18));
+  }
+}
+
+@keyframes vel-nudge-orb-icon-warm {
+  0%,
+  100% {
+    color: rgb(252 211 77 / 0.92);
+    opacity: 0.9;
+    filter:
+      brightness(0.97)
+      drop-shadow(0 0 2px rgba(245, 158, 11, 0.12))
+      drop-shadow(0 0 6px rgba(245, 158, 11, 0.08));
+  }
+  50% {
+    color: rgb(254 249 195 / 1);
+    opacity: 1;
+    filter:
+      brightness(1.12)
+      drop-shadow(0 0 4px rgba(252, 211, 77, 0.24))
+      drop-shadow(0 0 10px rgba(245, 158, 11, 0.18));
   }
 }
 
@@ -280,7 +308,15 @@ code {
 }
 
 .vel-nudge-orb-icon {
-  animation: vel-nudge-orb-icon-glint 3.2s ease-in-out infinite;
+  will-change: color, filter, opacity;
+}
+
+.vel-nudge-orb-icon--brand {
+  animation: vel-nudge-orb-icon-brand 3.2s ease-in-out infinite;
+}
+
+.vel-nudge-orb-icon--warm {
+  animation: vel-nudge-orb-icon-warm 3.2s ease-in-out infinite;
 }
 
 /* Floating message composer: same gradient vocabulary as nudge orbs — static until focus (no glow until active). */

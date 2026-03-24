@@ -72,12 +72,18 @@ interface MessageComposerProps {
   hideHelperText?: boolean;
   floating?: boolean;
   floatingOffsetClassName?: string;
+  disabled?: boolean;
+  disabledReason?: string | null;
+  onDisabledInteract?: () => void;
 }
 
 type AttachmentDraft = {
   id: string;
   name: string;
   kind: 'file' | 'image';
+  mimeType: string | null;
+  sizeBytes: number | null;
+  lastModifiedMs: number | null;
 };
 
 export interface SubmittedAssistantEntryPayload {
@@ -97,6 +103,9 @@ export function MessageComposer({
   hideHelperText = false,
   floating = false,
   floatingOffsetClassName = 'bottom-5',
+  disabled = false,
+  disabledReason: _disabledReason = null,
+  onDisabledInteract,
 }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -247,7 +256,11 @@ export function MessageComposer({
       ? queuedAttachments.map((attachment) => ({
           kind: attachment.kind,
           label: attachment.name,
-          metadata: null,
+          mime_type: attachment.mimeType,
+          metadata: {
+            size_bytes: attachment.sizeBytes,
+            last_modified_ms: attachment.lastModifiedMs,
+          },
         }))
       : null,
     [queuedAttachments],
@@ -255,7 +268,7 @@ export function MessageComposer({
 
   const send = useCallback(async () => {
     const trimmed = mergedMessage.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || disabled) return;
     setError(null);
     setSending(true);
     const clientMessageId = onOptimisticSend?.(trimmed);
@@ -295,7 +308,7 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [mergedMessage, conversationId, sending, attachmentPayload, pendingVoice, onOptimisticSend, onSent, onSendFailed]);
+  }, [mergedMessage, conversationId, sending, attachmentPayload, pendingVoice, onOptimisticSend, onSent, onSendFailed, disabled]);
 
   const enqueueAttachments = useCallback((files: FileList | null, kind: AttachmentDraft['kind']) => {
     if (!files || files.length === 0) return;
@@ -303,6 +316,9 @@ export function MessageComposer({
       id: `${kind}_${file.name}_${file.lastModified}_${index}`,
       name: file.name,
       kind,
+      mimeType: file.type || null,
+      sizeBytes: Number.isFinite(file.size) ? file.size : null,
+      lastModifiedMs: Number.isFinite(file.lastModified) ? file.lastModified : null,
     }));
     setQueuedAttachments((current) => [...current, ...next]);
     setAttachmentMenuOpen(false);
@@ -320,7 +336,7 @@ export function MessageComposer({
   };
 
   const beginVoiceCapture = (): boolean => {
-    if (sending || !voiceSupported || voicePressActiveRef.current) {
+    if (sending || disabled || !voiceSupported || voicePressActiveRef.current) {
       return false;
     }
     if (voiceError) setError(null);
@@ -343,7 +359,7 @@ export function MessageComposer({
   const handleMicDoubleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (sending) return;
+    if (sending || disabled) return;
     if (!voiceSupported) {
       onVoiceUnavailable?.();
       return;
@@ -365,7 +381,7 @@ export function MessageComposer({
 
   const handleMicPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (sending) return;
+    if (sending || disabled) return;
     if (!voiceSupported) {
       onVoiceUnavailable?.();
       return;
@@ -395,7 +411,7 @@ export function MessageComposer({
   };
 
   const handleMicKeyboardDown = () => {
-    if (sending) return;
+    if (sending || disabled) return;
     if (!voiceSupported) {
       onVoiceUnavailable?.();
       return;
@@ -430,6 +446,7 @@ export function MessageComposer({
 
   const displayError = error ?? voiceError ?? null;
   const showSendButton = !floating || sending || hasSendablePayload;
+  const interactionDisabled = sending || disabled;
 
   const voiceHint = voiceSupported
     ? isListening
@@ -487,7 +504,7 @@ export function MessageComposer({
           onDoubleClick={handleMicDoubleClick}
           onKeyDown={handleVoiceKeyDown}
           onKeyUp={handleVoiceKeyUp}
-          disabled={sending}
+          disabled={interactionDisabled}
           aria-pressed={voiceSupported ? isListening : undefined}
           aria-label={micAriaLabel}
           title={micTitle}
@@ -518,7 +535,7 @@ export function MessageComposer({
         onDoubleClick={handleMicDoubleClick}
         onKeyDown={handleVoiceKeyDown}
         onKeyUp={handleVoiceKeyUp}
-        disabled={sending}
+        disabled={interactionDisabled}
         aria-pressed={isListening}
         aria-label={micAriaLabel}
         title={micTitle}
@@ -538,7 +555,7 @@ export function MessageComposer({
     <button
       type="button"
       onClick={send}
-      disabled={sending || !mergedMessage.trim()}
+      disabled={interactionDisabled || !mergedMessage.trim()}
       aria-label="Send"
       className={
         floating
@@ -566,7 +583,13 @@ export function MessageComposer({
         aria-label="Add attachment"
         aria-haspopup="menu"
         aria-expanded={attachmentMenuOpen}
-        onClick={() => setAttachmentMenuOpen((open) => !open)}
+        onClick={() => {
+          if (disabled) {
+            return;
+          }
+          setAttachmentMenuOpen((open) => !open);
+        }}
+        disabled={disabled}
         className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/90 text-[var(--vel-color-accent-soft)] transition hover:border-[var(--vel-color-accent)] hover:text-[var(--vel-color-text)]"
       >
         <PlusIcon size={15} className="block" />
@@ -628,10 +651,21 @@ export function MessageComposer({
           {displayError}
         </p>
       )}
-      <div className={cn('mx-auto flex max-w-2xl gap-2', floating ? 'group w-full items-center' : 'items-end')}>
+      <div className={cn('relative mx-auto flex max-w-2xl gap-2', floating ? 'group w-full items-center' : 'items-end')}>
+        {disabled ? (
+          <button
+            type="button"
+            aria-label={_disabledReason ?? 'Composer disabled'}
+            className={cn(
+              'absolute inset-0 z-20 cursor-not-allowed rounded-full',
+              floating ? null : 'rounded-[1.75rem]',
+            )}
+            onClick={() => onDisabledInteract?.()}
+          />
+        ) : null}
         {floating ? (
-          <div className="vel-composer-gradient-border min-w-0 w-full flex-1 rounded-full p-px">
-          <div className="flex items-center gap-2 rounded-full bg-zinc-950/95 py-2 pl-2 pr-2 backdrop-blur">
+          <div className={cn('vel-composer-gradient-border min-w-0 w-full flex-1 rounded-full p-px transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
+          <div className={cn('flex items-center gap-2 rounded-full bg-zinc-950/95 py-2 pl-2 pr-2 backdrop-blur transition-[opacity,filter] duration-150', disabled ? 'opacity-80 saturate-0 grayscale' : null)}>
             {attachmentButtonEl}
             {queuedAttachments.length ? (
               <div className="flex max-w-[14rem] shrink-0 items-center gap-1 overflow-x-auto py-0.5">
@@ -661,8 +695,8 @@ export function MessageComposer({
               placeholder="Ask, capture, or talk to Vel…"
               data-vel-composer-input="true"
               rows={1}
-              className="vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-6 focus:outline-none focus:ring-0 disabled:opacity-50"
-              disabled={sending}
+              className="vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-6 focus:outline-none focus:ring-0 disabled:opacity-60"
+              disabled={interactionDisabled}
               style={{ scrollbarWidth: 'none', height: '1.5rem', maxHeight: '1.5rem' }}
             />
             {voiceStatusLabel ? (
@@ -709,7 +743,7 @@ export function MessageComposer({
           </div>
         ) : (
           <>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className={cn('flex min-w-0 flex-1 flex-col gap-1 transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -717,7 +751,7 @@ export function MessageComposer({
                 placeholder="Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)"
                 rows={1}
                 className="w-full resize-none rounded-full border-0 bg-zinc-800/30 px-4 py-2 text-zinc-100 placeholder-zinc-500 transition-colors duration-150 focus:bg-zinc-700/55 focus:outline-none"
-                disabled={sending}
+              disabled={interactionDisabled}
                 style={{ scrollbarWidth: 'none' }}
               />
               {interimTranscript && !hideHelperText ? (
@@ -725,7 +759,7 @@ export function MessageComposer({
                   Listening locally… {interimTranscript}
                 </p>
               ) : null}
-              {!interimTranscript && !hideHelperText ? (
+              {!interimTranscript && !hideHelperText && !interactionDisabled ? (
                 <p className="text-zinc-500 text-xs" aria-live="polite">
                   {voiceHint}
                 </p>

@@ -9,17 +9,20 @@ import {
   reactivateInboxItem,
   resolveInboxItem,
   snoozeInboxItem,
+  updateConversationCallMode,
 } from './chat'
 import type { InboxItemData } from '../types'
 
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  apiPatch: vi.fn(),
 }))
 
 describe('chat data helpers', () => {
   beforeEach(() => {
     vi.mocked(client.apiPost).mockReset()
+    vi.mocked(client.apiPatch).mockReset()
   })
 
   it('posts acknowledge inbox mutations to /api/interventions/:id/acknowledge', async () => {
@@ -123,6 +126,7 @@ describe('chat data helpers', () => {
           kind: 'general',
           pinned: false,
           archived: false,
+          call_mode_active: false,
           created_at: 1,
           updated_at: 1,
           continuation: null,
@@ -149,6 +153,33 @@ describe('chat data helpers', () => {
       },
       expect.any(Function),
     )
+  })
+
+  it('patches thread call mode through the conversation update seam', async () => {
+    vi.mocked(client.apiPatch).mockResolvedValue({
+      ok: true,
+      data: {
+        id: 'conv_1',
+        title: 'Hello',
+        kind: 'general',
+        pinned: false,
+        archived: false,
+        call_mode_active: true,
+        created_at: 1,
+        updated_at: 2,
+        continuation: null,
+      },
+      meta: { request_id: 'req_call_mode' },
+    } as never)
+
+    const response = await updateConversationCallMode('conv_1', true)
+
+    expect(client.apiPatch).toHaveBeenCalledWith(
+      '/api/conversations/conv_1',
+      { call_mode_active: true },
+      expect.any(Function),
+    )
+    expect(response.data?.call_mode_active).toBe(true)
   })
 
   it('derives intervention API id from synthetic action ids and evidence', () => {

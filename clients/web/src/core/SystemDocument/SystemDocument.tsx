@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../Button';
 import { cn } from '../cn';
 
@@ -108,54 +108,127 @@ export function SystemDocumentField({
   onChange,
   onCommit,
   className,
+  multiline = false,
+  placeholder,
+  fieldId,
 }: {
   label: string;
   value: string;
   onChange?: (nextValue: string) => void;
   onCommit?: (nextValue: string) => void | Promise<void>;
   className?: string;
+  multiline?: boolean;
+  placeholder?: string;
+  fieldId?: string;
 }) {
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  const lastSubmittedDraft = useRef<string | null>(null);
+  const draftRef = useRef(draft);
+  const valueRef = useRef(value);
+  const savingRef = useRef(saving);
+  const onCommitRef = useRef(onCommit);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    onCommitRef.current = onCommit;
+  }, [onCommit]);
 
   useEffect(() => {
     setDraft(value);
+    if (lastSubmittedDraft.current === value) {
+      lastSubmittedDraft.current = null;
+    }
   }, [value]);
 
-  async function commitDraft() {
-    if (!onCommit || draft === value || saving) {
+  async function commitDraft(nextDraft = draftRef.current) {
+    if (
+      !onCommitRef.current
+      || nextDraft === valueRef.current
+      || savingRef.current
+      || lastSubmittedDraft.current === nextDraft
+    ) {
       return;
     }
+    lastSubmittedDraft.current = nextDraft;
     setSaving(true);
     try {
-      await onCommit(draft);
+      await onCommitRef.current(nextDraft);
+    } catch (error) {
+      lastSubmittedDraft.current = null;
+      throw error;
     } finally {
       setSaving(false);
     }
   }
 
+  useEffect(() => {
+    if (!onCommit || draft === value || saving) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      void commitDraft();
+    }, 650);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [draft, value, onCommit, saving]);
+
   return (
     <label className={cn('block border-b border-[var(--vel-color-border)] py-1.5', className)}>
       <span className="text-xs uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">{label}</span>
-      <input
-        aria-label={label}
-        value={draft}
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setDraft(nextValue);
-          onChange?.(nextValue);
-        }}
-        onBlur={() => {
-          void commitDraft();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
+      {multiline ? (
+        <textarea
+          id={fieldId}
+          name={fieldId}
+          aria-label={label}
+          value={draft}
+          placeholder={placeholder}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setDraft(nextValue);
+            onChange?.(nextValue);
+          }}
+          onBlur={() => {
             void commitDraft();
-          }
-        }}
-        className="w-full bg-transparent px-0 py-1 text-sm text-[var(--vel-color-text)] outline-none"
-      />
+          }}
+          className="min-h-[5.5rem] w-full resize-y bg-transparent px-0 py-1 text-sm leading-5 text-[var(--vel-color-text)] outline-none"
+        />
+      ) : (
+        <input
+          id={fieldId}
+          name={fieldId}
+          aria-label={label}
+          value={draft}
+          placeholder={placeholder}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setDraft(nextValue);
+            onChange?.(nextValue);
+          }}
+          onBlur={() => {
+            void commitDraft();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              void commitDraft();
+            }
+          }}
+          className="w-full bg-transparent px-0 py-1 text-sm text-[var(--vel-color-text)] outline-none"
+        />
+      )}
       {saving ? (
         <span className="block pt-0.5 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">
           Saving…

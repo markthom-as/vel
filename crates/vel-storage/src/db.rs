@@ -274,6 +274,7 @@ pub struct ConversationInsert {
     pub kind: String,
     pub pinned: bool,
     pub archived: bool,
+    pub call_mode_active: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -283,6 +284,7 @@ pub struct ConversationRecord {
     pub kind: String,
     pub pinned: bool,
     pub archived: bool,
+    pub call_mode_active: bool,
     pub created_at: i64,
     pub updated_at: i64,
     pub message_count: i64,
@@ -783,6 +785,14 @@ impl Storage {
             metadata_json,
         )
         .await
+    }
+
+    pub async fn set_commitment_project(
+        &self,
+        id: &str,
+        project: Option<&str>,
+    ) -> Result<(), StorageError> {
+        commitments_repo::set_commitment_project(self.pool(), id, project).await
     }
 
     // --- Commitment dependencies ---
@@ -2081,6 +2091,14 @@ impl Storage {
 
     pub async fn archive_conversation(&self, id: &str, archived: bool) -> Result<(), StorageError> {
         chat_repo::archive_conversation(self.pool(), id, archived).await
+    }
+
+    pub async fn set_conversation_call_mode(
+        &self,
+        id: &str,
+        call_mode_active: bool,
+    ) -> Result<(), StorageError> {
+        chat_repo::set_conversation_call_mode(self.pool(), id, call_mode_active).await
     }
 
     pub async fn create_message(&self, input: MessageInsert) -> Result<MessageId, StorageError> {

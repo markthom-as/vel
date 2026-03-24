@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import type { IntegrationsData, NowData } from '../types'
-import { buildBackupTrustProjection, buildOperatorReviewStatus, buildSettingsOnboardingGuide } from './operator'
+import type { IntegrationsData, NowData, SettingsData } from '../types'
+import {
+  buildBackupTrustProjection,
+  buildCoreSetupStatus,
+  buildOperatorReviewStatus,
+  buildSettingsOnboardingGuide,
+} from './operator'
 
 describe('buildOperatorReviewStatus', () => {
   it('derives writeback, handoff, conflict, and people review state from now plus settings', () => {
@@ -425,6 +430,127 @@ describe('buildSettingsOnboardingGuide', () => {
   })
 })
 
+describe('buildCoreSetupStatus', () => {
+  it('requires core identity, operator profile, llm routing, and a synced provider', () => {
+    const status = buildCoreSetupStatus(
+      {
+        node_display_name: null,
+        llm: {
+          models_dir: '/models',
+          default_chat_profile_id: null,
+          fallback_chat_profile_id: null,
+          profiles: [],
+        },
+        core_settings: {
+          user_display_name: null,
+          client_location_label: null,
+          developer_mode: false,
+          bypass_setup_gate: false,
+          agent_profile: {
+            role: null,
+            preferences: null,
+            constraints: null,
+            freeform: null,
+          },
+        },
+      },
+      buildIntegrations(),
+    )
+
+    expect(status.ready).toBe(false)
+    expect(status.missing).toEqual([
+      'user_display_name',
+      'node_display_name',
+      'agent_profile',
+      'llm_provider',
+      'synced_provider',
+    ])
+    expect(status.summary).toMatch(/Vel will not be fully functional/i)
+  })
+
+  it('treats bypass setup gate as ready for developer override', () => {
+    const status = buildCoreSetupStatus(
+      {
+        node_display_name: null,
+        llm: {
+          models_dir: '/models',
+          default_chat_profile_id: null,
+          fallback_chat_profile_id: null,
+          profiles: [],
+        },
+        core_settings: {
+          user_display_name: null,
+          client_location_label: null,
+          developer_mode: true,
+          bypass_setup_gate: true,
+          agent_profile: {
+            role: null,
+            preferences: null,
+            constraints: null,
+            freeform: null,
+          },
+        },
+      },
+      buildIntegrations(),
+    )
+
+    expect(status.ready).toBe(true)
+    expect(status.missing).toEqual([])
+    expect(status.summary).toMatch(/bypass/i)
+  })
+
+  it('marks core setup ready when the minimum mvp setup exists', () => {
+    const status = buildCoreSetupStatus(
+      buildSettings({
+        node_display_name: 'Vel Desktop',
+        llm: {
+          models_dir: '/models',
+          default_chat_profile_id: 'oauth-openai',
+          fallback_chat_profile_id: 'local-llama',
+          profiles: [
+            {
+              id: 'oauth-openai',
+              provider: 'openai_oauth',
+              base_url: 'http://127.0.0.1:8014/v1',
+              model: 'gpt-5.4',
+              context_window: 32768,
+              enabled: true,
+              editable: true,
+            },
+          ],
+        },
+        core_settings: {
+          user_display_name: 'Jove',
+          client_location_label: 'Denver, CO',
+          developer_mode: false,
+          bypass_setup_gate: false,
+          agent_profile: {
+            role: 'Operator',
+            preferences: null,
+            constraints: null,
+            freeform: 'Prefer concise plans.',
+          },
+        },
+      }),
+      buildIntegrations({
+        todoist: {
+          configured: true,
+          connected: true,
+          has_api_token: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+      }),
+    )
+
+    expect(status.ready).toBe(true)
+    expect(status.missing).toEqual([])
+  })
+})
+
 function buildIntegrations(overrides: Partial<IntegrationsData> = {}): IntegrationsData {
   const baseLocal = {
     configured: false,
@@ -472,6 +598,41 @@ function buildIntegrations(overrides: Partial<IntegrationsData> = {}): Integrati
     reminders: { ...baseLocal },
     notes: { ...baseLocal, source_kind: 'directory' },
     transcripts: { ...baseLocal },
+    ...overrides,
+  }
+}
+
+function buildSettings(overrides: Partial<SettingsData> = {}): SettingsData {
+  return {
+    node_display_name: 'Vel',
+    llm: {
+      models_dir: '/models',
+      default_chat_profile_id: 'local-llama',
+      fallback_chat_profile_id: null,
+      profiles: [
+        {
+          id: 'local-llama',
+          provider: 'llama_cpp',
+          base_url: 'http://127.0.0.1:8012/v1',
+          model: 'qwen3',
+          context_window: 32768,
+          enabled: true,
+          editable: false,
+        },
+      ],
+    },
+    core_settings: {
+      user_display_name: 'Jove',
+      client_location_label: 'Denver, CO',
+      developer_mode: false,
+      bypass_setup_gate: false,
+      agent_profile: {
+        role: 'Operator',
+        preferences: null,
+        constraints: null,
+        freeform: 'Keep the daily loop grounded.',
+      },
+    },
     ...overrides,
   }
 }

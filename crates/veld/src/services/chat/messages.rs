@@ -43,6 +43,7 @@ pub(crate) struct ChatMessageCreateResult {
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
+    pub assistant_error_retryable: bool,
     pub assistant_context: Option<vel_api_types::AssistantContextData>,
 }
 
@@ -71,6 +72,7 @@ pub(crate) struct AssistantEntryCreateResult {
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
+    pub assistant_error_retryable: bool,
     pub assistant_context: Option<vel_api_types::AssistantContextData>,
     pub conversation: Option<crate::services::chat::mapping::ConversationServiceData>,
     pub proposal: Option<AssistantActionProposal>,
@@ -114,6 +116,15 @@ impl From<MessageServiceData> for ChatMessage {
 
 fn chat_model_not_configured_error() -> String {
     "Chat model not configured. Set VEL_LLM_MODEL and run llama-server, or see configs/models/README.md.".to_string()
+}
+
+fn assistant_error_retryable(message: &str) -> bool {
+    let lowered = message.trim().to_ascii_lowercase();
+    lowered.starts_with("provider error: transport:")
+        || lowered.starts_with("provider error: protocol:")
+        || lowered.starts_with("provider error: backend:")
+        || lowered.starts_with("provider error: capability unsupported:")
+        || lowered.starts_with("no provider registered for profile")
 }
 
 fn looks_like_thread_continuity_request(text: &str) -> bool {
@@ -852,33 +863,38 @@ pub(crate) async fn create_message_response(
     let conversation_id = conversation_id.trim();
     let user_message = create_user_message(state, conversation_id, payload).await?;
 
-    let (assistant_message, assistant_error) = if let (Some(router), Some(profile_id)) =
-        (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
-    {
-        tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
-        match generate_assistant_reply(
-            state,
-            conversation_id,
-            profile_id,
-            state.chat_fallback_profile_id.as_deref(),
-            router,
-        )
-        .await
+    let (assistant_message, assistant_error, assistant_error_retryable) =
+        if let (Some(router), Some(profile_id)) =
+            (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
         {
-            Ok(Some(assistant_message)) => {
-                let ws_payload = serde_json::to_value(&assistant_message).unwrap_or_default();
-                broadcast_chat_ws_event(state, WS_EVENT_MESSAGES_NEW, ws_payload);
-                (Some(assistant_message), None)
+            tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
+            match generate_assistant_reply(
+                state,
+                conversation_id,
+                profile_id,
+                state.chat_fallback_profile_id.as_deref(),
+                router,
+            )
+            .await
+            {
+                Ok(Some(assistant_message)) => {
+                    let ws_payload = serde_json::to_value(&assistant_message).unwrap_or_default();
+                    broadcast_chat_ws_event(state, WS_EVENT_MESSAGES_NEW, ws_payload);
+                    (Some(assistant_message), None, false)
+                }
+                Ok(None) => (None, None, false),
+                Err(error) => {
+                    tracing::error!(error = %error, "assistant reply failed");
+                    (
+                        None,
+                        Some(error.to_string()),
+                        assistant_error_retryable(&error.to_string()),
+                    )
+                }
             }
-            Ok(None) => (None, None),
-            Err(error) => {
-                tracing::error!(error = %error, "assistant reply failed");
-                (None, Some(error.to_string()))
-            }
-        }
-    } else {
-        (None, Some(chat_model_not_configured_error()))
-    };
+        } else {
+            (None, Some(chat_model_not_configured_error()), false)
+        };
 
     let assistant_context = if assistant_message.is_some() {
         Some(
@@ -897,6 +913,7 @@ pub(crate) async fn create_message_response(
         user_message,
         assistant_message,
         assistant_error,
+        assistant_error_retryable,
         assistant_context,
     })
 }
@@ -1043,6 +1060,7 @@ pub(crate) async fn create_assistant_entry_response(
             user_message,
             assistant_message,
             assistant_error: None,
+            assistant_error_retryable: false,
             assistant_context: None,
             conversation,
             proposal: None,
@@ -1072,6 +1090,7 @@ pub(crate) async fn create_assistant_entry_response(
             user_message,
             assistant_message,
             assistant_error: None,
+            assistant_error_retryable: false,
             assistant_context: None,
             conversation,
             proposal: None,
@@ -1110,6 +1129,7 @@ pub(crate) async fn create_assistant_entry_response(
             user_message,
             assistant_message: None,
             assistant_error: None,
+            assistant_error_retryable: false,
             assistant_context: None,
             conversation,
             proposal: None,
@@ -1173,30 +1193,34 @@ pub(crate) async fn create_assistant_entry_response(
         });
     }
 
-    let (assistant_message, assistant_error) = if route_target == AssistantEntryRouteTarget::Threads
-    {
-        if let (Some(router), Some(profile_id)) =
-            (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
-        {
-            match generate_assistant_reply(
-                state,
-                &conversation_id,
-                profile_id,
-                state.chat_fallback_profile_id.as_deref(),
-                router,
-            )
-            .await
+    let (assistant_message, assistant_error, assistant_error_retryable) =
+        if route_target == AssistantEntryRouteTarget::Threads {
+            if let (Some(router), Some(profile_id)) =
+                (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
             {
-                Ok(Some(assistant_message)) => (Some(assistant_message), None),
-                Ok(None) => (None, None),
-                Err(error) => (None, Some(error.to_string())),
+                match generate_assistant_reply(
+                    state,
+                    &conversation_id,
+                    profile_id,
+                    state.chat_fallback_profile_id.as_deref(),
+                    router,
+                )
+                .await
+                {
+                    Ok(Some(assistant_message)) => (Some(assistant_message), None, false),
+                    Ok(None) => (None, None, false),
+                    Err(error) => (
+                        None,
+                        Some(error.to_string()),
+                        assistant_error_retryable(&error.to_string()),
+                    ),
+                }
+            } else {
+                (None, Some(chat_model_not_configured_error()), false)
             }
         } else {
-            (None, Some(chat_model_not_configured_error()))
-        }
-    } else {
-        (None, None)
-    };
+            (None, None, false)
+        };
 
     let assistant_context = if assistant_message.is_some() {
         Some(crate::services::chat::tools::build_assistant_context(state, text, 5).await?)
@@ -1222,6 +1246,7 @@ pub(crate) async fn create_assistant_entry_response(
         user_message,
         assistant_message,
         assistant_error,
+        assistant_error_retryable,
         assistant_context,
         conversation,
         proposal,
@@ -1239,4 +1264,35 @@ fn extract_text_query(content: &serde_json::Value) -> String {
         .map(str::trim)
         .unwrap_or_default()
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::assistant_error_retryable;
+
+    #[test]
+    fn assistant_error_retryable_flags_retryable_provider_failures() {
+        assert!(assistant_error_retryable(
+            "provider error: transport: connection reset"
+        ));
+        assert!(assistant_error_retryable(
+            "provider error: backend: upstream unavailable"
+        ));
+        assert!(assistant_error_retryable(
+            "no provider registered for profile 'primary'"
+        ));
+    }
+
+    #[test]
+    fn assistant_error_retryable_rejects_configuration_and_auth_failures() {
+        assert!(!assistant_error_retryable(
+            "Chat model not configured. Set VEL_LLM_MODEL and run llama-server."
+        ));
+        assert!(!assistant_error_retryable(
+            "provider error: auth: invalid token"
+        ));
+        assert!(!assistant_error_retryable(
+            "provider error: rate limit: maxed"
+        ));
+    }
 }

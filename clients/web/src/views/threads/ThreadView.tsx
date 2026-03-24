@@ -5,13 +5,14 @@ import {
   loadConversationList,
   loadConversationMessages,
   updateConversationArchive,
+  updateConversationCallMode,
   updateConversationTitle,
 } from '../../data/chat';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import { subscribeWsQuerySync } from '../../data/ws-sync';
 import { cn } from '../../core/cn';
 import { ActionChipButton, FilterDenseTag, FilterToggleTag } from '../../core/FilterToggleTag';
-import { ArchiveIcon, DotIcon, LayersIcon, OpenThreadIcon, ThreadsIcon, WarningIcon } from '../../core/Icons';
+import { ArchiveIcon, DotIcon, LayersIcon, MicIcon, OpenThreadIcon, ThreadsIcon, WarningIcon } from '../../core/Icons';
 import { ObjectRowFrame, ObjectRowLayout, ObjectRowTitleMetaBand } from '../../core/ObjectRow';
 import { PanelEmptyRow, PanelKeyValueRow } from '../../core/PanelChrome';
 import { MessageRenderer } from '../../core/MessageRenderer';
@@ -74,6 +75,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
   const [editingTitle, setEditingTitle] = useState(false);
   const [savingTitle, setSavingTitle] = useState(false);
   const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
+  const [togglingCallModeId, setTogglingCallModeId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
@@ -139,6 +141,23 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
       }
     } finally {
       setArchivingConversationId(null);
+    }
+  }
+
+  async function toggleConversationCallMode(conversation: ConversationData) {
+    if (togglingCallModeId) return;
+    const nextCallMode = !conversation.call_mode_active;
+    setTogglingCallModeId(conversation.id);
+    setQueryData(conversationsKey, (current: ConversationData[] | undefined) =>
+      (current ?? []).map((entry) =>
+        entry.id === conversation.id ? { ...entry, call_mode_active: nextCallMode } : entry,
+      ),
+    );
+    try {
+      await updateConversationCallMode(conversation.id, nextCallMode);
+      await invalidateQuery(conversationsKey, { refetch: true });
+    } finally {
+      setTogglingCallModeId(null);
     }
   }
   const threadModeCounts = useMemo(() => {
@@ -226,7 +245,19 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     if (conversationsError) {
       return <SurfaceState message={conversationsError} layout="centered" tone="danger" />;
     }
-    return <SurfaceState message="No conversations yet." layout="centered" />;
+    return (
+      <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 items-center justify-center px-4 py-10 sm:px-6">
+        <div className="w-full max-w-xl rounded-[28px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)] px-6 py-8 text-center shadow-[0_24px_60px_rgba(0,0,0,0.18)]">
+          <p className={`${uiFonts.display} text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)]`}>
+            Threads
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--vel-color-text)]">No thread selected yet</h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--vel-color-muted)]">
+            Start a conversation from `Now` and the latest thread will land here. Until then, this space stays intentionally quiet.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   const error = conversationsError ?? messagesError;
@@ -245,6 +276,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     selectedConversation?.kind ? selectedConversation.kind.replaceAll('_', ' ') : null,
     selectedConversation?.project_label ?? null,
     boundObject?.lifecycle_stage ?? null,
+    selectedConversation?.call_mode_active ? 'call mode active' : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -362,7 +394,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">
-                      <span>LAST {formatAbsoluteTimestamp(lastMessageAt(messages, selectedConversation?.updated_at ?? null))}</span>
+                      <span>LATEST {formatAbsoluteTimestamp(lastMessageAt(messages, selectedConversation?.updated_at ?? null))}</span>
                       <span aria-hidden>|</span>
                       <span>CREATED {formatAbsoluteTimestamp(selectedConversation?.created_at ?? null)}</span>
                     </div>
@@ -411,10 +443,21 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                       </FilterDenseTag>
                     ))}
                     <ActionChipButton
+                      tone={selectedConversation?.call_mode_active ? 'brand' : 'ghost'}
+                      disabled={!selectedConversation || Boolean(togglingCallModeId)}
+                      onClick={() => {
+                        if (selectedConversation) {
+                          void toggleConversationCallMode(selectedConversation);
+                        }
+                      }}
+                    >
+                      <MicIcon size={12} />
+                      {selectedConversation?.call_mode_active ? 'End call' : 'Start call'}
+                    </ActionChipButton>
+                    <ActionChipButton
                       tone="ghost"
-                      iconOnly
-                      aria-label="Archive"
-                      className="!h-6 !w-6 !rounded-full border border-[var(--vel-color-border)] bg-transparent text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-accent-soft)]"
+                      aria-label="Archive thread"
+                      className="border border-[var(--vel-color-border)] bg-transparent text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-accent-soft)]"
                       disabled={!selectedConversation || Boolean(archivingConversationId)}
                       onClick={() => {
                         if (selectedConversation) {
@@ -422,14 +465,20 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                         }
                       }}
                     >
-                      <ArchiveIcon size={9} />
+                      <ArchiveIcon size={12} />
+                      Archive
                     </ActionChipButton>
                   </div>
                 </div>
               </section>
 
-              {boundObject || contextRows.length > 0 ? (
+              {boundObject || contextRows.length > 0 || selectedConversation?.call_mode_active ? (
                 <section className="space-y-3 border-b border-[var(--vel-color-border)] pb-4">
+                  {selectedConversation?.call_mode_active ? (
+                    <p className="max-w-3xl text-sm leading-6 text-[var(--vel-color-muted)]">
+                      Call mode is active for this thread. Browser speech-to-text still goes through the normal assistant path, and new assistant replies on this thread can speak back locally.
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     {boundObject ? (
                       <FilterDenseTag tone="muted">

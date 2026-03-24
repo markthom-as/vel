@@ -2,11 +2,63 @@ use vel_config::AppConfig;
 
 use crate::errors::AppError;
 
+pub(crate) const CORE_SETTINGS_KEY: &str = "core_settings";
 pub(crate) const NODE_DISPLAY_NAME_SETTINGS_KEY: &str = "node_display_name";
 pub(crate) const WRITEBACK_ENABLED_SETTINGS_KEY: &str = "writeback_enabled";
 pub(crate) const TAILSCALE_PREFERRED_SETTINGS_KEY: &str = "tailscale_preferred";
 pub(crate) const TAILSCALE_BASE_URL_SETTINGS_KEY: &str = "tailscale_base_url";
 pub(crate) const LAN_BASE_URL_SETTINGS_KEY: &str = "lan_base_url";
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
+pub(crate) struct AgentProfileSettings {
+    pub role: Option<String>,
+    pub preferences: Option<String>,
+    pub constraints: Option<String>,
+    pub freeform: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub(crate) struct CoreSettings {
+    pub user_display_name: Option<String>,
+    pub client_location_label: Option<String>,
+    #[serde(default)]
+    pub developer_mode: bool,
+    #[serde(default)]
+    pub bypass_setup_gate: bool,
+    #[serde(default)]
+    pub agent_profile: AgentProfileSettings,
+}
+
+impl Default for CoreSettings {
+    fn default() -> Self {
+        Self {
+            user_display_name: None,
+            client_location_label: None,
+            developer_mode: false,
+            bypass_setup_gate: false,
+            agent_profile: AgentProfileSettings::default(),
+        }
+    }
+}
+
+pub(crate) fn load_core_settings(
+    settings: &std::collections::HashMap<String, serde_json::Value>,
+) -> Result<CoreSettings, AppError> {
+    match settings.get(CORE_SETTINGS_KEY) {
+        Some(value) => serde_json::from_value::<CoreSettings>(value.clone())
+            .map_err(|error| AppError::internal(format!("parse core_settings: {error}"))),
+        None => Ok(CoreSettings::default()),
+    }
+}
+
+pub(crate) fn normalize_optional_string(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
 
 pub(crate) async fn runtime_sync_config(
     storage: &vel_storage::Storage,

@@ -72,7 +72,7 @@ impl ModelProfile {
                 "model profile: model must be non-empty".into(),
             ));
         }
-        let known = ["llama_cpp", "openai_oauth"];
+        let known = ["llama_cpp", "openai_oauth", "openai_api"];
         if !known.contains(&file.provider.as_str()) {
             return Err(ConfigError::Validation(format!(
                 "model profile: unknown provider '{}' (allowed: {})",

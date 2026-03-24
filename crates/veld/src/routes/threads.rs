@@ -41,7 +41,9 @@ fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, O
     (planning_kind, lifecycle_stage)
 }
 
-fn thread_project_details(metadata: Option<&serde_json::Value>) -> (Option<ProjectId>, Option<String>) {
+fn thread_project_details(
+    metadata: Option<&serde_json::Value>,
+) -> (Option<ProjectId>, Option<String>) {
     let Some(metadata) = metadata else {
         return (None, None);
     };
@@ -137,17 +139,19 @@ pub async fn list_threads(
         && q.continuation_category.is_none()
     {
         rows.into_iter()
-            .map(|(id, thread_type, title, status, metadata_json, created_at, updated_at)| {
-                thread_data_from_summary(
-                    id,
-                    thread_type,
-                    title,
-                    status,
-                    metadata_json,
-                    created_at,
-                    updated_at,
-                )
-            })
+            .map(
+                |(id, thread_type, title, status, metadata_json, created_at, updated_at)| {
+                    thread_data_from_summary(
+                        id,
+                        thread_type,
+                        title,
+                        status,
+                        metadata_json,
+                        created_at,
+                        updated_at,
+                    )
+                },
+            )
             .collect()
     } else {
         let mut data = Vec::new();
@@ -298,7 +302,10 @@ mod tests {
         let data = response.data.expect("thread data");
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].id, "thr_project_review_1");
-        assert_eq!(data[0].project_id.as_ref().map(|id| id.as_ref()), Some("proj_vel"));
+        assert_eq!(
+            data[0].project_id.as_ref().map(|id| id.as_ref()),
+            Some("proj_vel")
+        );
         assert_eq!(data[0].project_label.as_deref(), Some("Vel"));
     }
 
