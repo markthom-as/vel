@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vel Prototype — System Integration Issue</title>
+    <link rel="stylesheet" href="./prototype.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-band">
+        <div class="top-band__brand">Vel / System</div>
+        <div class="top-band__meta">
+          <span><code>15:12</code> Thursday</span>
+          <span>Section: Integrations</span>
+        </div>
+      </header>
+      <main class="workspace">
+        <section class="surface stack">
+          <div class="system-shell">
+            <aside class="rail">
+              <button class="rail__item">Overview</button>
+              <button class="rail__item">Operations</button>
+              <button class="rail__item rail__item--active">Integrations</button>
+              <button class="rail__item">Control</button>
+              <button class="rail__item">Preferences</button>
+            </aside>
+            <div class="detail">
+              <div class="panel">
+                <div class="surface__eyebrow">Read-first trust</div>
+                <h1 class="surface__title" style="font-size: 1.8rem;">Recognizable providers, subdued identity</h1>
+                <p class="surface__subtitle">Integrations use browse/detail split. Provider tint is secondary to system state.</p>
+              </div>
+              <div class="row row--event">
+                <div class="row__icon">G</div>
+                <div>
+                  <div class="row__title">Google Calendar</div>
+                  <div class="row__sub">Token stale. Recovery required before trust is restored.</div>
+                  <div class="row__meta">
+                    <span class="status status--degraded">Degraded</span>
+                    <span class="chip">Provider tint only</span>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="button button--primary">Inspect</button>
+                  <button class="button button--danger">Disconnect</button>
+                </div>
+              </div>
+              <div class="panel panel--tight">
+                <div class="lane-title"><h3>Detail pane</h3><span class="status">Browse / detail</span></div>
+                <div class="side-card__body">
+                  <p>State: degraded because refresh failed twice.</p>
+                  <p>Why: auth token expired and next sync window is blocked.</p>
+                  <p>Allowed actions: review, reconnect, inspect logs. Provider color stays subordinate to the degraded state.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <aside class="nudge-zone">
+          <div class="side-card">
+            <div class="lane-title"><h3>Nudge zone</h3><span class="status status--warning">1 top signal</span></div>
+            <div class="side-card__body">Compressed outside `Now`, but still present.</div>
+          </div>
+        </aside>
+      </main>
+      <nav class="action-bar">
+        <a class="action-bar__slot" href="./now-degraded.html">Now</a>
+        <a class="action-bar__slot action-bar__slot--primary" href="./system-integrations-issue.html">Repair</a>
+        <a class="action-bar__slot" href="./system-control.html">Control</a>
+        <a class="action-bar__slot" href="./thread-normal.html">Quick slot</a>
+      </nav>
+    </div>
+  </body>
+</html>

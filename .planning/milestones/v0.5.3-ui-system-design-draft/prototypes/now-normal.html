@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vel Prototype — Now Normal</title>
+    <link rel="stylesheet" href="./prototype.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-band">
+        <div class="top-band__brand">Vel / Now</div>
+        <div class="top-band__meta">
+          <span><code>08:42</code> Monday</span>
+          <span>Context: Deep work block</span>
+          <span>Client: Web desk</span>
+        </div>
+      </header>
+      <main class="workspace">
+        <section class="surface stack">
+          <div>
+            <div class="surface__eyebrow">Current moment</div>
+            <h1 class="surface__title">One bounded operating surface</h1>
+            <p class="surface__subtitle">Active task first. One next slot. Two event constraints max. Nudges stay separate. Projects stay metadata only.</p>
+          </div>
+
+          <div class="panel">
+            <div class="lane-title"><h2>Active task</h2><span class="status">Anchor</span></div>
+            <div class="row row--active">
+              <div class="row__icon">A</div>
+              <div>
+                <div class="row__title">Lock page-spec anatomy and disclosure maps</div>
+                <div class="row__sub">This is the only dominant work object on the surface.</div>
+                <div class="row__meta">
+                  <span class="chip chip--project">Operator Surface</span>
+                  <span class="status">Due 10:00</span>
+                  <span class="status">Web desk</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="button button--primary">Complete</button>
+                <button class="button">Defer</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel panel--tight">
+            <div class="lane-title"><h3>Next up</h3><span class="status">1 slot</span></div>
+            <div class="row">
+              <div class="row__icon">N</div>
+              <div>
+                <div class="row__title">Draft prototype states for degraded trust and focused thread blocks</div>
+                <div class="row__sub">One subordinate item only. Anything more would become queue drift.</div>
+                <div class="row__meta">
+                  <span class="chip chip--project">Prototype</span>
+                  <span class="status">After current</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="button">Open thread</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel panel--tight">
+            <div class="lane-title"><h3>Current and next event</h3><span class="status">Max 2</span></div>
+            <div class="stack">
+              <div class="row row--event">
+                <div class="row__icon">E</div>
+                <div>
+                  <div class="row__title">Current block: design review window</div>
+                  <div class="row__sub">Constraint, not the dominant object.</div>
+                  <div class="row__meta"><span class="status">08:00–09:30</span></div>
+                </div>
+                <div class="actions"><button class="button" data-toggle="event-drawer">Inspect</button></div>
+              </div>
+              <div class="row row--event">
+                <div class="row__icon">E</div>
+                <div>
+                  <div class="row__title">Next event: implementation sync</div>
+                  <div class="row__sub">Appears because it constrains the current task horizon.</div>
+                  <div class="row__meta"><span class="status">10:00–10:30</span></div>
+                </div>
+                <div class="actions"><button class="button">Inspect</button></div>
+              </div>
+            </div>
+            <div id="event-drawer" class="panel toggle-target hidden-inline" aria-hidden="true" style="margin-top: 14px;">
+              <div class="lane-title"><h3>Event drawer</h3><span class="status">Shallow only</span></div>
+              <p class="side-card__body">This is the deepest `Now` should go inline for an event: title, time, one-line note, and the option to escalate into `Threads` if reasoning or evidence matters.</p>
+            </div>
+          </div>
+        </section>
+
+        <aside class="nudge-zone">
+          <div class="nudge-card">
+            <div class="lane-title"><h3>Nudge lane</h3><span class="status status--warning">2 active</span></div>
+            <div class="nudge-card__title">Calendar sync needs confirmation</div>
+            <div class="nudge-card__body">Distinct interruption lane. Not mixed inline with task rows.</div>
+            <div class="actions" style="margin-top: 12px;">
+              <button class="button button--primary">Review</button>
+              <button class="button">Dismiss</button>
+            </div>
+          </div>
+          <div class="side-card">
+            <div class="lane-title"><h3>Trust</h3><span class="status">Healthy</span></div>
+            <div class="side-card__body">No trust band is shown inside the main lane because the surface is healthy.</div>
+          </div>
+        </aside>
+      </main>
+      <nav class="action-bar">
+        <a class="action-bar__slot" href="./thread-normal.html">Threads</a>
+        <a class="action-bar__slot action-bar__slot--primary" href="./now-normal.html">Capture</a>
+        <a class="action-bar__slot" href="./system-integrations-issue.html">Command</a>
+        <a class="action-bar__slot" href="./now-degraded.html">Quick slot</a>
+      </nav>
+    </div>
+    <script src="./prototype.js"></script>
+  </body>
+</html>

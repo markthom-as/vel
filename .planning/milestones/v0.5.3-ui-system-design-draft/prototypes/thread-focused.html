@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vel Prototype — Thread Focused Block</title>
+    <link rel="stylesheet" href="./prototype.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-band">
+        <div class="top-band__brand">Vel / Threads</div>
+        <div class="top-band__meta">
+          <span><code>11:31</code> Wednesday</span>
+          <span>Breadcrumb: Thread / Prototype wave / Focused block</span>
+        </div>
+      </header>
+      <main class="workspace">
+        <section class="surface stack">
+          <div class="panel">
+            <div class="surface__eyebrow">Focused mode</div>
+            <h1 class="surface__title" style="font-size: 1.8rem;">Run detail without losing thread continuity</h1>
+            <p class="surface__subtitle">Breadcrumb appears because focus mode is active. This is where logs, media, and richer run detail belong.</p>
+          </div>
+          <div class="block block--focus">
+            <div class="block__kicker">Focused run block</div>
+            <div class="block__title">Prototype export / scenario pack</div>
+            <div class="block__body">
+              <p>Run family shares one visual system. Details expand here instead of bloating the standard continuity rows.</p>
+              <p class="mono">run_id: vel-82-prototype-wave-01</p>
+              <p class="mono">status: partial / reviewable</p>
+            </div>
+            <div class="actions" style="margin-top: 14px;">
+              <button class="button button--primary">Review traces</button>
+              <button class="button">Retry export</button>
+              <button class="button">Back to thread</button>
+            </div>
+          </div>
+          <div class="review-panel">
+            <div class="lane-title"><h3>Trace summary</h3><span class="status">Shared detail</span></div>
+            <div class="side-card__body">Logs and provenance stay in a dedicated review surface rather than spilling into every continuity block.</div>
+          </div>
+        </section>
+        <aside class="nudge-zone">
+          <div class="side-card">
+            <div class="lane-title"><h3>State</h3><span class="status status--warning">Needs review</span></div>
+            <div class="side-card__body">Focused view preserves the shell, not a full-screen takeover.</div>
+          </div>
+        </aside>
+      </main>
+      <nav class="action-bar">
+        <a class="action-bar__slot" href="./thread-normal.html">Back</a>
+        <a class="action-bar__slot action-bar__slot--primary" href="./thread-focused.html">Inspect</a>
+        <a class="action-bar__slot" href="./system-control.html">Open system</a>
+        <a class="action-bar__slot" href="./now-normal.html">Quick slot</a>
+      </nav>
+    </div>
+  </body>
+</html>
