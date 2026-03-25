@@ -3,13 +3,16 @@ import {
   AlertTriangle,
   Calendar,
   CalendarClock,
+  CalendarSync,
   ChevronLeft,
   ChevronRight,
   Circle,
   CircleCheck,
+  ClockPlus,
   ClipboardCheck,
   Clock,
   Copy,
+  Eye,
   FileText,
   Folder,
   Image,
@@ -109,6 +112,14 @@ export function RescheduleIcon({ size = defaults.size, strokeWidth = defaults.st
   return <CalendarClock aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
+export function CalendarSyncIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <CalendarSync aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ClockPlusIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <ClockPlus aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
 export function SendArrowIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <Send aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
@@ -131,6 +142,10 @@ export function ImageIcon({ size = defaults.size, strokeWidth = defaults.strokeW
 
 export function CopyIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <Copy aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function EyeIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Eye aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
 export function ArchiveIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {

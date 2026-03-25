@@ -1,5 +1,4 @@
 import { primarySurfaces, type MainView } from '../../data/operatorSurfaces';
-import { ActionChipButton } from '../../core/FilterToggleTag';
 import { cn } from '../../core/cn';
 import {
   InfoCircleIcon,
@@ -81,9 +80,8 @@ export function NavbarNavLinks({ activeView, onSelectView, onDeepLink, surface =
           <span className={cn(isMobile ? 'leading-tight' : 'hidden sm:inline leading-none')}>{item.label}</span>
         </button>
       ))}
-      <ActionChipButton
-        tone="ghost"
-        iconOnly
+      <button
+        type="button"
         onClick={() =>
           onDeepLink?.({
             view: 'system',
@@ -93,11 +91,13 @@ export function NavbarNavLinks({ activeView, onSelectView, onDeepLink, surface =
         }
         aria-label="System documentation"
         title="Open system documentation"
-        className="ml-1 text-[var(--vel-color-dim)] hover:text-[var(--vel-color-text)]"
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-full border px-2 py-2 transition',
+          'border-[var(--vel-color-border)] text-[var(--vel-color-dim)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]',
+        )}
       >
-        <InfoCircleIcon size={16} />
-        {isMobile ? null : <span className="sr-only">System documentation</span>}
-      </ActionChipButton>
+        <InfoCircleIcon size={15} strokeWidth={1.85} />
+      </button>
     </nav>
   );
 }

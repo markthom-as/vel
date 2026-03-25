@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../core/cn';
 import {
+  CalendarSyncIcon,
+  ClockPlusIcon,
   ClipboardCheckIcon,
+  EyeIcon,
   ClockIcon,
   DotIcon,
   InboxIcon,
@@ -158,16 +161,52 @@ export function NudgeActionIcon({ kind, ...props }: IconProps & { kind: string }
     case 'open_thread':
     case 'expand':
     case 'accept':
-      return <OpenThreadIcon {...props} />;
+      return <ThreadsIcon {...props} />;
+    case 'snooze':
+      return <ClockPlusIcon {...props} />;
     case 'open_settings':
       return <SettingsIcon {...props} />;
     case 'open_inbox':
       return <InboxIcon {...props} />;
     default:
+      if (kind.startsWith('reschedule_today')) {
+        return <CalendarSyncIcon {...props} />;
+      }
+      if (kind.startsWith('jump_backlog')) {
+        return <EyeIcon {...props} />;
+      }
       if (kind.startsWith('open_settings')) {
         return <SettingsIcon {...props} />;
       }
       return <SparkIcon {...props} />;
+  }
+}
+
+/** Muted color per action kind so each button is visually distinct. */
+export function nudgeActionToneClass(kind: string): string {
+  const base = 'whitespace-nowrap';
+  switch (kind) {
+    case 'open_thread':
+    case 'expand':
+    case 'accept':
+      return `${base} !border-emerald-900/40 !text-emerald-400/55 shadow-[0_0_6px_rgba(52,211,153,0.08)] hover:!text-emerald-200/80`;
+    case 'snooze':
+      return `${base} !border-amber-900/40 !text-amber-400/55 shadow-[0_0_6px_rgba(251,191,36,0.08)] hover:!text-amber-200/80`;
+    case 'open_inbox':
+      return `${base} !border-orange-900/40 !text-orange-400/55 shadow-[0_0_6px_rgba(251,146,60,0.08)] hover:!text-orange-200/80`;
+    case 'open_settings':
+      return `${base} !border-zinc-800/40 !text-zinc-500/55 shadow-[0_0_6px_rgba(161,161,170,0.06)] hover:!text-zinc-300/80`;
+    default:
+      if (kind.startsWith('reschedule_today')) {
+        return `${base} !border-sky-900/40 !text-sky-400/55 shadow-[0_0_6px_rgba(56,189,248,0.08)] hover:!text-sky-200/80`;
+      }
+      if (kind.startsWith('jump_backlog')) {
+        return `${base} !border-violet-900/40 !text-violet-400/55 shadow-[0_0_6px_rgba(167,139,250,0.08)] hover:!text-violet-200/80`;
+      }
+      if (kind.startsWith('open_settings')) {
+        return `${base} !border-zinc-800/40 !text-zinc-500/55 shadow-[0_0_6px_rgba(161,161,170,0.06)] hover:!text-zinc-300/80`;
+      }
+      return base;
   }
 }
 
@@ -180,7 +219,7 @@ export function nudgeActionButtonLabel(action: { kind: string; label: string }, 
     case 'open_thread':
     case 'expand':
     case 'accept':
-      return 'Open thread';
+      return 'Open';
     case 'open_inbox':
       return 'Inbox';
     case 'open_settings':
@@ -189,6 +228,12 @@ export function nudgeActionButtonLabel(action: { kind: string; label: string }, 
       if (bar.id === 'mesh_summary_warning') return 'Sync & clients';
       return 'Settings';
     default:
+      if (action.kind.startsWith('reschedule_today')) {
+        return 'To Today';
+      }
+      if (action.kind.startsWith('jump_backlog')) {
+        return 'Backlog';
+      }
       if (action.kind.startsWith('open_settings')) {
         return action.label;
       }

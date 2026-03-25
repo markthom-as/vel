@@ -35,6 +35,7 @@ import {
   NudgeLeadOrb,
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
+  nudgeActionToneClass,
 } from '../../views/now/nowNudgePresentation';
 import type { SystemNavigationTarget } from '../../views/system';
 import { cn } from '../../core/cn';
@@ -101,6 +102,8 @@ function nudgeTone(bar: NowNudgeBarData) {
 
 const actionChipClass =
   '!min-h-[1.1rem] !gap-1.5 !rounded-full !px-2 !py-[0.2rem] !text-[9px] !tracking-[0.1em] opacity-90';
+const nudgeActionChipClass =
+  `${actionChipClass} w-full justify-center`;
 
 type CoreChecklistItem = {
   id: string;
@@ -713,16 +716,17 @@ export function NudgeZone({
                   const actionKey = `${bar.id}-${action.kind}-${index}`;
                   const label = nudgeActionButtonLabel(action, bar);
                   const ariaLabel = nudgeActionAriaLabel(bar, action, index, bar.actions.length);
+                  const actionTone = nudgeActionToneClass(action.kind);
                   if (action.kind.startsWith('open_settings')) {
                     return (
                       <ActionChipButton
                         key={actionKey}
                         onClick={() => onOpenSystem?.(nudgeOpenSystemTarget(bar, action))}
                         aria-label={ariaLabel}
-                        className={cn(actionChipClass, '[&>span]:truncate [&>span]:max-w-[4.5rem]')}
+                        className={cn(nudgeActionChipClass, actionTone)}
                       >
                         <NudgeActionIcon kind={action.kind} size={11} />
-                        <span>{label}</span>
+                        {label ? <span>{label}</span> : null}
                       </ActionChipButton>
                     );
                   }
@@ -739,10 +743,10 @@ export function NudgeZone({
                         }}
                         disabled={pendingActionKey === actionKey || commitmentIds.length === 0}
                         aria-label={ariaLabel}
-                        className={cn(actionChipClass, '[&>span]:truncate [&>span]:max-w-[4.5rem]')}
+                        className={cn(nudgeActionChipClass, actionTone)}
                       >
                         <NudgeActionIcon kind={action.kind} size={11} />
-                        <span>{label}</span>
+                        {label ? <span>{label}</span> : null}
                       </ActionChipButton>
                     );
                   }
@@ -759,10 +763,10 @@ export function NudgeZone({
                         }}
                         disabled={activeView !== 'now' || !anchor}
                         aria-label={ariaLabel}
-                        className={cn(actionChipClass, '[&>span]:truncate [&>span]:max-w-[4.5rem]')}
+                        className={cn(nudgeActionChipClass, actionTone)}
                       >
                         <NudgeActionIcon kind={action.kind} size={11} />
-                        <span>{label}</span>
+                        {label ? <span>{label}</span> : null}
                       </ActionChipButton>
                     );
                   }
@@ -774,11 +778,11 @@ export function NudgeZone({
                           void runNudgeMutation(actionKey, () => acknowledgeInboxItem(interventionId));
                         }}
                         disabled={pendingActionKey === actionKey}
-                        className={cn(actionChipClass, '[&>span]:truncate [&>span]:max-w-[4.5rem]')}
+                        className={cn(nudgeActionChipClass, actionTone)}
                         aria-label={ariaLabel}
                       >
                         <NudgeActionIcon kind={action.kind} size={11} />
-                        <span>{label}</span>
+                        {label ? <span>{label}</span> : null}
                       </ActionChipButton>
                     );
                   }
@@ -787,11 +791,11 @@ export function NudgeZone({
                       <ActionChipButton
                         key={actionKey}
                         onClick={() => onOpenThread?.(bar.primary_thread_id!)}
-                        className={cn(actionChipClass, '[&>span]:truncate [&>span]:max-w-[4.5rem]')}
+                        className={cn(nudgeActionChipClass, actionTone)}
                         aria-label={ariaLabel}
                       >
                         <NudgeActionIcon kind={action.kind} size={11} />
-                        <span>{label}</span>
+                        {label ? <span>{label}</span> : null}
                       </ActionChipButton>
                     );
                   }
@@ -800,16 +804,16 @@ export function NudgeZone({
                       key={actionKey}
                       aria-label={ariaLabel}
                       disabled
-                      className={cn(actionChipClass, '[&>span]:truncate [&>span]:max-w-[4rem]')}
+                      className={cn(nudgeActionChipClass, actionTone)}
                     >
                       <NudgeActionIcon kind={action.kind} size={11} />
-                      <span>{label}</span>
+                      {label ? <span>{label}</span> : null}
                     </ActionChipButton>
                   );
                 })}
                 <ActionChipButton
                   aria-label={`Defer (${bar.title}) · ${bar.id}`}
-                  className={actionChipClass}
+                  className={cn(nudgeActionChipClass, nudgeActionToneClass('snooze'))}
                   disabled={!interventionId || pendingActionKey === `${bar.id}-defer`}
                   onClick={() => {
                     if (!interventionId) return;
@@ -858,7 +862,7 @@ export function NudgeZone({
                         </div>
                       </button>
                       <div
-                        className="flex max-w-[46%] shrink-0 flex-wrap items-center justify-end gap-1 overflow-hidden pt-0.5"
+                        className="flex w-[5.5rem] shrink-0 flex-col gap-1 overflow-hidden pt-0.5"
                         onClick={(event) => event.stopPropagation()}
                       >
                         {actionButtons}
@@ -935,7 +939,7 @@ export function NudgeZone({
                       </p>
                     </button>
                     <div
-                      className="flex max-w-[38%] shrink-0 flex-wrap items-center justify-end gap-1 overflow-hidden"
+                      className="flex w-[5.5rem] shrink-0 flex-col gap-1 overflow-hidden"
                       onClick={(event) => event.stopPropagation()}
                     >
                       {actionButtons}
