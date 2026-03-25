@@ -429,6 +429,14 @@ describe('SystemView', () => {
     expect(screen.getAllByText(/What belongs here/i).length).toBeGreaterThan(0)
   })
 
+  it('renders system documentation at the end of the system page', async () => {
+    render(<SystemView target={{ section: 'overview', subsection: 'trust' }} />)
+
+    const docsHeader = await screen.findByText('System documentation')
+    const accessibilityHeader = await screen.findByText('Accessibility and operator ergonomics')
+    expect(accessibilityHeader.compareDocumentPosition(docsHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('keeps integration actions available without the old browse-detail shell', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     render(<SystemView target={{ section: 'integrations', subsection: 'providers' }} />)

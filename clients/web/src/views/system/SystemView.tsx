@@ -1247,6 +1247,9 @@ export function SystemView({ target }: SystemViewProps) {
                   })}
                 </section>
               ))}
+              <section id="system-documentation" className="scroll-mt-24">
+                <SystemDocumentationDetail />
+              </section>
             </div>
           </section>
         </div>
@@ -1407,12 +1410,16 @@ function OverviewTrustDetail({
           ))
         )}
       </SystemDocumentStatsGrid>
+    </div>
+  );
+}
 
-      <div id="system-docs" className="scroll-mt-24 rounded-[24px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)] px-4 py-4">
-        <SystemDocumentSectionLabel>System documentation</SystemDocumentSectionLabel>
-        <div className="mt-3 max-w-3xl text-sm leading-6 text-[var(--vel-color-text)]">
-          <MarkdownMessage text={systemSurfaceDoc} />
-        </div>
+function SystemDocumentationDetail() {
+  return (
+    <div id="system-docs" className="scroll-mt-24 rounded-[24px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)] px-4 py-4">
+      <SystemDocumentSectionLabel>System documentation</SystemDocumentSectionLabel>
+      <div className="mt-3 max-w-3xl text-sm leading-6 text-[var(--vel-color-text)]">
+        <MarkdownMessage text={systemSurfaceDoc} />
       </div>
     </div>
   );
