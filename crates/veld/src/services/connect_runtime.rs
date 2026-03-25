@@ -6,20 +6,27 @@ use std::{
 };
 
 use serde_json::{json, Value as JsonValue};
-use tokio::{process::Child, sync::Mutex};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    process::{Child, ChildStdin},
+    sync::Mutex,
+};
 use vel_core::{
     CapabilityDescriptor, ConnectInstance, ConnectInstanceCapabilityManifest,
     ConnectInstanceStatus, ConnectRuntimeCapability, RunId, RunKind, RunStatus, TraceId,
 };
-use vel_storage::ConnectRunRecord;
+use vel_storage::{ConnectRunEventRecord, ConnectRunRecord};
 
 use crate::{errors::AppError, state::AppState};
 
 type RuntimeRegistry = Mutex<HashMap<String, ManagedRuntime>>;
+const MAX_EVENT_CHUNK_BYTES: usize = 8 * 1024;
+const MAX_STDIN_WRITE_BYTES: usize = 8 * 1024;
 
 #[derive(Debug)]
 struct ManagedRuntime {
     child: Child,
+    stdin: Option<ChildStdin>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +47,14 @@ pub struct ConnectHeartbeatAck {
     pub status: String,
     pub lease_expires_at: i64,
     pub trace_id: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConnectStdinWriteAck {
+    pub run_id: String,
+    pub accepted_bytes: u32,
+    pub event_id: i64,
+    pub trace_id: Option<String>,
 }
 
 fn runtime_registry() -> &'static RuntimeRegistry {
@@ -104,7 +119,7 @@ pub async fn launch_connect_runtime(
 
     match request.runtime_kind.as_str() {
         "local_command" => {
-            let child = match spawn_local_runtime(&request).await {
+            let mut child = match spawn_local_runtime(&request).await {
                 Ok(child) => child,
                 Err(error) => {
                     let error_json = json!({ "reason": error.to_string() });
@@ -129,10 +144,18 @@ pub async fn launch_connect_runtime(
                 }
             };
 
+            let stdin = child.stdin.take();
+            if let Some(stdout) = child.stdout.take() {
+                spawn_output_pump(state.storage.clone(), run_id.to_string(), "stdout", stdout);
+            }
+            if let Some(stderr) = child.stderr.take() {
+                spawn_output_pump(state.storage.clone(), run_id.to_string(), "stderr", stderr);
+            }
+
             runtime_registry()
                 .lock()
                 .await
-                .insert(run_id.to_string(), ManagedRuntime { child });
+                .insert(run_id.to_string(), ManagedRuntime { child, stdin });
         }
         "wasm_guest" => {
             let module_path = request
@@ -298,6 +321,112 @@ pub async fn terminate_connect_instance(
     get_connect_instance(state, id).await
 }
 
+pub async fn write_connect_instance_stdin(
+    state: &AppState,
+    id: &str,
+    input: &str,
+) -> Result<ConnectStdinWriteAck, AppError> {
+    reconcile_connect_runtime_state(state).await?;
+    let id = id.trim();
+    let record = state
+        .storage
+        .get_connect_run(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("connect instance not found"))?;
+    if record.status != "running" {
+        return Err(AppError::bad_request(format!(
+            "connect instance {} is not running",
+            id
+        )));
+    }
+
+    let payload = input.as_bytes();
+    if payload.is_empty() {
+        return Err(AppError::bad_request("stdin input must not be empty"));
+    }
+    if payload.len() > MAX_STDIN_WRITE_BYTES {
+        return Err(AppError::bad_request(format!(
+            "stdin input exceeds {} bytes",
+            MAX_STDIN_WRITE_BYTES
+        )));
+    }
+
+    let mut registry = runtime_registry().lock().await;
+    let runtime = registry
+        .get_mut(id)
+        .ok_or_else(|| AppError::bad_request("runtime process is not available"))?;
+    let stdin = runtime
+        .stdin
+        .as_mut()
+        .ok_or_else(|| AppError::bad_request("runtime does not accept stdin"))?;
+    stdin
+        .write_all(payload)
+        .await
+        .map_err(|error| AppError::internal(error.to_string()))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|error| AppError::internal(error.to_string()))?;
+    drop(registry);
+
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let chunk = truncate_event_chunk(input);
+    let event_id = state
+        .storage
+        .insert_connect_run_event(id, "stdin", &chunk, now)
+        .await?;
+    let trace_id = run_input_json(state, id)
+        .await?
+        .get("trace_id")
+        .and_then(JsonValue::as_str)
+        .map(ToString::to_string);
+
+    Ok(ConnectStdinWriteAck {
+        run_id: id.to_string(),
+        accepted_bytes: payload.len() as u32,
+        event_id,
+        trace_id,
+    })
+}
+
+pub async fn list_connect_instance_events(
+    state: &AppState,
+    id: &str,
+    after_id: Option<i64>,
+    limit: u32,
+) -> Result<Vec<ConnectRunEventRecord>, AppError> {
+    reconcile_connect_runtime_state(state).await?;
+    let id = id.trim();
+    state
+        .storage
+        .get_connect_run(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("connect instance not found"))?;
+    let events = state
+        .storage
+        .list_connect_run_events(id, after_id, limit)
+        .await?;
+    Ok(events)
+}
+
+pub async fn latest_connect_instance_event_id(
+    state: &AppState,
+    id: &str,
+) -> Result<Option<i64>, AppError> {
+    reconcile_connect_runtime_state(state).await?;
+    let id = id.trim();
+    state
+        .storage
+        .get_connect_run(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("connect instance not found"))?;
+    state
+        .storage
+        .latest_connect_run_event_id(id)
+        .await
+        .map_err(Into::into)
+}
+
 pub async fn reconcile_connect_runtime_state(state: &AppState) -> Result<(), AppError> {
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let running_records = state.storage.list_connect_runs(Some("running")).await?;
@@ -338,6 +467,15 @@ pub async fn reconcile_connect_runtime_state(state: &AppState) -> Result<(), App
         let _ = runtime.child.kill().await;
         let _ = runtime.child.wait().await;
         let lease_expired_error = json!({ "reason": "lease_expired" });
+        let _ = state
+            .storage
+            .insert_connect_run_event(
+                &id,
+                "system",
+                "runtime lease expired; process terminated",
+                now,
+            )
+            .await;
         state
             .storage
             .update_run_status(
@@ -357,6 +495,15 @@ pub async fn reconcile_connect_runtime_state(state: &AppState) -> Result<(), App
         } else {
             "process_failed"
         };
+        let _ = state
+            .storage
+            .insert_connect_run_event(
+                &id,
+                "system",
+                &format!("runtime exited with status {}", code.unwrap_or(-1)),
+                now,
+            )
+            .await;
         let output_json = json!({ "exit_code": code });
         let error_json = (!success).then(|| json!({ "reason": reason }));
         state
@@ -536,11 +683,50 @@ async fn spawn_local_runtime(
         command.current_dir(working_dir);
     }
     command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .kill_on_drop(true);
     command.spawn()
+}
+
+fn spawn_output_pump(
+    storage: vel_storage::Storage,
+    run_id: String,
+    stream: &'static str,
+    reader: impl tokio::io::AsyncRead + Unpin + Send + 'static,
+) {
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(reader).lines();
+        loop {
+            match lines.next_line().await {
+                Ok(Some(line)) => {
+                    let chunk = truncate_event_chunk(&line);
+                    let _ = storage
+                        .insert_connect_run_event(
+                            &run_id,
+                            stream,
+                            &chunk,
+                            time::OffsetDateTime::now_utc().unix_timestamp(),
+                        )
+                        .await;
+                }
+                Ok(None) => break,
+                Err(_) => break,
+            }
+        }
+    });
+}
+
+fn truncate_event_chunk(value: &str) -> String {
+    if value.len() <= MAX_EVENT_CHUNK_BYTES {
+        return value.to_string();
+    }
+    let mut end = MAX_EVENT_CHUNK_BYTES;
+    while !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    value[..end].to_string()
 }
 
 fn canonicalize_existing_dir(value: &str) -> Result<PathBuf, AppError> {

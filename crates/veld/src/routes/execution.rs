@@ -9,7 +9,9 @@ use vel_api_types::ApiResponse;
 use crate::{
     errors::AppError,
     services::{
+        connect_runtime,
         execution_context::{self, ExecutionContextData},
+        execution_launch,
         execution_routing::{
             self, CreateExecutionHandoffInput, HandoffOriginKind, HandoffReviewState,
             ReviewExecutionHandoffInput,
@@ -83,6 +85,25 @@ pub struct ReviewExecutionHandoffRequest {
     pub reviewed_by: String,
     #[serde(default)]
     pub decision_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LaunchExecutionHandoffRequest {
+    pub runtime_kind: String,
+    #[serde(default)]
+    pub actor_id: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub command: Vec<String>,
+    #[serde(default)]
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub writable_roots: Vec<String>,
+    #[serde(default)]
+    pub capability_allowlist: Vec<vel_core::CapabilityDescriptor>,
+    #[serde(default)]
+    pub lease_seconds: Option<i64>,
 }
 
 pub async fn get_execution_context(
@@ -264,6 +285,35 @@ pub async fn reject_execution_handoff(
     .await?;
     Ok(Json(ApiResponse::success(
         handoff,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn launch_execution_handoff(
+    State(state): State<AppState>,
+    Path(handoff_id): Path<String>,
+    Json(payload): Json<LaunchExecutionHandoffRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::ConnectInstanceData>>, AppError> {
+    let launched = execution_launch::launch_approved_handoff(
+        &state,
+        handoff_id.trim(),
+        execution_launch::LaunchApprovedHandoffRequest {
+            runtime_kind: payload.runtime_kind,
+            actor_id: payload.actor_id,
+            display_name: payload.display_name,
+            command: payload.command,
+            working_dir: payload.working_dir,
+            writable_roots: payload.writable_roots,
+            capability_allowlist: payload.capability_allowlist,
+            lease_seconds: payload.lease_seconds,
+        },
+    )
+    .await?;
+
+    let _ = connect_runtime::reconcile_connect_runtime_state(&state).await;
+
+    Ok(Json(ApiResponse::success(
+        vel_api_types::ConnectInstanceData::from(launched),
         format!("req_{}", Uuid::new_v4().simple()),
     )))
 }

@@ -5,7 +5,7 @@ use vel_config::AppConfig;
 use vel_core::{
     action_explain, generic_object_action_contracts, object_explain, policy_explain,
     ConfirmationMode, ExplainBasis, PolicyDecisionKind, PolicyEvaluationInput, PolicyLayerKind,
-    WritebackStatus, WriteIntentId,
+    WriteIntentId, WritebackStatus,
 };
 use vel_storage::Storage;
 
@@ -14,11 +14,11 @@ use crate::{
     services::{
         conflict_classifier::ConflictClassifier,
         policy_evaluator::{default_layer, PolicyEvaluator, PolicyEvaluatorError},
-        writeback,
         write_intent_dispatch::{
             dispatch_write_intent, DispatchDisposition, ExecutionDispatch,
             WriteIntentDispatchRequest,
         },
+        writeback,
     },
 };
 
@@ -320,28 +320,23 @@ pub async fn bridge_todoist_write_with_services(
     }
 
     let operation = match parsed_change {
-        TodoistWriteIntent::Complete => writeback::todoist_complete_task(
-            storage,
-            config,
-            "vel-local",
-            &request.object_id,
-        )
-        .await?,
-        TodoistWriteIntent::Reopen => writeback::todoist_reopen_task(
-            storage,
-            config,
-            "vel-local",
-            &request.object_id,
-        )
-        .await?,
-        TodoistWriteIntent::Update(mutation) => writeback::todoist_update_task(
-            storage,
-            config,
-            "vel-local",
-            &request.object_id,
-            mutation,
-        )
-        .await?,
+        TodoistWriteIntent::Complete => {
+            writeback::todoist_complete_task(storage, config, "vel-local", &request.object_id)
+                .await?
+        }
+        TodoistWriteIntent::Reopen => {
+            writeback::todoist_reopen_task(storage, config, "vel-local", &request.object_id).await?
+        }
+        TodoistWriteIntent::Update(mutation) => {
+            writeback::todoist_update_task(
+                storage,
+                config,
+                "vel-local",
+                &request.object_id,
+                mutation,
+            )
+            .await?
+        }
     };
 
     let dispatch = dispatch_write_intent(
@@ -512,9 +507,7 @@ fn extract_scheduled_from_due(due: &JsonValue) -> Option<String> {
         })
 }
 
-fn parse_todoist_tags(
-    value: Option<&JsonValue>,
-) -> Result<Option<Vec<String>>, AppError> {
+fn parse_todoist_tags(value: Option<&JsonValue>) -> Result<Option<Vec<String>>, AppError> {
     match value {
         Some(JsonValue::Array(values)) => {
             let tags = values
@@ -525,11 +518,9 @@ fn parse_todoist_tags(
             Ok(Some(tags))
         }
         Some(other) if other.is_null() => Ok(Some(Vec::new())),
-        Some(other) => {
-            Err(AppError::bad_request(format!(
-                "unsupported todoist tags payload: {other}"
-            )))
-        }
+        Some(other) => Err(AppError::bad_request(format!(
+            "unsupported todoist tags payload: {other}"
+        ))),
         None => Ok(None),
     }
 }
@@ -541,16 +532,22 @@ fn parse_todoist_priority(value: &JsonValue) -> Result<Option<u8>, AppError> {
                 if (1..=4).contains(&raw) {
                     Some(raw as u8)
                 } else {
-                    return Err(AppError::bad_request("todoist priority must be between 1 and 4"));
+                    return Err(AppError::bad_request(
+                        "todoist priority must be between 1 and 4",
+                    ));
                 }
             } else if let Some(raw) = number.as_i64() {
                 if (1..=4).contains(&raw) {
                     Some(raw as u8)
                 } else {
-                    return Err(AppError::bad_request("todoist priority must be between 1 and 4"));
+                    return Err(AppError::bad_request(
+                        "todoist priority must be between 1 and 4",
+                    ));
                 }
             } else {
-                return Err(AppError::bad_request("todoist priority must be between 1 and 4"));
+                return Err(AppError::bad_request(
+                    "todoist priority must be between 1 and 4",
+                ));
             }
         }
         JsonValue::String(value) => {
@@ -566,7 +563,9 @@ fn parse_todoist_priority(value: &JsonValue) -> Result<Option<u8>, AppError> {
                 if (1..=4).contains(&parsed) {
                     Some(parsed)
                 } else {
-                    return Err(AppError::bad_request("todoist priority must be between 1 and 4"));
+                    return Err(AppError::bad_request(
+                        "todoist priority must be between 1 and 4",
+                    ));
                 }
             } else {
                 match priority.as_str() {

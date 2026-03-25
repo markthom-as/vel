@@ -343,26 +343,20 @@ pub async fn get_run(
         })
         .collect();
 
-    let refs_from_run = state.storage.list_refs_from("run", run.id.as_ref()).await?;
-    let mut artifacts = Vec::new();
-    for ref_ in refs_from_run {
-        if ref_.to_type == "artifact" {
-            if let Some(record) = state
-                .storage
-                .get_artifact_by_id(&vel_core::ArtifactId::from(ref_.to_id.clone()))
-                .await?
-            {
-                artifacts.push(ArtifactSummaryData {
-                    artifact_id: record.artifact_id,
-                    artifact_type: record.artifact_type,
-                    title: record.title,
-                    storage_uri: record.storage_uri,
-                    storage_kind: record.storage_kind.to_string(),
-                    size_bytes: record.size_bytes,
-                });
-            }
-        }
-    }
+    let artifacts = state
+        .storage
+        .list_artifacts_for_run(run.id.as_ref())
+        .await?
+        .into_iter()
+        .map(|record| ArtifactSummaryData {
+            artifact_id: record.artifact_id,
+            artifact_type: record.artifact_type,
+            title: record.title,
+            storage_uri: record.storage_uri,
+            storage_kind: record.storage_kind.to_string(),
+            size_bytes: record.size_bytes,
+        })
+        .collect::<Vec<_>>();
 
     let mut metadata = run_operator_metadata(run.output_json.as_ref());
     if metadata.retry_scheduled_at.is_none() {

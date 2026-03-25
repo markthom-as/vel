@@ -128,6 +128,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
             get(routes::execution::preview_execution_handoff_launch),
         )
         .route(
+            "/v1/execution/handoffs/:id/launch",
+            post(routes::execution::launch_execution_handoff),
+        )
+        .route(
             "/v1/execution/handoffs/:id/approve",
             post(routes::execution::approve_execution_handoff),
         )
@@ -192,6 +196,22 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route(
             "/v1/daily-loop/sessions/:id/turn",
             post(routes::daily_loop::submit_turn),
+        )
+        .route(
+            "/v1/daily-loop/sessions/:id/overdue/menu",
+            post(routes::daily_loop::overdue_menu),
+        )
+        .route(
+            "/v1/daily-loop/sessions/:id/overdue/confirm",
+            post(routes::daily_loop::overdue_confirm),
+        )
+        .route(
+            "/v1/daily-loop/sessions/:id/overdue/apply",
+            post(routes::daily_loop::overdue_apply),
+        )
+        .route(
+            "/v1/daily-loop/sessions/:id/overdue/undo",
+            post(routes::daily_loop::overdue_undo),
         )
         .route("/v1/context/current", get(routes::context::current))
         .route("/v1/context/timeline", get(routes::context::timeline))
@@ -363,66 +383,6 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route(
             "/api/integrations/todoist/write-intent",
             post(routes::integrations::todoist_write_intent),
-        )
-        .route(
-            "/api/integrations/todoist/create-task",
-            post(routes::integrations::todoist_create_task),
-        )
-        .route(
-            "/api/integrations/todoist/update-task",
-            post(routes::integrations::todoist_update_task),
-        )
-        .route(
-            "/api/integrations/todoist/complete-task",
-            post(routes::integrations::todoist_complete_task),
-        )
-        .route(
-            "/api/integrations/todoist/reopen-task",
-            post(routes::integrations::todoist_reopen_task),
-        )
-        .route(
-            "/api/integrations/notes/create-note",
-            post(routes::integrations::notes_create_note),
-        )
-        .route(
-            "/api/integrations/notes/append-note",
-            post(routes::integrations::notes_append_note),
-        )
-        .route(
-            "/api/integrations/reminders/create",
-            post(routes::integrations::reminders_create),
-        )
-        .route(
-            "/api/integrations/reminders/update",
-            post(routes::integrations::reminders_update),
-        )
-        .route(
-            "/api/integrations/reminders/complete",
-            post(routes::integrations::reminders_complete),
-        )
-        .route(
-            "/api/integrations/github/create-issue",
-            post(routes::integrations::github_create_issue),
-        )
-        .route(
-            "/api/integrations/github/add-comment",
-            post(routes::integrations::github_add_comment),
-        )
-        .route(
-            "/api/integrations/github/close-issue",
-            post(routes::integrations::github_close_issue),
-        )
-        .route(
-            "/api/integrations/github/reopen-issue",
-            post(routes::integrations::github_reopen_issue),
-        )
-        .route(
-            "/api/integrations/email/create-draft-reply",
-            post(routes::integrations::email_create_draft_reply),
-        )
-        .route(
-            "/api/integrations/email/send-draft",
-            post(routes::integrations::email_send_draft),
         )
         .route(
             "/v1/synthesis/week",

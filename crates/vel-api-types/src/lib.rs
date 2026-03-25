@@ -43,11 +43,21 @@ pub struct ApiResponse<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandPlanRequest {
     pub command: ResolvedCommand,
+    #[serde(default)]
+    pub persist_preview: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecuteRequest {
     pub command: ResolvedCommand,
+    #[serde(default)]
+    pub dry_run: bool,
+    #[serde(default)]
+    pub approve: bool,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub write_scope: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -613,6 +623,123 @@ impl From<DailyLoopTurnRequestData> for vel_core::DailyLoopTurnRequest {
             response_text: value.response_text,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopOverdueActionData {
+    Close,
+    Reschedule,
+    BackToInbox,
+    Tombstone,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopOverdueGuessConfidenceData {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueVelGuessData {
+    pub suggested_due_at: String,
+    pub confidence: DailyLoopOverdueGuessConfidenceData,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueMenuRequestData {
+    pub today: String,
+    #[serde(default)]
+    pub include_vel_guess: bool,
+    #[serde(default = "default_overdue_menu_limit")]
+    pub limit: u32,
+}
+
+fn default_overdue_menu_limit() -> u32 {
+    50
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueMenuItemData {
+    pub commitment_id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<String>,
+    pub actions: Vec<DailyLoopOverdueActionData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vel_due_guess: Option<DailyLoopOverdueVelGuessData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueMenuResponseData {
+    pub session_id: String,
+    pub items: Vec<DailyLoopOverdueMenuItemData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueReschedulePayloadData {
+    pub due_at: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueConfirmRequestData {
+    pub commitment_id: String,
+    pub action: DailyLoopOverdueActionData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload: Option<DailyLoopOverdueReschedulePayloadData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operator_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueConfirmResponseData {
+    pub proposal_id: String,
+    pub requires_confirmation: bool,
+    #[serde(default)]
+    pub write_scope: Vec<String>,
+    pub idempotency_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueApplyRequestData {
+    pub proposal_id: String,
+    pub idempotency_key: String,
+    pub confirmation_token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueStateSnapshotData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueApplyResponseData {
+    pub applied: bool,
+    pub action_event_id: String,
+    pub run_id: String,
+    pub before: DailyLoopOverdueStateSnapshotData,
+    pub after: DailyLoopOverdueStateSnapshotData,
+    pub undo_supported: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueUndoRequestData {
+    pub action_event_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopOverdueUndoResponseData {
+    pub undone: bool,
+    pub run_id: String,
+    pub before: DailyLoopOverdueStateSnapshotData,
+    pub after: DailyLoopOverdueStateSnapshotData,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -4917,6 +5044,30 @@ pub struct ConnectInstanceData {
     pub last_seen_at: Option<UnixSeconds>,
     pub manifest: ConnectInstanceCapabilityManifestData,
     pub metadata: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectRunEventData {
+    pub id: i64,
+    pub run_id: String,
+    pub stream: String,
+    pub chunk: String,
+    pub created_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectStdinWriteAckData {
+    pub run_id: String,
+    pub accepted_bytes: u32,
+    pub event_id: i64,
+    pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectAttachData {
+    pub instance: ConnectInstanceData,
+    pub latest_event_id: Option<i64>,
+    pub stream_path: String,
 }
 
 impl From<vel_core::ConnectRuntimeCapability> for ConnectRuntimeCapabilityData {

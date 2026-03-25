@@ -1,5 +1,5 @@
 use axum::{
-    body::{to_bytes, Body},
+    body::Body,
     http::{Request, StatusCode},
 };
 use tower::util::ServiceExt;
@@ -20,7 +20,7 @@ fn request(method: &str, uri: &str, body: Body) -> Request<Body> {
 }
 
 #[tokio::test]
-async fn legacy_provider_write_routes_are_quarantined_during_cutover() {
+async fn legacy_provider_write_routes_are_removed_during_cutover() {
     let storage = Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();
     let app = build_app(
@@ -51,23 +51,8 @@ async fn legacy_provider_write_routes_are_quarantined_during_cutover() {
         .await
         .unwrap();
 
-    assert_eq!(todoist.status(), StatusCode::GONE);
-    assert_eq!(notes.status(), StatusCode::GONE);
-
-    let todoist_json: serde_json::Value =
-        serde_json::from_slice(&to_bytes(todoist.into_body(), usize::MAX).await.unwrap()).unwrap();
-    let notes_json: serde_json::Value =
-        serde_json::from_slice(&to_bytes(notes.into_body(), usize::MAX).await.unwrap()).unwrap();
-
-    assert_eq!(todoist_json["error"]["code"], "deprecated");
-    assert!(todoist_json["error"]["message"]
-        .as_str()
-        .unwrap()
-        .contains("/api/integrations/todoist/write-intent"));
-    assert!(notes_json["error"]["message"]
-        .as_str()
-        .unwrap()
-        .contains("outside the 0.5 proving-adapter scope"));
+    assert_eq!(todoist.status(), StatusCode::NOT_FOUND);
+    assert_eq!(notes.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

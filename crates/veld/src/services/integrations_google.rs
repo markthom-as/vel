@@ -557,8 +557,9 @@ fn extract_video_url(event: &GoogleCalendarEvent) -> Option<String> {
     ];
     for candidate in candidates.into_iter().flatten() {
         for token in candidate.split_whitespace() {
-            let cleaned = token
-                .trim_matches(|character: char| matches!(character, '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.'));
+            let cleaned = token.trim_matches(|character: char| {
+                matches!(character, '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.')
+            });
             if cleaned.starts_with("https://") || cleaned.starts_with("http://") {
                 if detect_video_provider(cleaned).is_some() {
                     return Some(cleaned.to_string());
@@ -573,8 +574,9 @@ fn extract_attachment_url(event: &GoogleCalendarEvent) -> Option<String> {
     let candidates = [event.description.as_deref(), event.location.as_deref()];
     for candidate in candidates.into_iter().flatten() {
         for token in candidate.split_whitespace() {
-            let cleaned = token
-                .trim_matches(|character: char| matches!(character, '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.'));
+            let cleaned = token.trim_matches(|character: char| {
+                matches!(character, '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.')
+            });
             if !(cleaned.starts_with("https://") || cleaned.starts_with("http://")) {
                 continue;
             }

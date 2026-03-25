@@ -9,6 +9,7 @@ pub(crate) mod cluster_workers_repo;
 pub(crate) mod commitment_risk_repo;
 pub(crate) mod commitments_repo;
 pub(crate) mod conflict_cases_repo;
+pub(crate) mod connect_run_events_repo;
 pub(crate) mod connect_runs_repo;
 pub(crate) mod context_timeline_repo;
 pub(crate) mod current_context_repo;

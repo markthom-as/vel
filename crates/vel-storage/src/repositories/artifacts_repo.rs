@@ -125,6 +125,29 @@ pub(crate) async fn list_artifacts(
     rows.into_iter().map(|row| map_artifact_row(&row)).collect()
 }
 
+pub(crate) async fn list_artifacts_for_run(
+    pool: &SqlitePool,
+    run_id: &str,
+) -> Result<Vec<ArtifactRecord>, StorageError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT a.artifact_id, a.artifact_type, a.title, a.mime_type, a.storage_uri, a.storage_kind,
+               a.privacy_class, a.sync_class, a.content_hash, a.size_bytes, a.metadata_json, a.created_at, a.updated_at
+        FROM refs r
+        JOIN artifacts a
+          ON a.artifact_id = r.to_id
+        WHERE r.from_type = 'run'
+          AND r.from_id = ?
+          AND r.to_type = 'artifact'
+        ORDER BY r.created_at ASC, a.created_at ASC
+        "#,
+    )
+    .bind(run_id)
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter().map(|row| map_artifact_row(&row)).collect()
+}
+
 fn map_artifact_row(row: &sqlx::sqlite::SqliteRow) -> Result<ArtifactRecord, StorageError> {
     let storage_kind_str: String = row.try_get("storage_kind")?;
     let storage_kind = storage_kind_str
@@ -181,7 +204,7 @@ fn parse_sync_class(value: &str) -> Result<SyncClass, StorageError> {
 mod tests {
     use super::*;
     use serde_json::json;
-    use vel_core::{ArtifactStorageKind, PrivacyClass, SyncClass};
+    use vel_core::{ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, SyncClass};
 
     static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 
@@ -270,5 +293,75 @@ mod tests {
             .await
             .unwrap();
         assert!(fetched.is_none());
+    }
+
+    #[tokio::test]
+    async fn list_artifacts_for_run_returns_linked_records_in_ref_order() {
+        let pool = test_pool().await;
+        let run_id = "run_artifact_link_test";
+        let first = create_artifact(
+            &pool,
+            sample_artifact_input("snapshot", "file:///tmp/run-artifact-1.json"),
+        )
+        .await
+        .unwrap();
+        let second = create_artifact(
+            &pool,
+            sample_artifact_input("snapshot", "file:///tmp/run-artifact-2.json"),
+        )
+        .await
+        .unwrap();
+
+        let ref1 = Ref::new(
+            "run",
+            run_id,
+            "artifact",
+            first.to_string(),
+            RefRelationType::GeneratedFrom,
+        );
+        let ref2 = Ref::new(
+            "run",
+            run_id,
+            "artifact",
+            second.to_string(),
+            RefRelationType::GeneratedFrom,
+        );
+        sqlx::query(
+            r#"
+            INSERT INTO refs (ref_id, from_type, from_id, to_type, to_id, relation_type, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&ref1.id)
+        .bind(&ref1.from_type)
+        .bind(&ref1.from_id)
+        .bind(&ref1.to_type)
+        .bind(&ref1.to_id)
+        .bind(ref1.relation_type.to_string())
+        .bind(100_i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO refs (ref_id, from_type, from_id, to_type, to_id, relation_type, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&ref2.id)
+        .bind(&ref2.from_type)
+        .bind(&ref2.from_id)
+        .bind(&ref2.to_type)
+        .bind(&ref2.to_id)
+        .bind(ref2.relation_type.to_string())
+        .bind(200_i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let linked = list_artifacts_for_run(&pool, run_id).await.unwrap();
+        assert_eq!(linked.len(), 2);
+        assert_eq!(linked[0].artifact_id, first);
+        assert_eq!(linked[1].artifact_id, second);
     }
 }

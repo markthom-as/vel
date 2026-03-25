@@ -15,19 +15,37 @@ use vel_api_types::{
 use crate::{errors::AppError, services, state::AppState};
 
 pub async fn plan_command(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(body): Json<CommandPlanRequest>,
 ) -> Result<Json<ApiResponse<CommandExecutionPlanData>>, AppError> {
     let plan = services::command_lang::build_execution_plan(&body.command);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(plan_to_data(plan), request_id)))
+    let mut response = ApiResponse::success(plan_to_data(plan.clone()), request_id);
+    if body.persist_preview {
+        let run_id =
+            services::command_lang::record_dry_run_preview(&state, &body.command, &plan).await?;
+        response
+            .warnings
+            .push(format!("dry_run_preview_run_id={}", run_id.as_ref()));
+    }
+    Ok(Json(response))
 }
 
 pub async fn execute_command(
     State(state): State<AppState>,
     Json(body): Json<CommandExecuteRequest>,
 ) -> Result<Json<ApiResponse<CommandExecutionResultData>>, AppError> {
-    let result = services::command_lang::execute_command(&state, &body.command).await?;
+    let result = services::command_lang::execute_command_with_options(
+        &state,
+        &body.command,
+        &services::command_lang::CommandExecutionOptions {
+            dry_run: body.dry_run,
+            approve: body.approve,
+            idempotency_key: body.idempotency_key.clone(),
+            write_scope: body.write_scope.clone(),
+        },
+    )
+    .await?;
     let services::command_lang::CommandExecutionResult { result, warnings } = result;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(

@@ -3,13 +3,14 @@ use crate::{
     repositories::{
         artifacts_repo, assistant_transcripts_repo, backup_runs_repo, broker_events_repo,
         captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
-        conflict_cases_repo, connect_runs_repo, context_timeline_repo, current_context_repo,
-        daily_sessions_repo, execution_contexts_repo, execution_handoffs_repo, inferred_state_repo,
-        integration_connections_repo, linking_repo, nudges_repo, people_repo,
-        planning_profiles_repo, processing_jobs_repo, projects_repo, run_refs_repo, runs_repo,
-        runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
-        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
-        upstream_refs_repo, work_assignments_repo, writeback_operations_repo,
+        conflict_cases_repo, connect_run_events_repo, connect_runs_repo, context_timeline_repo,
+        current_context_repo, daily_sessions_repo, execution_contexts_repo,
+        execution_handoffs_repo, inferred_state_repo, integration_connections_repo, linking_repo,
+        nudges_repo, people_repo, planning_profiles_repo, processing_jobs_repo, projects_repo,
+        run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo, settings_repo,
+        signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
+        uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
+        writeback_operations_repo,
     },
 };
 use serde::Serialize;
@@ -644,6 +645,7 @@ pub struct WorkAssignmentUpdate {
 }
 
 // Re-export so callers in veld can use ConnectRunRecord without reaching into the repo.
+pub use crate::repositories::connect_run_events_repo::ConnectRunEventRecord;
 pub use crate::repositories::connect_runs_repo::ConnectRunRecord;
 
 impl Storage {
@@ -1961,6 +1963,13 @@ impl Storage {
         artifacts_repo::list_artifacts(self.pool(), limit).await
     }
 
+    pub async fn list_artifacts_for_run(
+        &self,
+        run_id: &str,
+    ) -> Result<Vec<ArtifactRecord>, StorageError> {
+        artifacts_repo::list_artifacts_for_run(self.pool(), run_id).await
+    }
+
     pub async fn create_run(
         &self,
         id: &RunId,
@@ -2037,6 +2046,23 @@ impl Storage {
         payload_json: &JsonValue,
     ) -> Result<String, StorageError> {
         runs_repo::append_run_event_auto(self.pool(), run_id, event_type, payload_json).await
+    }
+
+    pub async fn append_run_event_idempotent(
+        &self,
+        run_id: &str,
+        event_type: RunEventType,
+        payload_json: &JsonValue,
+        idempotency_key: &str,
+    ) -> Result<String, StorageError> {
+        runs_repo::append_run_event_idempotent(
+            self.pool(),
+            run_id,
+            event_type,
+            payload_json,
+            idempotency_key,
+        )
+        .await
     }
 
     pub async fn list_retry_ready_runs(
@@ -2400,6 +2426,39 @@ impl Storage {
         status_filter: Option<&str>,
     ) -> Result<Vec<ConnectRunRecord>, StorageError> {
         connect_runs_repo::list_connect_runs(self.pool(), status_filter).await
+    }
+
+    pub async fn insert_connect_run_event(
+        &self,
+        run_id: &str,
+        stream: &str,
+        chunk: &str,
+        created_at: i64,
+    ) -> Result<i64, StorageError> {
+        connect_run_events_repo::insert_connect_run_event(
+            self.pool(),
+            run_id,
+            stream,
+            chunk,
+            created_at,
+        )
+        .await
+    }
+
+    pub async fn list_connect_run_events(
+        &self,
+        run_id: &str,
+        after_id: Option<i64>,
+        limit: u32,
+    ) -> Result<Vec<ConnectRunEventRecord>, StorageError> {
+        connect_run_events_repo::list_connect_run_events(self.pool(), run_id, after_id, limit).await
+    }
+
+    pub async fn latest_connect_run_event_id(
+        &self,
+        run_id: &str,
+    ) -> Result<Option<i64>, StorageError> {
+        connect_run_events_repo::latest_connect_run_event_id(self.pool(), run_id).await
     }
 
     pub async fn get_runtime_loop(

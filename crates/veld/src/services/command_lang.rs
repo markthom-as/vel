@@ -10,11 +10,18 @@ use time::OffsetDateTime;
 use tracing::warn;
 use uuid::Uuid;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, CommitmentStatus, DomainKind,
-    DomainOperation, PrivacyClass, ResolvedCommand, SyncClass, TargetSelector,
+    ArtifactId, ArtifactStorageKind, CapabilityResolutionRequest, CapabilityTargetKind, CaptureId,
+    CommitmentId, CommitmentStatus, DomainKind, DomainOperation, MutationAttemptEventPayload,
+    MutationAttemptStage, MutationIdempotencyKey, PrivacyClass, ResolvedCommand, RunEventType,
+    RunId, RunKind, RunStatus, SyncClass, TargetSelector,
 };
 use vel_storage::{ArtifactInsert, ArtifactRecord, CaptureInsert, CommitmentInsert, SignalInsert};
 
+use crate::services::capability_resolver::{CapabilityResolver, DefaultCapabilityResolver};
+use crate::services::harness_llm::{HarnessLlm, HarnessLlmAdapter};
+use crate::services::mutation_guard;
+use crate::services::redaction::redact_json;
+use crate::services::tool_runner::{ShellToolRunner, ToolRunner};
 use crate::{errors::AppError, state::AppState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,6 +102,18 @@ pub struct CommandExecutionPlan {
 pub struct CommandExecutionResult {
     pub result: CommandExecutionPayload,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CommandExecutionOptions {
+    #[serde(default)]
+    pub dry_run: bool,
+    #[serde(default)]
+    pub approve: bool,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub write_scope: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -441,9 +460,105 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
     }
 }
 
+pub async fn record_dry_run_preview(
+    state: &AppState,
+    command: &ResolvedCommand,
+    plan: &CommandExecutionPlan,
+) -> Result<RunId, AppError> {
+    let run_id = RunId::new();
+    let input = redact_json(&json!({
+        "mode": "dry_run",
+        "command": command,
+    }));
+    state
+        .storage
+        .create_run(&run_id, RunKind::Agent, &input)
+        .await
+        .map_err(|error| AppError::internal(format!("create dry-run preview: {error}")))?;
+    let started_at = OffsetDateTime::now_utc().unix_timestamp();
+    state
+        .storage
+        .update_run_status(
+            run_id.as_ref(),
+            RunStatus::Running,
+            Some(started_at),
+            None,
+            None,
+            None,
+        )
+        .await
+        .map_err(|error| AppError::internal(format!("start dry-run preview run: {error}")))?;
+
+    let capability_target = if is_mutating_command(command) {
+        CapabilityTargetKind::Mutation
+    } else {
+        CapabilityTargetKind::ReadOnlyExecution
+    };
+    let decision = DefaultCapabilityResolver.resolve(&CapabilityResolutionRequest {
+        capability: format!(
+            "{}:{}",
+            command.operation,
+            command
+                .targets
+                .first()
+                .map(|target| target.kind.to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        ),
+        target_kind: capability_target,
+        dry_run: true,
+    });
+    state
+        .storage
+        .append_run_event_auto(
+            run_id.as_ref(),
+            RunEventType::PolicyDecisionRecorded,
+            &json!({
+                "decision": decision.decision,
+                "confirmation": decision.confirmation,
+                "reason_code": decision.reason_code,
+                "note": decision.note,
+            }),
+        )
+        .await
+        .map_err(|error| AppError::internal(format!("append dry-run policy event: {error}")))?;
+
+    let finished_at = OffsetDateTime::now_utc().unix_timestamp();
+    state
+        .storage
+        .update_run_status(
+            run_id.as_ref(),
+            RunStatus::Succeeded,
+            None,
+            Some(finished_at),
+            Some(&redact_json(&json!({
+                "mode": "dry_run",
+                "summary": plan.summary,
+                "steps": plan.steps,
+            }))),
+            None,
+        )
+        .await
+        .map_err(|error| AppError::internal(format!("complete dry-run preview run: {error}")))?;
+    state
+        .storage
+        .append_run_event_auto(run_id.as_ref(), RunEventType::RunSucceeded, &json!({}))
+        .await
+        .map_err(|error| AppError::internal(format!("append dry-run success event: {error}")))?;
+
+    Ok(run_id)
+}
+
 pub async fn execute_command(
     state: &AppState,
     command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    execute_command_with_options(state, command, &CommandExecutionOptions::default()).await
+}
+
+pub async fn execute_command_with_options(
+    state: &AppState,
+    command: &ResolvedCommand,
+    options: &CommandExecutionOptions,
 ) -> Result<CommandExecutionResult, AppError> {
     let validation = validate_command(command);
     if !validation.is_valid {
@@ -456,6 +571,282 @@ pub async fn execute_command(
         return Err(AppError::bad_request(message));
     }
 
+    let run_id = RunId::new();
+    let run_kind = match (
+        command.operation,
+        command.targets.first().map(|target| target.kind),
+    ) {
+        (DomainOperation::Execute, Some(DomainKind::Artifact)) => RunKind::Synthesis,
+        _ => RunKind::Agent,
+    };
+    let run_input = redact_json(&json!({
+        "command": command,
+        "options": options,
+    }));
+    state
+        .storage
+        .create_run(&run_id, run_kind, &run_input)
+        .await
+        .map_err(|error| AppError::internal(format!("create run: {error}")))?;
+    let started_at = OffsetDateTime::now_utc().unix_timestamp();
+    state
+        .storage
+        .update_run_status(
+            run_id.as_ref(),
+            RunStatus::Running,
+            Some(started_at),
+            None,
+            None,
+            None,
+        )
+        .await
+        .map_err(|error| AppError::internal(format!("start run: {error}")))?;
+    state
+        .storage
+        .append_run_event_auto(run_id.as_ref(), RunEventType::RunStarted, &json!({}))
+        .await
+        .map_err(|error| AppError::internal(format!("append run_started: {error}")))?;
+
+    let capability_target = if is_mutating_command(command) {
+        CapabilityTargetKind::Mutation
+    } else {
+        CapabilityTargetKind::ReadOnlyExecution
+    };
+    let policy_decision = DefaultCapabilityResolver.resolve(&CapabilityResolutionRequest {
+        capability: format!(
+            "{}:{}",
+            command.operation,
+            command
+                .targets
+                .first()
+                .map(|target| target.kind.to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        ),
+        target_kind: capability_target,
+        dry_run: options.dry_run,
+    });
+    state
+        .storage
+        .append_run_event_auto(
+            run_id.as_ref(),
+            RunEventType::PolicyDecisionRecorded,
+            &redact_json(&json!({
+                "decision": policy_decision.decision,
+                "confirmation": policy_decision.confirmation,
+                "reason_code": policy_decision.reason_code,
+                "note": policy_decision.note,
+            })),
+        )
+        .await
+        .map_err(|error| AppError::internal(format!("append policy decision event: {error}")))?;
+
+    if matches!(
+        policy_decision.decision,
+        vel_core::PolicyDecisionKind::ConfirmationRequired
+    ) && !options.approve
+    {
+        state
+            .storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::Waiting,
+                None,
+                None,
+                None,
+                Some(&redact_json(&json!({
+                    "message": "operation requires confirmation; re-run with approval"
+                }))),
+            )
+            .await
+            .map_err(|error| AppError::internal(format!("set waiting status: {error}")))?;
+        return Err(AppError::bad_request(
+            "operation requires confirmation; re-run with approval",
+        ));
+    }
+
+    let mut pending_mutation_key: Option<String> = None;
+    if is_mutating_command(command) {
+        let mutation_key = options
+            .idempotency_key
+            .clone()
+            .unwrap_or_else(|| MutationIdempotencyKey::new().to_string());
+        let mutation_payload = MutationAttemptEventPayload {
+            stage: MutationAttemptStage::Proposal,
+            mutation_kind: format!("{}", command.operation),
+            idempotency_key: MutationIdempotencyKey::parse(mutation_key.clone())
+                .map_err(|error| AppError::bad_request(error.to_string()))?,
+            target_ref: Some(
+                command
+                    .targets
+                    .first()
+                    .map(|target| format!("{}:{}", target.kind, target.selector.is_some()))
+                    .unwrap_or_else(|| "unknown".to_string()),
+            ),
+            metadata_json: json!({ "write_scope": options.write_scope }),
+        };
+        state
+            .storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                RunEventType::MutationProposed,
+                &serde_json::to_value(&mutation_payload).map_err(|error| {
+                    AppError::internal(format!("serialize mutation proposal: {error}"))
+                })?,
+            )
+            .await
+            .map_err(|error| AppError::internal(format!("append mutation proposal: {error}")))?;
+        pending_mutation_key = Some(mutation_key);
+    }
+
+    if let Some(tool_command) = command
+        .inferred
+        .get("tool_command")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let tool_request = vel_core::ToolInvocationRequest {
+            tool_name: "sh".to_string(),
+            args: vec!["-lc".to_string(), tool_command.to_string()],
+            timeout_ms: command
+                .inferred
+                .get("tool_timeout_ms")
+                .and_then(|value| value.as_u64()),
+            metadata_json: json!({}),
+        };
+        state
+            .storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                RunEventType::ToolInvocationStarted,
+                &redact_json(&serde_json::to_value(&tool_request).map_err(|error| {
+                    AppError::internal(format!("serialize tool request: {error}"))
+                })?),
+            )
+            .await
+            .map_err(|error| AppError::internal(format!("append tool start event: {error}")))?;
+        let tool_outcome = ShellToolRunner.run(&tool_request).await;
+        state
+            .storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                RunEventType::ToolInvocationFinished,
+                &redact_json(&serde_json::to_value(&tool_outcome).map_err(|error| {
+                    AppError::internal(format!("serialize tool outcome: {error}"))
+                })?),
+            )
+            .await
+            .map_err(|error| AppError::internal(format!("append tool finish event: {error}")))?;
+    }
+
+    let execution_result = execute_command_inner(state, command).await;
+    let finished_at = OffsetDateTime::now_utc().unix_timestamp();
+    match execution_result {
+        Ok(mut result) => {
+            if let Some(idempotency_key) = pending_mutation_key {
+                let already_applied = false;
+                let target_ref = command
+                    .targets
+                    .first()
+                    .map(|target| target.kind.to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                let commit_result = mutation_guard::evaluate_commit(
+                    &vel_core::MutationCommitRequest {
+                        proposal: vel_core::MutationProposal {
+                            mutation_kind: command.operation.to_string(),
+                            idempotency_key: idempotency_key.clone(),
+                            target_ref,
+                            write_scope: options.write_scope.clone(),
+                            metadata_json: json!({}),
+                        },
+                        approved: options.approve,
+                        dry_run: options.dry_run,
+                    },
+                    already_applied,
+                );
+                let event_type = match commit_result.status {
+                    vel_core::MutationCommitStatus::Applied
+                    | vel_core::MutationCommitStatus::AlreadyApplied => {
+                        RunEventType::MutationCommitted
+                    }
+                    _ => RunEventType::MutationRejected,
+                };
+                state
+                    .storage
+                    .append_run_event_idempotent(
+                        run_id.as_ref(),
+                        event_type,
+                        &serde_json::to_value(&commit_result).map_err(|error| {
+                            AppError::internal(format!("serialize mutation commit result: {error}"))
+                        })?,
+                        &idempotency_key,
+                    )
+                    .await
+                    .map_err(|error| {
+                        AppError::internal(format!("append mutation commit event: {error}"))
+                    })?;
+            }
+
+            let output_json = serde_json::to_value(&result.result).map_err(|error| {
+                AppError::internal(format!("serialize command result: {error}"))
+            })?;
+            state
+                .storage
+                .update_run_status(
+                    run_id.as_ref(),
+                    RunStatus::Succeeded,
+                    None,
+                    Some(finished_at),
+                    Some(&output_json),
+                    None,
+                )
+                .await
+                .map_err(|error| AppError::internal(format!("complete run: {error}")))?;
+            state
+                .storage
+                .append_run_event_auto(run_id.as_ref(), RunEventType::RunSucceeded, &json!({}))
+                .await
+                .map_err(|error| AppError::internal(format!("append run_succeeded: {error}")))?;
+            result.warnings.push(format!("run_id: {}", run_id.as_ref()));
+            Ok(result)
+        }
+        Err(error) => {
+            state
+                .storage
+                .update_run_status(
+                    run_id.as_ref(),
+                    RunStatus::Failed,
+                    None,
+                    Some(finished_at),
+                    None,
+                    Some(&redact_json(&json!({ "message": error.to_string() }))),
+                )
+                .await
+                .map_err(|storage_error| {
+                    AppError::internal(format!("fail run after execution error: {storage_error}"))
+                })?;
+            state
+                .storage
+                .append_run_event_auto(
+                    run_id.as_ref(),
+                    RunEventType::RunFailed,
+                    &json!({ "error": error.to_string() }),
+                )
+                .await
+                .map_err(|storage_error| {
+                    AppError::internal(format!(
+                        "append run_failed after execution error: {storage_error}"
+                    ))
+                })?;
+            Err(error)
+        }
+    }
+}
+
+async fn execute_command_inner(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
     match (
         command.operation,
         command.targets.first().map(|target| target.kind),
@@ -767,6 +1158,16 @@ fn is_supported_operation(operation: DomainOperation) -> bool {
 
 fn is_dry_run_only(operation: DomainOperation) -> bool {
     matches!(operation, DomainOperation::Execute)
+}
+
+fn is_mutating_command(command: &ResolvedCommand) -> bool {
+    matches!(
+        (
+            command.operation,
+            command.targets.first().map(|target| target.kind)
+        ),
+        (DomainOperation::Create, Some(_)) | (DomainOperation::Execute, Some(DomainKind::Artifact))
+    )
 }
 
 async fn execute_create_capture(
@@ -1096,6 +1497,29 @@ async fn execute_create_planning_artifact(
         .first()
         .ok_or_else(|| AppError::bad_request("planning command requires a target"))?;
     let (title, title_defaulted) = planning_title_for_target(command, target.kind);
+    let llm_adapter = HarnessLlmAdapter::from_selection(
+        &std::env::var("VEL_HARNESS_LLM_ADAPTER").unwrap_or_else(|_| "mock".to_string()),
+    );
+    let llm_response = llm_adapter
+        .synthesize(&vel_core::SynthesisRequest {
+            intent: title.clone(),
+            context_json: json!({
+                "artifact_type": artifact_type,
+                "operation": command.operation.to_string(),
+            }),
+        })
+        .await;
+    let llm_metadata = match llm_response.as_ref() {
+        Ok(response) => json!({
+            "plan_steps": response.plan_steps,
+            "rationale": response.rationale,
+            "cautions": response.cautions,
+        }),
+        Err(failure) => json!({
+            "error_kind": failure.kind,
+            "message": failure.message,
+        }),
+    };
 
     let storage_uri = format!(
         "vel://command/{}/{}",
@@ -1122,6 +1546,7 @@ async fn execute_create_planning_artifact(
                     "inferred": command.inferred,
                     "assumptions": command.assumptions,
                 },
+                "llm_synthesis": llm_metadata,
             })),
         })
         .await?;
@@ -1134,6 +1559,20 @@ async fn execute_create_planning_artifact(
     let artifact = artifact_record_to_data(artifact)?;
     let thread = create_planning_thread(state, artifact_type, &artifact, command).await?;
     let planning = PlanningArtifactCreatedPayload { artifact, thread };
+
+    let mut warnings = Vec::new();
+    if let Err(failure) = llm_response {
+        warnings.push(format!(
+            "llm synthesis unavailable ({:?}): {}",
+            failure.kind, failure.message
+        ));
+    }
+    if title_defaulted {
+        warnings.push(format!(
+            "no topic, goal, or text was provided; defaulted {} title",
+            artifact_type
+        ));
+    }
 
     Ok(CommandExecutionResult {
         result: match result_kind {
@@ -1150,14 +1589,7 @@ async fn execute_create_planning_artifact(
                 CommandExecutionPayload::DelegationPlanCreated(planning)
             }
         },
-        warnings: if title_defaulted {
-            vec![format!(
-                "no topic, goal, or text was provided; defaulted {} title",
-                artifact_type
-            )]
-        } else {
-            Vec::new()
-        },
+        warnings,
     })
 }
 
@@ -1557,9 +1989,18 @@ mod tests {
         };
 
         let result = execute_command(&state, &command).await.expect("execute");
-        assert_eq!(
-            result.warnings,
-            vec!["no topic, goal, or text was provided; defaulted spec_draft title".to_string()]
+        assert!(
+            result.warnings.iter().any(|warning| {
+                warning == "no topic, goal, or text was provided; defaulted spec_draft title"
+            }),
+            "default-title warning should be present"
+        );
+        assert!(
+            result
+                .warnings
+                .iter()
+                .any(|warning| warning.starts_with("run_id: run_")),
+            "run_id warning should be present"
         );
         match result.result {
             CommandExecutionPayload::SpecDraftCreated(payload) => {
@@ -1668,5 +2109,34 @@ mod tests {
             }
             other => panic!("unexpected result payload: {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn dry_run_preview_persists_run_with_policy_event() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget::new(DomainKind::Capture)],
+            ..ResolvedCommand::default()
+        };
+        let plan = build_execution_plan(&command);
+        let run_id = record_dry_run_preview(&state, &command, &plan)
+            .await
+            .expect("persist dry-run preview");
+        let run = state
+            .storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .expect("query run")
+            .expect("run should exist");
+        assert_eq!(run.status, RunStatus::Succeeded);
+        let events = state
+            .storage
+            .list_run_events(run_id.as_ref())
+            .await
+            .expect("list events");
+        assert!(events
+            .iter()
+            .any(|event| { event.event_type == RunEventType::PolicyDecisionRecorded }));
     }
 }

@@ -221,6 +221,53 @@ pub(crate) async fn append_run_event_auto(
     append_run_event(pool, run_id, seq, event_type, payload_json).await
 }
 
+pub(crate) async fn append_run_event_idempotent(
+    pool: &SqlitePool,
+    run_id: &str,
+    event_type: RunEventType,
+    payload_json: &JsonValue,
+    idempotency_key: &str,
+) -> Result<String, StorageError> {
+    let trimmed = idempotency_key.trim();
+    if trimmed.is_empty() {
+        return Err(StorageError::Validation(
+            "idempotency_key must not be empty".to_string(),
+        ));
+    }
+    let event_id = format!("evt_idem_{trimmed}");
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let payload_str =
+        serde_json::to_string(payload_json).map_err(|e| StorageError::Validation(e.to_string()))?;
+    let seq = next_run_event_seq(pool, run_id).await?;
+    let result = sqlx::query(
+        r#"
+        INSERT OR IGNORE INTO run_events (event_id, run_id, seq, event_type, payload_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        "#,
+    )
+    .bind(&event_id)
+    .bind(run_id)
+    .bind(seq as i64)
+    .bind(event_type.to_string())
+    .bind(&payload_str)
+    .bind(now)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
+        let existing_run_id: Option<String> =
+            sqlx::query_scalar("SELECT run_id FROM run_events WHERE event_id = ?")
+                .bind(&event_id)
+                .fetch_optional(pool)
+                .await?;
+        if existing_run_id.as_deref() != Some(run_id) {
+            return Err(StorageError::Validation(
+                "idempotency key already used by a different run_id".to_string(),
+            ));
+        }
+    }
+    Ok(event_id)
+}
+
 pub(crate) async fn list_retry_ready_runs(
     pool: &SqlitePool,
     now_ts: i64,
@@ -297,4 +344,130 @@ pub(crate) async fn list_run_events(
     rows.into_iter()
         .map(map_run_event_row)
         .collect::<Result<Vec<_>, _>>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::SqlitePool;
+
+    static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
+
+    async fn test_pool() -> SqlitePool {
+        let pool = SqlitePool::connect(":memory:")
+            .await
+            .expect("connect sqlite");
+        MIGRATOR.run(&pool).await.expect("run migrations");
+        pool
+    }
+
+    #[tokio::test]
+    async fn create_run_append_event_and_finalize_status() {
+        let pool = test_pool().await;
+        let run_id = RunId::new();
+        create_run(
+            &pool,
+            &run_id,
+            RunKind::Synthesis,
+            &json!({ "intent": "storage-contract-test" }),
+        )
+        .await
+        .expect("create run");
+
+        append_run_event_auto(&pool, run_id.as_ref(), RunEventType::RunStarted, &json!({}))
+            .await
+            .expect("append run started");
+        update_run_status(
+            &pool,
+            run_id.as_ref(),
+            RunStatus::Succeeded,
+            Some(10),
+            Some(20),
+            Some(&json!({ "ok": true })),
+            None,
+        )
+        .await
+        .expect("finalize run");
+
+        let run = get_run_by_id(&pool, run_id.as_ref())
+            .await
+            .expect("query run")
+            .expect("run exists");
+        assert_eq!(run.status, RunStatus::Succeeded);
+        assert_eq!(
+            run.started_at.expect("started timestamp").unix_timestamp(),
+            10
+        );
+        assert_eq!(
+            run.finished_at
+                .expect("finished timestamp")
+                .unix_timestamp(),
+            20
+        );
+        assert_eq!(run.output_json, Some(json!({ "ok": true })));
+
+        let events = list_run_events(&pool, run_id.as_ref())
+            .await
+            .expect("list events");
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].event_type, RunEventType::RunCreated);
+        assert_eq!(events[0].seq, 1);
+        assert_eq!(events[1].event_type, RunEventType::RunStarted);
+        assert_eq!(events[1].seq, 2);
+    }
+
+    #[tokio::test]
+    async fn append_run_event_idempotent_replay_returns_single_record() {
+        let pool = test_pool().await;
+        let run_id = RunId::new();
+        create_run(
+            &pool,
+            &run_id,
+            RunKind::Search,
+            &json!({ "query": "idempotent event append" }),
+        )
+        .await
+        .expect("create run");
+
+        let event_id_1 = append_run_event_idempotent(
+            &pool,
+            run_id.as_ref(),
+            RunEventType::RunStarted,
+            &json!({ "source": "first" }),
+            "run_start_once",
+        )
+        .await
+        .expect("first append");
+        let event_id_2 = append_run_event_idempotent(
+            &pool,
+            run_id.as_ref(),
+            RunEventType::RunStarted,
+            &json!({ "source": "second" }),
+            "run_start_once",
+        )
+        .await
+        .expect("replayed append");
+
+        assert_eq!(event_id_1, event_id_2);
+        let events = list_run_events(&pool, run_id.as_ref())
+            .await
+            .expect("list events");
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[1].id, event_id_1);
+    }
+
+    #[tokio::test]
+    async fn migrations_bootstrap_run_and_event_tables() {
+        let pool = test_pool().await;
+        let run_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM runs")
+            .fetch_one(&pool)
+            .await
+            .expect("count runs");
+        let event_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM run_events")
+            .fetch_one(&pool)
+            .await
+            .expect("count run events");
+        assert_eq!(run_count, 0);
+        assert_eq!(event_count, 0);
+    }
 }

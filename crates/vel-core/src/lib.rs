@@ -19,6 +19,7 @@ pub mod event;
 pub mod execution;
 pub mod explain;
 pub mod grants;
+pub mod harness;
 pub mod ids;
 pub mod integration;
 pub mod intervention;
@@ -127,6 +128,12 @@ pub use explain::{
     action_explain, object_explain, ownership_explain, policy_explain, ActionExplain, ExplainBasis,
     ObjectExplain, OwnershipExplain, PolicyExplain,
 };
+pub use harness::{
+    CapabilityDecisionReasonCode, CapabilityResolutionDecision, CapabilityResolutionRequest,
+    CapabilityTargetKind, MutationCommitRequest, MutationCommitResult, MutationCommitStatus,
+    MutationProposal, SynthesisFailure, SynthesisFailureKind, SynthesisRequest, SynthesisResponse,
+    ToolInvocationOutcome, ToolInvocationRequest,
+};
 pub use ids::{
     CalendarId, EventId, IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId,
     WorkflowId, WriteIntentId,
@@ -199,7 +206,9 @@ pub use registry_ids::{
 };
 pub use risk::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 pub use run::{
-    HandoffEnvelope, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, TraceId, TraceLink,
+    ArtifactRef, ArtifactRefKind, HandoffEnvelope, MutationAttemptEventPayload,
+    MutationAttemptStage, MutationIdempotencyKey, Run, RunEvent, RunEventType, RunId, RunKind,
+    RunStatus, TraceId, TraceLink,
 };
 pub use sandbox::{
     FilesystemAccessPolicy, NetworkAccessPolicy, SandboxCapabilityPolicy, SandboxDecisionRecord,

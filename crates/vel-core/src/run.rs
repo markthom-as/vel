@@ -1,7 +1,7 @@
 //! Run model: first-class execution records for context generation, synthesis, etc.
 
 use crate::{
-    AgentProfile, ExecutionReviewGate, ExecutionTaskKind, ProjectId, RepoWorktreeRef,
+    AgentProfile, ArtifactId, ExecutionReviewGate, ExecutionTaskKind, ProjectId, RepoWorktreeRef,
     TokenBudgetClass,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -533,6 +533,45 @@ pub enum RunStatus {
     Blocked,
 }
 
+impl RunStatus {
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Succeeded | Self::Failed | Self::Cancelled | Self::Expired
+        )
+    }
+
+    pub fn can_transition_to(self, next: Self) -> bool {
+        matches!(
+            (self, next),
+            (Self::Queued, Self::Running)
+                | (Self::Queued, Self::Failed)
+                | (Self::Queued, Self::Cancelled)
+                | (Self::Running, Self::Waiting)
+                | (Self::Running, Self::Succeeded)
+                | (Self::Running, Self::Failed)
+                | (Self::Running, Self::Cancelled)
+                | (Self::Running, Self::Expired)
+                | (Self::Waiting, Self::Running)
+                | (Self::RetryScheduled, Self::Queued)
+                | (Self::RetryScheduled, Self::Blocked)
+                | (Self::Blocked, Self::Queued)
+                | (Self::Blocked, Self::Failed)
+                | (Self::Blocked, Self::Cancelled)
+        )
+    }
+
+    pub fn assert_transition_to(self, next: Self) -> Result<(), crate::VelCoreError> {
+        if self.can_transition_to(next) {
+            return Ok(());
+        }
+        Err(crate::VelCoreError::InvalidTransition(format!(
+            "cannot transition run from {} to {}",
+            self, next
+        )))
+    }
+}
+
 impl Display for RunStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -588,12 +627,7 @@ pub struct Run {
 impl Run {
     /// Valid transition: Queued -> Running. Returns updated run.
     pub fn start(self, now: OffsetDateTime) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Queued {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot start run in status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Running)?;
         Ok(Run {
             started_at: Some(now),
             status: RunStatus::Running,
@@ -603,12 +637,7 @@ impl Run {
 
     /// Valid transition: Running -> Waiting.
     pub fn wait(self) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Running {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot set run to waiting from status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Waiting)?;
         Ok(Run {
             status: RunStatus::Waiting,
             ..self
@@ -617,12 +646,7 @@ impl Run {
 
     /// Valid transition: Waiting -> Running.
     pub fn resume(self) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Waiting {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot resume run from status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Running)?;
         Ok(Run {
             status: RunStatus::Running,
             ..self
@@ -631,12 +655,7 @@ impl Run {
 
     /// Valid transition: Running -> Succeeded. Returns updated run.
     pub fn succeed(self, now: OffsetDateTime, output: Value) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Running {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot succeed run in status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Succeeded)?;
         Ok(Run {
             finished_at: Some(now),
             output_json: Some(output),
@@ -653,12 +672,7 @@ impl Run {
 
     /// Valid transition: Queued | Running -> Failed. Returns updated run.
     pub fn fail(self, now: OffsetDateTime, error: Value) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Queued && self.status != RunStatus::Running {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot fail run in status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Failed)?;
         Ok(Run {
             finished_at: Some(now),
             error_json: Some(error),
@@ -670,12 +684,7 @@ impl Run {
 
     /// Valid transition: Queued | Running -> Cancelled. Returns updated run.
     pub fn cancel(self, now: OffsetDateTime) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Queued && self.status != RunStatus::Running {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot cancel run in status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Cancelled)?;
         Ok(Run {
             finished_at: Some(now),
             status: RunStatus::Cancelled,
@@ -685,12 +694,7 @@ impl Run {
 
     /// Valid transition: Running -> Expired.
     pub fn expire(self, now: OffsetDateTime) -> Result<Self, crate::VelCoreError> {
-        if self.status != RunStatus::Running {
-            return Err(crate::VelCoreError::InvalidTransition(format!(
-                "cannot expire run in status {}",
-                self.status
-            )));
-        }
+        self.status.assert_transition_to(RunStatus::Expired)?;
         Ok(Run {
             finished_at: Some(now),
             status: RunStatus::Expired,
@@ -716,6 +720,12 @@ pub enum RunEventType {
     SandboxRunCompleted,
     ContextGenerated,
     RefsCreated,
+    PolicyDecisionRecorded,
+    ToolInvocationStarted,
+    ToolInvocationFinished,
+    MutationProposed,
+    MutationCommitted,
+    MutationRejected,
 }
 
 impl Display for RunEventType {
@@ -735,6 +745,12 @@ impl Display for RunEventType {
             Self::SandboxRunCompleted => "sandbox_run_completed",
             Self::ContextGenerated => "context_generated",
             Self::RefsCreated => "refs_created",
+            Self::PolicyDecisionRecorded => "policy_decision_recorded",
+            Self::ToolInvocationStarted => "tool_invocation_started",
+            Self::ToolInvocationFinished => "tool_invocation_finished",
+            Self::MutationProposed => "mutation_proposed",
+            Self::MutationCommitted => "mutation_committed",
+            Self::MutationRejected => "mutation_rejected",
         };
         f.write_str(s)
     }
@@ -759,6 +775,12 @@ impl std::str::FromStr for RunEventType {
             "sandbox_run_completed" => Ok(Self::SandboxRunCompleted),
             "context_generated" => Ok(Self::ContextGenerated),
             "refs_created" => Ok(Self::RefsCreated),
+            "policy_decision_recorded" => Ok(Self::PolicyDecisionRecorded),
+            "tool_invocation_started" => Ok(Self::ToolInvocationStarted),
+            "tool_invocation_finished" => Ok(Self::ToolInvocationFinished),
+            "mutation_proposed" => Ok(Self::MutationProposed),
+            "mutation_committed" => Ok(Self::MutationCommitted),
+            "mutation_rejected" => Ok(Self::MutationRejected),
             _ => Err(crate::VelCoreError::Validation(format!(
                 "unknown run event type: {}",
                 s
@@ -777,12 +799,133 @@ pub struct RunEvent {
     pub created_at: OffsetDateTime,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactRefKind {
+    RunStore,
+    LocalPath,
+    ExternalUrl,
+    InlineJson,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ArtifactRef {
+    pub artifact_id: ArtifactId,
+    pub kind: ArtifactRefKind,
+    pub location: String,
+    #[serde(default)]
+    pub mime_type: Option<String>,
+    #[serde(default)]
+    pub metadata_json: Value,
+}
+
+impl ArtifactRef {
+    pub fn validate(&self) -> Result<(), crate::VelCoreError> {
+        if self.location.trim().is_empty() {
+            return Err(crate::VelCoreError::Validation(
+                "artifact ref location is required".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub const MUTATION_IDEMPOTENCY_KEY_PREFIX: &str = "mut_";
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct MutationIdempotencyKey(pub(crate) String);
+
+impl MutationIdempotencyKey {
+    pub fn new() -> Self {
+        Self(format!(
+            "{}{}",
+            MUTATION_IDEMPOTENCY_KEY_PREFIX,
+            Uuid::new_v4().simple()
+        ))
+    }
+
+    pub fn parse(value: impl Into<String>) -> Result<Self, crate::VelCoreError> {
+        let value = value.into();
+        let key = Self(value);
+        if !key.has_valid_shape() {
+            return Err(crate::VelCoreError::Validation(
+                "mutation idempotency key must start with mut_ followed by [a-z0-9_-]".to_string(),
+            ));
+        }
+        Ok(key)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn has_valid_shape(&self) -> bool {
+        let Some(suffix) = self.0.strip_prefix(MUTATION_IDEMPOTENCY_KEY_PREFIX) else {
+            return false;
+        };
+        !suffix.is_empty()
+            && suffix
+                .chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-')
+    }
+}
+
+impl Display for MutationIdempotencyKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl AsRef<str> for MutationIdempotencyKey {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MutationAttemptStage {
+    Proposal,
+    Commit,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MutationAttemptEventPayload {
+    pub stage: MutationAttemptStage,
+    pub mutation_kind: String,
+    pub idempotency_key: MutationIdempotencyKey,
+    #[serde(default)]
+    pub target_ref: Option<String>,
+    #[serde(default)]
+    pub metadata_json: Value,
+}
+
+impl MutationAttemptEventPayload {
+    pub fn validate(&self) -> Result<(), crate::VelCoreError> {
+        if self.mutation_kind.trim().is_empty() {
+            return Err(crate::VelCoreError::Validation(
+                "mutation attempt payload requires mutation_kind".to_string(),
+            ));
+        }
+        if !self.idempotency_key.has_valid_shape() {
+            return Err(crate::VelCoreError::Validation(
+                "mutation attempt payload has invalid idempotency key shape".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{HandoffEnvelope, TraceId, TraceLink};
+    use super::{
+        ArtifactRef, ArtifactRefKind, HandoffEnvelope, MutationAttemptEventPayload,
+        MutationAttemptStage, MutationIdempotencyKey, Run, RunEventType, RunKind, RunStatus,
+        TraceId, TraceLink,
+    };
     use crate::{
-        AgentProfile, ExecutionReviewGate, ExecutionTaskKind, ProjectId, RepoWorktreeRef,
-        TokenBudgetClass,
+        AgentProfile, ArtifactId, ExecutionReviewGate, ExecutionTaskKind, ProjectId,
+        RepoWorktreeRef, TokenBudgetClass,
     };
     use serde_json::json;
     use time::OffsetDateTime;
@@ -839,5 +982,145 @@ mod tests {
             decoded.project_id,
             Some(ProjectId::from("proj_velruntime".to_string()))
         );
+    }
+
+    fn sample_run(status: RunStatus) -> Run {
+        Run {
+            id: "run_sample".to_string().into(),
+            kind: RunKind::Synthesis,
+            status,
+            input_json: json!({ "intent": "sample" }),
+            output_json: None,
+            error_json: None,
+            created_at: OffsetDateTime::UNIX_EPOCH,
+            started_at: None,
+            finished_at: None,
+        }
+    }
+
+    #[test]
+    fn run_status_transition_matrix_is_explicit() {
+        assert!(RunStatus::Queued.can_transition_to(RunStatus::Running));
+        assert!(RunStatus::Running.can_transition_to(RunStatus::Succeeded));
+        assert!(RunStatus::Running.can_transition_to(RunStatus::Waiting));
+        assert!(RunStatus::Waiting.can_transition_to(RunStatus::Running));
+        assert!(RunStatus::RetryScheduled.can_transition_to(RunStatus::Queued));
+        assert!(!RunStatus::Succeeded.can_transition_to(RunStatus::Running));
+        assert!(!RunStatus::Cancelled.can_transition_to(RunStatus::Queued));
+        assert!(RunStatus::Succeeded.is_terminal());
+        assert!(RunStatus::Expired.is_terminal());
+        assert!(!RunStatus::Running.is_terminal());
+    }
+
+    #[test]
+    fn run_methods_reject_invalid_transition() {
+        let run = sample_run(RunStatus::Queued);
+        let error = run
+            .succeed(OffsetDateTime::UNIX_EPOCH, json!({ "ok": true }))
+            .expect_err("queued run cannot transition directly to succeeded");
+        assert!(error
+            .to_string()
+            .contains("cannot transition run from queued to succeeded"));
+    }
+
+    #[test]
+    fn run_status_serialization_round_trip() {
+        let all = [
+            RunStatus::Queued,
+            RunStatus::Running,
+            RunStatus::Succeeded,
+            RunStatus::Failed,
+            RunStatus::Cancelled,
+            RunStatus::Waiting,
+            RunStatus::Expired,
+            RunStatus::RetryScheduled,
+            RunStatus::Blocked,
+        ];
+        for status in all {
+            let encoded = serde_json::to_value(status).expect("status should serialize");
+            let decoded: RunStatus =
+                serde_json::from_value(encoded).expect("status should deserialize");
+            assert_eq!(decoded, status);
+        }
+    }
+
+    #[test]
+    fn run_event_type_serialization_round_trip() {
+        let all = [
+            RunEventType::RunCreated,
+            RunEventType::RunStarted,
+            RunEventType::RunSucceeded,
+            RunEventType::RunFailed,
+            RunEventType::RunCancelled,
+            RunEventType::RunRetryScheduled,
+            RunEventType::RunRequeued,
+            RunEventType::RunRetryBlocked,
+            RunEventType::ArtifactWritten,
+            RunEventType::SearchExecuted,
+            RunEventType::SandboxCallEvaluated,
+            RunEventType::SandboxRunCompleted,
+            RunEventType::ContextGenerated,
+            RunEventType::RefsCreated,
+            RunEventType::PolicyDecisionRecorded,
+            RunEventType::ToolInvocationStarted,
+            RunEventType::ToolInvocationFinished,
+            RunEventType::MutationProposed,
+            RunEventType::MutationCommitted,
+            RunEventType::MutationRejected,
+        ];
+        for event_type in all {
+            let encoded = serde_json::to_value(event_type).expect("event type should serialize");
+            let decoded: RunEventType =
+                serde_json::from_value(encoded).expect("event type should deserialize");
+            assert_eq!(decoded, event_type);
+        }
+    }
+
+    #[test]
+    fn mutation_attempt_payload_round_trips_with_idempotency_key() {
+        let payload = MutationAttemptEventPayload {
+            stage: MutationAttemptStage::Proposal,
+            mutation_kind: "planning_profile_edit".to_string(),
+            idempotency_key: MutationIdempotencyKey::new(),
+            target_ref: Some("profile:weekday".to_string()),
+            metadata_json: json!({ "source": "vel_run" }),
+        };
+        payload
+            .validate()
+            .expect("payload with generated key should validate");
+
+        let encoded = serde_json::to_value(&payload).expect("payload should serialize");
+        let decoded: MutationAttemptEventPayload =
+            serde_json::from_value(encoded).expect("payload should deserialize");
+        decoded
+            .validate()
+            .expect("decoded payload should preserve valid idempotency key shape");
+    }
+
+    #[test]
+    fn mutation_idempotency_key_parser_enforces_shape() {
+        MutationIdempotencyKey::parse("mut_abc123").expect("valid key should parse");
+        let error = MutationIdempotencyKey::parse("bad-prefix-123")
+            .expect_err("invalid key shape should fail");
+        assert!(error
+            .to_string()
+            .contains("mutation idempotency key must start with mut_"));
+    }
+
+    #[test]
+    fn artifact_ref_requires_location() {
+        let artifact_ref = ArtifactRef {
+            artifact_id: ArtifactId::from("artifact_demo".to_string()),
+            kind: ArtifactRefKind::RunStore,
+            location: "".to_string(),
+            mime_type: Some("application/json".to_string()),
+            metadata_json: json!({}),
+        };
+        let error = artifact_ref
+            .validate()
+            .expect_err("empty artifact location should fail validation");
+        assert!(error
+            .to_string()
+            .contains("artifact ref location is required"));
     }
 }

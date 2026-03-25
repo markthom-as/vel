@@ -3501,8 +3501,14 @@ mod tests {
             .unwrap();
 
         assert_eq!(now_output.schedule.upcoming_events.len(), 1);
-        assert_eq!(now_output.schedule.upcoming_events[0].title, "Visible event");
-        assert!(!now_output.next_up_items.iter().any(|item| item.title == "Hidden event"));
+        assert_eq!(
+            now_output.schedule.upcoming_events[0].title,
+            "Visible event"
+        );
+        assert!(!now_output
+            .next_up_items
+            .iter()
+            .any(|item| item.title == "Hidden event"));
     }
 
     #[tokio::test]
@@ -3606,13 +3612,11 @@ mod tests {
             now_output.schedule.following_day_events[0].title,
             "Visible tomorrow event"
         );
-        assert!(
-            !now_output
-                .schedule
-                .following_day_events
-                .iter()
-                .any(|event| event.title == "Hidden tomorrow event")
-        );
+        assert!(!now_output
+            .schedule
+            .following_day_events
+            .iter()
+            .any(|event| event.title == "Hidden tomorrow event"));
     }
 
     #[test]
