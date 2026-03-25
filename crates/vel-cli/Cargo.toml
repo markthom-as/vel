@@ -22,4 +22,3 @@ tokio.workspace = true
 vel-api-types = { path = "../vel-api-types" }
 vel-config = { path = "../vel-config" }
 vel-core = { path = "../vel-core" }
-vel-storage = { path = "../vel-storage" }

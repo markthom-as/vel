@@ -63,6 +63,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/backup/inspect", post(routes::backup::inspect_backup))
         .route("/v1/backup/verify", post(routes::backup::verify_backup))
         .route(
+            "/v1/import/batch",
+            post(routes::import::import_batch),
+        )
+        .route(
             "/v1/apple/voice/turn",
             post(routes::apple::apple_voice_turn),
         )

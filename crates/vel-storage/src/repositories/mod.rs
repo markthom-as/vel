@@ -4,6 +4,7 @@ pub(crate) mod backup_runs_repo;
 pub(crate) mod broker_events_repo;
 pub(crate) mod canonical_objects_repo;
 pub(crate) mod captures_repo;
+pub mod import_repo;
 pub(crate) mod chat_repo;
 pub(crate) mod cluster_workers_repo;
 pub(crate) mod commitment_risk_repo;

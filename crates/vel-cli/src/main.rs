@@ -1276,7 +1276,7 @@ async fn main() -> anyhow::Result<()> {
                 commands::import_::run_capture_url(&client, &url).await
             }
             ImportCommand::CodexWorkspace { path } => {
-                commands::import_::run_codex_workspace(&config, &path).await
+                commands::import_::run_codex_workspace(&client, &path).await
             }
         },
         Command::Export {

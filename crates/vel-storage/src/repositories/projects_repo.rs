@@ -11,7 +11,15 @@ pub(crate) async fn create_project(
     project: ProjectRecord,
 ) -> Result<ProjectRecord, StorageError> {
     let mut tx = pool.begin().await?;
+    let result = create_project_in_tx(&mut tx, project).await?;
+    tx.commit().await?;
+    Ok(result)
+}
 
+pub(crate) async fn create_project_in_tx(
+    tx: &mut Transaction<'_, Sqlite>,
+    project: ProjectRecord,
+) -> Result<ProjectRecord, StorageError> {
     let secondary_repo_paths = project
         .secondary_repos
         .iter()
@@ -58,14 +66,13 @@ pub(crate) async fn create_project(
     .bind(project.created_at.unix_timestamp())
     .bind(project.updated_at.unix_timestamp())
     .bind(project.archived_at.map(|value| value.unix_timestamp()))
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
 
-    upsert_project_alias_in_tx(&mut tx, &project.slug, &project.id, "slug").await?;
-    upsert_project_alias_in_tx(&mut tx, &project.name, &project.id, "name").await?;
-    semantic_memory_repo::upsert_project_record_in_tx(&mut tx, &project).await?;
+    upsert_project_alias_in_tx(tx, &project.slug, &project.id, "slug").await?;
+    upsert_project_alias_in_tx(tx, &project.name, &project.id, "name").await?;
+    semantic_memory_repo::upsert_project_record_in_tx(tx, &project).await?;
 
-    tx.commit().await?;
     Ok(project)
 }
 
@@ -124,6 +131,38 @@ pub(crate) async fn get_project(
     )
     .bind(project_id)
     .fetch_optional(pool)
+    .await?;
+
+    row.as_ref().map(map_project_row).transpose()
+}
+
+pub(crate) async fn get_project_by_slug_in_tx(
+    tx: &mut Transaction<'_, Sqlite>,
+    slug: &str,
+) -> Result<Option<ProjectRecord>, StorageError> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            id,
+            slug,
+            name,
+            family,
+            status,
+            primary_repo_path,
+            primary_notes_root,
+            secondary_repo_paths_json,
+            secondary_notes_roots_json,
+            upstream_ids_json,
+            pending_provision_json,
+            created_at,
+            updated_at,
+            archived_at
+        FROM projects
+        WHERE slug = ?
+        "#,
+    )
+    .bind(slug)
+    .fetch_optional(&mut **tx)
     .await?;
 
     row.as_ref().map(map_project_row).transpose()

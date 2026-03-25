@@ -2,8 +2,9 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vel_api_types::{
-    AgentInspectData, ApiResponse, BackupManifestData, BackupStatusData, BranchSyncRequestData,
-    CaptureCreateRequest, CaptureCreateResponse, ClusterBootstrapData, CommandExecuteRequest,
+    AgentInspectData, ApiResponse, BackupManifestData, BackupStatusData, BatchImportRequest,
+    BatchImportResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
+    ClusterBootstrapData, CommandExecuteRequest,
     CommandExecutionPlanData, CommandExecutionResultData, CommandPlanRequest,
     CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectAttachData,
     ConnectInstanceData, DailyLoopOverdueApplyRequestData, DailyLoopOverdueApplyResponseData,
@@ -1396,6 +1397,21 @@ impl ApiClient {
             .send()
             .await
             .context("PATCH thread")?;
+        decode_response(response).await
+    }
+
+    pub async fn import_batch(
+        &self,
+        request: BatchImportRequest,
+    ) -> anyhow::Result<ApiResponse<BatchImportResponse>> {
+        let response = self
+            .http
+            .post(format!("{}/v1/import/batch", self.base_url))
+            .timeout(std::time::Duration::from_secs(120))
+            .json(&request)
+            .send()
+            .await
+            .context("POST /v1/import/batch")?;
         decode_response(response).await
     }
 

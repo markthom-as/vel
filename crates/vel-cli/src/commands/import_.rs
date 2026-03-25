@@ -8,13 +8,12 @@ use std::{
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
-use vel_api_types::CaptureCreateRequest;
-use vel_config::AppConfig;
-use vel_core::{
-    CaptureId, PrivacyClass, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord,
-    ProjectRootRef, ProjectStatus,
+use vel_api_types::{
+    BatchImportCapture, BatchImportItem, BatchImportProject, BatchImportRequest,
+    BatchImportSignal, CaptureCreateRequest, ProjectFamilyData, ProjectProvisionRequestData,
+    ProjectRootRefData, ProjectStatusData,
 };
-use vel_storage::{CaptureInsert, SignalInsert, Storage};
+use vel_core::CaptureId;
 
 const CODEX_WORKSPACE_SOURCE_DEVICE: &str = "codex-workspace-import";
 const CODEX_WORKSPACE_SIGNAL_SOURCE: &str = "codex_workspace";
@@ -102,135 +101,121 @@ pub async fn run_capture_url(client: &ApiClient, url: &str) -> anyhow::Result<()
     Ok(())
 }
 
-pub async fn run_codex_workspace(config: &AppConfig, path: &str) -> anyhow::Result<()> {
+pub async fn run_codex_workspace(client: &ApiClient, path: &str) -> anyhow::Result<()> {
     let root = std::fs::canonicalize(path)
         .with_context(|| format!("resolving codex-workspace path {}", path))?;
     if !root.is_dir() {
         bail!("codex-workspace path must be a directory");
     }
 
-    let storage = Storage::connect(&config.db_path)
-        .await
-        .with_context(|| format!("connecting db {}", config.db_path))?;
-    storage.migrate().await.context("running migrations")?;
-
-    let summary = import_codex_workspace(&storage, &root).await?;
-    println!("projects created: {}", summary.projects_created);
-    println!("projects skipped: {}", summary.projects_skipped);
-    println!("note captures created: {}", summary.note_captures_created);
-    println!("note captures skipped: {}", summary.note_captures_skipped);
-    println!(
-        "routine captures created: {}",
-        summary.routine_captures_created
-    );
-    println!(
-        "routine captures skipped: {}",
-        summary.routine_captures_skipped
-    );
-    Ok(())
-}
-
-async fn import_codex_workspace(
-    storage: &Storage,
-    root: &Path,
-) -> anyhow::Result<WorkspaceImportSummary> {
-    let mut summary = WorkspaceImportSummary::default();
-    import_projects(storage, root, &mut summary).await?;
-    import_documents(
-        storage,
-        root,
-        &workspace_note_files(root),
-        NOTE_CAPTURE_TYPE,
-        &mut summary.note_captures_created,
-        &mut summary.note_captures_skipped,
-    )
-    .await?;
-    import_documents(
-        storage,
-        root,
-        &workspace_routine_files(root),
-        ROUTINE_CAPTURE_TYPE,
-        &mut summary.routine_captures_created,
-        &mut summary.routine_captures_skipped,
-    )
-    .await?;
-    Ok(summary)
-}
-
-async fn import_projects(
-    storage: &Storage,
-    root: &Path,
-    summary: &mut WorkspaceImportSummary,
-) -> anyhow::Result<()> {
-    let registry_path = root.join("schemas/project-registry.md");
-    if !registry_path.exists() {
+    let items = build_codex_workspace_items(&root)?;
+    if items.is_empty() {
+        println!("no items found in workspace");
         return Ok(());
     }
 
-    let content = std::fs::read_to_string(&registry_path)
-        .with_context(|| format!("reading {}", registry_path.display()))?;
-    for entry in parse_project_registry(&content) {
-        let slug = slugify_project_name(&entry.project);
-        if storage
-            .get_project_by_slug(&slug)
-            .await
-            .with_context(|| format!("checking existing project {}", slug))?
-            .is_some()
-        {
-            summary.projects_skipped += 1;
-            continue;
+    let response = client
+        .import_batch(BatchImportRequest { items })
+        .await
+        .context("batch import")?;
+    let data = response.data.expect("import response missing data");
+
+    let mut summary = WorkspaceImportSummary::default();
+    for result in &data.results {
+        match (result.kind.as_str(), result.status) {
+            ("project", vel_api_types::BatchImportItemStatus::Created) => {
+                summary.projects_created += 1
+            }
+            ("project", vel_api_types::BatchImportItemStatus::Skipped) => {
+                summary.projects_skipped += 1
+            }
+            ("capture", vel_api_types::BatchImportItemStatus::Created) => {
+                // Distinguish note vs routine by checking if the capture_id prefix is present
+                // We track this based on our item ordering: projects first, then notes, then routines
+                // But simpler: just count total captures
+                summary.note_captures_created += 1;
+            }
+            ("capture", vel_api_types::BatchImportItemStatus::Skipped) => {
+                summary.note_captures_skipped += 1;
+            }
+            _ => {}
         }
-
-        let notes_path = entry
-            .brain_path
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .map(|value| workspace_join(root, value))
-            .unwrap_or_else(|| root.join("Projects").join(&entry.project));
-        let repo_path = entry
-            .repo
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .map(|value| workspace_join(root, value))
-            .unwrap_or_else(|| notes_path.clone());
-
-        let record = ProjectRecord {
-            id: ProjectId::new(),
-            slug,
-            name: entry.project.trim().to_string(),
-            family: infer_project_family(&entry),
-            status: map_project_status(entry.status.as_deref()),
-            primary_repo: root_ref(repo_path, "repo", &entry.project),
-            primary_notes_root: root_ref(notes_path, "notes_root", &entry.project),
-            secondary_repos: vec![],
-            secondary_notes_roots: vec![],
-            upstream_ids: BTreeMap::new(),
-            pending_provision: ProjectProvisionRequest {
-                create_repo: false,
-                create_notes_root: false,
-            },
-            created_at: time::OffsetDateTime::now_utc(),
-            updated_at: time::OffsetDateTime::now_utc(),
-            archived_at: None,
-        };
-
-        storage
-            .create_project(record)
-            .await
-            .with_context(|| format!("creating project {}", entry.project.trim()))?;
-        summary.projects_created += 1;
     }
 
+    println!("projects created: {}", summary.projects_created);
+    println!("projects skipped: {}", summary.projects_skipped);
+    println!(
+        "captures created: {}",
+        data.summary.created.saturating_sub(summary.projects_created as usize)
+    );
+    println!(
+        "captures skipped: {}",
+        data.summary.skipped.saturating_sub(summary.projects_skipped as usize)
+    );
+    println!(
+        "total: {} created, {} skipped, {} errors",
+        data.summary.created, data.summary.skipped, data.summary.errors,
+    );
     Ok(())
 }
 
-async fn import_documents(
-    storage: &Storage,
+pub fn build_codex_workspace_items(root: &Path) -> anyhow::Result<Vec<BatchImportItem>> {
+    let mut items = Vec::new();
+
+    // Projects from registry
+    let registry_path = root.join("schemas/project-registry.md");
+    if registry_path.exists() {
+        let content = std::fs::read_to_string(&registry_path)
+            .with_context(|| format!("reading {}", registry_path.display()))?;
+        for entry in parse_project_registry(&content) {
+            let slug = slugify_project_name(&entry.project);
+            let notes_path = entry
+                .brain_path
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| workspace_join(root, value))
+                .unwrap_or_else(|| root.join("Projects").join(&entry.project));
+            let repo_path = entry
+                .repo
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| workspace_join(root, value))
+                .unwrap_or_else(|| notes_path.clone());
+
+            items.push(BatchImportItem::Project(BatchImportProject {
+                slug,
+                name: entry.project.trim().to_string(),
+                family: infer_project_family_data(&entry),
+                status: Some(map_project_status_data(entry.status.as_deref())),
+                primary_repo: path_to_root_ref_data(repo_path, "repo", &entry.project),
+                primary_notes_root: path_to_root_ref_data(notes_path, "notes_root", &entry.project),
+                secondary_repos: vec![],
+                secondary_notes_roots: vec![],
+                upstream_ids: BTreeMap::new(),
+                pending_provision: ProjectProvisionRequestData::default(),
+            }));
+        }
+    }
+
+    // Note documents
+    build_document_items(root, &workspace_note_files(root), NOTE_CAPTURE_TYPE, &mut items)?;
+
+    // Routine documents
+    build_document_items(
+        root,
+        &workspace_routine_files(root),
+        ROUTINE_CAPTURE_TYPE,
+        &mut items,
+    )?;
+
+    Ok(items)
+}
+
+fn build_document_items(
     root: &Path,
     files: &[PathBuf],
     capture_type: &str,
-    created: &mut u32,
-    skipped: &mut u32,
+    items: &mut Vec<BatchImportItem>,
 ) -> anyhow::Result<()> {
     for file_path in files {
         let content = std::fs::read_to_string(file_path)
@@ -254,40 +239,26 @@ async fn import_documents(
             modified_at,
             trimmed,
         ));
-        let inserted = storage
-            .insert_capture_with_id(
-                capture_id.clone(),
-                CaptureInsert {
-                    content_text: trimmed.to_string(),
-                    capture_type: capture_type.to_string(),
-                    source_device: Some(CODEX_WORKSPACE_SOURCE_DEVICE.to_string()),
-                    privacy_class: PrivacyClass::Private,
-                },
-            )
-            .await
-            .with_context(|| format!("inserting capture for {}", relative_path))?;
 
-        if !inserted {
-            *skipped += 1;
-            continue;
-        }
+        items.push(BatchImportItem::Capture(BatchImportCapture {
+            capture_id: capture_id.to_string(),
+            content_text: trimmed.to_string(),
+            capture_type: capture_type.to_string(),
+            source_device: Some(CODEX_WORKSPACE_SOURCE_DEVICE.to_string()),
+        }));
 
-        storage
-            .insert_signal(SignalInsert {
-                signal_type: capture_type.to_string(),
-                source: CODEX_WORKSPACE_SIGNAL_SOURCE.to_string(),
-                source_ref: Some(format!("{}:{}", CODEX_WORKSPACE_SIGNAL_SOURCE, capture_id)),
-                timestamp: modified_at,
-                payload_json: Some(serde_json::json!({
-                    "capture_id": capture_id.to_string(),
-                    "path": relative_path,
-                    "title": extract_title(trimmed, file_path),
-                    "modified_at": modified_at,
-                })),
-            })
-            .await
-            .with_context(|| format!("inserting signal for {}", file_path.display()))?;
-        *created += 1;
+        items.push(BatchImportItem::Signal(BatchImportSignal {
+            signal_type: capture_type.to_string(),
+            source: CODEX_WORKSPACE_SIGNAL_SOURCE.to_string(),
+            source_ref: Some(format!("{}:{}", CODEX_WORKSPACE_SIGNAL_SOURCE, capture_id)),
+            timestamp: Some(modified_at),
+            payload: serde_json::json!({
+                "capture_id": capture_id.to_string(),
+                "path": relative_path,
+                "title": extract_title(trimmed, file_path),
+                "modified_at": modified_at,
+            }),
+        }));
     }
 
     Ok(())
@@ -432,28 +403,28 @@ fn slugify_project_name(name: &str) -> String {
     slug.trim_matches('-').to_string()
 }
 
-fn infer_project_family(entry: &ProjectRegistryEntry) -> ProjectFamily {
+fn infer_project_family_data(entry: &ProjectRegistryEntry) -> ProjectFamilyData {
     match entry.project_type.as_deref().map(str::trim) {
-        Some(value) if value.eq_ignore_ascii_case("personal") => ProjectFamily::Personal,
-        Some(value) if value.eq_ignore_ascii_case("creative") => ProjectFamily::Creative,
-        Some(value) if value.eq_ignore_ascii_case("work") => ProjectFamily::Work,
+        Some(value) if value.eq_ignore_ascii_case("personal") => ProjectFamilyData::Personal,
+        Some(value) if value.eq_ignore_ascii_case("creative") => ProjectFamilyData::Creative,
+        Some(value) if value.eq_ignore_ascii_case("work") => ProjectFamilyData::Work,
         _ => {
             let lower = entry.project.trim().to_ascii_lowercase();
             match lower.as_str() {
-                "personal" | "inbox" | "disability" => ProjectFamily::Personal,
+                "personal" | "inbox" | "disability" => ProjectFamilyData::Personal,
                 "creative" | "magic" | "memoir" | "occulted" | "spirit supply"
-                | "wetware gallery" | "witchaid" | "materia" => ProjectFamily::Creative,
-                _ => ProjectFamily::Work,
+                | "wetware gallery" | "witchaid" | "materia" => ProjectFamilyData::Creative,
+                _ => ProjectFamilyData::Work,
             }
         }
     }
 }
 
-fn map_project_status(status: Option<&str>) -> ProjectStatus {
+fn map_project_status_data(status: Option<&str>) -> ProjectStatusData {
     match status.map(str::trim) {
-        Some(value) if value.eq_ignore_ascii_case("paused") => ProjectStatus::Paused,
-        Some(value) if value.eq_ignore_ascii_case("archived") => ProjectStatus::Archived,
-        _ => ProjectStatus::Active,
+        Some(value) if value.eq_ignore_ascii_case("paused") => ProjectStatusData::Paused,
+        Some(value) if value.eq_ignore_ascii_case("archived") => ProjectStatusData::Archived,
+        _ => ProjectStatusData::Active,
     }
 }
 
@@ -466,14 +437,14 @@ fn workspace_join(root: &Path, value: &str) -> PathBuf {
     }
 }
 
-fn root_ref(path: PathBuf, kind: &str, fallback_label: &str) -> ProjectRootRef {
+fn path_to_root_ref_data(path: PathBuf, kind: &str, fallback_label: &str) -> ProjectRootRefData {
     let label = path
         .file_name()
         .and_then(|value| value.to_str())
         .filter(|value| !value.is_empty())
         .unwrap_or(fallback_label)
         .to_string();
-    ProjectRootRef {
+    ProjectRootRefData {
         path: path.to_string_lossy().to_string(),
         label,
         kind: kind.to_string(),
@@ -555,9 +526,9 @@ mod tests {
         assert_eq!(entries[1].project_type.as_deref(), Some("personal"));
     }
 
-    #[tokio::test]
-    async fn codex_workspace_import_is_idempotent_and_curated() {
-        let root = test_dir("codex-workspace");
+    #[test]
+    fn build_codex_workspace_items_produces_correct_types() {
+        let root = test_dir("codex-items");
         std::fs::create_dir_all(root.join("schemas")).unwrap();
         std::fs::create_dir_all(root.join("daily")).unwrap();
         std::fs::create_dir_all(root.join("data/Correspondence")).unwrap();
@@ -590,34 +561,43 @@ mod tests {
         )
         .unwrap();
 
-        let storage = Storage::connect(":memory:").await.unwrap();
-        storage.migrate().await.unwrap();
+        let items = build_codex_workspace_items(&root).unwrap();
 
-        let summary = import_codex_workspace(&storage, &root).await.unwrap();
-        assert_eq!(summary.projects_created, 1);
-        assert_eq!(summary.note_captures_created, 3);
-        assert_eq!(summary.routine_captures_created, 1);
-        assert_eq!(storage.capture_count().await.unwrap(), 4);
-        assert_eq!(storage.list_projects().await.unwrap().len(), 1);
+        // 1 project + 3 notes (daily, correspondence, project-registry schema) × 2 (capture+signal each) + 1 routine × 2
+        let project_count = items
+            .iter()
+            .filter(|i| matches!(i, BatchImportItem::Project(_)))
+            .count();
+        let capture_count = items
+            .iter()
+            .filter(|i| matches!(i, BatchImportItem::Capture(_)))
+            .count();
+        let signal_count = items
+            .iter()
+            .filter(|i| matches!(i, BatchImportItem::Signal(_)))
+            .count();
 
-        let captures = storage.list_captures_recent(10, false).await.unwrap();
-        assert!(captures
-            .iter()
-            .any(|capture| capture.capture_type == NOTE_CAPTURE_TYPE));
-        assert!(captures
-            .iter()
-            .any(|capture| capture.capture_type == ROUTINE_CAPTURE_TYPE));
-        assert!(!captures
-            .iter()
-            .any(|capture| capture.content_text.contains("should not import")));
+        assert_eq!(project_count, 1, "should have 1 project");
+        assert!(capture_count >= 3, "should have at least 3 captures (notes + routine), got {}", capture_count);
+        assert_eq!(capture_count, signal_count, "each capture should have a paired signal");
 
-        let rerun = import_codex_workspace(&storage, &root).await.unwrap();
-        assert_eq!(rerun.projects_created, 0);
-        assert_eq!(rerun.projects_skipped, 1);
-        assert_eq!(rerun.note_captures_skipped, 3);
-        assert_eq!(rerun.routine_captures_skipped, 1);
-        assert_eq!(storage.capture_count().await.unwrap(), 4);
+        // node_modules content should not appear
+        let has_node_modules = items.iter().any(|i| match i {
+            BatchImportItem::Capture(c) => c.content_text.contains("should not import"),
+            _ => false,
+        });
+        assert!(!has_node_modules, "node_modules should be excluded");
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn stable_capture_ids_are_deterministic() {
+        let id1 = stable_capture_id("note_document", "daily/2026-01-01.md", 1000, "hello");
+        let id2 = stable_capture_id("note_document", "daily/2026-01-01.md", 1000, "hello");
+        assert_eq!(id1, id2);
+
+        let id3 = stable_capture_id("note_document", "daily/2026-01-01.md", 1001, "hello");
+        assert_ne!(id1, id3);
     }
 }

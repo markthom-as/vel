@@ -2739,7 +2739,6 @@ dependencies = [
  "vel-api-types",
  "vel-config",
  "vel-core",
- "vel-storage",
 ]
 
 [[package]]

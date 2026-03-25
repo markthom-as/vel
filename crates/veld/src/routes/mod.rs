@@ -18,6 +18,7 @@ pub mod evaluate;
 pub mod execution;
 pub mod explain;
 pub mod health;
+pub mod import;
 pub mod integrations;
 pub mod journal;
 pub mod linking;

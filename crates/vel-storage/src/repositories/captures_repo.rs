@@ -44,6 +44,17 @@ pub(crate) async fn insert_capture_with_id_at(
     occurred_at: i64,
 ) -> Result<bool, StorageError> {
     let mut tx = pool.begin().await?;
+    let result = insert_capture_with_id_in_tx(&mut tx, capture_id, input, occurred_at).await?;
+    tx.commit().await?;
+    Ok(result)
+}
+
+pub(crate) async fn insert_capture_with_id_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    capture_id: CaptureId,
+    input: CaptureInsert,
+    occurred_at: i64,
+) -> Result<bool, StorageError> {
     let metadata = json!({});
 
     let result = sqlx::query(
@@ -68,7 +79,7 @@ pub(crate) async fn insert_capture_with_id_at(
     .bind(input.source_device)
     .bind(input.privacy_class.to_string())
     .bind(metadata.to_string())
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
 
     if result.rows_affected() == 0 {
@@ -79,7 +90,7 @@ pub(crate) async fn insert_capture_with_id_at(
     let payload = json!({ "capture_id": capture_id.to_string() }).to_string();
 
     semantic_memory_repo::upsert_capture_record_in_tx(
-        &mut tx,
+        tx,
         capture_id.as_ref(),
         &input.content_text,
         occurred_at,
@@ -87,7 +98,7 @@ pub(crate) async fn insert_capture_with_id_at(
     .await?;
 
     processing_jobs_repo::insert_processing_job_in_tx(
-        &mut tx,
+        tx,
         &job_id,
         "capture_ingest",
         JobStatus::Pending,
@@ -95,7 +106,6 @@ pub(crate) async fn insert_capture_with_id_at(
     )
     .await?;
 
-    tx.commit().await?;
     Ok(true)
 }
 

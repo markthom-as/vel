@@ -5,8 +5,9 @@ use crate::{
         captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
         conflict_cases_repo, connect_run_events_repo, connect_runs_repo, context_timeline_repo,
         current_context_repo, daily_sessions_repo, execution_contexts_repo,
-        execution_handoffs_repo, inferred_state_repo, integration_connections_repo, linking_repo,
-        nudges_repo, people_repo, planning_profiles_repo, processing_jobs_repo, projects_repo,
+        execution_handoffs_repo, import_repo, inferred_state_repo, integration_connections_repo,
+        linking_repo, nudges_repo, people_repo, planning_profiles_repo, processing_jobs_repo,
+        projects_repo,
         run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo, settings_repo,
         signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
         uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
@@ -1217,6 +1218,13 @@ impl Storage {
 
     pub async fn insert_signal(&self, input: SignalInsert) -> Result<String, StorageError> {
         signals_repo::insert_signal(self.pool(), input).await
+    }
+
+    pub async fn import_batch(
+        &self,
+        items: Vec<import_repo::BatchImportStorageItem>,
+    ) -> Result<Vec<import_repo::BatchImportStorageResult>, StorageError> {
+        import_repo::import_batch(self.pool(), items).await
     }
 
     pub async fn list_signals(

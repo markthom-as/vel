@@ -54,6 +54,9 @@ pub use repositories::{
         SyncLinkRecord,
     },
 };
+pub use repositories::import_repo::{
+    BatchImportStorageItem, BatchImportStorageResult, BatchImportStorageStatus,
+};
 pub use storage_backend::{
     AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,
     RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, StoredRecord,
