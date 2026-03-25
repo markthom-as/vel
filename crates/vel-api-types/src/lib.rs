@@ -7740,7 +7740,7 @@ mod tests {
         assert_eq!(value["query_text"], "accountant follow up");
         assert_eq!(value["hit_count"], 2);
         assert_eq!(value["source_counts"][0]["source_kind"], "note");
-        assert_eq!(value["hits"][0]["combined_score"], 0.775);
+        assert_eq!(value["hits"][0]["combined_score"], 0.775_f32 as f64);
     }
 
     #[test]
@@ -7855,7 +7855,7 @@ mod tests {
                 target: ActionThreadRouteTargetData::FilteredThreads,
                 label: "Open related threads".to_string(),
                 thread_id: None,
-                thread_type: Some("project_review".to_string()),
+                thread_type: Some("action_resolution".to_string()),
                 project_id: Some(ProjectId::from("proj_1".to_string())),
             }),
         };
@@ -7866,7 +7866,7 @@ mod tests {
         assert_eq!(value["permission_mode"], "user_confirm");
         assert_eq!(value["scope_affinity"], "global");
         assert_eq!(value["thread_route"]["target"], "filtered_threads");
-        assert_eq!(value["thread_route"]["thread_type"], "project_review");
+        assert_eq!(value["thread_route"]["thread_type"], "action_resolution");
     }
 
     #[test]

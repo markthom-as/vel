@@ -1,24 +1,14 @@
 //! `vel review` — daily and weekly review views.
 
-use std::collections::HashMap;
-
 use crate::client::ApiClient;
 use crate::commands::doctor::backup_summary_lines;
 use vel_api_types::{
-    ActionItemData, BackupTrustData, CommitmentData, CommitmentSchedulingProposalSummaryData,
-    NowData, PersonRecordData, ProjectFamilyData, ProjectRecordData, ReviewSnapshotData,
+    ActionItemData, BackupTrustData, CommitmentSchedulingProposalSummaryData, NowData, PersonRecordData,
+    ReviewSnapshotData,
 };
 
 const TRUNCATE: usize = 50;
 const TOP_ACTION_TITLES_LIMIT: usize = 3;
-
-#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
-struct ProjectReviewCandidate {
-    project_id: vel_core::ProjectId,
-    slug: String,
-    family: ProjectFamilyData,
-    open_commitment_count: u32,
-}
 
 pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     let captures_resp = client.list_captures_recent(20, true).await?;
@@ -89,17 +79,6 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     let captures = captures_resp
         .data
         .expect("list_captures_recent missing data");
-    let projects = client
-        .list_projects()
-        .await?
-        .data
-        .expect("list_projects missing data")
-        .projects;
-    let open_commitments = client
-        .list_commitments(Some("open"), None, None, 500)
-        .await?
-        .data
-        .expect("list_commitments missing data");
     let latest_ctx = client
         .get_artifact_latest("context_brief")
         .await
@@ -109,8 +88,6 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     let doctor = client.doctor().await?.data.expect("doctor missing data");
 
     if json {
-        let project_review_candidates =
-            build_project_review_candidates(&projects, &open_commitments);
         let out = serde_json::json!({
             "captures_recent": captures.len(),
             "captures": captures,
@@ -119,7 +96,6 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "pending_writebacks": now.pending_writebacks.len(),
             "open_conflicts": now.conflicts.len(),
             "people_needing_review": people_needing_review(&now).len(),
-            "project_review_candidates": project_review_candidates,
             "backup": doctor.backup,
         });
         println!("{}", serde_json::to_string_pretty(&out)?);
@@ -235,137 +211,23 @@ fn people_needing_review(now: &NowData) -> Vec<PersonRecordData> {
         .collect()
 }
 
-fn build_project_review_candidates(
-    projects: &[ProjectRecordData],
-    commitments: &[CommitmentData],
-) -> Vec<ProjectReviewCandidate> {
-    let mut slug_lookup = HashMap::new();
-    let mut alias_lookup = HashMap::new();
-    let mut counts = vec![0_u32; projects.len()];
-
-    for (index, project) in projects.iter().enumerate() {
-        slug_lookup.insert(project.slug.to_lowercase(), index);
-    }
-
-    for (index, project) in projects.iter().enumerate() {
-        let alias_key = project.name.to_lowercase();
-        if !slug_lookup.contains_key(&alias_key) {
-            alias_lookup.entry(alias_key).or_insert(index);
-        }
-    }
-
-    for commitment in commitments {
-        let Some(project_key) = commitment
-            .project
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        else {
-            continue;
-        };
-        let normalized = project_key.to_lowercase();
-        let project_index = slug_lookup
-            .get(&normalized)
-            .copied()
-            .or_else(|| alias_lookup.get(&normalized).copied());
-        if let Some(index) = project_index {
-            counts[index] += 1;
-        }
-    }
-
-    let mut candidates: Vec<ProjectReviewCandidate> = projects
-        .iter()
-        .enumerate()
-        .filter_map(|(index, project)| {
-            let open_commitment_count = counts[index];
-            (open_commitment_count > 0).then(|| ProjectReviewCandidate {
-                project_id: project.id.clone(),
-                slug: project.slug.clone(),
-                family: project.family,
-                open_commitment_count,
-            })
-        })
-        .collect();
-
-    candidates.sort_by(|left, right| {
-        right
-            .open_commitment_count
-            .cmp(&left.open_commitment_count)
-            .then_with(|| left.slug.cmp(&right.slug))
-    });
-    candidates
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
-        build_project_review_candidates, commitment_scheduling_summary_lines,
+        commitment_scheduling_summary_lines,
         people_needing_review, summarize_review_snapshot, top_action_titles,
     };
     use serde_json::json;
     use time::OffsetDateTime;
     use vel_api_types::{
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionPermissionModeData,
-        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, CanonicalScheduleRulesData,
-        CommitmentData, NowAttentionData, NowData, NowDebugData, NowFreshnessData, NowLabelData,
-        NowRiskSummaryData, NowScheduleData, NowSourcesData, NowSummaryData, NowTasksData,
-        PersonRecordData, ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData,
-        ProjectRootRefData, ProjectStatusData, ReviewSnapshotData, TrustReadinessData,
-        TrustReadinessFacetData, TrustReadinessReviewData,
+        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, NowAttentionData, NowData,
+        NowDebugData, NowFreshnessData, NowLabelData, NowRiskSummaryData, NowScheduleData,
+        NowSourcesData, NowSummaryData, NowTasksData, PersonRecordData,
+        ReviewSnapshotData, TrustReadinessData, TrustReadinessFacetData,
+        TrustReadinessReviewData,
     };
-    use vel_core::{ActionItemId, CommitmentId, PersonId, ProjectId};
-
-    fn sample_project(project_id: &str, slug: &str, name: &str) -> ProjectRecordData {
-        ProjectRecordData {
-            id: ProjectId::from(project_id.to_string()),
-            slug: slug.to_string(),
-            name: name.to_string(),
-            family: ProjectFamilyData::Work,
-            status: ProjectStatusData::Active,
-            primary_repo: ProjectRootRefData {
-                path: "/tmp/vel".to_string(),
-                label: "vel".to_string(),
-                kind: "repo".to_string(),
-            },
-            primary_notes_root: ProjectRootRefData {
-                path: "/tmp/notes/vel".to_string(),
-                label: "vel".to_string(),
-                kind: "notes_root".to_string(),
-            },
-            secondary_repos: vec![],
-            secondary_notes_roots: vec![],
-            upstream_ids: Default::default(),
-            pending_provision: ProjectProvisionRequestData::default(),
-            created_at: OffsetDateTime::UNIX_EPOCH,
-            updated_at: OffsetDateTime::UNIX_EPOCH,
-            archived_at: None,
-        }
-    }
-
-    fn sample_commitment(id: &str, project: Option<&str>) -> CommitmentData {
-        CommitmentData {
-            id: CommitmentId::from(id.to_string()),
-            text: format!("commitment-{id}"),
-            source_type: "manual".to_string(),
-            source_id: None,
-            status: "open".to_string(),
-            due_at: None,
-            project: project.map(ToString::to_string),
-            commitment_kind: None,
-            created_at: OffsetDateTime::UNIX_EPOCH,
-            resolved_at: None,
-            scheduler_rules: CanonicalScheduleRulesData {
-                block_target: None,
-                duration_minutes: None,
-                calendar_free: false,
-                fixed_start: false,
-                time_window: None,
-                local_urgency: false,
-                local_defer: false,
-            },
-            metadata: json!({}),
-        }
-    }
+    use vel_core::{ActionItemId, PersonId};
 
     #[test]
     fn review_today_helpers_surface_phase5_counts() {
@@ -416,29 +278,6 @@ mod tests {
 
         assert_eq!(counts, (4, 2));
         assert_eq!(titles, vec!["Ship Phase 05", "Triage stale thread"]);
-    }
-
-    #[test]
-    fn review_week_candidates_prefer_typed_project_slug_before_alias() {
-        let projects = vec![
-            sample_project("proj_vel", "vel", "Vel Runtime"),
-            sample_project("proj_runtime", "runtime-core", "Runtime Core"),
-        ];
-        let commitments = vec![
-            sample_commitment("c1", Some("vel")),
-            sample_commitment("c2", Some("Vel Runtime")),
-            sample_commitment("c3", Some("runtime-core")),
-            sample_commitment("c4", Some("Runtime Core")),
-            sample_commitment("c5", Some("unknown-project")),
-        ];
-
-        let candidates = build_project_review_candidates(&projects, &commitments);
-
-        assert_eq!(candidates.len(), 2);
-        assert_eq!(candidates[0].slug, "runtime-core");
-        assert_eq!(candidates[0].open_commitment_count, 2);
-        assert_eq!(candidates[1].slug, "vel");
-        assert_eq!(candidates[1].open_commitment_count, 2);
     }
 
     #[test]

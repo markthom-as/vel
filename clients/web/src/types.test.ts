@@ -325,7 +325,7 @@ describe('transport decoders', () => {
   it('decodes thread rows with project metadata', () => {
     const data = decodeThreadData({
       id: 'thr_1',
-      thread_type: 'project_review',
+      thread_type: 'action_resolution',
       title: 'Vel review',
       status: 'open',
       planning_kind: null,
@@ -520,13 +520,13 @@ describe('transport decoders', () => {
 
   it('decodes action items with typed thread routing hints', () => {
     const item = decodeActionItemData({
-      id: 'act_project_review_1',
+      id: 'act_project_workflow_1',
       surface: 'now',
       kind: 'review',
       permission_mode: 'user_confirm',
       scope_affinity: 'project',
-      title: 'Review project Vel',
-      summary: 'Weekly review keeps the project anchored in Now and Inbox.',
+      title: 'Workflow follow-through for Vel',
+      summary: 'Track execution follow-through from project tasks.',
       project_id: 'proj_vel',
       project_label: 'Vel',
       project_family: 'work',
@@ -539,13 +539,13 @@ describe('transport decoders', () => {
         target: 'filtered_threads',
         label: 'Open related threads',
         thread_id: null,
-        thread_type: 'project_review',
+        thread_type: 'action_resolution',
         project_id: 'proj_vel',
       },
     })
 
     expect(item.thread_route?.target).toBe('filtered_threads')
-    expect(item.thread_route?.thread_type).toBe('project_review')
+    expect(item.thread_route?.thread_type).toBe('action_resolution')
     expect(item.thread_route?.project_id).toBe('proj_vel')
   })
 

@@ -93,7 +93,6 @@ pub async fn create_project(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProjectThreadPurpose {
     Provisioning,
-    Review,
 }
 
 pub fn project_thread_route(
@@ -104,10 +103,6 @@ pub fn project_thread_route(
         ProjectThreadPurpose::Provisioning => (
             "project_provisioning",
             format!("Open provisioning thread for {}", project.name),
-        ),
-        ProjectThreadPurpose::Review => (
-            "project_review",
-            format!("Open related threads for {}", project.name),
         ),
     };
 
@@ -257,9 +252,9 @@ mod tests {
             archived_at: None,
         };
 
-        let route = project_thread_route(&project, ProjectThreadPurpose::Review);
+        let route = project_thread_route(&project, ProjectThreadPurpose::Provisioning);
         assert_eq!(route.target, ActionThreadRouteTarget::FilteredThreads);
-        assert_eq!(route.thread_type.as_deref(), Some("project_review"));
+        assert_eq!(route.thread_type.as_deref(), Some("project_provisioning"));
         assert_eq!(route.project_id.as_ref(), Some(&project.id));
     }
 }

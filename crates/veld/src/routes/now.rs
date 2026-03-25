@@ -1367,7 +1367,7 @@ mod tests {
                     target: vel_core::ActionThreadRouteTarget::FilteredThreads,
                     label: "Open related threads".to_string(),
                     thread_id: None,
-                    thread_type: Some("project_review".to_string()),
+                    thread_type: Some("action_resolution".to_string()),
                     project_id: Some("proj_vel".to_string().into()),
                 }),
             }],

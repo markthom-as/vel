@@ -160,7 +160,7 @@ pub(crate) fn chat_tool_specs() -> Vec<ToolSpec> {
                     },
                     "thread_type": {
                         "type": "string",
-                        "description": "Optional thread type filter such as project_review, reflow_edit, or planning_execution."
+                        "description": "Optional thread type filter such as reflow_edit or planning_execution."
                     },
                     "limit": {
                         "type": "integer",
@@ -600,17 +600,17 @@ mod tests {
         let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         storage
-            .insert_thread(
-                "thr_review",
-                "project_review",
-                "Review thread",
-                "open",
-                "{}",
-            )
+            .insert_thread("thr_reflow", "reflow_edit", "Reflow edit", "open", "{}")
             .await
             .unwrap();
         storage
-            .insert_thread("thr_reflow", "reflow_edit", "Reflow edit", "open", "{}")
+            .insert_thread(
+                "thr_resolution",
+                "action_resolution",
+                "Resolution thread",
+                "open",
+                "{}",
+            )
             .await
             .unwrap();
         storage
@@ -630,6 +630,23 @@ mod tests {
             .unwrap();
 
         let state = test_state(storage);
+        let reflow = execute_chat_tool(
+            &state,
+            TOOL_LIST_THREADS,
+            &json!({
+                "status": "open",
+                "thread_type": "action_resolution",
+                "limit": 10,
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(reflow["threads"].as_array().unwrap().len(), 1);
+        assert_eq!(reflow["threads"][0]["id"], "thr_resolution");
+        assert_eq!(reflow["threads"][0]["thread_type"], "action_resolution");
+        assert_eq!(reflow["threads"][0]["title"], "Resolution thread");
+
         let value = execute_chat_tool(
             &state,
             TOOL_LIST_THREADS,

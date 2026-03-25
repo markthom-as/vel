@@ -288,7 +288,7 @@ cargo run -p vel-cli -- synthesize week
 cargo run -p vel-cli -- synthesize project vel
 ```
 
-Use the weekly pass to review Projects weekly, not just raw capture volume. The JSON review output now includes typed project candidates so you can see which workspaces still have open commitments attached.
+Use the weekly pass to review unresolved project follow-through, not just raw capture volume.
 The review JSON also reports `pending_writebacks`, `open_conflicts`, and `people_needing_review` so the operator can see whether writeback or contact follow-up is waiting on manual supervision.
 
 ## Inspection and trust

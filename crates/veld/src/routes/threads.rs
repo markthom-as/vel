@@ -258,8 +258,8 @@ mod tests {
         storage.migrate().await.unwrap();
         storage
             .insert_thread(
-                "thr_project_review_1",
-                "project_review",
+                "thr_action_resolution_1",
+                "action_resolution",
                 "Vel review",
                 "open",
                 r#"{"project_id":"proj_vel","project_label":"Vel"}"#,
@@ -267,13 +267,13 @@ mod tests {
             .await
             .unwrap();
         storage
-            .insert_thread_link("thr_project_review_1", "project", "proj_vel", "about")
+            .insert_thread_link("thr_action_resolution_1", "project", "proj_vel", "about")
             .await
             .unwrap();
         storage
             .insert_thread(
-                "thr_project_review_2",
-                "project_review",
+                "thr_action_resolution_2",
+                "action_resolution",
                 "Other review",
                 "open",
                 r#"{"project_id":"proj_other"}"#,
@@ -281,7 +281,7 @@ mod tests {
             .await
             .unwrap();
         storage
-            .insert_thread_link("thr_project_review_2", "project", "proj_other", "about")
+            .insert_thread_link("thr_action_resolution_2", "project", "proj_other", "about")
             .await
             .unwrap();
 
@@ -291,7 +291,7 @@ mod tests {
             Query(ListThreadsQuery {
                 status: Some("open".to_string()),
                 limit: Some(20),
-                thread_type: Some("project_review".to_string()),
+                thread_type: Some("action_resolution".to_string()),
                 project_id: Some("proj_vel".to_string()),
                 continuation_category: None,
             }),
@@ -301,7 +301,7 @@ mod tests {
 
         let data = response.data.expect("thread data");
         assert_eq!(data.len(), 1);
-        assert_eq!(data[0].id, "thr_project_review_1");
+        assert_eq!(data[0].id, "thr_action_resolution_1");
         assert_eq!(
             data[0].project_id.as_ref().map(|id| id.as_ref()),
             Some("proj_vel")

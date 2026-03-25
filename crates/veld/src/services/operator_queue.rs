@@ -21,7 +21,6 @@ const ASSISTANT_PROPOSAL_REVIEW_RANK: i64 = 79;
 const PROJECT_BLOCKED_RANK: i64 = 75;
 const WRITEBACK_PENDING_RANK: i64 = 72;
 const NEXT_COMMITMENT_RANK: i64 = 70;
-const PROJECT_REVIEW_RANK: i64 = 60;
 const SNOOZED_INTERVENTION_RANK: i64 = 40;
 
 fn task_kind_label(value: vel_core::ExecutionTaskKind) -> &'static str {
@@ -1022,36 +1021,9 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
         }
 
         if matches!(project.status, ProjectStatus::Active) {
-            items.push(ActionItem {
-                id: ActionItemId::from(format!("act_project_review_{}", project.id.as_ref())),
-                surface: ActionSurface::Now,
-                kind: ActionKind::Review,
-                permission_mode: ActionPermissionMode::UserConfirm,
-                scope_affinity: ActionScopeAffinity::Project,
-                title: format!("Review project {}", project.name),
-                summary: "Weekly review keeps the project anchored in Now and Inbox.".to_string(),
-                project_id: Some(project.id.clone()),
-                project_label: Some(project.name.clone()),
-                project_family: Some(project.family),
-                state: ActionState::Active,
-                rank: PROJECT_REVIEW_RANK,
-                surfaced_at: if project.updated_at > project.created_at {
-                    project.updated_at
-                } else {
-                    now
-                },
-                snoozed_until: None,
-                evidence: vec![ActionEvidenceRef {
-                    source_kind: "project".to_string(),
-                    source_id: project.id.as_ref().to_string(),
-                    label: project.name.clone(),
-                    detail: Some(format!("family={}", project.family)),
-                }],
-                thread_route: Some(project_thread_route(
-                    project,
-                    crate::services::projects::ProjectThreadPurpose::Review,
-                )),
-            });
+            // Project-workflow follow-through items are intentionally disabled.
+            // TODO: replace with a workflow-backed project-workflow surface when workflow surfaces
+            // are the canonical owner for this cadence.
         }
     }
 

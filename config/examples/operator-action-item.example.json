@@ -17,7 +17,7 @@
     "target": "filtered_threads",
     "label": "Open related threads",
     "thread_id": null,
-    "thread_type": "project_review",
+    "thread_type": "action_resolution",
     "project_id": "proj_nowinboxcore"
   },
   "available_actions": ["link_node", "dismiss", "snooze", "open_thread"],

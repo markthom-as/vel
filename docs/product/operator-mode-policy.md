@@ -171,9 +171,11 @@ Project-specific actions should generally remain project-specific rather than be
 
 Examples:
 
-- project review
+- project workflow cadence
 - project reflow
 - project status correction
+
+Project-workflow cadence is currently disabled in active operator queues while this lane is reworked. It should be turned into a workflow-owned cadence surface in the workflow migration phase so project follow-through stays explicit and attributable.
 
 Those may still surface through `Inbox` or `Threads` when relevant, but their semantic ownership can remain project-scoped.
 
