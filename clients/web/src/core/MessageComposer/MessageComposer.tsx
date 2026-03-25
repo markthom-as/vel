@@ -758,13 +758,13 @@ export function MessageComposer({
         <div
           role="menu"
           aria-label="Attachment types"
-          className="absolute bottom-full left-0 z-20 mb-2 min-w-[8rem] rounded-2xl border border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)]/95 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.45)] backdrop-blur"
+          className="absolute bottom-full left-0 z-20 mb-2 min-w-[8rem] rounded-lg border border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)]/95 p-0.5 shadow-[0_16px_50px_rgba(0,0,0,0.45)] backdrop-blur"
         >
           <button
             type="button"
             role="menuitem"
             onClick={() => selectIntent('task')}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-[8px] leading-none uppercase tracking-[0.12em] text-[var(--vel-color-text)] whitespace-nowrap transition hover:bg-white/5"
           >
             <ClipboardCheckIcon size={13} />
             <span>Task</span>
@@ -772,8 +772,17 @@ export function MessageComposer({
           <button
             type="button"
             role="menuitem"
+            onClick={() => selectIntent('reflection')}
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-[8px] leading-none uppercase tracking-[0.12em] text-[var(--vel-color-text)] whitespace-nowrap transition hover:bg-white/5"
+          >
+            <SyncIcon size={13} />
+            <span>Check-in</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
             onClick={() => fileInputRef.current?.click()}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-[8px] leading-none uppercase tracking-[0.12em] text-[var(--vel-color-text)] whitespace-nowrap transition hover:bg-white/5"
           >
             <FileIcon size={13} />
             <span>File</span>
@@ -782,7 +791,7 @@ export function MessageComposer({
             type="button"
             role="menuitem"
             onClick={() => imageInputRef.current?.click()}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-[8px] leading-none uppercase tracking-[0.12em] text-[var(--vel-color-text)] whitespace-nowrap transition hover:bg-white/5"
           >
             <ImageIcon size={13} />
             <span>Image</span>
@@ -873,10 +882,10 @@ export function MessageComposer({
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/88 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--vel-color-accent-soft)]"
               >
                 <ClipboardCheckIcon size={10} />
-                <span>{selectedIntent}</span>
+                <span>{selectedIntent === 'reflection' ? 'check-in' : selectedIntent}</span>
                 <button
                   type="button"
-                  aria-label={`Clear ${selectedIntent} intent`}
+                  aria-label={`Clear ${selectedIntent === 'reflection' ? 'check-in' : selectedIntent} intent`}
                   onClick={() => setSelectedIntent(null)}
                   className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-current/80 transition hover:bg-white/10 hover:text-[var(--vel-color-text)]"
                 >

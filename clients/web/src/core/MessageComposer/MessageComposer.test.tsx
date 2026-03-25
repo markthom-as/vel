@@ -503,6 +503,74 @@ describe('MessageComposer', () => {
     })
   })
 
+  it('allows explicit check-in intent from the add menu and sends reflection intent', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'threads',
+        entry_intent: 'reflection',
+        user_message: {
+          id: 'msg_checkin_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'Mood is steady today.' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_checkin_1' },
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    fireEvent.click(within(container).getByRole('button', { name: /add attachment/i }))
+    fireEvent.click(within(container).getByRole('menuitem', { name: /check-in/i }))
+    expect(within(container).getByText('check-in')).toBeInTheDocument()
+
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), { target: { value: 'Mood is steady today.' } })
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: 'Mood is steady today.',
+          conversation_id: 'conv_1',
+          intent: 'reflection',
+        },
+        expect.any(Function),
+      )
+    })
+    await waitFor(() => {
+      expect(onSent).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ entry_intent: 'reflection' }),
+        expect.objectContaining({
+          text: 'Mood is steady today.',
+          conversationId: 'conv_1',
+          intent: 'reflection',
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(within(container).queryByText('check-in')).not.toBeInTheDocument()
+    })
+  })
+
   it('detects a file path in composer text and forwards url intent', async () => {
     vi.mocked(api.apiPost).mockResolvedValue({
       ok: true,
