@@ -188,7 +188,7 @@ The queued `0.5.6` line should remain bounded by:
 - [x] **Phase 97: MVP scope lock and feedback-to-contract mapping** - convert `TODO.md` into explicit single-node MVP acceptance criteria without losing the operator’s exact wording.
 - [x] **Phase 98: Single-node truth and settings/integrations completion** - make the single-node runtime, settings, integrations, and chat seams truthful enough for real use.
 - [x] **Phase 99: Web surface polish and operator-flow completion** - finish the accepted web UI and interaction model across the three surfaces.
-- [ ] **Phase 100: MVP proof, audit, and milestone closeout** - prove the single-node MVP works end to end and close the line honestly.
+- [x] **Phase 100: MVP proof, audit, and milestone closeout** - prove the single-node MVP works end to end and close the line honestly. (completed 2026-03-25)
 
 ## Progress
 
@@ -199,7 +199,7 @@ The queued `0.5.6` line should remain bounded by:
 | 97. MVP scope lock and feedback-to-contract mapping | MVP-56-01, NOW-56-01, CHAT-56-01, SYSTEM-56-01, POLISH-56-01 | Complete |
 | 98. Single-node truth and settings/integrations completion | MVP-56-01, NOW-56-01, CHAT-56-01, SYSTEM-56-01 | Complete |
 | 99. Web surface polish and operator-flow completion | NOW-56-01, SYSTEM-56-01, POLISH-56-01 | Complete |
-| 100. MVP proof, audit, and milestone closeout | VERIFY-56-01 | In Progress |
+| 100. MVP proof, audit, and milestone closeout | VERIFY-56-01 | Complete |
 
 ## Phase Details
 
