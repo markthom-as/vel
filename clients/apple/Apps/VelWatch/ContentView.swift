@@ -1,5 +1,7 @@
 import AVFoundation
+#if canImport(Speech)
 import Speech
+#endif
 import SwiftUI
 import VelApplePlatform
 import VelApplication
@@ -273,29 +275,43 @@ private final class WatchVoiceCaptureModel: NSObject, ObservableObject {
     @Published var transcript = ""
     @Published var errorMessage: String?
 
+#if canImport(Speech)
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
-    private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+#endif
+    private let audioEngine = AVAudioEngine()
 
     func ensurePermissionsKnown() async {
+#if canImport(Speech)
         speechPermission = Self.mapSpeechPermission(SFSpeechRecognizer.authorizationStatus())
+#else
+        speechPermission = .denied
+#endif
         microphonePermission = Self.mapMicrophonePermission(AVAudioSession.sharedInstance().recordPermission)
     }
 
     func requestPermissions() async {
+#if canImport(Speech)
         let speechStatus = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status)
             }
         }
+#else
+        let speechStatus = WatchPermissionState.denied
+#endif
         let micGranted = await withCheckedContinuation { continuation in
             AVAudioSession.sharedInstance().requestRecordPermission { granted in
                 continuation.resume(returning: granted)
             }
         }
 
+#if canImport(Speech)
         speechPermission = Self.mapSpeechPermission(speechStatus)
+#else
+        speechPermission = speechStatus
+#endif
         microphonePermission = micGranted ? .granted : .denied
     }
 
@@ -316,6 +332,11 @@ private final class WatchVoiceCaptureModel: NSObject, ObservableObject {
         errorMessage = nil
         transcript = ""
 
+#if !canImport(Speech)
+        speechPermission = .denied
+        errorMessage = "Speech recognition is unavailable for this watch build."
+        return
+#else
         if speechPermission == .unknown || microphonePermission == .unknown {
             await requestPermissions()
         }
@@ -375,6 +396,7 @@ private final class WatchVoiceCaptureModel: NSObject, ObservableObject {
             errorMessage = "Failed to start voice capture. \(error.localizedDescription)"
             stopRecording(save: false)
         }
+#endif
     }
 
     private func stopRecording(save: Bool) {
@@ -383,10 +405,12 @@ private final class WatchVoiceCaptureModel: NSObject, ObservableObject {
             audioEngine.inputNode.removeTap(onBus: 0)
         }
 
+#if canImport(Speech)
         recognitionRequest?.endAudio()
         recognitionRequest = nil
         recognitionTask?.cancel()
         recognitionTask = nil
+#endif
         isRecording = false
 
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -396,6 +420,7 @@ private final class WatchVoiceCaptureModel: NSObject, ObservableObject {
         }
     }
 
+    #if canImport(Speech)
     private static func mapSpeechPermission(_ value: SFSpeechRecognizerAuthorizationStatus) -> WatchPermissionState {
         switch value {
         case .authorized:
@@ -408,6 +433,7 @@ private final class WatchVoiceCaptureModel: NSObject, ObservableObject {
             return .unknown
         }
     }
+    #endif
 
     private static func mapMicrophonePermission(_ value: AVAudioSession.RecordPermission) -> WatchPermissionState {
         switch value {
