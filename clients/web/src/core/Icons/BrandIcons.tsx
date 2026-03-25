@@ -74,3 +74,25 @@ export function IntegrationBrandIcon(props: IntegrationBrandIconProps) {
 export function OpenAiBrandIcon({ size = 18, className }: { size?: number; className?: string }) {
   return <SiOpenai size={size} className={className} aria-hidden />;
 }
+
+export function ZoomBrandIcon({ size = 16, className }: { size?: number; className?: string }) {
+  return <SiZoom size={size} className={className} aria-hidden />;
+}
+
+export function GoogleMeetBrandIcon({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden
+    >
+      <path d="M4.5 7.5a2 2 0 0 1 2-2h7.35l2.15 2.15V16.5a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-9Z" fill="#34A853" />
+      <path d="M16 9.2 20.4 6.6c.53-.31 1.2.07 1.2.69v9.42c0 .62-.67 1-1.2.69L16 14.8V9.2Z" fill="#4285F4" />
+      <path d="M13.85 5.5 16 7.65V9.2l-4.3-2.7 2.15-1Z" fill="#FBBC04" />
+      <path d="M11.7 6.5 16 9.2v5.6l-2.15 1-4.64-2.93a1.5 1.5 0 0 1 0-2.54L11.7 6.5Z" fill="#EA4335" />
+    </svg>
+  );
+}

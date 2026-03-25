@@ -285,7 +285,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         <aside
           className="hidden shrink-0 border-r border-[var(--vel-color-border)] lg:block w-full max-w-[20rem]"
         >
-          <div className="sticky top-0 flex min-h-[32rem] flex-col">
+          <div className="sticky top-[5.25rem] flex min-h-[32rem] flex-col">
             <div className="flex items-center justify-between border-b border-[var(--vel-color-border)] px-3 py-3">
               <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-muted)]`}>
                 <ThreadsIcon size={12} />
@@ -359,7 +359,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                   />
                 </div>
 
-                <div className="relative flex-1 overflow-y-auto">
+                <div className="relative flex-1 overflow-visible">
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-[var(--vel-color-bg)] to-transparent" />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-[var(--vel-color-bg)] to-transparent" />
                   {filteredConversations.length === 0 ? (

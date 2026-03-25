@@ -4,14 +4,47 @@ import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import {
   type AssistantEntryAttachmentData,
   type AssistantEntryResponse,
+  type NowDockedInputIntentData,
   type AssistantEntryVoiceProvenanceData,
 } from '../../types';
 import { cn } from '../cn';
-import { CloseIcon, FileIcon, ImageIcon, MicIcon, PlusIcon, SendArrowIcon } from '../Icons';
+import { ClipboardCheckIcon, CloseIcon, FileIcon, ImageIcon, MicIcon, PlusIcon, SendArrowIcon } from '../Icons';
 import { uiTheme } from '../Theme';
 
 /** Browser STT session cap — pie + auto-stop use this as the full ring. */
 const FLOATING_VOICE_MAX_MS = 120_000;
+
+function trimIntentToken(token: string): string {
+  return token.trim().replace(/^[('"`[{<]+|[)'"`}\].,;:!?]+$/g, '');
+}
+
+function looksLikeLocalPathToken(token: string): boolean {
+  if (!token || token.includes('://')) {
+    return false;
+  }
+  if (token.startsWith('/') || token.startsWith('./') || token.startsWith('../') || token.startsWith('~/')) {
+    return true;
+  }
+  if (!token.includes('/')) {
+    return false;
+  }
+  return /[A-Za-z]/.test(token);
+}
+
+function inferImplicitIntent(text: string): NowDockedInputIntentData | null {
+  const tokens = text
+    .split(/\s+/)
+    .map(trimIntentToken)
+    .filter(Boolean);
+  const hasUrlOrPath = tokens.some((token) =>
+    token.startsWith('http://')
+    || token.startsWith('https://')
+    || token.startsWith('www.')
+    || token.startsWith('file://')
+    || looksLikeLocalPathToken(token)
+  );
+  return hasUrlOrPath ? 'url' : null;
+}
 
 function formatVoiceClock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -89,6 +122,7 @@ type AttachmentDraft = {
 export interface SubmittedAssistantEntryPayload {
   text: string;
   conversationId: string | null;
+  intent: NowDockedInputIntentData | null;
   voice: AssistantEntryVoiceProvenanceData | null;
   attachments: AssistantEntryAttachmentData[] | null;
 }
@@ -121,9 +155,11 @@ export function MessageComposer({
   const [voiceLatched, setVoiceLatched] = useState(false);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [queuedAttachments, setQueuedAttachments] = useState<AttachmentDraft[]>([]);
+  const [selectedIntent, setSelectedIntent] = useState<NowDockedInputIntentData | null>(null);
   const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const appendVoiceTranscript = useCallback((transcript: string) => {
     setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
@@ -271,10 +307,12 @@ export function MessageComposer({
     if (!trimmed || sending || disabled) return;
     setError(null);
     setSending(true);
+    const intent = selectedIntent ?? inferImplicitIntent(trimmed);
     const clientMessageId = onOptimisticSend?.(trimmed);
     const submittedPayload: SubmittedAssistantEntryPayload = {
       text: trimmed,
       conversationId: conversationId ?? null,
+      intent,
       voice: pendingVoiceRef.current,
       attachments: attachmentPayload,
     };
@@ -283,13 +321,14 @@ export function MessageComposer({
         trimmed,
         conversationId,
         pendingVoiceRef.current,
-        null,
+        intent,
         attachmentPayload,
       );
       if (res.ok && res.data) {
         onSent(clientMessageId, res.data, submittedPayload);
         setText('');
         setQueuedAttachments([]);
+        setSelectedIntent(null);
         pendingVoiceRef.current = null;
         setPendingVoice(null);
         if (res.data.assistant_error) {
@@ -308,7 +347,7 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [mergedMessage, conversationId, sending, attachmentPayload, pendingVoice, onOptimisticSend, onSent, onSendFailed, disabled]);
+  }, [mergedMessage, conversationId, sending, attachmentPayload, onOptimisticSend, onSent, onSendFailed, disabled, selectedIntent]);
 
   const enqueueAttachments = useCallback((files: FileList | null, kind: AttachmentDraft['kind']) => {
     if (!files || files.length === 0) return;
@@ -326,6 +365,14 @@ export function MessageComposer({
 
   const removeQueuedAttachment = useCallback((id: string) => {
     setQueuedAttachments((current) => current.filter((attachment) => attachment.id !== id));
+  }, []);
+
+  const selectIntent = useCallback((intent: NowDockedInputIntentData) => {
+    setSelectedIntent(intent);
+    setAttachmentMenuOpen(false);
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -624,6 +671,15 @@ export function MessageComposer({
           <button
             type="button"
             role="menuitem"
+            onClick={() => selectIntent('task')}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
+          >
+            <ClipboardCheckIcon size={13} />
+            <span>Task</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
             onClick={() => fileInputRef.current?.click()}
             className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
           >
@@ -688,7 +744,24 @@ export function MessageComposer({
                 ))}
               </div>
             ) : null}
+            {selectedIntent ? (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/88 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--vel-color-accent-soft)]"
+              >
+                <ClipboardCheckIcon size={10} />
+                <span>{selectedIntent}</span>
+                <button
+                  type="button"
+                  aria-label={`Clear ${selectedIntent} intent`}
+                  onClick={() => setSelectedIntent(null)}
+                  className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-current/80 transition hover:bg-white/10 hover:text-[var(--vel-color-text)]"
+                >
+                  <CloseIcon size={10} />
+                </button>
+              </span>
+            ) : null}
             <textarea
+              ref={textareaRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}

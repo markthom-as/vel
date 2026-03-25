@@ -614,7 +614,8 @@ export interface IntegrationCalendarData {
   id: string;
   summary: string;
   primary: boolean;
-  selected: boolean;
+  sync_enabled: boolean;
+  display_enabled: boolean;
 }
 
 export interface IntegrationGuidanceData {
@@ -1497,13 +1498,23 @@ export interface NowSummaryData {
 }
 
 export interface NowEventData {
+  event_id: string | null;
+  calendar_id: string | null;
+  calendar_name: string | null;
   title: string;
   start_ts: UnixSeconds;
   end_ts: UnixSeconds | null;
+  event_url: string | null;
+  attachment_url: string | null;
   location: string | null;
+  notes: string | null;
+  attendees: string[];
+  video_url: string | null;
+  video_provider: string | null;
   prep_minutes: number | null;
   travel_minutes: number | null;
   leave_by_ts: UnixSeconds | null;
+  rescheduled: boolean;
 }
 
 export interface NowTaskData {
@@ -1523,6 +1534,7 @@ export interface NowScheduleData {
   empty_message: string | null;
   next_event: NowEventData | null;
   upcoming_events: NowEventData[];
+  following_day_events: NowEventData[];
 }
 
 export interface NowTasksData {
@@ -1621,6 +1633,8 @@ export interface NowData {
   context_line?: NowContextLineData | null;
   nudge_bars: NowNudgeBarData[];
   task_lane?: NowTaskLaneData | null;
+  next_up_items: NowNextUpItemData[];
+  progress: NowProgressData;
   docked_input?: NowDockedInputData | null;
   overview: NowOverviewData;
   summary: NowSummaryData;
@@ -1773,8 +1787,26 @@ export interface NowTaskLaneData {
   overflow_count: number;
 }
 
+export interface NowNextUpItemData {
+  kind: NowTaskKindData;
+  id: string;
+  title: string;
+  meta?: string | null;
+  detail?: string | null;
+  task?: NowTaskLaneItemData | null;
+}
+
+export interface NowProgressData {
+  base_count: number;
+  completed_count: number;
+  backlog_count: number;
+  completed_ratio: number;
+  backlog_ratio: number;
+}
+
 export type NowDockedInputIntentData =
   | 'task'
+  | 'url'
   | 'question'
   | 'note'
   | 'command'
@@ -3902,13 +3934,23 @@ export function decodeNowRiskSummaryData(value: unknown): NowRiskSummaryData {
 export function decodeNowEventData(value: unknown): NowEventData {
   const record = expectRecord(value, 'now event');
   return {
+    event_id: expectNullableString(record.event_id ?? null, 'now event.event_id'),
+    calendar_id: expectNullableString(record.calendar_id ?? null, 'now event.calendar_id'),
+    calendar_name: expectNullableString(record.calendar_name ?? null, 'now event.calendar_name'),
     title: expectString(record.title, 'now event.title'),
     start_ts: expectUnixSeconds(record.start_ts, 'now event.start_ts'),
     end_ts: expectNullableUnixSeconds(record.end_ts, 'now event.end_ts'),
+    event_url: expectNullableString(record.event_url ?? null, 'now event.event_url'),
+    attachment_url: expectNullableString(record.attachment_url ?? null, 'now event.attachment_url'),
     location: expectNullableString(record.location, 'now event.location'),
+    notes: expectNullableString(record.notes ?? null, 'now event.notes'),
+    attendees: decodeArray(record.attendees ?? [], (item) => expectString(item, 'now event.attendees[]')),
+    video_url: expectNullableString(record.video_url ?? null, 'now event.video_url'),
+    video_provider: expectNullableString(record.video_provider ?? null, 'now event.video_provider'),
     prep_minutes: expectNullableNumber(record.prep_minutes, 'now event.prep_minutes'),
     travel_minutes: expectNullableNumber(record.travel_minutes, 'now event.travel_minutes'),
     leave_by_ts: expectNullableUnixSeconds(record.leave_by_ts, 'now event.leave_by_ts'),
+    rescheduled: expectBoolean(record.rescheduled ?? false, 'now event.rescheduled'),
   };
 }
 
@@ -4209,6 +4251,18 @@ function decodeNowTaskLaneData(value: unknown): NowTaskLaneData {
   };
 }
 
+function decodeNowNextUpItemData(value: unknown): NowNextUpItemData {
+  const record = expectRecord(value, 'now next up item');
+  return {
+    kind: decodeNowTaskKindData(record.kind),
+    id: expectString(record.id, 'now next up item.id'),
+    title: expectString(record.title, 'now next up item.title'),
+    meta: expectNullableString(record.meta ?? null, 'now next up item.meta'),
+    detail: expectNullableString(record.detail ?? null, 'now next up item.detail'),
+    task: decodeNullable(record.task ?? null, decodeNowTaskLaneItemData),
+  };
+}
+
 function decodeWebSettingsData(value: unknown): WebSettingsData {
   const record = expectRecord(value, 'web settings');
   return {
@@ -4244,6 +4298,7 @@ function decodeCoreSettingsData(value: unknown): CoreSettingsData {
 function decodeNowDockedInputIntentData(value: unknown): NowDockedInputIntentData {
   return expectEnumString(value, 'now docked input intent', [
     'task',
+    'url',
     'question',
     'note',
     'command',
@@ -4305,6 +4360,26 @@ export function decodeNowData(value: unknown): NowData {
       record.task_lane === undefined
         ? undefined
         : decodeNullable(record.task_lane, decodeNowTaskLaneData),
+    next_up_items: decodeArray(record.next_up_items ?? [], decodeNowNextUpItemData),
+    progress: {
+      base_count: expectNumber(record.progress?.base_count ?? 1, 'now data.progress.base_count'),
+      completed_count: expectNumber(
+        record.progress?.completed_count ?? 0,
+        'now data.progress.completed_count',
+      ),
+      backlog_count: expectNumber(
+        record.progress?.backlog_count ?? 0,
+        'now data.progress.backlog_count',
+      ),
+      completed_ratio: expectNumber(
+        record.progress?.completed_ratio ?? 0,
+        'now data.progress.completed_ratio',
+      ),
+      backlog_ratio: expectNumber(
+        record.progress?.backlog_ratio ?? 0,
+        'now data.progress.backlog_ratio',
+      ),
+    },
     docked_input:
       record.docked_input === undefined
         ? undefined
@@ -4342,6 +4417,7 @@ export function decodeNowData(value: unknown): NowData {
       empty_message: expectNullableString(schedule.empty_message, 'now data.schedule.empty_message'),
       next_event: decodeNullable(schedule.next_event, decodeNowEventData),
       upcoming_events: decodeArray(schedule.upcoming_events ?? [], decodeNowEventData),
+      following_day_events: decodeArray(schedule.following_day_events ?? [], decodeNowEventData),
     },
     tasks: {
       todoist: decodeArray(tasks.todoist ?? [], decodeNowTaskData),
@@ -5046,11 +5122,21 @@ export function decodeSettingsData(value: unknown): SettingsData {
 
 export function decodeIntegrationCalendarData(value: unknown): IntegrationCalendarData {
   const record = expectRecord(value, 'integration calendar');
+  const legacySelected = record.selected === undefined
+    ? undefined
+    : expectBoolean(record.selected, 'integration calendar.selected');
+  const syncEnabled = record.sync_enabled === undefined
+    ? legacySelected
+    : expectBoolean(record.sync_enabled, 'integration calendar.sync_enabled');
   return {
     id: expectString(record.id, 'integration calendar.id'),
     summary: expectString(record.summary, 'integration calendar.summary'),
     primary: expectBoolean(record.primary, 'integration calendar.primary'),
-    selected: expectBoolean(record.selected, 'integration calendar.selected'),
+    sync_enabled: syncEnabled ?? true,
+    display_enabled:
+      record.display_enabled === undefined
+        ? (syncEnabled ?? true)
+        : expectBoolean(record.display_enabled, 'integration calendar.display_enabled'),
   };
 }
 

@@ -5,17 +5,19 @@ use time::OffsetDateTime;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
-    DayPlanProposalData, NowAttentionData, NowContextLineData, NowCountDisplayModeData, NowData,
-    NowDebugData, NowDockedInputData, NowDockedInputIntentData, NowEventData, NowFreshnessData,
-    NowFreshnessEntryData, NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData,
-    NowLabelData, NowMeshSummaryData, NowMeshSyncStateData, NowNudgeActionData, NowNudgeBarData,
+    DayPlanProposalData, NowAttentionData, NowCalendarEventRescheduleRequestData,
+    NowContextLineData, NowCountDisplayModeData, NowData, NowDebugData, NowDockedInputData,
+    NowDockedInputIntentData, NowEventData, NowFreshnessData, NowFreshnessEntryData,
+    NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData, NowLabelData, NowMeshSummaryData,
+    NowMeshSyncStateData, NowNextUpItemData, NowNudgeActionData, NowNudgeBarData,
     NowNudgeBarKindData, NowOverviewActionData, NowOverviewData, NowOverviewNudgeData,
     NowOverviewSuggestionData, NowOverviewTimelineEntryData, NowOverviewWhyStateData,
-    NowRepairRouteData, NowRepairRouteTargetData, NowRiskSummaryData, NowScheduleData,
-    NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData, NowTaskData,
-    NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData, NowTasksData, NowThreadFilterTargetData,
-    PlanningProfileProposalSummaryData, PlanningProfileProposalSummaryItemData, ReflowCardData,
-    TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
+    NowProgressData, NowRepairRouteData, NowRepairRouteTargetData, NowRiskSummaryData,
+    NowScheduleData, NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData,
+    NowTaskData, NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData, NowTasksData,
+    NowThreadFilterTargetData, PlanningProfileProposalSummaryData,
+    PlanningProfileProposalSummaryItemData, ReflowCardData, TrustReadinessData,
+    TrustReadinessFacetData, TrustReadinessReviewData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -159,6 +161,21 @@ pub async fn reschedule_now_tasks_to_today(
     Ok(response::success(data.into()))
 }
 
+pub async fn reschedule_now_calendar_event(
+    State(state): State<AppState>,
+    Json(payload): Json<NowCalendarEventRescheduleRequestData>,
+) -> Result<Json<ApiResponse<NowData>>, AppError> {
+    let data = services::now::reschedule_calendar_event(
+        &state,
+        &payload.event_id,
+        payload.calendar_id.as_deref(),
+        payload.start_ts,
+        payload.end_ts,
+    )
+    .await?;
+    Ok(response::success(data.into()))
+}
+
 fn remove_commitment_from_all_lanes(context: &mut vel_core::CurrentContextV1, commitment_id: &str) {
     context
         .task_lanes
@@ -217,6 +234,8 @@ impl From<services::now::NowOutput> for NowData {
             context_line: value.context_line.map(Into::into),
             nudge_bars: value.nudge_bars.into_iter().map(Into::into).collect(),
             task_lane: value.task_lane.map(Into::into),
+            next_up_items: value.next_up_items.into_iter().map(Into::into).collect(),
+            progress: value.progress.into(),
             docked_input: value.docked_input.map(Into::into),
             overview: value.overview.into(),
             summary: value.summary.into(),
@@ -448,6 +467,7 @@ impl From<services::now::NowDockedInputOutput> for NowDockedInputData {
                 .into_iter()
                 .map(|intent| match intent.as_str() {
                     "task" => NowDockedInputIntentData::Task,
+                    "url" => NowDockedInputIntentData::Url,
                     "question" => NowDockedInputIntentData::Question,
                     "note" => NowDockedInputIntentData::Note,
                     "command" => NowDockedInputIntentData::Command,
@@ -617,6 +637,11 @@ impl From<services::now::NowScheduleOutput> for NowScheduleData {
             empty_message: value.empty_message,
             next_event: value.next_event.map(Into::into),
             upcoming_events: value.upcoming_events.into_iter().map(Into::into).collect(),
+            following_day_events: value
+                .following_day_events
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         }
     }
 }
@@ -624,13 +649,52 @@ impl From<services::now::NowScheduleOutput> for NowScheduleData {
 impl From<services::now::NowEventOutput> for NowEventData {
     fn from(value: services::now::NowEventOutput) -> Self {
         Self {
+            event_id: value.event_id,
+            calendar_id: value.calendar_id,
+            calendar_name: value.calendar_name,
             title: value.title,
             start_ts: value.start_ts,
             end_ts: value.end_ts,
+            event_url: value.event_url,
+            attachment_url: value.attachment_url,
             location: value.location,
+            notes: value.notes,
+            attendees: value.attendees,
+            video_url: value.video_url,
+            video_provider: value.video_provider,
             prep_minutes: value.prep_minutes,
             travel_minutes: value.travel_minutes,
             leave_by_ts: value.leave_by_ts,
+            rescheduled: value.rescheduled,
+        }
+    }
+}
+
+impl From<services::now::NowNextUpItemOutput> for NowNextUpItemData {
+    fn from(value: services::now::NowNextUpItemOutput) -> Self {
+        Self {
+            kind: match value.kind.as_str() {
+                "event" => NowTaskKindData::Event,
+                "task" => NowTaskKindData::Task,
+                _ => NowTaskKindData::Commitment,
+            },
+            id: value.id,
+            title: value.title,
+            meta: value.meta,
+            detail: value.detail,
+            task: value.task.map(Into::into),
+        }
+    }
+}
+
+impl From<services::now::NowProgressOutput> for NowProgressData {
+    fn from(value: services::now::NowProgressOutput) -> Self {
+        Self {
+            base_count: value.base_count,
+            completed_count: value.completed_count,
+            backlog_count: value.backlog_count,
+            completed_ratio: value.completed_ratio,
+            backlog_ratio: value.backlog_ratio,
         }
     }
 }
@@ -874,9 +938,18 @@ mod tests {
                 recent_completed: Vec::new(),
                 overflow_count: 0,
             }),
+            next_up_items: Vec::new(),
+            progress: services::now::NowProgressOutput {
+                base_count: 1,
+                completed_count: 0,
+                backlog_count: 0,
+                completed_ratio: 0.0,
+                backlog_ratio: 0.0,
+            },
             docked_input: Some(services::now::NowDockedInputOutput {
                 supported_intents: vec![
                     "task".to_string(),
+                    "url".to_string(),
                     "question".to_string(),
                     "note".to_string(),
                     "command".to_string(),
@@ -940,18 +1013,30 @@ mod tests {
             schedule: services::now::NowScheduleOutput {
                 empty_message: None,
                 next_event: Some(services::now::NowEventOutput {
+                    event_id: Some("evt_standup".to_string()),
+                    calendar_id: Some("cal_primary".to_string()),
+                    calendar_name: Some("Primary".to_string()),
                     title: "Standup".to_string(),
                     start_ts: 1_700_000_400,
                     end_ts: Some(1_700_000_700),
                     all_day: false,
+                    event_url: Some("https://calendar.google.com/calendar/event?eid=evt_standup"
+                        .to_string()),
+                    attachment_url: Some("https://docs.google.com/document/d/standup-notes".to_string()),
                     location: Some("Desk".to_string()),
+                    notes: Some("Review blockers before the call.".to_string()),
+                    attendees: vec!["alex@example.com".to_string(), "sam@example.com".to_string()],
+                    video_url: Some("https://meet.google.com/abc-defg-hij".to_string()),
+                    video_provider: Some("google_meet".to_string()),
                     status: Some("confirmed".to_string()),
                     transparency: Some("opaque".to_string()),
                     response_status: Some("accepted".to_string()),
                     prep_minutes: Some(10),
                     travel_minutes: Some(5),
                     leave_by_ts: Some(1_700_000_100),
+                    rescheduled: false,
                 }),
+                following_day_events: vec![],
                 upcoming_events: vec![],
             },
             tasks: services::now::NowTasksOutput {
@@ -1319,7 +1404,7 @@ mod tests {
         assert_eq!(json["context_line"]["fallback_used"], true);
         assert_eq!(json["nudge_bars"][0]["kind"], "needs_input");
         assert_eq!(json["task_lane"]["active"]["task_kind"], "commitment");
-        assert_eq!(json["docked_input"]["supported_intents"][3], "command");
+        assert_eq!(json["docked_input"]["supported_intents"][4], "command");
         assert_eq!(json["overview"]["dominant_action"]["kind"], "check_in");
         assert_eq!(json["overview"]["decision_options"][2], "thread");
         assert_eq!(json["summary"]["risk"]["label"], "low · 20%");

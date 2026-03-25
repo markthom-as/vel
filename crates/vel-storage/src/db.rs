@@ -1226,6 +1226,17 @@ impl Storage {
         signals_repo::list_signals(self.pool(), signal_type, since_ts, limit).await
     }
 
+    pub async fn list_signals_in_window(
+        &self,
+        signal_type: Option<&str>,
+        start_ts: i64,
+        end_ts: i64,
+        limit: u32,
+    ) -> Result<Vec<SignalRecord>, StorageError> {
+        signals_repo::list_signals_in_window(self.pool(), signal_type, start_ts, end_ts, limit)
+            .await
+    }
+
     pub async fn list_signals_by_ids(
         &self,
         signal_ids: &[String],

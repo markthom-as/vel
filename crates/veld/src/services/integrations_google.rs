@@ -145,6 +145,12 @@ pub(crate) async fn sync_google_calendar(
             };
             let all_day = event_is_all_day(&event);
             let response_status = event_self_response_status(&event).unwrap_or_default();
+            let video_url = extract_video_url(&event);
+            let video_provider = video_url
+                .as_deref()
+                .and_then(detect_video_provider)
+                .map(str::to_string);
+            let attachment_url = extract_attachment_url(&event);
             let source_ref = format!(
                 "google_calendar:{}:{}:{}",
                 calendar.id,
@@ -165,6 +171,9 @@ pub(crate) async fn sync_google_calendar(
                 "transparency": event.transparency.clone().unwrap_or_default(),
                 "response_status": response_status,
                 "url": event.html_link.unwrap_or_default(),
+                "video_url": video_url.unwrap_or_default(),
+                "video_provider": video_provider.unwrap_or_default(),
+                "attachment_url": attachment_url.unwrap_or_default(),
                 "attendees": event.attendees.unwrap_or_default().into_iter().filter_map(|item| item.email.or(item.display_name)).collect::<Vec<_>>(),
                 "prep_minutes": 15,
                 "travel_minutes": 0
@@ -231,7 +240,9 @@ async fn list_google_calendars_with_token(
             id: item.id,
             summary: item.summary,
             primary: item.primary.unwrap_or(false),
-            selected: true,
+            sync_enabled: true,
+            display_enabled: true,
+            legacy_selected: None,
         }));
 
         match response.next_page_token {
@@ -342,15 +353,21 @@ fn merge_calendar_selection(
     existing: Vec<StoredCalendar>,
     latest: Vec<StoredCalendar>,
 ) -> Vec<StoredCalendar> {
-    let selected_by_id = existing
+    let settings_by_id = existing
         .into_iter()
-        .map(|calendar| (calendar.id, calendar.selected))
+        .map(|calendar| {
+            (
+                calendar.id,
+                (calendar.sync_enabled, calendar.display_enabled),
+            )
+        })
         .collect::<std::collections::HashMap<_, _>>();
     latest
         .into_iter()
         .map(|mut calendar| {
-            if let Some(selected) = selected_by_id.get(&calendar.id) {
-                calendar.selected = *selected;
+            if let Some((sync_enabled, display_enabled)) = settings_by_id.get(&calendar.id) {
+                calendar.sync_enabled = *sync_enabled;
+                calendar.display_enabled = *display_enabled && *sync_enabled;
             }
             calendar
         })
@@ -364,7 +381,7 @@ fn selected_calendars(settings: &GoogleCalendarSettings) -> Vec<StoredCalendar> 
     settings
         .calendars
         .iter()
-        .filter(|calendar| calendar.selected)
+        .filter(|calendar| calendar.sync_enabled)
         .cloned()
         .collect()
 }
@@ -493,6 +510,8 @@ struct GoogleCalendarEvent {
     transparency: Option<String>,
     #[serde(default, rename = "htmlLink")]
     html_link: Option<String>,
+    #[serde(default, rename = "hangoutLink")]
+    hangout_link: Option<String>,
     #[serde(default)]
     attendees: Option<Vec<GoogleEventAttendee>>,
     start: Option<GoogleEventDateTime>,
@@ -517,4 +536,53 @@ struct GoogleEventAttendee {
     response_status: Option<String>,
     #[serde(default, rename = "self")]
     self_attendee: Option<bool>,
+}
+
+fn detect_video_provider(url: &str) -> Option<&'static str> {
+    let normalized = url.trim().to_ascii_lowercase();
+    if normalized.contains("meet.google.com") {
+        Some("google_meet")
+    } else if normalized.contains("zoom.us") {
+        Some("zoom")
+    } else {
+        None
+    }
+}
+
+fn extract_video_url(event: &GoogleCalendarEvent) -> Option<String> {
+    let candidates = [
+        event.hangout_link.as_deref(),
+        event.description.as_deref(),
+        event.location.as_deref(),
+    ];
+    for candidate in candidates.into_iter().flatten() {
+        for token in candidate.split_whitespace() {
+            let cleaned = token
+                .trim_matches(|character: char| matches!(character, '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.'));
+            if cleaned.starts_with("https://") || cleaned.starts_with("http://") {
+                if detect_video_provider(cleaned).is_some() {
+                    return Some(cleaned.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_attachment_url(event: &GoogleCalendarEvent) -> Option<String> {
+    let candidates = [event.description.as_deref(), event.location.as_deref()];
+    for candidate in candidates.into_iter().flatten() {
+        for token in candidate.split_whitespace() {
+            let cleaned = token
+                .trim_matches(|character: char| matches!(character, '(' | ')' | '[' | ']' | '<' | '>' | ',' | '.'));
+            if !(cleaned.starts_with("https://") || cleaned.starts_with("http://")) {
+                continue;
+            }
+            if detect_video_provider(cleaned).is_some() {
+                continue;
+            }
+            return Some(cleaned.to_string());
+        }
+    }
+    None
 }

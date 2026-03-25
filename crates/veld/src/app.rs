@@ -218,6 +218,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::now::reschedule_now_tasks_to_today),
         )
         .route(
+            "/v1/now/calendar-events/reschedule",
+            post(routes::now::reschedule_now_calendar_event),
+        )
+        .route(
             "/v1/commitment-scheduling/proposals/:id/apply",
             post(routes::commitment_scheduling::apply_commitment_scheduling_proposal),
         )
@@ -9708,7 +9712,8 @@ END:VCALENDAR
                             "id": "cal_1",
                             "summary": "Personal",
                             "primary": true,
-                            "selected": false
+                            "sync_enabled": false,
+                            "display_enabled": false
                         }
                     ],
                     "all_calendars_selected": false,
@@ -10343,8 +10348,8 @@ END:VCALENDAR
                 &serde_json::json!({
                     "client_id": "gcal-client",
                     "calendars": [
-                        { "id": "cal_a", "summary": "Primary", "primary": true, "selected": true },
-                        { "id": "cal_b", "summary": "Work", "primary": false, "selected": false }
+                        { "id": "cal_a", "summary": "Primary", "primary": true, "sync_enabled": true, "display_enabled": true },
+                        { "id": "cal_b", "summary": "Work", "primary": false, "sync_enabled": false, "display_enabled": false }
                     ],
                     "all_calendars_selected": false
                 }),
@@ -10393,8 +10398,10 @@ END:VCALENDAR
         let calendars = patch_json["data"]["google_calendar"]["calendars"]
             .as_array()
             .expect("calendars should be an array");
-        assert_eq!(calendars[0]["selected"], false);
-        assert_eq!(calendars[1]["selected"], true);
+        assert_eq!(calendars[0]["sync_enabled"], false);
+        assert_eq!(calendars[0]["display_enabled"], false);
+        assert_eq!(calendars[1]["sync_enabled"], true);
+        assert_eq!(calendars[1]["display_enabled"], false);
         assert_eq!(
             patch_json["data"]["google_calendar"]["all_calendars_selected"],
             false
@@ -10431,7 +10438,8 @@ END:VCALENDAR
         let calendars = disconnect_json["data"]["google_calendar"]["calendars"]
             .as_array()
             .expect("calendars should be an array");
-        assert_eq!(calendars[1]["selected"], true);
+        assert_eq!(calendars[1]["sync_enabled"], true);
+        assert_eq!(calendars[1]["display_enabled"], false);
     }
 
     #[tokio::test]
@@ -11918,7 +11926,8 @@ END:VCALENDAR
                             "id": "cal_1",
                             "summary": "Personal",
                             "primary": true,
-                            "selected": false
+                            "sync_enabled": false,
+                            "display_enabled": false
                         }
                     ],
                     "all_calendars_selected": false,
@@ -12014,7 +12023,7 @@ END:VCALENDAR
     }
 
     #[tokio::test]
-    async fn now_endpoint_filters_calendar_noise_and_uses_next_future_event() {
+    async fn now_endpoint_keeps_all_day_events_first_filters_noise_and_uses_next_future_event() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
@@ -12152,7 +12161,11 @@ END:VCALENDAR
             .collect::<Vec<_>>();
         assert_eq!(
             titles,
-            vec!["Working session".to_string(), "Design review".to_string()]
+            vec![
+                "All day note".to_string(),
+                "Working session".to_string(),
+                "Design review".to_string(),
+            ]
         );
         assert_eq!(
             json["data"]["schedule"]["next_event"]["title"],

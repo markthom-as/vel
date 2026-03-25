@@ -40,7 +40,12 @@ pub async fn derive_current_day_plan(
         .list_commitments(Some(CommitmentStatus::Open), None, None, 128)
         .await?;
     let events = storage
-        .list_signals(Some("calendar_event"), Some(current_day.start_ts), 64)
+        .list_signals_in_window(
+            Some("calendar_event"),
+            current_day.start_ts,
+            current_day.end_ts,
+            64,
+        )
         .await?
         .into_iter()
         .filter(|signal| signal_overlaps_current_day(signal, &current_day))

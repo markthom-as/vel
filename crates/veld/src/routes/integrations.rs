@@ -28,7 +28,8 @@ use crate::{
         integrations,
         legacy_compat::deprecated_write_path_error,
         todoist_write_bridge::{
-            bridge_todoist_write, TodoistWriteBridgeOutcome, TodoistWriteBridgeRequest,
+            bridge_todoist_write_with_services, TodoistWriteBridgeOutcome,
+            TodoistWriteBridgeRequest,
         },
     },
     state::AppState,
@@ -189,7 +190,8 @@ impl From<integrations::IntegrationCalendarOutput> for IntegrationCalendarData {
             id: value.id,
             summary: value.summary,
             primary: value.primary,
-            selected: value.selected,
+            sync_enabled: value.sync_enabled,
+            display_enabled: value.display_enabled,
         }
     }
 }
@@ -401,6 +403,14 @@ pub struct GoogleCalendarUpdateRequest {
     pub client_secret: Option<String>,
     pub selected_calendar_ids: Option<Vec<String>>,
     pub all_calendars_selected: Option<bool>,
+    pub calendar_settings: Option<Vec<GoogleCalendarCalendarSettingsPatchRequest>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GoogleCalendarCalendarSettingsPatchRequest {
+    pub id: String,
+    pub sync_enabled: Option<bool>,
+    pub display_enabled: Option<bool>,
 }
 
 pub async fn patch_google_calendar(
@@ -413,6 +423,16 @@ pub async fn patch_google_calendar(
         payload.client_secret,
         payload.selected_calendar_ids,
         payload.all_calendars_selected,
+        payload.calendar_settings.map(|patches| {
+            patches
+                .into_iter()
+                .map(|patch| integrations::StoredCalendarPatch {
+                    id: patch.id,
+                    sync_enabled: patch.sync_enabled,
+                    display_enabled: patch.display_enabled,
+                })
+                .collect()
+        }),
     )
     .await?;
     let data: IntegrationsData =
@@ -696,8 +716,9 @@ pub async fn todoist_write_intent(
 ) -> Result<Json<ApiResponse<CanonicalTodoistWriteIntentResponseData>>, AppError> {
     let dry_run = payload.dry_run;
     let requested_change = payload.requested_change.clone();
-    let outcome = bridge_todoist_write(
-        state.storage.sql_pool(),
+    let outcome = bridge_todoist_write_with_services(
+        &state.storage,
+        &state.config,
         &TodoistWriteBridgeRequest {
             object_id: payload.object_id,
             revision: payload.revision,

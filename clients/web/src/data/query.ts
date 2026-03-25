@@ -157,7 +157,7 @@ export function useQuery<T>(
     const entry = getEntryBySerialized<T>(serializedKey);
     entry.fetcher = fetcher;
     if (!entry.hasLoaded || entry.stale) {
-      void runFetch(key, fetcher, false);
+      void runFetch(key, fetcher, false).catch(() => undefined);
     }
   }, [enabled, fetcher, key, serializedKey]);
 
@@ -227,7 +227,7 @@ export function invalidateQuery(key: QueryKey, options: { refetch?: boolean } = 
   }
 
   if (options.refetch && entry.fetcher && entry.listeners.size > 0) {
-    void runFetch(key, entry.fetcher, true);
+    void runFetch(key, entry.fetcher, true).catch(() => undefined);
   }
 }
 

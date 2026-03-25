@@ -145,10 +145,10 @@ pub async fn run_at(
 ) -> Result<usize, crate::errors::AppError> {
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
     let now_ts = now.unix_timestamp();
-    let start_of_today = crate::services::timezone::start_of_local_day_timestamp(&timezone, now)?;
+    let current_day = crate::services::timezone::current_day_window(&timezone, now)?;
     let adaptive_overrides = crate::services::adaptive_policies::load(storage).await?;
 
-    let inputs = collect_inputs(storage, start_of_today).await?;
+    let inputs = collect_inputs(storage, current_day.start_ts, current_day.end_ts).await?;
     let InferenceInputs {
         open_commitments,
         medication_commitments,
@@ -470,7 +470,11 @@ fn derive_inference_state(
 async fn collect_inputs(
     storage: &Storage,
     start_of_today: i64,
+    end_of_today: i64,
 ) -> Result<InferenceInputs, crate::errors::AppError> {
+    let signals_today = storage
+        .list_signals_in_window(None, start_of_today, end_of_today, 2000)
+        .await?;
     Ok(InferenceInputs {
         open_commitments: storage
             .list_commitments(Some(CommitmentStatus::Open), None, None, 200)
@@ -478,9 +482,7 @@ async fn collect_inputs(
         medication_commitments: storage
             .list_commitments(None, None, Some("medication"), 100)
             .await?,
-        signals_today: storage
-            .list_signals(None, Some(start_of_today), 500)
-            .await?,
+        signals_today,
         active_nudges: storage.list_nudges(Some("active"), 50).await?,
         snoozed_nudges: storage.list_nudges(Some("snoozed"), 50).await?,
         risk_snapshots: crate::services::risk::list_latest_snapshots(storage)
@@ -1590,6 +1592,132 @@ mod tests {
         assert!(windows.commute_window_active);
         assert_eq!(windows.next_event_start_ts, Some(event_ts));
         assert_eq!(windows.leave_by_ts, Some(event_ts - 20 * 60));
+    }
+
+    #[tokio::test]
+    async fn run_at_ignores_future_calendar_events_outside_current_day_window() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+
+        let now = time::macros::datetime!(2026-03-24 18:30:00 UTC);
+        let current_day = crate::services::timezone::current_day_window(
+            &crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap(),
+            now,
+        )
+        .unwrap();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: None,
+                timestamp: current_day.start_ts + (10 * 60 * 60),
+                payload_json: Some(json!({
+                    "title": "Today event",
+                    "start": current_day.start_ts + (10 * 60 * 60),
+                    "end": current_day.start_ts + (11 * 60 * 60),
+                    "status": "confirmed",
+                    "transparency": "opaque",
+                    "response_status": "accepted",
+                    "all_day": false
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: None,
+                timestamp: current_day.end_ts + (120 * 24 * 60 * 60),
+                payload_json: Some(json!({
+                    "title": "Far future event",
+                    "start": current_day.end_ts + (120 * 24 * 60 * 60),
+                    "end": current_day.end_ts + (120 * 24 * 60 * 60) + 3600,
+                    "status": "confirmed",
+                    "transparency": "opaque",
+                    "response_status": "accepted",
+                    "all_day": false
+                })),
+            })
+            .await
+            .unwrap();
+
+        run_at(&storage, now).await.unwrap();
+
+        let (_, context) = storage.get_current_context().await.unwrap().unwrap();
+        assert_eq!(
+            context.next_event_start_ts,
+            Some(current_day.start_ts + (10 * 60 * 60))
+        );
+    }
+
+    #[tokio::test]
+    async fn run_at_keeps_today_event_when_future_events_exceed_query_limit() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+
+        let now = time::macros::datetime!(2026-03-24 18:30:00 UTC);
+        let current_day = crate::services::timezone::current_day_window(
+            &crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap(),
+            now,
+        )
+        .unwrap();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("today-event".to_string()),
+                timestamp: current_day.start_ts + (10 * 60 * 60),
+                payload_json: Some(json!({
+                    "title": "Today event",
+                    "calendar_id": "primary",
+                    "start": current_day.start_ts + (10 * 60 * 60),
+                    "end": current_day.start_ts + (11 * 60 * 60),
+                    "status": "confirmed",
+                    "all_day": false
+                })),
+            })
+            .await
+            .unwrap();
+
+        for index in 0..2200 {
+            let start_ts = current_day.end_ts + ((index as i64 + 1) * 3600);
+            storage
+                .insert_signal(vel_storage::SignalInsert {
+                    signal_type: "calendar_event".to_string(),
+                    source: "google_calendar".to_string(),
+                    source_ref: Some(format!("future-event-{index}")),
+                    timestamp: start_ts,
+                    payload_json: Some(json!({
+                        "title": format!("Future event {index}"),
+                        "calendar_id": "primary",
+                        "start": start_ts,
+                        "end": start_ts + 1800,
+                        "status": "confirmed",
+                        "all_day": false
+                    })),
+                })
+                .await
+                .unwrap();
+        }
+
+        run_at(&storage, now).await.unwrap();
+
+        let (_, context) = storage.get_current_context().await.unwrap().unwrap();
+        assert_eq!(
+            context.next_event_start_ts,
+            Some(current_day.start_ts + (10 * 60 * 60))
+        );
     }
 
     #[test]

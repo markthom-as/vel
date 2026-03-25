@@ -149,9 +149,7 @@ fn validate_remote_base_url(base_url: &str) -> Result<String, AppError> {
     if matches!(url.scheme(), "http" | "https") {
         return Ok(trimmed.to_string());
     }
-    Err(AppError::bad_request(
-        "LLM base_url must use http or https",
-    ))
+    Err(AppError::bad_request("LLM base_url must use http or https"))
 }
 
 fn profile_file_path(models_dir: &Path, profile_id: &str) -> PathBuf {
@@ -186,8 +184,10 @@ async fn save_openai_api_secrets(
             Some(trimmed.to_string())
         }
     });
-    let serialized = serde_json::to_value(OpenAiApiSecrets { api_key: normalized })
-        .map_err(|error| AppError::internal(format!("serialize openai api secrets: {error}")))?;
+    let serialized = serde_json::to_value(OpenAiApiSecrets {
+        api_key: normalized,
+    })
+    .map_err(|error| AppError::internal(format!("serialize openai api secrets: {error}")))?;
     storage
         .set_setting(&openai_api_secret_settings_key(profile_id), &serialized)
         .await?;
@@ -403,7 +403,9 @@ fn load_llm_settings_from_map(
     })
 }
 
-pub async fn load_llm_settings(storage: &vel_storage::Storage) -> Result<LlmSettingsData, AppError> {
+pub async fn load_llm_settings(
+    storage: &vel_storage::Storage,
+) -> Result<LlmSettingsData, AppError> {
     let settings = storage.get_all_settings().await?;
     load_llm_settings_from_map(Some(&settings))
 }

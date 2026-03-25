@@ -4565,7 +4565,8 @@ pub struct IntegrationCalendarData {
     pub id: String,
     pub summary: String,
     pub primary: bool,
-    pub selected: bool,
+    pub sync_enabled: bool,
+    pub display_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6831,9 +6832,17 @@ pub struct NowTaskLaneItemData {
     pub project: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_thread_id: Option<String>,
-    #[serde(default, with = "time::serde::rfc3339::option", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub due_at: Option<OffsetDateTime>,
-    #[serde(default, with = "time::serde::rfc3339::option", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub deadline: Option<OffsetDateTime>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub due_label: Option<String>,
@@ -6864,6 +6873,28 @@ pub struct NowTaskLaneData {
     #[serde(default)]
     pub recent_completed: Vec<NowTaskLaneItemData>,
     pub overflow_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowNextUpItemData {
+    pub kind: NowTaskKindData,
+    pub id: String,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task: Option<NowTaskLaneItemData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowProgressData {
+    pub base_count: u32,
+    pub completed_count: u32,
+    pub backlog_count: u32,
+    pub completed_ratio: f64,
+    pub backlog_ratio: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -6935,6 +6966,7 @@ fn default_web_settings_docked_action_bar() -> bool {
 #[serde(rename_all = "snake_case")]
 pub enum NowDockedInputIntentData {
     Task,
+    Url,
     Question,
     Note,
     Command,
@@ -6979,13 +7011,38 @@ pub struct NowSummaryData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowEventData {
+    pub event_id: Option<String>,
+    pub calendar_id: Option<String>,
+    pub calendar_name: Option<String>,
     pub title: String,
     pub start_ts: UnixSeconds,
     pub end_ts: Option<UnixSeconds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attachment_url: Option<String>,
     pub location: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[serde(default)]
+    pub attendees: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_provider: Option<String>,
     pub prep_minutes: Option<i64>,
     pub travel_minutes: Option<i64>,
     pub leave_by_ts: Option<UnixSeconds>,
+    #[serde(default)]
+    pub rescheduled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowCalendarEventRescheduleRequestData {
+    pub event_id: String,
+    pub calendar_id: Option<String>,
+    pub start_ts: UnixSeconds,
+    pub end_ts: Option<UnixSeconds>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7000,7 +7057,11 @@ pub struct NowTaskData {
     pub source_type: String,
     #[serde(with = "time::serde::rfc3339::option")]
     pub due_at: Option<OffsetDateTime>,
-    #[serde(default, with = "time::serde::rfc3339::option", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub deadline: Option<OffsetDateTime>,
     pub project: Option<String>,
     pub commitment_kind: Option<String>,
@@ -7011,6 +7072,7 @@ pub struct NowScheduleData {
     pub empty_message: Option<String>,
     pub next_event: Option<NowEventData>,
     pub upcoming_events: Vec<NowEventData>,
+    pub following_day_events: Vec<NowEventData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7115,6 +7177,9 @@ pub struct NowData {
     pub nudge_bars: Vec<NowNudgeBarData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub task_lane: Option<NowTaskLaneData>,
+    #[serde(default)]
+    pub next_up_items: Vec<NowNextUpItemData>,
+    pub progress: NowProgressData,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docked_input: Option<NowDockedInputData>,
     pub overview: NowOverviewData,

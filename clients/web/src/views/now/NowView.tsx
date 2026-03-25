@@ -7,7 +7,7 @@ import {
   updateNowTaskLane,
 } from '../../data/context';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
-import type { NowData, NowNudgeBarData } from '../../types';
+import type { NowData } from '../../types';
 import { ActionChipButton, FilterDenseTag, ProjectTag } from '../../core/FilterToggleTag';
 import { ArchiveIcon, CalendarIcon, CheckCircleIcon, ChevronRightIcon, ClockIcon, InboxIcon, OpenThreadIcon, SparkIcon } from '../../core/Icons';
 import { cn } from '../../core/cn';
@@ -16,16 +16,13 @@ import { SurfaceState } from '../../core/SurfaceState';
 import { surfaceShell, uiFonts } from '../../core/Theme';
 import {
   findActiveEvent,
+  findNextEvent,
   formatTime,
 } from './nowModel';
-import type { SystemNavigationTarget } from '../system';
 import { NowNudgeStrip } from './components/NowNudgeStrip';
 
 interface NowViewProps {
   onOpenThread?: (conversationId: string) => void;
-  onOpenSystem?: (target?: SystemNavigationTarget) => void;
-  onRaiseNudge?: (nudge: NowNudgeBarData) => void;
-  onClearNudge?: (nudgeId: string) => void;
   hideNudgeLane?: boolean;
 }
 
@@ -49,26 +46,9 @@ type TaskDisplay = {
   threadId: string | null;
 };
 
-type NextUpItem =
-  | {
-      kind: 'event';
-      id: string;
-      title: string;
-      meta: string;
-      detail: string;
-      dueLabel?: never;
-      deadlineLabel?: never;
-      deadlinePassed?: never;
-      isOverdue?: never;
-      threadId?: never;
-      project?: never;
-      text?: never;
-      description?: never;
-      tags?: never;
-    }
-  | ({
-      kind: 'task';
-    } & TaskDisplay);
+type SectionTasks = Record<TaskSectionKey, TaskDisplay[]>;
+
+type NextUpItem = NowData['next_up_items'][number];
 
 function laneForSection(section: TaskSectionKey): 'active' | 'next_up' | 'if_time_allows' | 'completed' {
   switch (section) {
@@ -101,6 +81,9 @@ function eventWindowLabel(
   event: NonNullable<NowData['schedule']['upcoming_events']>[number],
   timezone: string,
 ): string {
+  if (event.all_day) {
+    return 'All day';
+  }
   const start = formatTime(event.start_ts, timezone);
   const end = event.end_ts ? formatTime(event.end_ts, timezone) : null;
   return end ? `${start}–${end}` : start;
@@ -130,6 +113,44 @@ function normalizeTaskProject(
   return trimmed;
 }
 
+function moveTaskBetweenSections(
+  current: SectionTasks,
+  taskId: string,
+  target: TaskSectionKey,
+): SectionTasks {
+  let moved: TaskDisplay | null = null;
+  const next = {
+    active: current.active.filter((task) => {
+      if (task.id === taskId) moved = task;
+      return task.id !== taskId;
+    }),
+    next: current.next.filter((task) => {
+      if (task.id === taskId) moved = task;
+      return task.id !== taskId;
+    }),
+    inbox: current.inbox.filter((task) => {
+      if (task.id === taskId) moved = task;
+      return task.id !== taskId;
+    }),
+    later: current.later.filter((task) => {
+      if (task.id === taskId) moved = task;
+      return task.id !== taskId;
+    }),
+    completed: current.completed.filter((task) => {
+      if (task.id === taskId) moved = task;
+      return task.id !== taskId;
+    }),
+  };
+
+  if (!moved) {
+    return current;
+  }
+
+  const insertAtFront = target === 'active';
+  next[target] = insertAtFront ? [moved, ...next[target]] : [...next[target], moved];
+  return next;
+}
+
 export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
@@ -143,7 +164,7 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
 
   const [pendingCommitments, setPendingCommitments] = useState<Record<string, true>>({});
   const [commitmentMessages, setCommitmentMessages] = useState<Record<string, CommitmentMessage>>({});
-  const [sectionTasks, setSectionTasks] = useState<Record<TaskSectionKey, TaskDisplay[]>>({
+  const [sectionTasks, setSectionTasks] = useState<SectionTasks>({
     active: [],
     next: [],
     inbox: [],
@@ -303,11 +324,18 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
   const upcomingEvents = data.schedule?.upcoming_events ?? [];
   const activeEvent = findActiveEvent(upcomingEvents, nowTs);
   const currentEventLabel = activeEvent?.title ?? 'No current event';
-  const contextLabel = data.status_row?.context_label ?? data.context_line?.text ?? 'No context';
-  const progressBaseCount = Math.max(1, sectionTasks.active.length + sectionTasks.next.length + sectionTasks.completed.length);
-  const completedRatio = Math.min(1, sectionTasks.completed.length / progressBaseCount);
+  const nextEvent = data.schedule?.next_event ?? findNextEvent(upcomingEvents, nowTs);
+  const nextEventLabel = nextEvent?.title ?? 'No upcoming event';
+  const eventSummaryLabel = `${currentEventLabel} | NEXT_EVENT ${nextEventLabel}`;
   const stretchGoals = sectionTasks.later;
-  const overflowRatio = stretchGoals.length > 0 ? Math.min(1, stretchGoals.length / progressBaseCount) : 0;
+  const fallbackProgressBaseCount = Math.max(1, sectionTasks.active.length + sectionTasks.next.length + sectionTasks.completed.length);
+  const progress = data.progress ?? {
+    base_count: fallbackProgressBaseCount,
+    completed_count: sectionTasks.completed.length,
+    backlog_count: stretchGoals.length,
+    completed_ratio: Math.min(1, sectionTasks.completed.length / fallbackProgressBaseCount),
+    backlog_ratio: stretchGoals.length > 0 ? Math.min(1, stretchGoals.length / fallbackProgressBaseCount) : 0,
+  };
   const inboxCount = sectionTasks.inbox.length;
   const nextUpEvents = upcomingEvents.filter((event) => {
     if (activeEvent) {
@@ -316,38 +344,60 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
     return true;
   });
   const nextUpItems: NextUpItem[] = [
-    ...nextUpEvents.map((event) => ({
-      kind: 'event' as const,
-      id: `${event.title}-${event.start_ts}`,
-      title: event.title,
-      meta: eventWindowLabel(event, data.timezone),
-      detail: event.location ?? 'Calendar event',
-    })),
-    ...sectionTasks.next.map((task) => ({
-      kind: 'task' as const,
-      id: task.id,
-      title: task.title,
-      dueLabel: task.dueLabel,
-      deadlineLabel: task.deadlineLabel,
-      deadlinePassed: task.deadlinePassed,
-      isOverdue: task.isOverdue,
-      threadId: task.threadId,
-      project: task.project,
-      text: task.text,
-      description: task.description,
-      tags: task.tags,
-    })),
+    ...((data.next_up_items ?? []).length > 0
+      ? (data.next_up_items ?? [])
+      : [
+          ...nextUpEvents.map((event) => ({
+            kind: 'event' as const,
+            id: `${event.title}-${event.start_ts}`,
+            title: event.title,
+            meta: eventWindowLabel(event, data.timezone),
+            detail: event.location ?? 'Calendar event',
+            task: null,
+          })),
+          ...sectionTasks.next.map((task) => ({
+            kind: 'task' as const,
+            id: task.id,
+            title: task.title,
+            meta: null,
+            detail: null,
+            task: {
+              id: task.id,
+              task_kind: 'commitment' as const,
+              text: task.text,
+              title: task.title,
+              description: task.description,
+              tags: task.tags,
+              state: 'next_up',
+              lane: 'next_up',
+              project: task.project,
+              primary_thread_id: task.threadId,
+              due_at: null,
+              deadline: null,
+              due_label: task.dueLabel,
+              is_overdue: task.isOverdue,
+              deadline_label: task.deadlineLabel,
+              deadline_passed: task.deadlinePassed,
+            },
+          })),
+        ]),
   ];
   const overdueNudgeBars: NowData['nudge_bars'] = overdueSidebarNudge ? [overdueSidebarNudge] : [];
   const showInlineOverdueNudge = !hideNudgeLane;
 
   const updateCommitmentStatus = async (commitmentId: string, status: 'done' | 'active') => {
+    const previousSectionTasks = sectionTasks;
+    const nextSection = status === 'done' ? 'completed' : 'active';
     setPendingCommitments((current) => ({ ...current, [commitmentId]: true }));
     setCommitmentMessages((current) => {
       const next = { ...current };
       delete next[commitmentId];
       return next;
     });
+    setSectionTasks((current) => moveTaskBetweenSections(current, commitmentId, nextSection));
+    if (status === 'done') {
+      setExpandedSections((current) => ({ ...current, completed: true }));
+    }
     try {
       const response = await updateNowTaskLane(
         commitmentId,
@@ -357,13 +407,13 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         throw new Error(response.error?.message ?? 'Failed to update commitment');
       }
       setQueryData(nowKey, () => response.data ?? null);
-      invalidateQuery(nowKey, { refetch: true });
       invalidateQuery(commitmentsKey, { refetch: true });
       setCommitmentMessages((current) => ({
         ...current,
         [commitmentId]: { status: 'success', message: status === 'done' ? 'Completed.' : 'Reopened.' },
       }));
     } catch (commitmentError) {
+      setSectionTasks(previousSectionTasks);
       setCommitmentMessages((current) => ({
         ...current,
         [commitmentId]: {
@@ -381,39 +431,20 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
   };
 
   const moveTask = (taskId: string, target: TaskSectionKey) => {
-    let moved: TaskDisplay | null = null;
+    const previousSectionTasks = sectionTasks;
     setLaneEdited(true);
-    setSectionTasks((current) => {
-      const next = {
-        active: current.active.filter((task) => {
-          if (task.id === taskId) moved = task;
-          return task.id !== taskId;
-        }),
-        next: current.next.filter((task) => {
-          if (task.id === taskId) moved = task;
-          return task.id !== taskId;
-        }),
-        inbox: current.inbox.filter((task) => {
-          if (task.id === taskId) moved = task;
-          return task.id !== taskId;
-        }),
-        later: current.later.filter((task) => {
-          if (task.id === taskId) moved = task;
-          return task.id !== taskId;
-        }),
-        completed: current.completed.filter((task) => {
-          if (task.id === taskId) moved = task;
-          return task.id !== taskId;
-        }),
-      };
-      if (moved) next[target] = [...next[target], moved];
-      return next;
-    });
+    setSectionTasks((current) => moveTaskBetweenSections(current, taskId, target));
     void (async () => {
-      const response = await updateNowTaskLane(taskId, laneForSection(target));
-      if (response.ok) {
+      try {
+        const response = await updateNowTaskLane(taskId, laneForSection(target));
+        if (!response.ok) {
+          throw new Error(response.error?.message ?? 'Failed to update task lane');
+        }
         setQueryData(nowKey, () => response.data ?? null);
-        invalidateQuery(nowKey, { refetch: true });
+      } catch {
+        setSectionTasks(previousSectionTasks);
+      } finally {
+        setLaneEdited(false);
       }
     })();
   };
@@ -619,7 +650,6 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         throw new Error(response.error?.message ?? 'Failed to reschedule overdue items');
       }
       setQueryData(nowKey, () => response.data ?? null);
-      invalidateQuery(nowKey, { refetch: true });
       invalidateQuery(commitmentsKey, { refetch: true });
     } finally {
       setReschedulingOverdue(false);
@@ -632,71 +662,71 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         <div className={surfaceShell.mainContent}>
           <section className="flex flex-col gap-5">
             <div className="space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-2">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight text-[var(--vel-color-text)]">
                     <SparkIcon size={20} className="text-[var(--vel-color-accent-soft)]" />
                     <span>Now</span>
                   </h1>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {sectionTasks.completed.length ? (
+                      <FilterDenseTag tone="muted" className="border-emerald-700/35 bg-emerald-950/18 text-emerald-200">
+                        <CheckCircleIcon size={11} />
+                        <span>{sectionTasks.completed.length} COMPLETED</span>
+                      </FilterDenseTag>
+                    ) : null}
+                    <FilterDenseTag tone="brand" className="border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)]/78 text-[var(--vel-color-accent-soft)]">
+                      <SparkIcon size={11} />
+                      <span>{sectionTasks.active.length} ACTIVE</span>
+                    </FilterDenseTag>
+                    <FilterDenseTag tone="muted" className="border-sky-700/35 bg-sky-950/20 text-sky-200">
+                      <CalendarIcon size={11} />
+                      <span>{nextUpItems.length} NEXT</span>
+                    </FilterDenseTag>
+                    <FilterDenseTag tone="muted" className="border-amber-700/35 bg-amber-950/18 text-amber-200">
+                      <InboxIcon size={11} />
+                      <span>{inboxCount} INBOX</span>
+                    </FilterDenseTag>
+                    {stretchGoals.length ? (
+                      <FilterDenseTag tone="muted" className="border-stone-700/35 bg-stone-950/18 text-stone-200">
+                        <ArchiveIcon size={11} />
+                        <span>{stretchGoals.length} BACKLOG</span>
+                      </FilterDenseTag>
+                    ) : null}
+                    {overdueCount ? (
+                      <FilterDenseTag tone="muted" className="border-red-700/35 bg-red-950/18 text-red-200">
+                        <ClockIcon size={11} />
+                        <span>{overdueCount} OVERDUE</span>
+                      </FilterDenseTag>
+                    ) : null}
+                  </div>
+                </div>
                   <p className={`text-sm text-[var(--vel-color-muted)] ${uiFonts.mono}`}>{formatNowTimestamp(nowTs, data.timezone)}</p>
                   <p className="flex max-w-3xl items-center gap-2 text-sm leading-6 text-[var(--vel-color-muted)]">
                     <CalendarIcon size={14} className="shrink-0 text-[var(--vel-color-dim)]" />
-                    <span className="truncate">{currentEventLabel} | {contextLabel}</span>
+                    <span className="truncate">{eventSummaryLabel}</span>
                   </p>
                   <div className="max-w-3xl space-y-1 pt-1">
                     <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">
                       <span>Task completion</span>
                       <span className={uiFonts.mono}>
-                        {sectionTasks.completed.length}/{progressBaseCount}
-                        {sectionTasks.later.length ? ` +${sectionTasks.later.length}` : ''}
+                        {progress.completed_count}/{progress.base_count}
+                        {progress.backlog_count ? ` +${progress.backlog_count}` : ''}
                       </span>
                     </div>
                     <div className="relative h-2 overflow-hidden rounded-full bg-white/6">
                       <div
                         className="absolute inset-y-0 left-0 rounded-full bg-[var(--vel-color-accent)]"
-                        style={{ width: `${completedRatio * 100}%` }}
+                        style={{ width: `${progress.completed_ratio * 100}%` }}
                       />
-                      {overflowRatio > 0 ? (
+                      {progress.backlog_ratio > 0 ? (
                         <div
                           className="absolute inset-y-0 rounded-full bg-[var(--vel-color-offline)]/65"
-                          style={{ left: `${completedRatio * 100}%`, width: `${Math.max(3, overflowRatio * 100)}%` }}
+                          style={{ left: `${progress.completed_ratio * 100}%`, width: `${Math.max(3, progress.backlog_ratio * 100)}%` }}
                         />
                       ) : null}
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {sectionTasks.completed.length ? (
-                    <FilterDenseTag tone="muted" className="border-emerald-700/35 bg-emerald-950/18 text-emerald-200">
-                      <CheckCircleIcon size={11} />
-                      <span>{sectionTasks.completed.length} COMPLETED</span>
-                    </FilterDenseTag>
-                  ) : null}
-                  <FilterDenseTag tone="brand" className="border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)]/78 text-[var(--vel-color-accent-soft)]">
-                    <SparkIcon size={11} />
-                    <span>{sectionTasks.active.length} ACTIVE</span>
-                  </FilterDenseTag>
-                  <FilterDenseTag tone="muted" className="border-sky-700/35 bg-sky-950/20 text-sky-200">
-                    <CalendarIcon size={11} />
-                    <span>{nextUpItems.length} NEXT</span>
-                  </FilterDenseTag>
-                  <FilterDenseTag tone="muted" className="border-amber-700/35 bg-amber-950/18 text-amber-200">
-                    <InboxIcon size={11} />
-                    <span>{inboxCount} INBOX</span>
-                  </FilterDenseTag>
-                  {stretchGoals.length ? (
-                    <FilterDenseTag tone="muted" className="border-stone-700/35 bg-stone-950/18 text-stone-200">
-                      <ArchiveIcon size={11} />
-                      <span>{stretchGoals.length} BACKLOG</span>
-                    </FilterDenseTag>
-                  ) : null}
-                  {overdueCount ? (
-                    <FilterDenseTag tone="muted" className="border-red-700/35 bg-red-950/18 text-red-200">
-                      <ClockIcon size={11} />
-                      <span>{overdueCount} OVERDUE</span>
-                    </FilterDenseTag>
-                  ) : null}
-                </div>
               </div>
             </div>
 
@@ -765,13 +795,25 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
                           >
                             <ObjectRowTitleMetaBand
                               title={<h3 className="text-base font-medium text-[var(--vel-color-text)]">{item.title}</h3>}
-                              meta={<FilterDenseTag tone="muted">{item.meta}</FilterDenseTag>}
+                              meta={item.meta ? <FilterDenseTag tone="muted">{item.meta}</FilterDenseTag> : null}
                             />
-                            <p className="text-sm leading-6 text-[var(--vel-color-muted)]">{item.detail}</p>
+                            <p className="text-sm leading-6 text-[var(--vel-color-muted)]">{item.detail ?? 'Calendar event'}</p>
                           </ObjectRowLayout>
                         </ObjectRowFrame>
                       ) : (
-                        renderTaskRow(item, 'next')
+                        renderTaskRow({
+                          id: item.task?.id ?? item.id,
+                          text: item.task?.text ?? item.title,
+                          title: item.task?.title ?? item.title,
+                          description: item.task?.description ?? null,
+                          tags: normalizeTaskTags(item.task?.tags, item.task?.project ?? null),
+                          project: normalizeTaskProject(item.task?.project ?? null),
+                          dueLabel: item.task?.due_label ?? null,
+                          isOverdue: item.task?.is_overdue ?? false,
+                          deadlineLabel: item.task?.deadline_label ?? null,
+                          deadlinePassed: item.task?.deadline_passed ?? false,
+                          threadId: item.task?.primary_thread_id ?? null,
+                        }, 'next')
                       )
                     ))}
                   </div>

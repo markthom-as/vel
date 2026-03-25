@@ -14,6 +14,48 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
   return {
     computed_at: 1710000000,
     timezone: 'America/Denver',
+    schedule: {
+      empty_message: null,
+      next_event: {
+        event_id: 'evt_1',
+        calendar_id: 'cal_1',
+        calendar_name: 'Primary',
+        title: 'Design review',
+        start_ts: 1710003600,
+        end_ts: 1710007200,
+        event_url: 'https://calendar.google.com/calendar/event?eid=evt_1',
+        location: 'Studio',
+        notes: 'Review mocks and unblock the handoff.',
+        attendees: ['alex@example.com', 'sam@example.com', 'pat@example.com'],
+        video_url: 'https://meet.google.com/abc-defg-hij',
+        video_provider: 'google_meet',
+        prep_minutes: 15,
+        travel_minutes: 0,
+        leave_by_ts: 1710003600,
+        rescheduled: false,
+      },
+      upcoming_events: [
+        {
+          event_id: 'evt_1',
+          calendar_id: 'cal_1',
+          calendar_name: 'Primary',
+          title: 'Design review',
+          start_ts: 1710003600,
+          end_ts: 1710007200,
+          event_url: 'https://calendar.google.com/calendar/event?eid=evt_1',
+          location: 'Studio',
+          notes: 'Review mocks and unblock the handoff.',
+          attendees: ['alex@example.com', 'sam@example.com', 'pat@example.com'],
+          video_url: 'https://meet.google.com/abc-defg-hij',
+          video_provider: 'google_meet',
+          prep_minutes: 15,
+          travel_minutes: 0,
+          leave_by_ts: 1710003600,
+          rescheduled: false,
+        },
+      ],
+      following_day_events: [],
+    },
     nudge_bars: [
       {
         id: 'check_in_bar',
@@ -89,6 +131,50 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function buildIntegrationsData(overrides: Record<string, unknown> = {}) {
+  return {
+    google_calendar: {
+      configured: true,
+      connected: true,
+      has_client_id: true,
+      has_client_secret: true,
+      calendars: [
+        { id: 'cal_1', summary: 'Primary', primary: true, sync_enabled: true, display_enabled: true },
+        { id: 'cal_2', summary: 'Team', primary: false, sync_enabled: true, display_enabled: false },
+      ],
+      all_calendars_selected: false,
+      last_sync_at: 1710000000,
+      last_sync_status: 'ok',
+      last_error: null,
+      last_item_count: 2,
+      guidance: null,
+    },
+    todoist: {
+      configured: false,
+      connected: false,
+      has_api_token: false,
+      last_sync_at: null,
+      last_sync_status: null,
+      last_error: null,
+      last_item_count: null,
+      guidance: null,
+      write_capabilities: {
+        completion_status: false,
+        due_date: false,
+        tags: false,
+      },
+    },
+    activity: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    health: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    git: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    messaging: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    reminders: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    notes: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    transcripts: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+    ...overrides,
+  }
+}
+
 function findNudgeArticle(text: string): HTMLElement {
   return screen.getAllByText(text)
     .map((node) => node.closest('article'))
@@ -101,13 +187,34 @@ describe('NudgeZone', () => {
     clearQueryCache()
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPost).mockReset()
+    vi.mocked(api.apiPatch).mockReset()
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
       if (path === '/v1/now') {
         return { ok: true, data: buildNowData(), meta: { request_id: 'req_now' } } as never
       }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations' },
+        } as never
+      }
       throw new Error(`Unmocked apiGet path: ${path}`)
     })
     vi.mocked(api.apiPost).mockResolvedValue({ ok: true, data: { id: 'intv_review_1', state: 'acknowledged' }, meta: { request_id: 'req_post' } } as never)
+    vi.mocked(api.apiPatch).mockResolvedValue({
+      ok: true,
+      data: buildIntegrationsData({
+        google_calendar: {
+          ...buildIntegrationsData().google_calendar,
+          calendars: [
+            { id: 'cal_1', summary: 'Primary', primary: true, sync_enabled: true, display_enabled: true },
+            { id: 'cal_2', summary: 'Team', primary: false, sync_enabled: true, display_enabled: true },
+          ],
+        },
+      }),
+      meta: { request_id: 'req_patch' },
+    } as never)
   })
 
   it('routes nudge actions through thread and system handlers', async () => {
@@ -136,6 +243,45 @@ describe('NudgeZone', () => {
 
   })
 
+  it('falls back to local nudges when live context fails', async () => {
+    clearQueryCache()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        throw new Error('now offline')
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations' },
+        } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    render(
+      <NudgeZone
+        activeView="now"
+        extraNudges={[
+          {
+            id: 'local_only_nudge',
+            kind: 'needs_input',
+            title: 'Local fallback nudge',
+            summary: 'This should still render without live context.',
+            urgent: true,
+            primary_thread_id: null,
+            actions: [{ kind: 'expand', label: 'Continue in Threads' }],
+          },
+        ]}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Local fallback nudge')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Live context is unavailable. Showing local nudges only.')).toBeInTheDocument()
+  })
+
   it('deep-links the core setup nudge to the core settings block', async () => {
     const onOpenSystem = vi.fn()
     clearQueryCache()
@@ -162,6 +308,9 @@ describe('NudgeZone', () => {
           }),
           meta: { request_id: 'req_now_core_setup' },
         } as never
+      }
+      if (path === '/api/integrations') {
+        return { ok: true, data: buildIntegrationsData(), meta: { request_id: 'req_integrations' } } as never
       }
       throw new Error(`Unmocked apiGet path: ${path}`)
     })
@@ -222,6 +371,26 @@ describe('NudgeZone', () => {
     await waitFor(() => {
       expect(warningBody.className).toContain('ring-1')
       expect((findNudgeArticle('Vel Desktop needs attention').querySelector('p.text-sm') as HTMLElement).className).toContain('whitespace-normal')
+      expect((findNudgeArticle('Standup check-in').querySelector('p.text-sm') as HTMLElement).className).toContain('truncate')
+    })
+  })
+
+  it('collapses an expanded nudge when its non-interactive body is clicked again', async () => {
+    render(<NudgeZone activeView="now" />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Standup check-in').length).toBeGreaterThan(0)
+    })
+
+    const standupBody = findNudgeArticle('Standup check-in').querySelector('div[class*="rounded-[20px]"]') as HTMLElement
+
+    fireEvent.click(standupBody)
+    await waitFor(() => {
+      expect((findNudgeArticle('Standup check-in').querySelector('p.text-sm') as HTMLElement).className).toContain('whitespace-normal')
+    })
+
+    fireEvent.click(standupBody)
+    await waitFor(() => {
       expect((findNudgeArticle('Standup check-in').querySelector('p.text-sm') as HTMLElement).className).toContain('truncate')
     })
   })
@@ -318,6 +487,9 @@ describe('NudgeZone', () => {
           meta: { request_id: 'req_now_local_overdue' },
         } as never
       }
+      if (path === '/api/integrations') {
+        return { ok: true, data: buildIntegrationsData(), meta: { request_id: 'req_integrations' } } as never
+      }
       throw new Error(`Unmocked apiGet path: ${path}`)
     })
     vi.mocked(api.apiPost).mockResolvedValue({
@@ -365,5 +537,325 @@ describe('NudgeZone', () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
 
     document.body.removeChild(backlogNode)
+  })
+
+  it('keeps synced calendar toggles visible when display is turned off and persists the change', async () => {
+    render(<NudgeZone activeView="now" />)
+
+    expect((await screen.findAllByRole('table')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Team/i }).length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Primary/i }).at(-1) as HTMLElement)
+    await waitFor(() => {
+      expect(api.apiPatch).toHaveBeenCalledWith(
+        '/api/integrations/google-calendar',
+        {
+          calendar_settings: [
+            {
+              id: 'cal_1',
+              display_enabled: false,
+            },
+          ],
+        },
+        expect.any(Function),
+      )
+    })
+    expect(screen.getAllByRole('button', { name: /Primary/i }).length).toBeGreaterThan(0)
+  })
+
+  it('posts drag-and-drop calendar reschedules through the now api', async () => {
+    vi.mocked(api.apiPost).mockImplementation(async (path: string) => {
+      if (path === '/v1/now/calendar-events/reschedule') {
+        return {
+          ok: true,
+          data: buildNowData({
+            schedule: {
+              empty_message: null,
+              next_event: {
+                event_id: 'evt_1',
+                calendar_id: 'cal_1',
+                calendar_name: 'Primary',
+                title: 'Design review',
+                start_ts: 1710005400,
+                end_ts: 1710009000,
+                location: 'Studio',
+                prep_minutes: 15,
+                travel_minutes: 0,
+                leave_by_ts: 1710005400,
+                rescheduled: true,
+              },
+              upcoming_events: [
+                {
+                  event_id: 'evt_1',
+                  calendar_id: 'cal_1',
+                  calendar_name: 'Primary',
+                  title: 'Design review',
+                  start_ts: 1710005400,
+                  end_ts: 1710009000,
+                  location: 'Studio',
+                  prep_minutes: 15,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710005400,
+                  rescheduled: true,
+                },
+              ],
+            },
+          }),
+          meta: { request_id: 'req_calendar_reschedule' },
+        } as never
+      }
+      return { ok: true, data: { id: 'intv_review_1', state: 'acknowledged' }, meta: { request_id: 'req_post' } } as never
+    })
+
+    render(<NudgeZone activeView="now" />)
+
+    const dragCard = (await screen.findAllByText('Design review')).at(-1)?.closest('div[draggable="true"]') as HTMLElement
+    const dropTarget = screen.getAllByText('Design review')[0]?.closest('tr') as HTMLElement
+    const dataTransfer = {
+      effectAllowed: 'move',
+      setData: vi.fn(),
+      getData: vi.fn((type: string) => (type === 'application/x-vel-calendar-event' || type === 'text/plain' ? 'evt_1' : '')),
+    }
+
+    fireEvent.dragStart(dragCard, { dataTransfer })
+    fireEvent.dragOver(dropTarget, { dataTransfer })
+    fireEvent.drop(dropTarget, { dataTransfer })
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/now/calendar-events/reschedule',
+        {
+          event_id: 'evt_1',
+          calendar_id: 'cal_1',
+          start_ts: 1710003600,
+          end_ts: 1710007200,
+        },
+        expect.any(Function),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.getAllByText('Moved in Vel').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('does not render events for synced calendars that are hidden in settings', async () => {
+    clearQueryCache()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            schedule: {
+              empty_message: null,
+              next_event: {
+                event_id: 'evt_2',
+                calendar_id: 'cal_2',
+                calendar_name: 'Team',
+                title: 'Team offsite',
+                start_ts: 1710003600,
+                end_ts: 1710007200,
+                location: 'HQ',
+                prep_minutes: 15,
+                travel_minutes: 0,
+                leave_by_ts: 1710003600,
+                rescheduled: false,
+              },
+              upcoming_events: [
+                {
+                  event_id: 'evt_2',
+                  calendar_id: 'cal_2',
+                  calendar_name: 'Team',
+                  title: 'Team offsite',
+                  start_ts: 1710003600,
+                  end_ts: 1710007200,
+                  location: 'HQ',
+                  prep_minutes: 15,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710003600,
+                  rescheduled: false,
+                },
+              ],
+            },
+          }),
+          meta: { request_id: 'req_now_hidden_calendar' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations_hidden_calendar' },
+        } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    render(<NudgeZone activeView="now" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No events in the selected calendar stream.')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('Team offsite')).not.toBeInTheDocument()
+  })
+
+  it('reveals the following day schedule when toggled on', async () => {
+    clearQueryCache()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            schedule: {
+              empty_message: null,
+              next_event: {
+                event_id: 'evt_1',
+                calendar_id: 'cal_1',
+                calendar_name: 'Primary',
+                title: 'Design review',
+                start_ts: 1710003600,
+                end_ts: 1710007200,
+                location: 'Studio',
+                prep_minutes: 15,
+                travel_minutes: 0,
+                leave_by_ts: 1710003600,
+                rescheduled: false,
+              },
+              upcoming_events: [
+                {
+                  event_id: 'evt_1',
+                  calendar_id: 'cal_1',
+                  calendar_name: 'Primary',
+                  title: 'Design review',
+                  start_ts: 1710003600,
+                  end_ts: 1710007200,
+                  location: 'Studio',
+                  prep_minutes: 15,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710003600,
+                  rescheduled: false,
+                },
+              ],
+              following_day_events: [
+                {
+                  event_id: 'evt_3',
+                  calendar_id: 'cal_1',
+                  calendar_name: 'Primary',
+                  title: 'Tomorrow planning',
+                  start_ts: 1710090000,
+                  end_ts: 1710093600,
+                  event_url: 'https://calendar.google.com/calendar/event?eid=evt_3',
+                  location: 'Desk',
+                  notes: 'Align on priorities for tomorrow.',
+                  attendees: ['morgan@example.com', 'riley@example.com'],
+                  video_url: 'https://zoom.us/j/123456789',
+                  video_provider: 'zoom',
+                  prep_minutes: 15,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710090000,
+                  rescheduled: false,
+                },
+              ],
+            },
+          }),
+          meta: { request_id: 'req_now_following_day' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations_following_day' },
+        } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    render(<NudgeZone activeView="now" />)
+
+    expect(screen.queryByText('Tomorrow planning')).not.toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Show next day/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Tomorrow planning')).toBeInTheDocument()
+    })
+    expect(screen.getAllByText('morgan@example.com, riley@example.com').length).toBeGreaterThan(0)
+  })
+
+  it('shows attendees, notes, and the video conference link for calendar events', async () => {
+    render(<NudgeZone activeView="now" />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.getAllByText('alex@example.com, sam@example.com +1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Review mocks and unblock the handoff.').length).toBeGreaterThan(0)
+    expect(
+      screen
+        .getAllByRole('link', { name: /Google Meet/i })
+        .some((node) => node.getAttribute('href') === 'https://meet.google.com/abc-defg-hij'),
+    ).toBe(true)
+    expect(
+      screen
+        .getAllByRole('link', { name: 'Design review' })
+        .some((node) => node.getAttribute('href') === 'https://calendar.google.com/calendar/event?eid=evt_1'),
+    ).toBe(true)
+  })
+
+  it('reveals the following day schedule even when today is empty', async () => {
+    clearQueryCache()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            schedule: {
+              empty_message: null,
+              next_event: null,
+              upcoming_events: [],
+              following_day_events: [
+                {
+                  event_id: 'evt_4',
+                  calendar_id: 'cal_1',
+                  calendar_name: 'Primary',
+                  title: 'Tomorrow retro',
+                  start_ts: 1710097200,
+                  end_ts: 1710100800,
+                  location: 'Desk',
+                  prep_minutes: 0,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710097200,
+                  rescheduled: false,
+                },
+              ],
+            },
+          }),
+          meta: { request_id: 'req_now_following_day_only' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations_following_day_only' },
+        } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    render(<NudgeZone activeView="now" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No events in the selected calendar stream.')).toBeInTheDocument()
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /Show next day/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Tomorrow retro')).toBeInTheDocument()
+    })
   })
 })

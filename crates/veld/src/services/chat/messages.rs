@@ -191,6 +191,7 @@ fn assistant_entry_intent_with_override(
     if let Some(intent) = override_intent {
         return match intent {
             vel_api_types::NowDockedInputIntentData::Task => "task",
+            vel_api_types::NowDockedInputIntentData::Url => "url",
             vel_api_types::NowDockedInputIntentData::Question => "question",
             vel_api_types::NowDockedInputIntentData::Note => "note",
             vel_api_types::NowDockedInputIntentData::Command => "command",
@@ -202,6 +203,9 @@ fn assistant_entry_intent_with_override(
     let lowered = text.trim().to_ascii_lowercase();
     if conversation_id.is_some() {
         return "continuation";
+    }
+    if contains_url_or_path_token(text) {
+        return "url";
     }
     if lowered.contains('?') || lowered.starts_with("who ") || lowered.starts_with("what ") {
         return "question";
@@ -219,6 +223,57 @@ fn assistant_entry_intent_with_override(
         return "command";
     }
     "task"
+}
+
+fn contains_url_or_path_token(text: &str) -> bool {
+    text.split_whitespace()
+        .map(trim_intent_token)
+        .filter(|token| !token.is_empty())
+        .any(|token| {
+            token.starts_with("http://")
+                || token.starts_with("https://")
+                || token.starts_with("www.")
+                || token.starts_with("file://")
+                || looks_like_local_path_token(token)
+        })
+}
+
+fn trim_intent_token(token: &str) -> &str {
+    token.trim_matches(|c: char| {
+        matches!(
+            c,
+            '(' | ')'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | '<'
+                | '>'
+                | '"'
+                | '\''
+                | '`'
+                | ','
+                | '.'
+                | ';'
+                | ':'
+                | '!'
+                | '?'
+        )
+    })
+}
+
+fn looks_like_local_path_token(token: &str) -> bool {
+    if token.is_empty() || token.contains("://") {
+        return false;
+    }
+    if token.starts_with('/')
+        || token.starts_with("./")
+        || token.starts_with("../")
+        || token.starts_with("~/")
+    {
+        return true;
+    }
+    token.contains('/') && token.chars().any(|ch| ch.is_ascii_alphabetic())
 }
 
 fn assistant_entry_conversation_title(text: &str) -> String {
@@ -1268,7 +1323,7 @@ fn extract_text_query(content: &serde_json::Value) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::assistant_error_retryable;
+    use super::{assistant_entry_intent_with_override, assistant_error_retryable};
 
     #[test]
     fn assistant_error_retryable_flags_retryable_provider_failures() {
@@ -1294,5 +1349,21 @@ mod tests {
         assert!(!assistant_error_retryable(
             "provider error: rate limit: maxed"
         ));
+    }
+
+    #[test]
+    fn assistant_entry_intent_detects_urls_and_paths() {
+        assert_eq!(
+            assistant_entry_intent_with_override("https://example.com/spec", None, None),
+            "url"
+        );
+        assert_eq!(
+            assistant_entry_intent_with_override("/home/jove/code/vel/README.md", None, None),
+            "url"
+        );
+        assert_eq!(
+            assistant_entry_intent_with_override("clients/web/src/App.tsx", None, None),
+            "url"
+        );
     }
 }

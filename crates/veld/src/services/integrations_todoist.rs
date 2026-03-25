@@ -2342,7 +2342,12 @@ mod tests {
         assert_eq!(updated.metadata_json["review_state"], "needs_review");
         assert_eq!(
             updated.metadata_json["labels"],
-            json!(["focus", "ops", "review_state:needs_review", "waiting_on:alex"])
+            json!([
+                "focus",
+                "ops",
+                "review_state:needs_review",
+                "waiting_on:alex"
+            ])
         );
     }
 

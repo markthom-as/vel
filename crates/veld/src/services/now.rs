@@ -1,4 +1,5 @@
 use chrono::{DateTime, Timelike, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
@@ -13,6 +14,8 @@ use vel_storage::{SignalRecord, Storage};
 
 use crate::{errors::AppError, services::integrations, state::AppState};
 
+const NOW_CALENDAR_OVERRIDES_KEY: &str = "now_calendar_overrides";
+
 #[derive(Debug, Clone)]
 pub struct NowOutput {
     pub computed_at: i64,
@@ -23,6 +26,8 @@ pub struct NowOutput {
     pub context_line: Option<NowContextLineOutput>,
     pub nudge_bars: Vec<NowNudgeBarOutput>,
     pub task_lane: Option<NowTaskLaneOutput>,
+    pub next_up_items: Vec<NowNextUpItemOutput>,
+    pub progress: NowProgressOutput,
     pub docked_input: Option<NowDockedInputOutput>,
     pub overview: NowOverviewOutput,
     pub summary: NowSummaryOutput,
@@ -162,6 +167,25 @@ pub struct NowTaskLaneItemOutput {
 }
 
 #[derive(Debug, Clone)]
+pub struct NowNextUpItemOutput {
+    pub kind: String,
+    pub id: String,
+    pub title: String,
+    pub meta: Option<String>,
+    pub detail: Option<String>,
+    pub task: Option<NowTaskLaneItemOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowProgressOutput {
+    pub base_count: u32,
+    pub completed_count: u32,
+    pub backlog_count: u32,
+    pub completed_ratio: f64,
+    pub backlog_ratio: f64,
+}
+
+#[derive(Debug, Clone)]
 pub struct NowDockedInputOutput {
     pub supported_intents: Vec<String>,
     pub day_thread_id: Option<String>,
@@ -225,17 +249,27 @@ pub struct NowSummaryOutput {
 
 #[derive(Debug, Clone)]
 pub struct NowEventOutput {
+    pub event_id: Option<String>,
+    pub calendar_id: Option<String>,
+    pub calendar_name: Option<String>,
     pub title: String,
     pub start_ts: i64,
     pub end_ts: Option<i64>,
     pub all_day: bool,
+    pub event_url: Option<String>,
+    pub attachment_url: Option<String>,
     pub location: Option<String>,
+    pub notes: Option<String>,
+    pub attendees: Vec<String>,
+    pub video_url: Option<String>,
+    pub video_provider: Option<String>,
     pub status: Option<String>,
     pub transparency: Option<String>,
     pub response_status: Option<String>,
     pub prep_minutes: Option<i64>,
     pub travel_minutes: Option<i64>,
     pub leave_by_ts: Option<i64>,
+    pub rescheduled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -257,6 +291,7 @@ pub struct NowScheduleOutput {
     pub empty_message: Option<String>,
     pub next_event: Option<NowEventOutput>,
     pub upcoming_events: Vec<NowEventOutput>,
+    pub following_day_events: Vec<NowEventOutput>,
 }
 
 #[derive(Debug, Clone)]
@@ -306,6 +341,21 @@ pub struct NowFreshnessEntryOutput {
 pub struct NowFreshnessOutput {
     pub overall_status: String,
     pub sources: Vec<NowFreshnessEntryOutput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct CalendarOverrideSettings {
+    #[serde(default)]
+    overrides: Vec<CalendarOverrideRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CalendarOverrideRecord {
+    event_id: String,
+    calendar_id: Option<String>,
+    start_ts: i64,
+    end_ts: Option<i64>,
+    updated_at: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -388,6 +438,52 @@ pub async fn get_now_with_state(state: &AppState) -> Result<NowOutput, AppError>
     get_now_internal(&state.storage, &state.config, Some(state)).await
 }
 
+pub async fn reschedule_calendar_event(
+    state: &AppState,
+    event_id: &str,
+    calendar_id: Option<&str>,
+    start_ts: i64,
+    end_ts: Option<i64>,
+) -> Result<NowOutput, AppError> {
+    let event_id = event_id.trim();
+    if event_id.is_empty() {
+        return Err(AppError::bad_request("event_id must not be empty"));
+    }
+    if let Some(end_ts) = end_ts {
+        if end_ts <= start_ts {
+            return Err(AppError::bad_request(
+                "end_ts must be greater than start_ts",
+            ));
+        }
+    }
+
+    let mut settings = load_calendar_override_settings(&state.storage).await?;
+    let updated_at = OffsetDateTime::now_utc().unix_timestamp();
+    let calendar_id = calendar_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+
+    if let Some(existing) = settings.overrides.iter_mut().find(|record| {
+        record.event_id == event_id && record.calendar_id.as_deref() == calendar_id.as_deref()
+    }) {
+        existing.start_ts = start_ts;
+        existing.end_ts = end_ts;
+        existing.updated_at = updated_at;
+    } else {
+        settings.overrides.push(CalendarOverrideRecord {
+            event_id: event_id.to_string(),
+            calendar_id,
+            start_ts,
+            end_ts,
+            updated_at,
+        });
+    }
+
+    save_calendar_override_settings(&state.storage, &settings).await?;
+    get_now_internal(&state.storage, &state.config, Some(state)).await
+}
+
 async fn get_now_internal(
     storage: &Storage,
     config: &AppConfig,
@@ -448,31 +544,57 @@ async fn get_now_internal(
 
     let signal_ids = context.signals_used.clone();
     let calendar_selection = integrations::google_calendar_selection_filter(storage).await?;
+    let calendar_overrides = load_calendar_override_settings(storage).await?;
     let mut events = storage
         .list_signals_by_ids(&signal_ids)
         .await?
         .into_iter()
-        .filter(|signal| calendar_selection.includes_signal(signal))
-        .filter_map(calendar_event_from_signal)
+        .filter(|signal| calendar_selection.includes_visible_signal(signal))
+        .filter_map(|signal| calendar_event_from_signal(signal, &calendar_overrides))
         .filter(|event| event_overlaps_current_day(event, &current_day))
         .collect::<Vec<_>>();
     if events.is_empty() {
         events = storage
-            .list_signals(Some("calendar_event"), Some(current_day.start_ts), 32)
+            .list_signals_in_window(
+                Some("calendar_event"),
+                current_day.start_ts - (24 * 60 * 60),
+                current_day.end_ts,
+                128,
+            )
             .await?
             .into_iter()
-            .filter(|signal| calendar_selection.includes_signal(signal))
-            .filter_map(calendar_event_from_signal)
+            .filter(|signal| calendar_selection.includes_visible_signal(signal))
+            .filter_map(|signal| calendar_event_from_signal(signal, &calendar_overrides))
             .filter(|event| event_overlaps_current_day(event, &current_day))
             .collect();
     }
-    events.sort_by_key(|event| event.start_ts);
+    sort_now_events(&mut events);
     let next_event = events.iter().find(|event| event.start_ts > now_ts).cloned();
     let upcoming_events: Vec<NowEventOutput> = events
         .into_iter()
         .filter(|event| event.end_ts.unwrap_or(event.start_ts) >= now_ts)
         .take(5)
         .collect();
+    let next_day = crate::services::timezone::current_day_window(
+        &timezone,
+        OffsetDateTime::from_unix_timestamp(current_day.end_ts)
+            .unwrap_or(OffsetDateTime::UNIX_EPOCH),
+    )?;
+    let mut following_day_events = storage
+        .list_signals_in_window(
+            Some("calendar_event"),
+            next_day.start_ts,
+            next_day.end_ts,
+            128,
+        )
+        .await?
+        .into_iter()
+        .filter(|signal| calendar_selection.includes_visible_signal(signal))
+        .filter_map(|signal| calendar_event_from_signal(signal, &calendar_overrides))
+        .filter(|event| event_overlaps_current_day(event, &next_day))
+        .collect::<Vec<_>>();
+    sort_now_events(&mut following_day_events);
+    following_day_events.truncate(5);
 
     let integrations = integrations::get_integrations_with_config(storage, config).await?;
     let integrations = IntegrationSnapshotOutput {
@@ -483,7 +605,7 @@ async fn get_now_internal(
                 .google_calendar
                 .calendars
                 .iter()
-                .any(|calendar| calendar.selected),
+                .any(|calendar| calendar.sync_enabled),
             last_sync_at: integrations.google_calendar.last_sync_at,
             last_sync_status: integrations.google_calendar.last_sync_status.clone(),
             guidance: integrations
@@ -578,6 +700,9 @@ async fn get_now_internal(
         &current_day,
         completed_today,
     ));
+    let next_up_items =
+        build_next_up_items(&upcoming_events, task_lane.as_ref(), &timezone, now_ts);
+    let progress = build_progress(task_lane.as_ref());
     let docked_input = Some(build_docked_input());
     let nudge_bars = build_nudge_bars(
         check_in.as_ref(),
@@ -600,6 +725,8 @@ async fn get_now_internal(
         context_line,
         nudge_bars,
         task_lane,
+        next_up_items,
+        progress,
         docked_input,
         overview,
         summary: NowSummaryOutput {
@@ -615,6 +742,7 @@ async fn get_now_internal(
             empty_message: schedule_empty_message,
             next_event,
             upcoming_events,
+            following_day_events,
         },
         tasks: NowTasksOutput {
             todoist: task_buckets.pullable,
@@ -993,6 +1121,14 @@ fn empty_now(
             recent_completed: Vec::new(),
             overflow_count: 0,
         }),
+        next_up_items: Vec::new(),
+        progress: NowProgressOutput {
+            base_count: 1,
+            completed_count: 0,
+            backlog_count: 0,
+            completed_ratio: 0.0,
+            backlog_ratio: 0.0,
+        },
         docked_input: Some(build_docked_input()),
         overview: empty_overview(&freshness, &trust_readiness),
         summary: NowSummaryOutput {
@@ -1007,6 +1143,7 @@ fn empty_now(
             ),
             next_event: None,
             upcoming_events: Vec::new(),
+            following_day_events: Vec::new(),
         },
         tasks: NowTasksOutput {
             todoist: Vec::new(),
@@ -1433,13 +1570,9 @@ fn build_nudge_bars(
         });
     }
 
-    if let Some(overdue_bar) = build_overdue_nudge_bar(
-        task_lane,
-        all_open_tasks,
-        context_line,
-        docked_input,
-        now,
-    ) {
+    if let Some(overdue_bar) =
+        build_overdue_nudge_bar(task_lane, all_open_tasks, context_line, docked_input, now)
+    {
         bars.push(overdue_bar);
     }
 
@@ -1545,7 +1678,10 @@ fn build_overdue_nudge_bar(
 fn suppress_action_item_nudge(item: &ActionItem) -> bool {
     item.kind == ActionKind::NextStep
         && item.summary == "This commitment is overdue and should be handled or rescheduled."
-        && item.evidence.iter().any(|evidence| evidence.source_kind == "commitment")
+        && item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "commitment")
 }
 
 fn map_action_item_to_bar_kind(kind: ActionKind) -> String {
@@ -1730,6 +1866,80 @@ fn build_task_lane(
     }
 }
 
+fn build_next_up_items(
+    upcoming_events: &[NowEventOutput],
+    task_lane: Option<&NowTaskLaneOutput>,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now_ts: i64,
+) -> Vec<NowNextUpItemOutput> {
+    let active_event_id = upcoming_events
+        .iter()
+        .find(|event| {
+            let end_ts = event.end_ts.unwrap_or(event.start_ts);
+            event.start_ts <= now_ts && end_ts >= now_ts
+        })
+        .map(now_event_item_id);
+    let mut items = upcoming_events
+        .iter()
+        .filter(|event| Some(now_event_item_id(event)) != active_event_id)
+        .map(|event| NowNextUpItemOutput {
+            kind: "event".to_string(),
+            id: now_event_item_id(event),
+            title: event.title.clone(),
+            meta: Some(format_event_window_label(event, timezone)),
+            detail: Some(
+                event
+                    .location
+                    .clone()
+                    .unwrap_or_else(|| "Calendar event".to_string()),
+            ),
+            task: None,
+        })
+        .collect::<Vec<_>>();
+    items.extend(
+        task_lane
+            .into_iter()
+            .flat_map(|lane| lane.next_up.iter().cloned())
+            .map(|task| NowNextUpItemOutput {
+                kind: "task".to_string(),
+                id: task.id.clone(),
+                title: task.title.clone(),
+                meta: None,
+                detail: None,
+                task: Some(task),
+            }),
+    );
+    items
+}
+
+fn build_progress(task_lane: Option<&NowTaskLaneOutput>) -> NowProgressOutput {
+    let Some(task_lane) = task_lane else {
+        return NowProgressOutput {
+            base_count: 1,
+            completed_count: 0,
+            backlog_count: 0,
+            completed_ratio: 0.0,
+            backlog_ratio: 0.0,
+        };
+    };
+    let completed_count = task_lane.completed.len() as u32;
+    let active_count = task_lane.active_items.len() as u32;
+    let next_up_count = task_lane.next_up.len() as u32;
+    let backlog_count = task_lane.if_time_allows.len() as u32;
+    let base_count = (active_count + next_up_count + completed_count).max(1);
+    NowProgressOutput {
+        base_count,
+        completed_count,
+        backlog_count,
+        completed_ratio: completed_count as f64 / base_count as f64,
+        backlog_ratio: if backlog_count > 0 {
+            backlog_count as f64 / base_count as f64
+        } else {
+            0.0
+        },
+    }
+}
+
 fn is_server_inbox_task(task: &NowTaskOutput) -> bool {
     task.source_type.eq_ignore_ascii_case("todoist")
         && task
@@ -1748,12 +1958,13 @@ async fn build_completed_today_tasks(
     done_commitments: &[Commitment],
     pending_writebacks: &[WritebackOperationRecord],
 ) -> Result<Vec<Commitment>, AppError> {
-    let provider_completed = crate::services::integrations_todoist::list_completed_todoist_tasks_for_window(
-        storage,
-        current_day.start_ts,
-        current_day.end_ts,
-    )
-    .await?;
+    let provider_completed =
+        crate::services::integrations_todoist::list_completed_todoist_tasks_for_window(
+            storage,
+            current_day.start_ts,
+            current_day.end_ts,
+        )
+        .await?;
 
     Ok(merge_completed_today_commitments(
         open_commitments,
@@ -1965,6 +2176,35 @@ fn task_output_to_lane_item(
     }
 }
 
+fn now_event_item_id(event: &NowEventOutput) -> String {
+    format!("{}-{}", event.title, event.start_ts)
+}
+
+fn format_event_window_label(
+    event: &NowEventOutput,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+) -> String {
+    let start = format_local_time_label(timezone, event.start_ts);
+    let Some(end_ts) = event.end_ts else {
+        return start;
+    };
+    format!("{start}–{}", format_local_time_label(timezone, end_ts))
+}
+
+fn format_local_time_label(
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    unix_ts: i64,
+) -> String {
+    let local = DateTime::<Utc>::from_timestamp(unix_ts, 0)
+        .expect("unix timestamp should convert to chrono datetime")
+        .with_timezone(&timezone.tz());
+    if local.minute() == 0 {
+        local.format("%-I %p").to_string()
+    } else {
+        local.format("%-I:%M %p").to_string()
+    }
+}
+
 fn due_label_for_lane_item(
     due_at: Option<OffsetDateTime>,
     lane: &str,
@@ -1994,7 +2234,10 @@ fn due_label_for_lane_item(
     }
 
     if matches!(lane, "if_time_allows" | "inbox" | "completed") {
-        return (Some(format_local_calendar_label(timezone, due_at, "Due")), false);
+        return (
+            Some(format_local_calendar_label(timezone, due_at, "Due")),
+            false,
+        );
     }
 
     (None, false)
@@ -2029,6 +2272,7 @@ fn build_docked_input() -> NowDockedInputOutput {
     NowDockedInputOutput {
         supported_intents: vec![
             "task".to_string(),
+            "url".to_string(),
             "question".to_string(),
             "note".to_string(),
             "command".to_string(),
@@ -2722,18 +2966,22 @@ fn now_task(commitment: &Commitment) -> NowTaskOutput {
         .metadata_json
         .get("deadline_at")
         .and_then(|value| value.as_str())
-        .and_then(|value| OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok())
+        .and_then(|value| {
+            OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok()
+        })
         .or_else(|| {
             commitment
                 .metadata_json
                 .get("deadline")
                 .and_then(|value| value.get("date"))
                 .and_then(|value| value.as_str())
-                .and_then(|value| OffsetDateTime::parse(
-                    &format!("{value}T00:00:00Z"),
-                    &time::format_description::well_known::Rfc3339,
-                )
-                .ok())
+                .and_then(|value| {
+                    OffsetDateTime::parse(
+                        &format!("{value}T00:00:00Z"),
+                        &time::format_description::well_known::Rfc3339,
+                    )
+                    .ok()
+                })
         });
     NowTaskOutput {
         id: commitment.id.as_ref().to_string(),
@@ -2777,46 +3025,132 @@ fn event_overlaps_current_day(
         && event_is_relevant(event)
 }
 
+fn sort_now_events(events: &mut [NowEventOutput]) {
+    events.sort_by(|left, right| {
+        left.all_day
+            .cmp(&right.all_day)
+            .reverse()
+            .then_with(|| left.start_ts.cmp(&right.start_ts))
+            .then_with(|| left.title.cmp(&right.title))
+    });
+}
+
 fn event_is_relevant(event: &NowEventOutput) -> bool {
     let transparency = event.transparency.as_deref().unwrap_or_default();
     let response_status = event.response_status.as_deref().unwrap_or_default();
     let status = event.status.as_deref().unwrap_or_default();
-    !event.all_day
-        && !transparency.eq_ignore_ascii_case("transparent")
+    !transparency.eq_ignore_ascii_case("transparent")
         && !transparency.eq_ignore_ascii_case("free")
         && !response_status.eq_ignore_ascii_case("declined")
         && !status.eq_ignore_ascii_case("cancelled")
 }
 
-fn calendar_event_from_signal(signal: SignalRecord) -> Option<NowEventOutput> {
+fn calendar_event_from_signal(
+    signal: SignalRecord,
+    override_settings: &CalendarOverrideSettings,
+) -> Option<NowEventOutput> {
     if signal.signal_type != "calendar_event" {
         return None;
     }
     let payload = signal.payload_json;
-    let start_ts = payload
+    let original_start_ts = payload
         .get("start")?
         .as_i64()
         .or_else(|| payload.get("start_ts")?.as_i64())?;
+    let event_id = payload
+        .get("event_id")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let calendar_id = payload
+        .get("calendar_id")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    let event_override = event_id.as_deref().and_then(|event_id| {
+        find_calendar_override(override_settings, event_id, calendar_id.as_deref())
+    });
+    let start_ts = event_override
+        .map(|record| record.start_ts)
+        .unwrap_or(original_start_ts);
     let title = payload
         .get("title")
         .and_then(|value| value.as_str())
         .unwrap_or("Untitled event")
         .to_string();
+    let payload_end_ts = payload.get("end").and_then(|value| value.as_i64());
+    let end_ts = event_override.and_then(|record| record.end_ts).or_else(|| {
+        payload_end_ts.map(|original_end_ts| {
+            let duration = original_end_ts - original_start_ts;
+            start_ts + duration.max(0)
+        })
+    });
+    let notes = payload
+        .get("description")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let attendees = payload
+        .get("attendees")
+        .and_then(|value| value.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     let travel_minutes = payload
         .get("travel_minutes")
         .and_then(|value| value.as_i64());
     Some(NowEventOutput {
+        event_id,
+        calendar_id,
+        calendar_name: payload
+            .get("calendar_name")
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
         title,
         start_ts,
-        end_ts: payload.get("end").and_then(|value| value.as_i64()),
+        end_ts,
         all_day: payload
             .get("all_day")
             .and_then(|value| value.as_bool())
             .unwrap_or(false),
+        event_url: payload
+            .get("url")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
+        attachment_url: payload
+            .get("attachment_url")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
         location: payload
             .get("location")
             .and_then(|value| value.as_str())
-            .map(str::to_string),
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
+        notes,
+        attendees,
+        video_url: payload
+            .get("video_url")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
+        video_provider: payload
+            .get("video_provider")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned),
         status: payload
             .get("status")
             .and_then(|value| value.as_str())
@@ -2832,7 +3166,44 @@ fn calendar_event_from_signal(signal: SignalRecord) -> Option<NowEventOutput> {
         prep_minutes: payload.get("prep_minutes").and_then(|value| value.as_i64()),
         travel_minutes,
         leave_by_ts: travel_minutes.map(|minutes| start_ts - (minutes * 60)),
+        rescheduled: event_override.is_some(),
     })
+}
+
+fn find_calendar_override<'a>(
+    settings: &'a CalendarOverrideSettings,
+    event_id: &str,
+    calendar_id: Option<&str>,
+) -> Option<&'a CalendarOverrideRecord> {
+    settings
+        .overrides
+        .iter()
+        .find(|record| record.event_id == event_id && record.calendar_id.as_deref() == calendar_id)
+}
+
+async fn load_calendar_override_settings(
+    storage: &Storage,
+) -> Result<CalendarOverrideSettings, AppError> {
+    let all = storage.get_all_settings().await?;
+    match all.get(NOW_CALENDAR_OVERRIDES_KEY) {
+        Some(value) => serde_json::from_value(value.clone()).map_err(|error| {
+            AppError::internal(format!("deserialize calendar override settings: {error}"))
+        }),
+        None => Ok(CalendarOverrideSettings::default()),
+    }
+}
+
+async fn save_calendar_override_settings(
+    storage: &Storage,
+    settings: &CalendarOverrideSettings,
+) -> Result<(), AppError> {
+    let value = serde_json::to_value(settings).map_err(|error| {
+        AppError::internal(format!("serialize calendar override settings: {error}"))
+    })?;
+    storage
+        .set_setting(NOW_CALENDAR_OVERRIDES_KEY, &value)
+        .await?;
+    Ok(())
 }
 
 fn label(key: &str, text: &str) -> NowLabelOutput {
@@ -2900,6 +3271,347 @@ mod tests {
         assert_eq!(
             compare_commitments(&due_soon, &no_due, now),
             std::cmp::Ordering::Less
+        );
+    }
+
+    #[test]
+    fn calendar_event_from_signal_applies_persisted_override() {
+        let signal = vel_storage::SignalRecord {
+            signal_id: "sig_calendar_1".to_string(),
+            signal_type: "calendar_event".to_string(),
+            source: "google_calendar".to_string(),
+            source_ref: Some("google_calendar:cal_1:evt_1".to_string()),
+            timestamp: 1_710_003_600,
+            payload_json: json!({
+                "event_id": "evt_1",
+                "calendar_id": "cal_1",
+                "calendar_name": "Primary",
+                "title": "Design review",
+                "start": 1_710_003_600,
+                "end": 1_710_007_200,
+                "location": "Studio",
+                "prep_minutes": 15,
+                "travel_minutes": 0
+            }),
+            created_at: 1_710_000_000,
+        };
+        let overrides = CalendarOverrideSettings {
+            overrides: vec![CalendarOverrideRecord {
+                event_id: "evt_1".to_string(),
+                calendar_id: Some("cal_1".to_string()),
+                start_ts: 1_710_005_400,
+                end_ts: Some(1_710_009_000),
+                updated_at: 1_710_000_100,
+            }],
+        };
+
+        let event = calendar_event_from_signal(signal, &overrides).expect("calendar event");
+
+        assert_eq!(event.event_id.as_deref(), Some("evt_1"));
+        assert_eq!(event.calendar_name.as_deref(), Some("Primary"));
+        assert_eq!(event.start_ts, 1_710_005_400);
+        assert_eq!(event.end_ts, Some(1_710_009_000));
+        assert!(event.rescheduled);
+    }
+
+    #[tokio::test]
+    async fn get_now_fallback_keeps_today_events_when_future_events_exceed_limit() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar",
+                &json!({
+                    "all_calendars_selected": false,
+                    "calendars": [
+                        {
+                            "id": "routine",
+                            "summary": "Routine",
+                            "primary": false,
+                            "sync_enabled": true,
+                            "display_enabled": true
+                        }
+                    ]
+                }),
+            )
+            .await
+            .unwrap();
+
+        let timezone =
+            crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now = time::macros::datetime!(2026-03-24 18:30:00 UTC);
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        storage
+            .set_current_context(
+                now.unix_timestamp(),
+                &serde_json::to_string(&CurrentContextV1 {
+                    computed_at: now.unix_timestamp(),
+                    ..CurrentContextV1::default()
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("today-event".to_string()),
+                timestamp: current_day.start_ts + (18 * 60 * 60),
+                payload_json: Some(json!({
+                    "event_id": "evt_today",
+                    "calendar_id": "routine",
+                    "calendar_name": "Routine",
+                    "title": "block:workout",
+                    "start": current_day.start_ts + (18 * 60 * 60),
+                    "end": current_day.start_ts + (21 * 60 * 60),
+                    "status": "confirmed"
+                })),
+            })
+            .await
+            .unwrap();
+
+        for index in 0..200 {
+            let start_ts = current_day.end_ts + ((index as i64 + 1) * 3600);
+            storage
+                .insert_signal(vel_storage::SignalInsert {
+                    signal_type: "calendar_event".to_string(),
+                    source: "google_calendar".to_string(),
+                    source_ref: Some(format!("future-now-event-{index}")),
+                    timestamp: start_ts,
+                    payload_json: Some(json!({
+                        "event_id": format!("evt_future_{index}"),
+                        "calendar_id": "routine",
+                        "calendar_name": "Routine",
+                        "title": format!("Future {index}"),
+                        "start": start_ts,
+                        "end": start_ts + 1800,
+                        "status": "confirmed"
+                    })),
+                })
+                .await
+                .unwrap();
+        }
+
+        let now_output = get_now(&storage, &vel_config::AppConfig::default())
+            .await
+            .unwrap();
+
+        assert_eq!(now_output.schedule.upcoming_events.len(), 1);
+        assert_eq!(
+            now_output.schedule.upcoming_events[0].title,
+            "block:workout"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_now_filters_out_hidden_display_google_calendar_events() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar",
+                &json!({
+                    "all_calendars_selected": true,
+                    "calendars": [
+                        {
+                            "id": "cal_visible",
+                            "summary": "Visible",
+                            "primary": false,
+                            "sync_enabled": true,
+                            "display_enabled": true
+                        },
+                        {
+                            "id": "cal_hidden",
+                            "summary": "Hidden",
+                            "primary": false,
+                            "sync_enabled": true,
+                            "display_enabled": false
+                        }
+                    ]
+                }),
+            )
+            .await
+            .unwrap();
+
+        let timezone =
+            crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now = time::macros::datetime!(2026-03-24 14:30:00 UTC);
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        storage
+            .set_current_context(
+                now.unix_timestamp(),
+                &serde_json::to_string(&CurrentContextV1 {
+                    computed_at: now.unix_timestamp(),
+                    ..CurrentContextV1::default()
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("visible-event".to_string()),
+                timestamp: current_day.start_ts + (10 * 60 * 60),
+                payload_json: Some(json!({
+                    "event_id": "evt_visible",
+                    "calendar_id": "cal_visible",
+                    "calendar_name": "Visible",
+                    "title": "Visible event",
+                    "start": current_day.start_ts + (10 * 60 * 60),
+                    "end": current_day.start_ts + (10 * 60 * 60 + 15 * 60),
+                    "status": "confirmed"
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("hidden-event".to_string()),
+                timestamp: current_day.start_ts + (11 * 60 * 60),
+                payload_json: Some(json!({
+                    "event_id": "evt_hidden",
+                    "calendar_id": "cal_hidden",
+                    "calendar_name": "Hidden",
+                    "title": "Hidden event",
+                    "start": current_day.start_ts + (11 * 60 * 60),
+                    "end": current_day.start_ts + (11 * 60 * 60 + 15 * 60),
+                    "status": "confirmed"
+                })),
+            })
+            .await
+            .unwrap();
+
+        let now_output = get_now(&storage, &vel_config::AppConfig::default())
+            .await
+            .unwrap();
+
+        assert_eq!(now_output.schedule.upcoming_events.len(), 1);
+        assert_eq!(now_output.schedule.upcoming_events[0].title, "Visible event");
+        assert!(!now_output.next_up_items.iter().any(|item| item.title == "Hidden event"));
+    }
+
+    #[tokio::test]
+    async fn get_now_filters_out_hidden_display_google_calendar_events_from_following_day_events() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar",
+                &json!({
+                    "all_calendars_selected": true,
+                    "calendars": [
+                        {
+                            "id": "cal_visible",
+                            "summary": "Visible",
+                            "primary": false,
+                            "sync_enabled": true,
+                            "display_enabled": true
+                        },
+                        {
+                            "id": "cal_hidden",
+                            "summary": "Hidden",
+                            "primary": false,
+                            "sync_enabled": true,
+                            "display_enabled": false
+                        }
+                    ]
+                }),
+            )
+            .await
+            .unwrap();
+
+        let timezone =
+            crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now = time::macros::datetime!(2026-03-24 14:30:00 UTC);
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let next_day = crate::services::timezone::current_day_window(
+            &timezone,
+            OffsetDateTime::from_unix_timestamp(current_day.end_ts + 1).unwrap(),
+        )
+        .unwrap();
+        storage
+            .set_current_context(
+                now.unix_timestamp(),
+                &serde_json::to_string(&CurrentContextV1 {
+                    computed_at: now.unix_timestamp(),
+                    ..CurrentContextV1::default()
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("visible-following-event".to_string()),
+                timestamp: next_day.start_ts + (10 * 60 * 60),
+                payload_json: Some(json!({
+                    "event_id": "evt_visible_next",
+                    "calendar_id": "cal_visible",
+                    "calendar_name": "Visible",
+                    "title": "Visible tomorrow event",
+                    "start": next_day.start_ts + (10 * 60 * 60),
+                    "end": next_day.start_ts + (10 * 60 * 60 + 15 * 60),
+                    "status": "confirmed"
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("hidden-following-event".to_string()),
+                timestamp: next_day.start_ts + (11 * 60 * 60),
+                payload_json: Some(json!({
+                    "event_id": "evt_hidden_next",
+                    "calendar_id": "cal_hidden",
+                    "calendar_name": "Hidden",
+                    "title": "Hidden tomorrow event",
+                    "start": next_day.start_ts + (11 * 60 * 60),
+                    "end": next_day.start_ts + (11 * 60 * 60 + 15 * 60),
+                    "status": "confirmed"
+                })),
+            })
+            .await
+            .unwrap();
+
+        let now_output = get_now(&storage, &vel_config::AppConfig::default())
+            .await
+            .unwrap();
+
+        assert_eq!(now_output.schedule.following_day_events.len(), 1);
+        assert_eq!(
+            now_output.schedule.following_day_events[0].title,
+            "Visible tomorrow event"
+        );
+        assert!(
+            !now_output
+                .schedule
+                .following_day_events
+                .iter()
+                .any(|event| event.title == "Hidden tomorrow event")
         );
     }
 
@@ -3000,7 +3712,10 @@ mod tests {
         let buckets = split_now_tasks(&context, commitments, &timezone, now, &current_day);
 
         assert_eq!(
-            buckets.next_commitment.as_ref().map(|task| task.text.as_str()),
+            buckets
+                .next_commitment
+                .as_ref()
+                .map(|task| task.text.as_str()),
             Some("Overdue 1")
         );
         assert_eq!(buckets.in_play.len(), 7);
@@ -3017,12 +3732,7 @@ mod tests {
         let context = CurrentContextV1::default();
         let commitments = sort_commitments(
             vec![
-                commitment_fixture(
-                    "Backlog cleanup",
-                    None,
-                    Some("todo"),
-                    json!({}),
-                ),
+                commitment_fixture("Backlog cleanup", None, Some("todo"), json!({})),
                 commitment_fixture(
                     "Today task",
                     Some(now + Duration::hours(2)),
@@ -3055,11 +3765,17 @@ mod tests {
         assert!(lane.active.is_none());
         assert!(lane.active_items.is_empty());
         assert_eq!(
-            lane.next_up.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            lane.next_up
+                .iter()
+                .map(|task| task.text.as_str())
+                .collect::<Vec<_>>(),
             vec!["Overdue task", "Today task"]
         );
         assert_eq!(
-            lane.if_time_allows.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            lane.if_time_allows
+                .iter()
+                .map(|task| task.text.as_str())
+                .collect::<Vec<_>>(),
             vec!["Backlog cleanup"]
         );
     }
@@ -3110,11 +3826,17 @@ mod tests {
         );
 
         assert_eq!(
-            lane.next_up.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            lane.next_up
+                .iter()
+                .map(|task| task.text.as_str())
+                .collect::<Vec<_>>(),
             vec!["Projected task"]
         );
         assert_eq!(
-            lane.inbox.iter().map(|task| task.text.as_str()).collect::<Vec<_>>(),
+            lane.inbox
+                .iter()
+                .map(|task| task.text.as_str())
+                .collect::<Vec<_>>(),
             vec!["Inbox due today", "Inbox unscheduled"]
         );
         assert!(lane.if_time_allows.is_empty());
@@ -3151,7 +3873,10 @@ mod tests {
         let buckets = split_now_tasks(&context, commitments, &timezone, now, &current_day);
 
         assert_eq!(
-            buckets.next_commitment.as_ref().map(|task| task.text.as_str()),
+            buckets
+                .next_commitment
+                .as_ref()
+                .map(|task| task.text.as_str()),
             Some("Due today")
         );
         assert!(buckets.in_play.is_empty());
@@ -3175,22 +3900,12 @@ mod tests {
         open_commitment.source_type = "todoist".to_string();
         open_commitment.source_id = Some("todoist_task_provider".to_string());
 
-        let local_done = commitment_fixture(
-            "Finish weekly review",
-            None,
-            Some("todo"),
-            json!({}),
-        );
+        let local_done = commitment_fixture("Finish weekly review", None, Some("todo"), json!({}));
         let mut local_done = local_done;
         local_done.status = CommitmentStatus::Done;
         local_done.resolved_at = Some(now - Duration::minutes(15));
 
-        let optimistic_open = commitment_fixture(
-            "Call Apria",
-            None,
-            Some("todo"),
-            json!({}),
-        );
+        let optimistic_open = commitment_fixture("Call Apria", None, Some("todo"), json!({}));
         let mut optimistic_open = optimistic_open;
         optimistic_open.source_type = "todoist".to_string();
         optimistic_open.source_id = Some("todoist_task_optimistic".to_string());
@@ -3245,11 +3960,17 @@ mod tests {
         );
 
         assert_eq!(
-            merged.iter().map(|item| item.text.as_str()).collect::<Vec<_>>(),
+            merged
+                .iter()
+                .map(|item| item.text.as_str())
+                .collect::<Vec<_>>(),
             vec!["Call Apria", "Finish weekly review", "Reply to Dimitri"]
         );
         assert_eq!(merged[0].status, CommitmentStatus::Done);
-        assert_eq!(merged[2].source_id.as_deref(), Some("todoist_task_provider"));
+        assert_eq!(
+            merged[2].source_id.as_deref(),
+            Some("todoist_task_provider")
+        );
         assert_eq!(merged[2].metadata_json["labels"], json!(["Urgent"]));
     }
 
@@ -3322,8 +4043,7 @@ mod tests {
             permission_mode: ActionPermissionMode::UserConfirm,
             scope_affinity: ActionScopeAffinity::Global,
             title: "Reply to overdue thread".to_string(),
-            summary: "This commitment is overdue and should be handled or rescheduled."
-                .to_string(),
+            summary: "This commitment is overdue and should be handled or rescheduled.".to_string(),
             project_id: None,
             project_label: None,
             project_family: None,
@@ -3399,9 +4119,14 @@ mod tests {
 
     #[test]
     fn now_task_normalizes_todoist_inbox_project_to_none() {
-        let mut commitment = commitment_fixture("Message Connie", None, Some("todo"), json!({
-            "is_inbox_project": true
-        }));
+        let mut commitment = commitment_fixture(
+            "Message Connie",
+            None,
+            Some("todo"),
+            json!({
+                "is_inbox_project": true
+            }),
+        );
         commitment.project = Some("inbox".to_string());
 
         let task = now_task(&commitment);

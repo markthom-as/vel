@@ -15,8 +15,8 @@ export function AppShell({ navigation, main, nudgeZone, actionBar }: AppShellPro
       <div className={shellChrome.workspace}>
         <main data-testid="app-shell-main" className={shellChrome.workspaceMain}>{main}</main>
         {nudgeZone ? (
-          <div className={shellChrome.workspaceAside}>
-            <div data-testid="app-shell-nudges" className={shellChrome.workspaceAsideInner}>
+          <div data-testid="app-shell-nudges" className={shellChrome.workspaceAside}>
+            <div className={shellChrome.workspaceAsideInner}>
               <div data-testid="app-shell-nudges-scroll" className={shellChrome.workspaceAsideScroll}>{nudgeZone}</div>
             </div>
           </div>

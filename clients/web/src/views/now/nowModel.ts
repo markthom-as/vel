@@ -80,8 +80,13 @@ export function dedupeActionItems(items: ActionItemData[]): ActionItemData[] {
 }
 
 export function findActiveEvent(events: NowData['schedule']['upcoming_events'], nowTs: number) {
+  const activeEvents = events.filter((event) => {
+    const endTs = event.end_ts ?? event.start_ts;
+    return event.start_ts <= nowTs && endTs >= nowTs;
+  });
   return (
-    events.find((event) => {
+    activeEvents.find((event) => !event.all_day)
+    ?? activeEvents.find((event) => {
       const endTs = event.end_ts ?? event.start_ts;
       return event.start_ts <= nowTs && endTs >= nowTs;
     }) ?? null

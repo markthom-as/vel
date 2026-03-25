@@ -29,6 +29,7 @@ import {
   SquareArrowOutUpRight,
   Tag,
   Archive,
+  User,
   X,
 } from 'lucide-react';
 
@@ -89,6 +90,10 @@ export function CalendarIcon({ size = defaults.size, strokeWidth = defaults.stro
 
 export function TagIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <Tag aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PersonIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <User aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
 export function OpenThreadIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {

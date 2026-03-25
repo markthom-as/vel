@@ -37,11 +37,15 @@ pub async fn load_daily_loop_inputs(
         .collect::<Vec<_>>();
 
     let calendar_events = storage
-        .list_signals(Some("calendar_event"), Some(now.unix_timestamp()), 64)
+        .list_signals_in_window(
+            Some("calendar_event"),
+            now.unix_timestamp(),
+            calendar_window_end.unix_timestamp() + 1,
+            64,
+        )
         .await?
         .into_iter()
         .filter_map(calendar_event_title)
-        .filter(|event| event.start_ts <= calendar_window_end.unix_timestamp())
         .take(3)
         .map(|event| event.title)
         .collect::<Vec<_>>();

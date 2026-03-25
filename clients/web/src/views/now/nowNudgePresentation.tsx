@@ -18,7 +18,7 @@ const NUDGE_TAG_ICON = 10;
 /** Lead glyph (floating left of the nudge card). */
 const NUDGE_LEAD_ICON = 14;
 
-export function nudgeIcon(kind: string): ReactNode {
+export function nudgeIcon(kind: string, urgent = false): ReactNode {
   switch (kind) {
     case 'needs_input':
       return <ThreadsIcon size={NUDGE_LEAD_ICON} />;
@@ -27,8 +27,10 @@ export function nudgeIcon(kind: string): ReactNode {
       return <WarningIcon size={NUDGE_LEAD_ICON} />;
     case 'review_request':
       return <OpenThreadIcon size={NUDGE_LEAD_ICON} />;
+    case 'nudge':
+      return urgent ? <WarningIcon size={NUDGE_LEAD_ICON} /> : <SparkIcon size={NUDGE_LEAD_ICON} />;
     default:
-      return <SparkIcon size={NUDGE_LEAD_ICON} />;
+      return urgent ? <WarningIcon size={NUDGE_LEAD_ICON} /> : <SparkIcon size={NUDGE_LEAD_ICON} />;
   }
 }
 
@@ -127,7 +129,7 @@ export function NudgeLeadOrb({
               nudgeBadgeTone(kind, urgent),
             )}
           >
-            {nudgeIcon(kind)}
+            {nudgeIcon(kind, urgent)}
           </span>
         </div>
       </div>

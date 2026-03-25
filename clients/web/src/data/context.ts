@@ -117,6 +117,26 @@ export function rescheduleNowTasksToToday(
   );
 }
 
+export function rescheduleNowCalendarEvent(
+  payload: {
+    event_id: string;
+    calendar_id?: string | null;
+    start_ts: number;
+    end_ts?: number | null;
+  },
+): Promise<ApiResponse<NowData>> {
+  return canonicalPostMutation<NowData>(
+    '/v1/now/calendar-events/reschedule',
+    {
+      event_id: payload.event_id,
+      calendar_id: payload.calendar_id ?? null,
+      start_ts: payload.start_ts,
+      end_ts: payload.end_ts ?? null,
+    },
+    (value) => decodeApiResponse(value, decodeNowData),
+  );
+}
+
 export function loadActiveDailyLoopSession(
   sessionDate: string,
   phase: DailyLoopPhaseData,

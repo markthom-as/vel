@@ -12,7 +12,7 @@ import type { AssistantEntryResponse } from '../../types'
 const loadSettings = vi.fn()
 const loadIntegrations = vi.fn()
 let lastComposerProps: {
-  onSent?: (clientMessageId: string | undefined, response: AssistantEntryResponse, submitted: { text: string, conversationId: string | null, voice: null, attachments: null }) => void
+  onSent?: (clientMessageId: string | undefined, response: AssistantEntryResponse, submitted: { text: string, conversationId: string | null, intent: null, voice: null, attachments: null }) => void
   disabled?: boolean
   disabledReason?: string | null
   onDisabledInteract?: () => void
@@ -29,7 +29,7 @@ vi.mock('../../data/operator', async () => {
 
 vi.mock('../../core/MessageComposer', () => ({
   MessageComposer: (props: {
-    onSent?: (clientMessageId: string | undefined, response: AssistantEntryResponse, submitted: { text: string, conversationId: string | null, voice: null, attachments: null }) => void
+    onSent?: (clientMessageId: string | undefined, response: AssistantEntryResponse, submitted: { text: string, conversationId: string | null, intent: null, voice: null, attachments: null }) => void
     disabled?: boolean
     disabledReason?: string | null
     onDisabledInteract?: () => void

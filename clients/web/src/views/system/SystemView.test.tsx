@@ -72,6 +72,50 @@ function buildSettings(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function buildIntegrations(overrides: Record<string, unknown> = {}) {
+  return {
+    google_calendar: {
+      configured: true,
+      connected: true,
+      has_client_id: true,
+      has_client_secret: true,
+      calendars: [
+        { id: 'cal_1', summary: 'Primary', primary: true, sync_enabled: true, display_enabled: true },
+        { id: 'cal_2', summary: 'Team', primary: false, sync_enabled: true, display_enabled: false },
+      ],
+      all_calendars_selected: false,
+      last_sync_at: 1710000000,
+      last_sync_status: 'ok',
+      last_error: null,
+      last_item_count: 12,
+      guidance: { title: 'Healthy', detail: 'Calendar connection is healthy.', action: 'refresh' },
+    },
+    todoist: {
+      configured: true,
+      connected: true,
+      has_api_token: true,
+      last_sync_at: 1710000000,
+      last_sync_status: 'ok',
+      last_error: null,
+      last_item_count: 8,
+      guidance: { title: 'Healthy', detail: 'Todoist connection is healthy.', action: 'refresh' },
+      write_capabilities: {
+        completion_status: true,
+        due_date: true,
+        tags: false,
+      },
+    },
+    activity: buildLocalIntegration(),
+    health: buildLocalIntegration(),
+    git: buildLocalIntegration(),
+    messaging: buildLocalIntegration(),
+    reminders: buildLocalIntegration(),
+    notes: buildLocalIntegration(),
+    transcripts: buildLocalIntegration(),
+    ...overrides,
+  }
+}
+
 vi.mock('../../data/agent-grounding', () => ({
   loadAgentInspect: (...args: unknown[]) => loadAgentInspect(...args),
 }))
@@ -178,43 +222,7 @@ describe('SystemView', () => {
     })
     loadIntegrations.mockResolvedValue({
       ok: true,
-      data: {
-        google_calendar: {
-          configured: true,
-          connected: true,
-          has_client_id: true,
-          has_client_secret: true,
-          calendars: [{ id: 'cal_1', summary: 'Primary', primary: true, selected: true }],
-          all_calendars_selected: false,
-          last_sync_at: 1710000000,
-          last_sync_status: 'ok',
-          last_error: null,
-          last_item_count: 12,
-          guidance: { title: 'Healthy', detail: 'Calendar connection is healthy.', action: 'refresh' },
-        },
-        todoist: {
-          configured: true,
-          connected: true,
-          has_api_token: true,
-          last_sync_at: 1710000000,
-          last_sync_status: 'ok',
-          last_error: null,
-          last_item_count: 8,
-          guidance: { title: 'Healthy', detail: 'Todoist connection is healthy.', action: 'refresh' },
-          write_capabilities: {
-            completion_status: true,
-            due_date: true,
-            tags: false,
-          },
-        },
-        activity: buildLocalIntegration(),
-        health: buildLocalIntegration(),
-        git: buildLocalIntegration(),
-        messaging: buildLocalIntegration(),
-        reminders: buildLocalIntegration(),
-        notes: buildLocalIntegration(),
-        transcripts: buildLocalIntegration(),
-      },
+      data: buildIntegrations(),
       meta: { request_id: 'req_integrations' },
     })
     loadIntegrationConnections.mockResolvedValue({
@@ -509,6 +517,71 @@ describe('SystemView', () => {
     fireEvent.blur(googleClientIdField)
     await waitFor(() => {
       expect(updateGoogleCalendarIntegration).toHaveBeenCalledWith({ client_id: 'google-client-id' })
+    })
+
+    updateGoogleCalendarIntegration
+      .mockResolvedValueOnce({
+        ok: true,
+        data: buildIntegrations({
+          google_calendar: {
+            ...buildIntegrations().google_calendar,
+            calendars: [
+              { id: 'cal_1', summary: 'Primary', primary: true, sync_enabled: true, display_enabled: true },
+              { id: 'cal_2', summary: 'Team', primary: false, sync_enabled: false, display_enabled: false },
+            ],
+          },
+        }),
+        meta: { request_id: 'req_google_patch_sync' },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: buildIntegrations({
+          google_calendar: {
+            ...buildIntegrations().google_calendar,
+            calendars: [
+              { id: 'cal_1', summary: 'Primary', primary: true, sync_enabled: true, display_enabled: false },
+              { id: 'cal_2', summary: 'Team', primary: false, sync_enabled: false, display_enabled: false },
+            ],
+          },
+        }),
+        meta: { request_id: 'req_google_patch_visible' },
+      })
+
+    const teamSync = screen.getAllByRole('checkbox', { name: 'Team sync' }).at(-1) as HTMLInputElement
+    expect(teamSync.checked).toBe(true)
+
+    fireEvent.click(teamSync)
+    await waitFor(() => {
+      expect(updateGoogleCalendarIntegration).toHaveBeenCalledWith({
+        calendar_settings: [
+          {
+            id: 'cal_2',
+            sync_enabled: false,
+            display_enabled: false,
+          },
+        ],
+      })
+    })
+    await waitFor(() => {
+      expect((screen.getAllByRole('checkbox', { name: 'Team sync' }).at(-1) as HTMLInputElement).checked).toBe(false)
+    })
+
+    const primaryVisible = screen.getAllByRole('checkbox', { name: 'Primary visible' }).at(-1) as HTMLInputElement
+    expect(primaryVisible.checked).toBe(true)
+
+    fireEvent.click(primaryVisible)
+    await waitFor(() => {
+      expect(updateGoogleCalendarIntegration).toHaveBeenCalledWith({
+        calendar_settings: [
+          {
+            id: 'cal_1',
+            display_enabled: false,
+          },
+        ],
+      })
+    })
+    await waitFor(() => {
+      expect((screen.getAllByRole('checkbox', { name: 'Primary visible' }).at(-1) as HTMLInputElement).checked).toBe(false)
     })
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Reconnect Google' })[0])

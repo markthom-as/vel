@@ -46,7 +46,8 @@ pub struct IntegrationCalendarOutput {
     pub id: String,
     pub summary: String,
     pub primary: bool,
-    pub selected: bool,
+    pub sync_enabled: bool,
+    pub display_enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -210,13 +211,18 @@ pub struct StoredCalendar {
     #[serde(default)]
     pub primary: bool,
     #[serde(default = "default_true")]
-    pub selected: bool,
+    pub sync_enabled: bool,
+    #[serde(default = "default_true")]
+    pub display_enabled: bool,
+    #[serde(default, rename = "selected", skip_serializing)]
+    pub(crate) legacy_selected: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct GoogleCalendarSelectionFilter {
     all_calendars_selected: bool,
     selected_calendar_ids: HashSet<String>,
+    visible_calendar_ids: HashSet<String>,
 }
 
 impl GoogleCalendarSelectionFilter {
@@ -233,6 +239,21 @@ impl GoogleCalendarSelectionFilter {
             .and_then(serde_json::Value::as_str)
             .map(|calendar_id| self.selected_calendar_ids.contains(calendar_id))
             .unwrap_or(false)
+    }
+
+    pub fn includes_visible_signal(&self, signal: &SignalRecord) -> bool {
+        if signal.signal_type != "calendar_event" || signal.source != "google_calendar" {
+            return true;
+        }
+        if self.all_calendars_selected && self.selected_calendar_ids.is_empty() {
+            return true;
+        }
+        signal
+            .payload_json
+            .get("calendar_id")
+            .and_then(serde_json::Value::as_str)
+            .map(|calendar_id| self.visible_calendar_ids.contains(calendar_id))
+            .unwrap_or(true)
     }
 
     pub fn has_any_selected(&self) -> bool {
@@ -646,13 +667,20 @@ pub async fn google_calendar_selection_filter(
     storage: &Storage,
 ) -> Result<GoogleCalendarSelectionFilter, AppError> {
     let settings = load_google_settings(storage).await?;
+    let calendars = settings.calendars;
     Ok(GoogleCalendarSelectionFilter {
         all_calendars_selected: settings.all_calendars_selected,
-        selected_calendar_ids: settings
-            .calendars
-            .into_iter()
-            .filter(|calendar| calendar.selected)
-            .map(|calendar| calendar.id)
+        selected_calendar_ids: calendars
+            .iter()
+            .filter(|calendar| calendar.sync_enabled)
+            .map(|calendar| &calendar.id)
+            .cloned()
+            .collect(),
+        visible_calendar_ids: calendars
+            .iter()
+            .filter(|calendar| calendar.sync_enabled && calendar.display_enabled)
+            .map(|calendar| &calendar.id)
+            .cloned()
             .collect(),
     })
 }
@@ -917,6 +945,7 @@ pub async fn update_google_settings(
     client_secret: Option<String>,
     selected_calendar_ids: Option<Vec<String>>,
     all_calendars_selected: Option<bool>,
+    calendar_settings: Option<Vec<StoredCalendarPatch>>,
 ) -> Result<IntegrationsOutput, AppError> {
     let mut settings = load_google_settings(storage).await?;
 
@@ -930,20 +959,60 @@ pub async fn update_google_settings(
         settings.all_calendars_selected = all_selected;
         if all_selected {
             for calendar in &mut settings.calendars {
-                calendar.selected = true;
+                calendar.legacy_selected = None;
+                calendar.sync_enabled = true;
             }
         }
     }
     if let Some(ids) = selected_calendar_ids {
         let selected = ids.into_iter().collect::<std::collections::HashSet<_>>();
         for calendar in &mut settings.calendars {
-            calendar.selected = selected.contains(&calendar.id);
+            calendar.legacy_selected = None;
+            calendar.sync_enabled = selected.contains(&calendar.id);
+            if !calendar.sync_enabled {
+                calendar.display_enabled = false;
+            }
         }
         settings.all_calendars_selected = false;
+    }
+    if let Some(patches) = calendar_settings {
+        let by_id = patches
+            .into_iter()
+            .map(|patch| {
+                let id = patch.id.clone();
+                (id, patch)
+            })
+            .collect::<std::collections::HashMap<_, _>>();
+        for calendar in &mut settings.calendars {
+            let Some(patch) = by_id.get(&calendar.id) else {
+                continue;
+            };
+            calendar.legacy_selected = None;
+            if let Some(sync_enabled) = patch.sync_enabled {
+                calendar.sync_enabled = sync_enabled;
+                if !sync_enabled {
+                    calendar.display_enabled = false;
+                }
+            }
+            if let Some(display_enabled) = patch.display_enabled {
+                calendar.display_enabled = calendar.sync_enabled && display_enabled;
+            }
+        }
+        settings.all_calendars_selected = settings
+            .calendars
+            .iter()
+            .all(|calendar| calendar.sync_enabled);
     }
 
     save_google_settings(storage, &settings).await?;
     get_integrations(storage).await
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredCalendarPatch {
+    pub id: String,
+    pub sync_enabled: Option<bool>,
+    pub display_enabled: Option<bool>,
 }
 
 pub async fn update_todoist_settings(
@@ -1133,7 +1202,9 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
                 id: calendar.id.clone(),
                 summary: calendar.summary.clone(),
                 primary: calendar.primary,
-                selected: settings.all_calendars_selected || calendar.selected,
+                sync_enabled: settings.all_calendars_selected || calendar.sync_enabled,
+                display_enabled: (settings.all_calendars_selected || calendar.sync_enabled)
+                    && calendar.display_enabled,
             })
             .collect(),
         all_calendars_selected: settings.all_calendars_selected,
@@ -1272,13 +1343,15 @@ async fn load_google_settings(storage: &Storage) -> Result<GoogleCalendarSetting
     let public_settings: GoogleCalendarPublicSettings =
         load_settings(storage, GOOGLE_SETTINGS_KEY).await?;
     let secrets: GoogleCalendarSecrets = load_settings(storage, GOOGLE_SECRETS_KEY).await?;
+    let mut calendars = public_settings.calendars;
+    normalize_google_calendars(&mut calendars);
     Ok(GoogleCalendarSettings {
         client_id: public_settings.client_id,
         client_secret: secrets.client_secret,
         access_token: secrets.access_token,
         refresh_token: secrets.refresh_token,
         token_expires_at: secrets.token_expires_at,
-        calendars: public_settings.calendars,
+        calendars,
         all_calendars_selected: public_settings.all_calendars_selected,
         pending_oauth_state: public_settings.pending_oauth_state,
         last_sync_at: public_settings.last_sync_at,
@@ -1292,9 +1365,11 @@ async fn save_google_settings(
     storage: &Storage,
     settings: &GoogleCalendarSettings,
 ) -> Result<(), AppError> {
+    let mut calendars = settings.calendars.clone();
+    normalize_google_calendars(&mut calendars);
     let public_settings = GoogleCalendarPublicSettings {
         client_id: settings.client_id.clone(),
-        calendars: settings.calendars.clone(),
+        calendars,
         all_calendars_selected: settings.all_calendars_selected,
         pending_oauth_state: settings.pending_oauth_state.clone(),
         last_sync_at: settings.last_sync_at,
@@ -1310,6 +1385,20 @@ async fn save_google_settings(
     };
     save_settings(storage, GOOGLE_SETTINGS_KEY, &public_settings).await?;
     save_settings(storage, GOOGLE_SECRETS_KEY, &secrets).await
+}
+
+fn normalize_google_calendars(calendars: &mut [StoredCalendar]) {
+    for calendar in calendars {
+        if let Some(selected) = calendar.legacy_selected.take() {
+            if !selected {
+                calendar.sync_enabled = false;
+                calendar.display_enabled = false;
+            }
+        }
+        if !calendar.sync_enabled {
+            calendar.display_enabled = false;
+        }
+    }
 }
 
 async fn load_local_settings(
@@ -1526,6 +1615,7 @@ mod tests {
                 Some("google-client-secret".to_string()),
                 None,
                 None,
+                None,
             )
             .await
             .unwrap();
@@ -1600,6 +1690,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn google_calendar_modern_selection_overrides_legacy_selected_false() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        storage
+            .set_setting(
+                GOOGLE_SETTINGS_KEY,
+                &serde_json::json!({
+                    "client_id": "gcal-client",
+                    "calendars": [
+                        {
+                            "id": "cal_a",
+                            "summary": "Primary",
+                            "primary": true,
+                            "sync_enabled": false,
+                            "display_enabled": false,
+                            "selected": false
+                        }
+                    ],
+                    "all_calendars_selected": false
+                }),
+            )
+            .await
+            .unwrap();
+
+        update_google_settings(
+            &storage,
+            None,
+            None,
+            None,
+            None,
+            Some(vec![StoredCalendarPatch {
+                id: "cal_a".to_string(),
+                sync_enabled: Some(true),
+                display_enabled: Some(true),
+            }]),
+        )
+        .await
+        .unwrap();
+
+        let settings = load_google_settings(&storage).await.unwrap();
+        assert_eq!(settings.calendars.len(), 1);
+        assert!(settings.calendars[0].sync_enabled);
+        assert!(settings.calendars[0].display_enabled);
+        assert_eq!(settings.calendars[0].legacy_selected, None);
+    }
+
+    #[tokio::test]
     async fn todoist_token_persists_across_storage_reopen() {
         let db_path = unique_sqlite_path("todoist-creds");
         let db_path_string = db_path.to_string_lossy().to_string();
@@ -1608,11 +1746,7 @@ mod tests {
             let storage = Storage::connect(&db_path_string).await.unwrap();
             storage.migrate().await.unwrap();
 
-            update_todoist_settings(
-                &storage,
-                Some("todoist-secret-token".to_string()),
-                None,
-            )
+            update_todoist_settings(&storage, Some("todoist-secret-token".to_string()), None)
                 .await
                 .unwrap();
         }

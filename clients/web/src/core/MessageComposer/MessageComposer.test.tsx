@@ -80,6 +80,7 @@ describe('MessageComposer', () => {
     fireEvent.click(within(container).getByRole('button', { name: /add attachment/i }))
 
     expect(within(container).getByRole('menu', { name: /attachment types/i })).toBeInTheDocument()
+    expect(within(container).getByRole('menuitem', { name: /task/i })).toBeInTheDocument()
 
     const file = new File(['hello'], 'brief.txt', { type: 'text/plain' })
     const fileInputs = container.querySelectorAll('input[type="file"]')
@@ -261,6 +262,7 @@ describe('MessageComposer', () => {
         expect.objectContaining({
           text: 'Hi',
           conversationId: 'conv_1',
+          intent: null,
           voice: null,
           attachments: null,
         }),
@@ -358,7 +360,7 @@ describe('MessageComposer', () => {
         expect.any(Function),
       )
     })
-    expect(onSent).toHaveBeenCalledWith(
+      expect(onSent).toHaveBeenCalledWith(
       undefined,
       expect.objectContaining({
         route_target: 'threads',
@@ -367,8 +369,188 @@ describe('MessageComposer', () => {
       expect.objectContaining({
         text: 'voice drafted note',
         conversationId: 'conv_1',
+        intent: null,
       }),
     )
+  })
+
+  it('detects a url in composer text and forwards url intent', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'inbox',
+        entry_intent: 'url',
+        user_message: {
+          id: 'msg_url_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'https://example.com/spec' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_url_1' },
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), { target: { value: 'https://example.com/spec' } })
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: 'https://example.com/spec',
+          conversation_id: 'conv_1',
+          intent: 'url',
+        },
+        expect.any(Function),
+      )
+    })
+    await waitFor(() => {
+      expect(onSent).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ entry_intent: 'url' }),
+        expect.objectContaining({
+          text: 'https://example.com/spec',
+          conversationId: 'conv_1',
+          intent: 'url',
+        }),
+      )
+    })
+  })
+
+  it('allows explicit task intent from the add menu and prefers it over inferred url intent', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'inbox',
+        entry_intent: 'task',
+        user_message: {
+          id: 'msg_task_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'Review https://example.com/spec' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_task_1' },
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    fireEvent.click(within(container).getByRole('button', { name: /add attachment/i }))
+    fireEvent.click(within(container).getByRole('menuitem', { name: /task/i }))
+    expect(within(container).getByText('task')).toBeInTheDocument()
+
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), { target: { value: 'Review https://example.com/spec' } })
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: 'Review https://example.com/spec',
+          conversation_id: 'conv_1',
+          intent: 'task',
+        },
+        expect.any(Function),
+      )
+    })
+    await waitFor(() => {
+      expect(onSent).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ entry_intent: 'task' }),
+        expect.objectContaining({
+          text: 'Review https://example.com/spec',
+          conversationId: 'conv_1',
+          intent: 'task',
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(within(container).queryByText('task')).not.toBeInTheDocument()
+    })
+  })
+
+  it('detects a file path in composer text and forwards url intent', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'inbox',
+        entry_intent: 'url',
+        user_message: {
+          id: 'msg_path_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: '/home/jove/code/vel/README.md' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_path_1' },
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), { target: { value: '/home/jove/code/vel/README.md' } })
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: '/home/jove/code/vel/README.md',
+          conversation_id: 'conv_1',
+          intent: 'url',
+        },
+        expect.any(Function),
+      )
+    })
   })
 
   it('allows clearing the recorded voice draft chip before send', async () => {

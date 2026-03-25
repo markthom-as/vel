@@ -431,7 +431,12 @@ async fn build_remaining_day_proposal(
         .list_commitments(Some(CommitmentStatus::Open), None, None, 128)
         .await?;
     let events = storage
-        .list_signals(Some("calendar_event"), Some(day_start_ts(now_ts)), 64)
+        .list_signals_in_window(
+            Some("calendar_event"),
+            day_start_ts(now_ts),
+            day_end_ts(now_ts),
+            64,
+        )
         .await?;
     let planning_inputs =
         crate::services::planning_profile::load_day_planning_inputs(storage, context, now_ts)

@@ -4,8 +4,8 @@ use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
-use vel_config::{load_model_profiles, load_routing, ModelProfile};
 use vel_api_types::{LlmOpenAiOauthLaunchRequestData, LlmProfileHandshakeRequestData};
+use vel_config::{load_model_profiles, load_routing, ModelProfile};
 use vel_llm::{
     LlamaCppConfig, LlamaCppProvider, LlmError, LlmProvider, OpenAiApiConfig, OpenAiApiProvider,
     OpenAiOauthConfig, OpenAiOauthProvider, ProviderRegistry, Router,
@@ -52,9 +52,7 @@ fn validate_handshake_base_url(base_url: &str) -> Result<String, AppError> {
     if matches!(url.scheme(), "http" | "https") {
         return Ok(trimmed.to_string());
     }
-    Err(AppError::bad_request(
-        "LLM base_url must use http or https",
-    ))
+    Err(AppError::bad_request("LLM base_url must use http or https"))
 }
 
 fn openai_oauth_start_command(base_url: &str) -> String {
@@ -206,10 +204,7 @@ pub async fn build_chat_router(
     let models_dir =
         std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
     match storage.get_all_settings().await {
-        Ok(settings) => build_chat_router_from_models_dir(
-            Path::new(&models_dir),
-            Some(&settings),
-        ),
+        Ok(settings) => build_chat_router_from_models_dir(Path::new(&models_dir), Some(&settings)),
         Err(error) => {
             tracing::warn!(error = %error, "failed to load settings for llm router");
             (None, None, None)
@@ -348,16 +343,13 @@ pub async fn handshake_profile(
         }
     };
 
-    provider
-        .health()
-        .await
-        .map_err(|error| {
-            if provider_name == "openai_oauth" {
-                map_openai_oauth_error(&base_url, error, "llm handshake failed")
-            } else {
-                AppError::internal(format!("llm handshake failed: {error}"))
-            }
-        })
+    provider.health().await.map_err(|error| {
+        if provider_name == "openai_oauth" {
+            map_openai_oauth_error(&base_url, error, "llm handshake failed")
+        } else {
+            AppError::internal(format!("llm handshake failed: {error}"))
+        }
+    })
 }
 
 pub async fn launch_openai_oauth_proxy(
@@ -387,15 +379,21 @@ pub async fn launch_openai_oauth_proxy(
     let log_path = openai_oauth_log_path(&root, request.profile_id.as_deref());
     if let Some(parent) = log_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
-            AppError::internal(format!("create OpenAI OAuth log dir {}: {error}", parent.display()))
+            AppError::internal(format!(
+                "create OpenAI OAuth log dir {}: {error}",
+                parent.display()
+            ))
         })?;
     }
     let stdout = File::create(&log_path).map_err(|error| {
-        AppError::internal(format!("create OpenAI OAuth log file {}: {error}", log_path.display()))
+        AppError::internal(format!(
+            "create OpenAI OAuth log file {}: {error}",
+            log_path.display()
+        ))
     })?;
-    let stderr = stdout
-        .try_clone()
-        .map_err(|error| AppError::internal(format!("clone OpenAI OAuth log file handle: {error}")))?;
+    let stderr = stdout.try_clone().map_err(|error| {
+        AppError::internal(format!("clone OpenAI OAuth log file handle: {error}"))
+    })?;
 
     let mut child = Command::new(&script_path)
         .arg("run")
@@ -524,7 +522,9 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
-            axum::serve(listener, Router::new().route("/v1/models", get(models))).await.unwrap();
+            axum::serve(listener, Router::new().route("/v1/models", get(models)))
+                .await
+                .unwrap();
         });
 
         let dir = temp_models_dir("openai_api_health");

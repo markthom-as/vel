@@ -23,6 +23,7 @@ import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import type {
   AgentCapabilityEntryData,
   AgentInspectData,
+  IntegrationCalendarData,
   IntegrationConnectionData,
   IntegrationsData,
   LocalIntegrationData,
@@ -499,8 +500,16 @@ function providerSummaries(integrations: IntegrationsData): IntegrationProviderS
       lastSyncAt: integrations.google_calendar.last_sync_at,
       meta: [
         {
-          label: 'Selected calendars',
-          value: `${integrations.google_calendar.calendars.filter((calendar) => calendar.selected).length}`,
+          label: 'Sync enabled',
+          value: `${integrations.google_calendar.calendars.filter((calendar) => calendar.sync_enabled).length}`,
+        },
+        {
+          label: 'Visible',
+          value: `${integrations.google_calendar.calendars.filter((calendar) => calendar.display_enabled).length}`,
+        },
+        {
+          label: 'Events synced',
+          value: `${integrations.google_calendar.last_item_count ?? 0}`,
         },
         { label: 'Last sync', value: formatMaybeTimestamp(integrations.google_calendar.last_sync_at) },
       ],
@@ -593,6 +602,83 @@ function applyReturnedSettings(settingsKey: readonly (string | number | boolean 
   invalidateQuery(settingsKey, { refetch: true });
 }
 
+type GoogleCalendarSettingsPatch = {
+  id: string;
+  sync_enabled?: boolean;
+  display_enabled?: boolean;
+};
+
+type GoogleCalendarPatchRequest = {
+  calendar_settings?: GoogleCalendarSettingsPatch[];
+};
+
+function applyGoogleCalendarSettingsPatch(
+  calendars: IntegrationCalendarData[],
+  patches: GoogleCalendarSettingsPatch[],
+): IntegrationCalendarData[] {
+  const patchesById = new Map(patches.map((patch) => [patch.id, patch]));
+  return calendars.map((calendar) => {
+    const patch = patchesById.get(calendar.id);
+    if (!patch) {
+      return calendar;
+    }
+    const syncEnabled = patch.sync_enabled ?? calendar.sync_enabled;
+    const displayEnabled = syncEnabled && (patch.display_enabled ?? calendar.display_enabled);
+    return {
+      ...calendar,
+      sync_enabled: syncEnabled,
+      display_enabled: displayEnabled,
+    };
+  });
+}
+
+function applyOptimisticGoogleCalendarPatch(
+  current: IntegrationsData | null | undefined,
+  patch: GoogleCalendarPatchRequest,
+): IntegrationsData | null | undefined {
+  if (!current || !patch.calendar_settings) {
+    return current;
+  }
+  const calendars = applyGoogleCalendarSettingsPatch(
+    current.google_calendar.calendars,
+    patch.calendar_settings,
+  );
+  return {
+    ...current,
+    google_calendar: {
+      ...current.google_calendar,
+      calendars,
+      all_calendars_selected: calendars.every((calendar) => calendar.sync_enabled),
+    },
+  };
+}
+
+function googleCalendarPatchSatisfied(
+  current: IntegrationsData['google_calendar'] | null | undefined,
+  patch: GoogleCalendarPatchRequest,
+): boolean {
+  if (!current || !patch.calendar_settings) {
+    return true;
+  }
+  const calendarsById = new Map(current.calendars.map((calendar) => [calendar.id, calendar]));
+  return patch.calendar_settings.every((calendarPatch) => {
+    const calendar = calendarsById.get(calendarPatch.id);
+    if (!calendar) {
+      return false;
+    }
+    if (calendarPatch.sync_enabled !== undefined && calendar.sync_enabled !== calendarPatch.sync_enabled) {
+      return false;
+    }
+    if (
+      calendarPatch.display_enabled !== undefined
+      && calendar.display_enabled !== (calendar.sync_enabled && calendarPatch.display_enabled)
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function SystemView({ target }: SystemViewProps) {
   const inspectKey = useMemo(() => operatorQueryKeys.agentInspect(), []);
   const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
@@ -664,6 +750,7 @@ export function SystemView({ target }: SystemViewProps) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [sidebarFilter, setSidebarFilter] = useState('');
   const [activeChildAnchor, setActiveChildAnchor] = useState<string | null>(null);
+  const [optimisticGoogleCalendar, setOptimisticGoogleCalendar] = useState<IntegrationsData['google_calendar'] | null>(null);
   useEffect(() => {
     const resolved = resolveSystemTarget(target);
     setActiveSection(resolved.section);
@@ -708,7 +795,29 @@ export function SystemView({ target }: SystemViewProps) {
     return () => observer.disconnect();
   }, [inspect, integrations, connections, sidebarFilter]);
 
-  const providers = integrations ? providerSummaries(integrations) : [];
+  const renderedIntegrations = useMemo(() => {
+    if (!integrations || !optimisticGoogleCalendar) {
+      return integrations;
+    }
+    return {
+      ...integrations,
+      google_calendar: optimisticGoogleCalendar,
+    };
+  }, [integrations, optimisticGoogleCalendar]);
+
+  useEffect(() => {
+    if (!optimisticGoogleCalendar || !integrations) {
+      return;
+    }
+    if (
+      integrations.google_calendar.calendars === optimisticGoogleCalendar.calendars
+      && integrations.google_calendar.all_calendars_selected === optimisticGoogleCalendar.all_calendars_selected
+    ) {
+      setOptimisticGoogleCalendar(null);
+    }
+  }, [integrations, optimisticGoogleCalendar]);
+
+  const providers = renderedIntegrations ? providerSummaries(renderedIntegrations) : [];
   const llmProfiles = llmRoutingProfiles(settings);
   const projects = inspect?.grounding.projects ?? [];
   const capabilityGroups = inspect?.capabilities.groups ?? [];
@@ -839,7 +948,7 @@ export function SystemView({ target }: SystemViewProps) {
     return <SurfaceState message={error} layout="centered" tone="warning" />;
   }
 
-  if (!inspect || !integrations) {
+  if (!inspect || !renderedIntegrations) {
     return <SurfaceState message="No canonical system state is available yet." layout="centered" />;
   }
   const preferences = {
@@ -902,7 +1011,7 @@ export function SystemView({ target }: SystemViewProps) {
     <div className="flex-1 bg-transparent">
       <div className="mx-auto max-w-7xl px-4 py-4 pb-32 sm:px-6">
         <div className="grid gap-5 xl:grid-cols-[16rem_minmax(0,1fr)]">
-          <aside className="self-start xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+          <aside className="self-start xl:sticky xl:top-[5.25rem] xl:overflow-visible">
             <div className="border-b border-[var(--vel-color-border)] pb-3">
               <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-muted)]`}>
                 <SettingsIcon size={12} />
@@ -1031,7 +1140,7 @@ export function SystemView({ target }: SystemViewProps) {
                     subsection: item.key,
                     inspect,
                     providers,
-                    integrations,
+                    integrations: renderedIntegrations,
                     connections,
                     projects,
                     capabilityGroups,
@@ -1079,12 +1188,42 @@ export function SystemView({ target }: SystemViewProps) {
                       applyReturnedSettings(settingsKey, response);
                     },
                     onPatchGoogleCalendar: async (patch) => {
-                      const response = await updateGoogleCalendarIntegration(patch);
-                      if (!response.ok) {
-                        throw new Error(response.error?.message ?? 'Failed to update Google Calendar settings');
+                      const previousIntegrations = integrations;
+                      const optimisticIntegrations = applyOptimisticGoogleCalendarPatch(
+                        renderedIntegrations,
+                        patch as GoogleCalendarPatchRequest,
+                      );
+                      setOptimisticGoogleCalendar(optimisticIntegrations?.google_calendar ?? null);
+                      setQueryData<IntegrationsData | null>(
+                        integrationsKey,
+                        (current) => applyOptimisticGoogleCalendarPatch(current, patch as GoogleCalendarPatchRequest) ?? current,
+                      );
+                      try {
+                        const response = await updateGoogleCalendarIntegration(patch);
+                        if (!response.ok) {
+                          throw new Error(response.error?.message ?? 'Failed to update Google Calendar settings');
+                        }
+                        const reconciledIntegrations = applyOptimisticGoogleCalendarPatch(
+                          response.data ?? null,
+                          patch as GoogleCalendarPatchRequest,
+                        ) ?? response.data ?? null;
+                        setOptimisticGoogleCalendar(
+                          googleCalendarPatchSatisfied(response.data?.google_calendar, patch as GoogleCalendarPatchRequest)
+                            ? null
+                            : reconciledIntegrations?.google_calendar ?? null,
+                        );
+                        setQueryData(integrationsKey, reconciledIntegrations);
+                        invalidateQuery(connectionsKey, { refetch: true });
+                        invalidateQuery(nowKey, { refetch: true });
+                      } catch (error) {
+                        setOptimisticGoogleCalendar(null);
+                        if (previousIntegrations) {
+                          setQueryData(integrationsKey, previousIntegrations);
+                        } else {
+                          invalidateQuery(integrationsKey, { refetch: true });
+                        }
+                        throw error;
                       }
-                      invalidateQuery(integrationsKey, { refetch: true });
-                      invalidateQuery(connectionsKey, { refetch: true });
                     },
                     onPatchTodoist: async (patch) => {
                       const response = await updateTodoistIntegration(patch);
@@ -1813,6 +1952,79 @@ function IntegrationsProvidersDetail({
                     </Button>
                   ) : null}
                 </div>
+                {integrations.google_calendar.calendars.length > 0 ? (
+                  <div className="space-y-3 pt-2">
+                    <SystemDocumentSectionLabel>Calendar scope</SystemDocumentSectionLabel>
+                    <div className="overflow-hidden rounded-2xl border border-[var(--vel-color-border)]">
+                      <table className="w-full table-fixed border-collapse text-left">
+                        <thead className="text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]">
+                          <tr className="border-b border-[var(--vel-color-border)]">
+                            <th className="px-3 py-2 font-medium">Calendar</th>
+                            <th className="w-20 px-3 py-2 text-center font-medium">Sync</th>
+                            <th className="w-20 px-3 py-2 text-center font-medium">Visible</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {integrations.google_calendar.calendars.map((calendar) => (
+                            <tr key={calendar.id} className="border-t border-[var(--vel-color-border-subtle)]">
+                              <td className="px-3 py-2.5">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-[var(--vel-color-text)]">{calendar.summary}</p>
+                                  <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]">
+                                    {calendar.primary ? 'Primary' : 'Available'}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <label className="inline-flex cursor-pointer items-center justify-center rounded-md px-2 py-1">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${calendar.summary} sync`}
+                                    className="h-4 w-4 cursor-pointer accent-[var(--vel-color-accent-strong)]"
+                                    checked={calendar.sync_enabled}
+                                    onChange={() => void onPatchGoogleCalendar({
+                                      calendar_settings: [
+                                        {
+                                          id: calendar.id,
+                                          sync_enabled: !calendar.sync_enabled,
+                                          display_enabled: calendar.sync_enabled ? false : calendar.display_enabled,
+                                        },
+                                      ],
+                                    })}
+                                  />
+                                </label>
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <label
+                                  className={cn(
+                                    'inline-flex items-center justify-center rounded-md px-2 py-1',
+                                    calendar.sync_enabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-45',
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${calendar.summary} visible`}
+                                    className="h-4 w-4 cursor-pointer accent-[var(--vel-color-accent-strong)] disabled:cursor-not-allowed"
+                                    checked={calendar.display_enabled}
+                                    disabled={!calendar.sync_enabled}
+                                    onChange={() => void onPatchGoogleCalendar({
+                                      calendar_settings: [
+                                        {
+                                          id: calendar.id,
+                                          display_enabled: !calendar.display_enabled,
+                                        },
+                                      ],
+                                    })}
+                                  />
+                                </label>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
             {provider.key === 'todoist' ? (

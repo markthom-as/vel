@@ -529,6 +529,14 @@ mod tests {
                     context_line: None,
                     nudge_bars: Vec::new(),
                     task_lane: None,
+                    next_up_items: Vec::new(),
+                    progress: vel_api_types::NowProgressData {
+                        base_count: 1,
+                        completed_count: 0,
+                        backlog_count: 0,
+                        completed_ratio: 0.0,
+                        backlog_ratio: 0.0,
+                    },
                     docked_input: None,
                     overview: vel_api_types::NowOverviewData {
                         dominant_action: None,
@@ -565,6 +573,7 @@ mod tests {
                     schedule: vel_api_types::NowScheduleData {
                         empty_message: Some("No upcoming events.".to_string()),
                         next_event: None,
+                        following_day_events: Vec::new(),
                         upcoming_events: Vec::new(),
                     },
                     tasks: vel_api_types::NowTasksData {

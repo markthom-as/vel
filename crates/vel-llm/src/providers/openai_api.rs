@@ -255,15 +255,17 @@ impl LlmProvider for OpenAiApiProvider {
             .as_ref()
             .and_then(|v| v.first())
             .ok_or_else(|| LlmError::Provider(ProviderError::Protocol("no choices".into())))?;
-        let message = first.message.as_ref().ok_or_else(|| {
-            LlmError::Provider(ProviderError::Protocol("missing message".into()))
-        })?;
+        let message = first
+            .message
+            .as_ref()
+            .ok_or_else(|| LlmError::Provider(ProviderError::Protocol("missing message".into())))?;
 
         let tool_calls = message
             .tool_calls
             .as_ref()
             .map(|calls| {
-                calls.iter()
+                calls
+                    .iter()
                     .map(|call| ToolCall {
                         id: call.id.clone().unwrap_or_default(),
                         name: call
@@ -276,9 +278,9 @@ impl LlmProvider for OpenAiApiProvider {
                             .as_ref()
                             .and_then(|value| value.arguments.as_deref())
                             .map(|value| {
-                                serde_json::from_str(value).unwrap_or_else(
-                                    |_| serde_json::Value::String(value.to_string()),
-                                )
+                                serde_json::from_str(value).unwrap_or_else(|_| {
+                                    serde_json::Value::String(value.to_string())
+                                })
                             })
                             .unwrap_or(serde_json::Value::Null),
                     })

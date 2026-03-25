@@ -328,7 +328,7 @@ export function MainPanel({
         pendingAssistantPayload.text,
         pendingAssistantPayload.conversationId,
         pendingAssistantPayload.voice,
-        null,
+        pendingAssistantPayload.intent,
         pendingAssistantPayload.attachments,
       );
       if (!response.ok || !response.data) {
@@ -351,9 +351,6 @@ export function MainPanel({
       <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
         <NowView
           onOpenThread={onOpenThread}
-          onOpenSystem={onOpenSystem}
-          onRaiseNudge={onRaiseNudge}
-          onClearNudge={onClearNudge}
           hideNudgeLane={shellOwnsNowNudges}
         />
       </div>

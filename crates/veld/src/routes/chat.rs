@@ -14,8 +14,7 @@ use vel_api_types::{
     ConversationCreateRequest, ConversationData, ConversationUpdateRequest, CreateMessageResponse,
     InboxItemData, InterventionActionData, LlmOpenAiOauthLaunchRequestData,
     LlmProfileHandshakeRequestData, LlmProfileHealthData, MessageCreateRequest, MessageData,
-    PlanningProfileEditProposalData, ProvenanceData,
-    ProvenanceEvent, WebSettingsData,
+    PlanningProfileEditProposalData, ProvenanceData, ProvenanceEvent, WebSettingsData,
 };
 
 use crate::services::chat::{
@@ -204,6 +203,7 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
 
 fn map_entry_intent(value: &str) -> vel_api_types::NowDockedInputIntentData {
     match value {
+        "url" => vel_api_types::NowDockedInputIntentData::Url,
         "question" => vel_api_types::NowDockedInputIntentData::Question,
         "note" => vel_api_types::NowDockedInputIntentData::Note,
         "command" => vel_api_types::NowDockedInputIntentData::Command,
@@ -865,7 +865,10 @@ pub fn chat_routes() -> Router<AppState> {
         .route("/api/messages/:id/provenance", get(get_message_provenance))
         .route("/api/settings", get(get_settings).patch(patch_settings))
         .route("/api/llm/handshake", post(post_llm_profile_handshake))
-        .route("/api/llm/openai-oauth/launch", post(post_llm_openai_oauth_launch))
+        .route(
+            "/api/llm/openai-oauth/launch",
+            post(post_llm_openai_oauth_launch),
+        )
         .route("/api/llm/profiles/:id/health", get(get_llm_profile_health))
         .route(
             "/api/interventions/:id/acknowledge",
