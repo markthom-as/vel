@@ -377,7 +377,7 @@ mod tests {
             },
             planning_profile_summary: None,
             commitment_scheduling_summary: None,
-            trust_readiness: TrustReadinessData {
+            trust_readiness: Some(TrustReadinessData {
                 level: "ok".to_string(),
                 headline: "Trust looks good".to_string(),
                 summary: "No trust blockers are active.".to_string(),
@@ -399,7 +399,7 @@ mod tests {
                 },
                 guidance: vec![],
                 follow_through: vec![],
-            },
+            }),
             action_items: vec![ActionItemData {
                 id: ActionItemId::from("act_person".to_string()),
                 surface: ActionSurfaceData::Now,

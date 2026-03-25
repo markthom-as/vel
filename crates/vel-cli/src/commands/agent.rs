@@ -284,7 +284,7 @@ mod tests {
                     },
                     planning_profile_summary: None,
                     commitment_scheduling_summary: None,
-                    trust_readiness: TrustReadinessData {
+                    trust_readiness: Some(TrustReadinessData {
                         level: "ok".to_string(),
                         headline: "Trust looks good".to_string(),
                         summary: "No trust blockers are active.".to_string(),
@@ -306,7 +306,7 @@ mod tests {
                         },
                         guidance: Vec::new(),
                         follow_through: Vec::new(),
-                    },
+                    }),
                     action_items: Vec::new(),
                     review_snapshot: ReviewSnapshotData {
                         open_action_count: 3,
