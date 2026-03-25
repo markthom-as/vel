@@ -45,6 +45,11 @@
 - supportsNotificationActions: yes
 - supportsSplitViewWorkspace: no
 
+Wave-3 reduced watch surface (implemented):
+- supportsActiveNudges: yes (done/snooze actions only)
+- supportsThreadAppend: yes (keyboard submit + voice transcript)
+- supportsThreadManagement: no (handoff to phone/Mac for deeper flows)
+
 ## macOS (scaffold)
 
 - supportsChat: yes

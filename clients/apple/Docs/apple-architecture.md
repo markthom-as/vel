@@ -42,6 +42,16 @@ Current truth is still daemon-backed HTTP via `VelAPI`. The embedded bridge exis
 - `VelMac` is a live target with a placeholder sidebar shell and shared environment wiring.
 - `VelWidgetExtension` and `VelIntentsExtension` are scaffolded targets for Apple-native affordances.
 
+## Watch surface contract (Wave 3)
+
+`VelWatch` is intentionally narrow for this phase:
+
+- primary objective: expose active nudges and provide quick completion/snooze actions
+- thread path: keyboard/text append into the active thread and voice transcript append
+- reduced objective: no dedicated thread management/listing, project views, or settings hub
+- behavior: if no active thread is available, input is queued as watch capture with recoverable provenance
+- mapping: actions go through existing `VelWatchStore` call paths (`markTopNudgeDone`, `snoozeTopNudge`, `submitThreadText`) to preserve backend/API contract boundaries
+
 ## Next Moves
 
 1. Move one vertical slice (`Quick Capture`) through `VelApplication` + `VelInfrastructure` protocols.

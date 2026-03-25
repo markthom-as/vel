@@ -159,17 +159,17 @@
 ## Wave 3 — Watch-reduced surface (Apple)
 
 ### `clients/apple/Docs/feature-capability-matrix.md`
-- [ ] Add/update explicit watch scope note: nudges, voice, keyboard append only.
+- [x] Add/update explicit watch scope note: nudges, voice, keyboard append only.
 - [ ] Record blocked/unsupported features to set expectations.
 
 ### `clients/apple/Docs/apple-architecture.md`
-- [ ] Align watch boundary and data flow with reduced-surface contract.
+- [x] Align watch boundary and data flow with reduced-surface contract.
 
 ### `clients/apple/AGENTS.md`
 - [ ] Update instructions if needed for explicit watch scope and limits.
 
 ### `clients/apple/Apps/VelWatch/ContentView.swift`
-- [ ] Implement minimal watch entry surface.
+- [x] Implement minimal watch entry surface.
 - [ ] Ensure route set includes active nudges and one-thread append composer.
 - [ ] Add quick voice capture path and keyboard append fallback.
 
