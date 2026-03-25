@@ -1,6 +1,7 @@
 use axum::extract::State;
 use axum::Json;
 use serde::Deserialize;
+use tracing::warn;
 use time::OffsetDateTime;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
@@ -202,11 +203,12 @@ async fn assign_commitment_to_current_day(
     let timezone = crate::services::timezone::resolve_timezone(&state.storage).await?;
     let current_day =
         crate::services::timezone::current_day_window(&timezone, OffsetDateTime::now_utc())?;
+    let session_date = current_day.session_date.clone();
     let due_at = OffsetDateTime::from_unix_timestamp(current_day.end_ts - 1)
         .map_err(|error| AppError::internal(format!("compute current-day due_at: {error}")))?;
     let mut metadata = commitment.metadata_json.clone();
     metadata["assigned_via_now_lane"] = serde_json::json!("next_up");
-    metadata["scheduled_for"] = serde_json::json!(current_day.session_date);
+    metadata["scheduled_for"] = serde_json::json!(session_date.as_str());
     metadata["has_due_time"] = serde_json::json!(false);
     state
         .storage
@@ -220,6 +222,32 @@ async fn assign_commitment_to_current_day(
             Some(&metadata),
         )
         .await?;
+    if commitment.source_type == "todoist" {
+        if let Err(error) = services::writeback::todoist_update_task(
+            &state.storage,
+            &state.config,
+            "vel-local",
+            commitment.id.as_ref(),
+            crate::services::integrations_todoist::TodoistTaskMutation {
+                content: None,
+                project_id: None,
+                scheduled_for: Some(session_date),
+                priority: None,
+                waiting_on: None,
+                review_state: None,
+                tags: None,
+            },
+        )
+        .await
+        {
+            warn!(
+                error = %error,
+                commitment_id = %commitment.id,
+                source_type = %commitment.source_type,
+                "failed to write back rescheduled Todoist commitment"
+            );
+        }
+    }
     Ok(())
 }
 
@@ -244,7 +272,7 @@ impl From<services::now::NowOutput> for NowData {
             attention: value.attention.into(),
             sources: value.sources.into(),
             freshness: value.freshness.into(),
-            trust_readiness: value.trust_readiness.into(),
+            trust_readiness: Some(value.trust_readiness.into()),
             planning_profile_summary: value
                 .planning_profile_summary
                 .map(planning_profile_summary_data),

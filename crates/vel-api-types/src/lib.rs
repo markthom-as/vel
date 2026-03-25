@@ -7044,7 +7044,7 @@ pub struct NowNextUpItemData {
     pub task: Option<NowTaskLaneItemData>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NowProgressData {
     pub base_count: u32,
     pub completed_count: u32,
@@ -7141,7 +7141,7 @@ pub struct NowDockedInputData {
     pub raw_capture_thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NowOverviewData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dominant_action: Option<NowOverviewActionData>,
@@ -7228,6 +7228,7 @@ pub struct NowScheduleData {
     pub empty_message: Option<String>,
     pub next_event: Option<NowEventData>,
     pub upcoming_events: Vec<NowEventData>,
+    #[serde(default)]
     pub following_day_events: Vec<NowEventData>,
 }
 
@@ -7335,9 +7336,11 @@ pub struct NowData {
     pub task_lane: Option<NowTaskLaneData>,
     #[serde(default)]
     pub next_up_items: Vec<NowNextUpItemData>,
+    #[serde(default)]
     pub progress: NowProgressData,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docked_input: Option<NowDockedInputData>,
+    #[serde(default)]
     pub overview: NowOverviewData,
     pub summary: NowSummaryData,
     pub schedule: NowScheduleData,
@@ -7345,7 +7348,8 @@ pub struct NowData {
     pub attention: NowAttentionData,
     pub sources: NowSourcesData,
     pub freshness: NowFreshnessData,
-    pub trust_readiness: TrustReadinessData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust_readiness: Option<TrustReadinessData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub planning_profile_summary: Option<PlanningProfileProposalSummaryData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

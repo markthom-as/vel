@@ -20,13 +20,15 @@
         "travel_minutes": 0,
         "leave_by_ts": 1763662200
       },
-      "upcoming_events": []
+      "upcoming_events": [],
+      "following_day_events": []
     },
     "tasks": {
       "todoist": [
         {
           "id": "todo_1",
           "text": "Ship Phase 11 contract slice",
+          "title": "Ship Phase 11 contract slice",
           "source_type": "todoist",
           "due_at": "2026-03-20T17:00:00Z",
           "project": "proj_velruntime",
@@ -37,6 +39,7 @@
       "next_commitment": {
         "id": "todo_1",
         "text": "Ship Phase 11 contract slice",
+        "title": "Ship Phase 11 contract slice",
         "source_type": "todoist",
         "due_at": "2026-03-20T17:00:00Z",
         "project": "proj_velruntime",
@@ -76,6 +79,8 @@
         "id": "act_phase11",
         "surface": "now",
         "kind": "review",
+        "permission_mode": "user_confirm",
+        "scope_affinity": "project",
         "title": "Review pending execution handoff",
         "summary": "A grounded coding handoff still needs operator approval.",
         "project_id": "proj_velruntime",
