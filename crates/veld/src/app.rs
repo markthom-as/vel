@@ -1798,7 +1798,7 @@ mod tests {
         let data = payload.data.unwrap();
         let workers = data["workers"].as_array().unwrap();
         assert_eq!(workers.len(), 1);
-        assert_eq!(workers[0]["node_id"], "vel-desktop");
+        assert_eq!(workers[0]["node_id"], "vel-desktop-tailnet-ts-net");
         assert_eq!(workers[0]["sync_transport"], "tailscale");
         assert!(workers[0]["capacity"]["max_concurrency"].as_u64().unwrap() >= 1);
     }
@@ -1927,8 +1927,8 @@ mod tests {
         let data = payload.data.unwrap();
         assert_eq!(data.nodes.len(), 1);
         assert_eq!(data.workers.len(), 1);
-        assert_eq!(data.nodes[0].node_id, "vel-desktop");
-        assert_eq!(data.workers[0].worker_id, "vel-desktop");
+        assert_eq!(data.nodes[0].node_id, "vel-desktop-tailnet-ts-net");
+        assert_eq!(data.workers[0].worker_id, "vel-desktop-tailnet-ts-net");
         assert_eq!(data.sync_transport.as_deref(), Some("tailscale"));
     }
 
@@ -1979,7 +1979,7 @@ mod tests {
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(json["data"]["node_id"], "vel-desktop");
+        assert_eq!(json["data"]["node_id"], "192-168-1-10");
         assert_eq!(json["data"]["lan_base_url"], "http://192.168.1.10:4130");
         assert_eq!(json["data"]["linked_nodes"], serde_json::json!([]));
         assert_eq!(json["data"]["projects"], serde_json::json!([]));
