@@ -17,8 +17,9 @@ use vel_api_types::{
     HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
     LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
     NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData,
-    PlanningProfileResponseData, ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest,
-    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
+    PersonRecordData, PlanningProfileProposalApplyResponseData, PlanningProfileResponseData,
+    ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
+    SignalCreateRequest, SignalData, SyncBootstrapData, SyncClusterStateData, SyncResultData,
     SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
@@ -341,6 +342,45 @@ impl ApiClient {
         &self,
     ) -> anyhow::Result<ApiResponse<PlanningProfileResponseData>> {
         self.get("/v1/planning-profile").await
+    }
+
+    pub async fn apply_planning_profile_proposal(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<PlanningProfileProposalApplyResponseData>> {
+        self.post_empty(&format!("/v1/planning-profile/proposals/{}/apply", id))
+            .await
+    }
+
+    pub async fn list_people(&self) -> anyhow::Result<ApiResponse<Vec<PersonRecordData>>> {
+        self.get("/v1/people").await
+    }
+
+    pub async fn get_person(&self, id: &str) -> anyhow::Result<ApiResponse<PersonRecordData>> {
+        self.get(&format!("/v1/people/{}", id)).await
+    }
+
+    pub async fn list_signals(
+        &self,
+        signal_type: Option<&str>,
+        since_ts: Option<i64>,
+        limit: u32,
+    ) -> anyhow::Result<ApiResponse<Vec<SignalData>>> {
+        let mut path = format!("/v1/signals?limit={}", limit);
+        if let Some(t) = signal_type {
+            path.push_str(&format!("&signal_type={}", t));
+        }
+        if let Some(ts) = since_ts {
+            path.push_str(&format!("&since_ts={}", ts));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn create_signal(
+        &self,
+        req: SignalCreateRequest,
+    ) -> anyhow::Result<ApiResponse<SignalData>> {
+        self.post_json("/v1/signals", &req).await
     }
 
     pub async fn backup_status(&self) -> anyhow::Result<ApiResponse<BackupStatusData>> {
@@ -866,6 +906,14 @@ impl ApiClient {
 
     pub async fn load_linking_status(&self) -> anyhow::Result<ApiResponse<Vec<LinkedNodeData>>> {
         self.get("/v1/linking/status").await
+    }
+
+    pub async fn revoke_link(
+        &self,
+        node_id: &str,
+    ) -> anyhow::Result<ApiResponse<serde_json::Value>> {
+        self.post_empty(&format!("/v1/linking/revoke/{}", node_id))
+            .await
     }
 
     pub async fn list_connect_instances(

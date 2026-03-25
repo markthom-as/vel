@@ -5242,6 +5242,10 @@ pub struct AssistantEntryVoiceProvenanceData {
 pub enum AssistantEntryAttachmentKindData {
     File,
     Image,
+    Video,
+    Audio,
+    Link,
+    Markdown,
     Person,
     Event,
     Task,

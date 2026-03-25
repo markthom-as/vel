@@ -1,5 +1,5 @@
 use crate::client::ApiClient;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use vel_api_types::{LinkScopeData, LinkStatusData, LinkedNodeData};
 
 /// Handler for `vel node link issue`.
@@ -161,6 +161,16 @@ fn format_scope_summary(scopes: &LinkScopeData) -> String {
     } else {
         labels.join(", ")
     }
+}
+
+/// Handler for `vel node link revoke`.
+pub async fn run_link_revoke(client: &ApiClient, node_id: &str) -> anyhow::Result<()> {
+    client
+        .revoke_link(node_id)
+        .await
+        .context("revoke link")?;
+    println!("Link for node {} revoked.", node_id);
+    Ok(())
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use crate::client::ApiClient;
+use anyhow::Context as _;
 use vel_api_types::{
     DurableRoutineBlockData, PlanningConstraintData, PlanningConstraintKindData,
     PlanningProfileProposalSummaryData, RoutinePlanningProfileData, ScheduleTimeWindowData,
@@ -160,6 +161,29 @@ fn render_profile_text(
     }
 
     lines.join("\n")
+}
+
+pub async fn run_apply_proposal(
+    client: &ApiClient,
+    id: &str,
+    json: bool,
+) -> anyhow::Result<()> {
+    let resp = client
+        .apply_planning_profile_proposal(id)
+        .await
+        .with_context(|| format!("apply planning profile proposal {}", id))?;
+    let data = resp.data.ok_or_else(|| anyhow::anyhow!("no data"))?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&data)?);
+        return Ok(());
+    }
+    println!("Proposal applied: {}", data.proposal.summary);
+    println!(
+        "Profile now has {} routine blocks and {} constraints.",
+        data.profile.routine_blocks.len(),
+        data.profile.planning_constraints.len()
+    );
+    Ok(())
 }
 
 pub async fn run(client: &ApiClient, json: bool) -> anyhow::Result<()> {

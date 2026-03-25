@@ -248,6 +248,58 @@ enum Command {
     PlanningProfile {
         #[arg(long)]
         json: bool,
+        /// Apply a staged proposal by ID
+        #[arg(long, value_name = "ID")]
+        apply_proposal: Option<String>,
+    },
+    #[command(about = "List and inspect person records")]
+    People {
+        #[command(subcommand)]
+        command: PeopleCommand,
+    },
+    #[command(about = "List and create signals")]
+    Signals {
+        #[command(subcommand)]
+        command: SignalCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PeopleCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SignalCommand {
+    List {
+        #[arg(long)]
+        signal_type: Option<String>,
+        #[arg(long)]
+        since_ts: Option<i64>,
+        #[arg(long, default_value = "50")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    Create {
+        #[arg(long)]
+        signal_type: String,
+        #[arg(long)]
+        source: String,
+        #[arg(long)]
+        source_ref: Option<String>,
+        #[arg(long)]
+        payload: Option<String>,
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -691,6 +743,9 @@ enum NodeLinkCommand {
         transport_hint: Option<String>,
         #[arg(long)]
         json: bool,
+    },
+    Revoke {
+        node_id: String,
     },
 }
 
@@ -1188,6 +1243,9 @@ async fn main() -> anyhow::Result<()> {
                     )
                     .await
                 }
+                NodeLinkCommand::Revoke { node_id } => {
+                    commands::node::run_link_revoke(&client, &node_id).await
+                }
             },
             NodeCommand::Status { json } => commands::node::run_status(&client, json).await,
         },
@@ -1613,7 +1671,13 @@ async fn main() -> anyhow::Result<()> {
         Command::Suggestions { state, json } => {
             commands::suggestions::run_list(&client, state.as_deref(), json).await
         }
-        Command::PlanningProfile { json } => commands::planning_profile::run(&client, json).await,
+        Command::PlanningProfile { json, apply_proposal } => {
+            if let Some(id) = apply_proposal {
+                commands::planning_profile::run_apply_proposal(&client, &id, json).await
+            } else {
+                commands::planning_profile::run(&client, json).await
+            }
+        }
         Command::Suggestion { command } => match command {
             SuggestionCommand::Inspect { id } => {
                 commands::suggestions::run_inspect(&client, &id).await
@@ -1626,6 +1690,46 @@ async fn main() -> anyhow::Result<()> {
             }
             SuggestionCommand::Modify { id, payload } => {
                 commands::suggestions::run_modify(&client, &id, payload.as_deref()).await
+            }
+        },
+        Command::People { command } => match command {
+            PeopleCommand::List { json } => commands::people::run_list(&client, json).await,
+            PeopleCommand::Inspect { id, json } => {
+                commands::people::run_inspect(&client, &id, json).await
+            }
+        },
+        Command::Signals { command } => match command {
+            SignalCommand::List {
+                signal_type,
+                since_ts,
+                limit,
+                json,
+            } => {
+                commands::signals::run_list(
+                    &client,
+                    signal_type.as_deref(),
+                    since_ts,
+                    limit,
+                    json,
+                )
+                .await
+            }
+            SignalCommand::Create {
+                signal_type,
+                source,
+                source_ref,
+                payload,
+                json,
+            } => {
+                commands::signals::run_create(
+                    &client,
+                    &signal_type,
+                    &source,
+                    source_ref.as_deref(),
+                    payload.as_deref(),
+                    json,
+                )
+                .await
             }
         },
     }
@@ -1840,7 +1944,7 @@ mod tests {
     fn cli_parses_planning_profile_json() {
         let cli = Cli::try_parse_from(["vel", "planning-profile", "--json"]).unwrap();
         match cli.command {
-            Command::PlanningProfile { json } => assert!(json),
+            Command::PlanningProfile { json, .. } => assert!(json),
             _ => panic!("expected planning-profile command"),
         }
     }
