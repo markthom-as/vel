@@ -143,7 +143,11 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 ### `GET /v1/connect/instances`
 ### `POST /v1/connect/instances`
 ### `GET /v1/connect/instances/:id`
+### `GET /v1/connect/instances/:id/attach`
+### `GET /v1/connect/instances/:id/events`
+### `GET /v1/connect/instances/:id/events/stream`
 ### `POST /v1/connect/instances/:id/heartbeat`
+### `POST /v1/connect/instances/:id/stdin`
 ### `POST /v1/connect/instances/:id/terminate`
 
 - operator-authenticated connect-runtime lifecycle for supervised local coding runtimes
@@ -151,6 +155,10 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 - launches create a persisted backing run plus a persisted connect-run lease record keyed by the same `run_id`
 - `runtime_kind: "wasm_guest"` executes through the same brokered sandbox policy boundary and then terminates immediately with an inspectable terminal reason
 - `POST /v1/connect/instances/:id/heartbeat` extends the lease for a running instance
+- `POST /v1/connect/instances/:id/stdin` writes bounded input to running local-command runtimes
+- `GET /v1/connect/instances/:id/attach` returns instance detail plus a resume cursor (`latest_event_id`) and canonical SSE stream path for reconnecting clients
+- `GET /v1/connect/instances/:id/events` returns persisted ordered event chunks (`stdin`/`stdout`/`stderr`/`system`) for operator inspection and client forwarding
+- `GET /v1/connect/instances/:id/events/stream` serves SSE replay+tail from persisted events (`after_id`, `limit`, `poll_ms`, `max_events`)
 - `POST /v1/connect/instances/:id/terminate` marks the connect instance terminated and cancels the backing run
 - unsupported runtime kinds fail closed with `400`
 - writable roots that escape the declared working directory fail closed with `403`
@@ -161,12 +169,17 @@ CLI inspection surface:
 
 - `vel connect instances`
 - `vel connect inspect <run_id>`
+- `vel connect attach <run_id>`
+- `vel connect stdin <run_id> "<text>"`
+- `vel connect events <run_id> --limit 200`
+- `vel connect tail <run_id> --after-id 0 --poll-ms 500`
+- `vel connect stream <run_id> --after-id 0 --poll-ms 500`
 
 Repo-local supervised workflow:
 
 - persist/export context with `vel exec save|preview|export`
 - review persisted handoffs with `vel exec review`, `vel exec launch-preview`, `vel exec approve`, and `vel exec reject`
-- launch the approved runtime through authenticated `POST /v1/connect/instances`
+- launch the approved runtime through authenticated `POST /v1/execution/handoffs/:id/launch` (or raw `POST /v1/connect/instances` when you need direct connect control)
 - `vel exec preview|export` now includes `agent-grounding.md` and `agent-inspect.json` under the bounded `.planning/vel` output directory so repo-local agents receive the same backend-owned grounding contract exposed by `GET /v1/agent/inspect`
 
 ## Execution handoff review
@@ -175,6 +188,7 @@ Repo-local supervised workflow:
 ### `GET /v1/execution/handoffs`
 ### `POST /v1/execution/handoffs`
 ### `GET /v1/execution/handoffs/:id/launch-preview`
+### `POST /v1/execution/handoffs/:id/launch`
 ### `POST /v1/execution/handoffs/:id/approve`
 ### `POST /v1/execution/handoffs/:id/reject`
 
@@ -186,6 +200,8 @@ Repo-local supervised workflow:
 - typed human-to-agent and agent-to-agent handoff persistence for coding work
 - routing decisions keep task kind, agent profile, token budget, review gate, scopes, and explicit reasons first-class
 - launch preview reports whether review state still blocks execution
+- launch marks `launched_at` and rejects repeated launches for the same handoff
+- launch enforces working directory and writable roots against the approved handoff scope before runtime start
 - approvals and rejections update explicit review state; launch readiness does not rely on implicit side effects
 - pending handoffs are surfaced on operator `Now` and the General settings review queue
 - assistant proposal continuity can point into this same lane: repo-local proposal threads may move from `staged` to `approved` when handoff review succeeds, and their thread metadata preserves the launch-preview follow-through without creating a second execution state model
@@ -287,6 +303,10 @@ CLI fallback when the web shell is unavailable:
 ### `POST /v1/daily-loop/sessions`
 ### `GET /v1/daily-loop/sessions/active`
 ### `POST /v1/daily-loop/sessions/:id/turn`
+### `POST /v1/daily-loop/sessions/:id/overdue/menu`
+### `POST /v1/daily-loop/sessions/:id/overdue/confirm`
+### `POST /v1/daily-loop/sessions/:id/overdue/apply`
+### `POST /v1/daily-loop/sessions/:id/overdue/undo`
 
 - backend-owned morning overview and standup session-turn authority
 - shared by CLI (`vel morning`, `vel standup`), web Now, and Apple clients
@@ -294,6 +314,8 @@ CLI fallback when the web shell is unavailable:
 - `GET /v1/daily-loop/sessions/active` resumes the active session for a `session_date` and `phase`
 - `POST /v1/daily-loop/sessions/:id/turn` advances the current prompt with bounded submit/skip actions and returns the updated typed session
 - when a daily-loop `check_in` needs longer follow-through, the backend preserves a deterministic thread-backed escalation target and updates that thread with typed deferred/resolved status as the session advances
+- `/overdue/*` endpoints now ship a baseline implementation for proposal/confirm/apply/undo with idempotency-key handling; deeper policy and undo guarantees continue under ticket `038`
+- contract and payload draft: [standup overdue workflow draft](standup-overdue-workflow-contract.md)
 
 ### `GET /v1/context/current`
 ### `GET /v1/context/timeline`
@@ -446,29 +468,27 @@ Exposure:
 Todoist read/write boundary:
 
 - `POST /v1/sync/todoist` remains the read/sync path.
-- The allowed Todoist write surface is bounded to `todoist_create_task`, `todoist_update_task`, `todoist_complete_task`, and `todoist_reopen_task` through `/api/integrations/todoist/create-task`, `/api/integrations/todoist/update-task`, `/api/integrations/todoist/complete-task`, and `/api/integrations/todoist/reopen-task`.
-- Those write routes are `operator_authenticated`, execute only after checking the latest upstream task state, and are denied while runtime `writeback_enabled` is false.
+- Todoist writes are now surfaced only through `/api/integrations/todoist/write-intent`, which replaces the legacy mutation routes above.
+- The intent path is `operator_authenticated`, executes only after checking the latest upstream task state, and is denied while runtime `writeback_enabled` is false.
 - If upstream state drifted since the last synced snapshot, the runtime opens a conflict review item with `stale_write` or `upstream_vs_local` instead of silently overwriting.
 - Todoist labels remain compatibility-only metadata at the adapter boundary; Vel's durable typed contract is `project_id`, `scheduled_for`, `priority`, `waiting_on`, and `review_state`.
 
 Notes and reminders write boundary:
 
 - `POST /v1/sync/notes`, `POST /v1/sync/reminders`, and `POST /v1/sync/transcripts` remain the read/sync paths.
-- The allowed notes write surface is bounded to `notes_create_note` and `notes_append_note` through `/api/integrations/notes/create-note` and `/api/integrations/notes/append-note`.
+- Legacy notes/reminders write endpoints were retired from the public API surface in favor of bounded, future-compatible write-intent surfaces.
 - Notes and reminders writes are denied while runtime `writeback_enabled` is false so SAFE MODE remains the default operator posture.
 - Notes writes are scoped to the configured `notes_path` or a typed project's project notes roots. Out-of-scope writes are persisted as `blocked` instead of escaping the configured filesystem boundary.
 - Transcript ingestion is read-only and is tagged as a notes source subtype so transcript context folds under the same local-first notes lane without becoming a separate write surface.
-- Reminder writes are intent-based through `/api/integrations/reminders/create`, `/api/integrations/reminders/update`, and `/api/integrations/reminders/complete`.
+- Reminder writes remain unavailable as direct API endpoints until their next capability rollout.
 - Reminder intents persist explicit lifecycle state through durable writeback and conflict records: `queued`, `applied`, `executor_unavailable`, and `conflicted`. Safe-mode denials stay outside that queue and return a direct forbidden response until the operator opts in.
 - If no approved local reminder executor is available, the runtime opens an `executor_unavailable` conflict instead of pretending the write succeeded.
 
 GitHub and email write boundary:
 
-- The allowed GitHub write surface is bounded to `github_create_issue`, `github_add_comment`, `github_close_issue`, and `github_reopen_issue` through `/api/integrations/github/create-issue`, `/api/integrations/github/add-comment`, `/api/integrations/github/close-issue`, and `/api/integrations/github/reopen-issue`.
+- GitHub and email write endpoints were retired from the direct operator API during the 0.5 migration; capability writes remain implemented in support layers but are not exposed as API routes yet.
 - GitHub writeback records persist typed `project_id` linkage, provider-scoped provenance, and `PersonAlias`-compatible assignee or participant handles where Vel can resolve them from the people registry.
-- The allowed email write surface is bounded to `email_create_draft_reply` and `email_send_draft` through `/api/integrations/email/create-draft-reply` and `/api/integrations/email/send-draft`.
-- Email remains draft-first: `email_create_draft_reply` is the safe default, while `email_send_draft` is confirm-required and is denied with durable writeback history until the operator explicitly confirms send.
-- Both GitHub and email routes are `operator_authenticated`, denied while runtime `writeback_enabled` is false, and use the same writeback/conflict vocabulary as the other Phase 06 write lanes.
+- Email remains draft-first in support logic, but there is currently no active direct API endpoint for these actions.
 - Operator-facing status surfaces expose `pending_writebacks`, `open_conflicts`, and people-linked review items so the queue stays inspectable before and after writeback is enabled.
 
 ### `POST /v1/evaluate`

@@ -4,7 +4,7 @@ doc_type: spec
 status: complete
 owner: staff-eng
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-03-25
 keywords:
   - schema
   - contract
@@ -78,6 +78,7 @@ Today the contract surface is partially explicit but not yet unified.
 | Current context | target `vel-core` | `docs/tickets/phase-1/002-typed-context-transition.md`, `docs/cognitive-agent-architecture/cognition/context-model.md` | cognition state | explicit `CurrentContextVn` structs | still partially JSON-backed in runtime code |
 | Integration connection model | `vel-core` | `crates/vel-core/src/integration.rs`, `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md`, `docs/cognitive-agent-architecture/integrations/data-source-catalog.md`, `config/schemas/connector-manifest.schema.json` | domain + API/storage mapping | additive typed records | catalog, example, and schema exist; full runtime alignment is still queued |
 | Connect capability manifest | `vel-core` + `vel-api-types` | `crates/vel-core/src/connect.rs`, `crates/vel-api-types/src/lib.rs` | worker/connect capability boundary | explicit manifest shape | route coverage and consumer surfaces are still partial |
+| Run and run-event contracts | `vel-core` | `crates/vel-core/src/run.rs`, `crates/vel-storage/src/repositories/runs_repo.rs`, `docs/tickets/phase-5/026-core-run-event-schema.md` | canonical run lifecycle and append-only execution events | additive event payloads; transition invariants must remain explicit | canonical Rust ownership is active; broader harness rollout is tracked in phase-5 tickets |
 | Handoff envelope | architecture pack | `docs/cognitive-agent-architecture/agents/handoffs.md` | agent-to-agent boundary | version by envelope schema, not vibes | still needs machine-readable publication and shared consumption |
 | Self-model | architecture pack | `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md`, `config/examples/self-model-envelope.example.json`, `config/schemas/self-model-envelope.schema.json` | repo/runtime introspection boundary | versioned self-model contract | doc, example, and schema exist; runtime enforcement is still future work |
 | Semantic query + record | `vel-core` | `crates/vel-core/src/semantic.rs`, `docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md`, `config/schemas/semantic-query.schema.json`, `config/schemas/semantic-memory-record.schema.json` | semantic retrieval boundary | additive fields with explicit embedding revision | contract published; runtime indexing remains future phase work |

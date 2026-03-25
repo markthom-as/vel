@@ -1,6 +1,6 @@
 # Vel: The Master Plan
 **Status**: Canonical Truth (`0.3.0` shipped, `0.4.x`, `0.5`, `0.5.1`, and `0.5.2` closed)
-**Last Updated**: 2026-03-23
+**Last Updated**: 2026-03-25
 
 ---
 
@@ -14,6 +14,7 @@
 | **Phase 2** | **[CLOSED / RE-SCOPED]** | Distributed swarm baseline shipped; unfinished sync ordering, guided onboarding, and external connect work moved to Phases 5, 6, and 8. |
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
+| **Phase 5** | **[COMPLETE]** | Local harness and operator runtime MVP (`vel run`, policy gates, artifacts, explainability). |
 
 Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x`, `0.5`, `0.5.1`, and `0.5.2` are now closed. `0.5.2` completed the operator-surface embodiment line on top of the frozen `0.5` backend and truthful `0.5.1` client boundary:
 
@@ -195,3 +196,33 @@ Phase 4 shipped contract and runtime baselines, but did not fully close the orig
 *   **Goal**: Provide a first-class SDK for external agents to communicate with Vel.
 *   **Ticket**: `014-swarm-execution-sdk.md`
 *   *Status*: re-scoped — the Rust SDK/protocol baseline exists, but live external connect/auth transport is not exposed. External limb runtime closure now belongs to Phase 8.
+
+---
+
+## Phase 5: Local Harness & Operator Runtime MVP
+**Current Status: [COMPLETE]**
+
+Phase 5 opens the local-first harness lane for a single-operator runtime baseline before distributed execution expansion. The first slice is a v0.1 ticket pack that prioritizes canonical run/event truth, policy-gated execution, explainability surfaces, and security/observability hardening.
+
+### 5.1 Canonical Run/Event and Storage Foundations **[COMPLETE]**
+*   *Ticket*: `026-core-run-event-schema.md`
+*   *Ticket*: `027-sqlite-run-store.md`
+*   *Ticket*: `028-artifact-store.md`
+
+### 5.2 Policy, Capability, and Tool Execution Boundaries **[COMPLETE]**
+*   *Ticket*: `029-policy-config-loader.md`
+*   *Ticket*: `030-capability-resolution-engine.md`
+*   *Ticket*: `031-tool-runner-abstraction.md`
+*   *Ticket*: `032-mutation-protocol-discipline.md`
+
+### 5.3 Runtime Orchestration and Operator Surfaces **[COMPLETE]**
+*   *Ticket*: `033-llm-provider-interface.md`
+*   *Ticket*: `034-vel-run-command.md`
+*   *Ticket*: `035-vel-dry-run-command.md`
+*   *Ticket*: `036-explainability-history-commands.md`
+
+### 5.4 Release-Critical Hardening **[COMPLETE]**
+*   *Ticket*: `037-security-observability-hardening.md`
+
+### 5.5 Morning Standup Overdue-Task Workflow **[PLANNED]**
+*   *Ticket*: `038-standup-overdue-workflow-slice.md`

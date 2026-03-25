@@ -70,6 +70,24 @@ Historical lane. Some unfinished original-scope work from this phase was re-scop
 - [010-wasm-agent-sandboxing.md](phase-4/010-wasm-agent-sandboxing.md) `[re-scoped follow-on in Phase 8]` Zero-trust WASM agent sandboxing
 - [014-swarm-execution-sdk.md](phase-4/014-swarm-execution-sdk.md) `[re-scoped follow-on in Phase 8]` Swarm execution SDK and contract
 
+## Phase 5: Local Harness & Operator Runtime MVP
+
+Execution order and v0.1 release gate: [phase-5/README.md](phase-5/README.md)
+
+- [026-core-run-event-schema.md](phase-5/026-core-run-event-schema.md) `[complete]` Canonical run and event schema for harness execution truth
+- [027-sqlite-run-store.md](phase-5/027-sqlite-run-store.md) `[complete]` SQLite run store and migration baseline
+- [028-artifact-store.md](phase-5/028-artifact-store.md) `[complete]` Filesystem artifact store with run linkage
+- [029-policy-config-loader.md](phase-5/029-policy-config-loader.md) `[complete]` YAML/TOML policy loader with fail-closed validation
+- [030-capability-resolution-engine.md](phase-5/030-capability-resolution-engine.md) `[complete]` Capability resolver with persisted policy decisions
+- [031-tool-runner-abstraction.md](phase-5/031-tool-runner-abstraction.md) `[complete]` Structured tool runner abstraction with lifecycle events
+- [032-mutation-protocol-discipline.md](phase-5/032-mutation-protocol-discipline.md) `[complete]` Mutation proposal/confirmation/commit discipline
+- [033-llm-provider-interface.md](phase-5/033-llm-provider-interface.md) `[complete]` Provider-neutral LLM synthesis contract
+- [034-vel-run-command.md](phase-5/034-vel-run-command.md) `[complete]` End-to-end `vel run` MVP command path
+- [035-vel-dry-run-command.md](phase-5/035-vel-dry-run-command.md) `[complete]` `vel dry-run` policy and mutation preview mode
+- [036-explainability-history-commands.md](phase-5/036-explainability-history-commands.md) `[complete]` `vel explain`, `vel runs`, and `vel artifacts` trust surfaces
+- [037-security-observability-hardening.md](phase-5/037-security-observability-hardening.md) `[complete]` v0.1 hardening for redaction, write scope, and observability
+- [038-standup-overdue-workflow-slice.md](phase-5/038-standup-overdue-workflow-slice.md) `[planned]` Morning standup overdue-task action workflow (`menu -> confirm -> apply -> undo`)
+
 ## Queue Maintenance Rules
 
 - Prefer extending an existing ticket when the boundary is already clear.

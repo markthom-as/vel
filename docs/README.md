@@ -40,6 +40,7 @@ These files drive ongoing implementation work:
 - `docs/tickets/phase-2/*.md`
 - `docs/tickets/phase-3/*.md`
 - `docs/tickets/phase-4/*.md`
+- `docs/tickets/phase-5/*.md`
 
 Phase 1 and Phase 3 are complete historical implementation lanes. Phase 2 and Phase 4 also remain historical, but some unfinished original-scope work from those lanes was explicitly re-scoped into later milestone planning. Active implementation planning now runs through the `0.5` packet.
 

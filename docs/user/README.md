@@ -28,7 +28,7 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 1. [Quickstart](quickstart.md) for the shortest path from repo clone to first useful result.
 2. [Deployment And Setup](deployment.md) for the main Nix and Docker runtime paths.
 3. [Setup](setup.md) for config, storage, integrations, and macOS source setup.
-4. [Daily Use](daily-use.md) for the repeated workflow once Vel is running.
+4. [Daily Use](daily-use.md) for the repeated workflow once Vel is running, including the [Morning Standup And Planning Meeting Playbook](daily-use.md#morning-standup-and-planning-meeting-playbook).
 5. [Coding Workflows](coding-workflows.md) for the repo-local Phase 08 execution path from context export to handoff review to supervised runtime launch.
 6. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
 7. [System Surface](system.md) for the operator-facing `System` view and its intended use.
