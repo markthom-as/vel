@@ -312,6 +312,31 @@ impl From<services::now::NowOutput> for NowData {
     }
 }
 
+fn is_calendar_backed_task(task: &services::now::NowTaskOutput) -> bool {
+    matches!(
+        task.source_type.trim().to_ascii_lowercase().as_str(),
+        "calendar" | "calendar_event" | "google_calendar" | "gcal" | "apple_calendar"
+            | "icloud_calendar"
+    )
+}
+
+impl From<services::now::NowNextUpItemOutput> for NowNextUpItemData {
+    fn from(value: services::now::NowNextUpItemOutput) -> Self {
+        Self {
+            kind: match value.kind.as_str() {
+                "event" => NowTaskKindData::Event,
+                "task" => NowTaskKindData::Task,
+                _ => NowTaskKindData::Commitment,
+            },
+            id: value.id,
+            title: value.title,
+            meta: value.meta,
+            detail: value.detail,
+            task: value.task.map(Into::into),
+        }
+    }
+}
+
 impl From<services::now::NowMeshSummaryOutput> for NowMeshSummaryData {
     fn from(value: services::now::NowMeshSummaryOutput) -> Self {
         Self {
@@ -698,23 +723,6 @@ impl From<services::now::NowEventOutput> for NowEventData {
     }
 }
 
-impl From<services::now::NowNextUpItemOutput> for NowNextUpItemData {
-    fn from(value: services::now::NowNextUpItemOutput) -> Self {
-        Self {
-            kind: match value.kind.as_str() {
-                "event" => NowTaskKindData::Event,
-                "task" => NowTaskKindData::Task,
-                _ => NowTaskKindData::Commitment,
-            },
-            id: value.id,
-            title: value.title,
-            meta: value.meta,
-            detail: value.detail,
-            task: value.task.map(Into::into),
-        }
-    }
-}
-
 impl From<services::now::NowProgressOutput> for NowProgressData {
     fn from(value: services::now::NowProgressOutput) -> Self {
         Self {
@@ -730,9 +738,22 @@ impl From<services::now::NowProgressOutput> for NowProgressData {
 impl From<services::now::NowTasksOutput> for NowTasksData {
     fn from(value: services::now::NowTasksOutput) -> Self {
         Self {
-            todoist: value.todoist.into_iter().map(Into::into).collect(),
-            other_open: value.other_open.into_iter().map(Into::into).collect(),
-            next_commitment: value.next_commitment.map(Into::into),
+            todoist: value
+                .todoist
+                .into_iter()
+                .filter(|task| !is_calendar_backed_task(task))
+                .map(Into::into)
+                .collect(),
+            other_open: value
+                .other_open
+                .into_iter()
+                .filter(|task| !is_calendar_backed_task(task))
+                .map(Into::into)
+                .collect(),
+            next_commitment: value
+                .next_commitment
+                .filter(|task| !is_calendar_backed_task(task))
+                .map(Into::into),
         }
     }
 }
@@ -1078,6 +1099,7 @@ mod tests {
                     due_at: Some(due_at),
                     deadline: None,
                     project: Some("Vel".to_string()),
+                    is_inbox_project: false,
                     commitment_kind: Some("todo".to_string()),
                 }],
                 other_open: vec![],
@@ -1484,5 +1506,184 @@ mod tests {
             "filtered_threads"
         );
         assert_eq!(json["review_snapshot"]["open_action_count"], 1);
+    }
+
+    #[test]
+    fn now_api_filters_calendar_backed_tasks_from_task_streams() {
+        let due_at = OffsetDateTime::from_unix_timestamp(1_700_000_000).unwrap();
+        let dto: vel_api_types::NowData = services::now::NowOutput {
+            computed_at: 1_700_000_100,
+            timezone: "America/Denver".to_string(),
+            header: None,
+            mesh_summary: None,
+            status_row: None,
+            context_line: None,
+            nudge_bars: Vec::new(),
+            task_lane: None,
+            next_up_items: Vec::new(),
+            progress: services::now::NowProgressOutput {
+                base_count: 1,
+                completed_count: 0,
+                backlog_count: 0,
+                completed_ratio: 0.0,
+                backlog_ratio: 0.0,
+            },
+            docked_input: None,
+            overview: services::now::NowOverviewOutput {
+                dominant_action: None,
+                today_timeline: Vec::new(),
+                visible_nudge: None,
+                why_state: Vec::new(),
+                suggestions: Vec::new(),
+                decision_options: Vec::new(),
+            },
+            summary: services::now::NowSummaryOutput {
+                mode: services::now::NowLabelOutput {
+                    key: "day_mode".to_string(),
+                    label: "Day".to_string(),
+                },
+                phase: services::now::NowLabelOutput {
+                    key: "engaged".to_string(),
+                    label: "Engaged".to_string(),
+                },
+                meds: services::now::NowLabelOutput {
+                    key: "done".to_string(),
+                    label: "Done".to_string(),
+                },
+                risk: services::now::NowRiskSummaryOutput {
+                    level: "low".to_string(),
+                    score: Some(0.2),
+                    label: "low · 20%".to_string(),
+                },
+            },
+            schedule: services::now::NowScheduleOutput {
+                empty_message: None,
+                next_event: None,
+                upcoming_events: Vec::new(),
+                following_day_events: Vec::new(),
+            },
+            tasks: services::now::NowTasksOutput {
+                todoist: vec![services::now::NowTaskOutput {
+                    id: "evt_task_2".to_string(),
+                    text: "Calendar item in todoist lane".to_string(),
+                    title: "Calendar item in todoist lane".to_string(),
+                    description: None,
+                    tags: Vec::new(),
+                    source_type: "google_calendar".to_string(),
+                    due_at: Some(due_at),
+                    deadline: None,
+                    project: None,
+                    is_inbox_project: false,
+                    commitment_kind: Some("todo".to_string()),
+                }],
+                other_open: vec![services::now::NowTaskOutput {
+                    id: "evt_task_3".to_string(),
+                    text: "Calendar item in other_open".to_string(),
+                    title: "Calendar item in other_open".to_string(),
+                    description: None,
+                    tags: Vec::new(),
+                    source_type: "calendar_event".to_string(),
+                    due_at: Some(due_at),
+                    deadline: None,
+                    project: None,
+                    is_inbox_project: false,
+                    commitment_kind: Some("todo".to_string()),
+                }],
+                next_commitment: Some(services::now::NowTaskOutput {
+                    id: "evt_task_4".to_string(),
+                    text: "Calendar item in next commitment".to_string(),
+                    title: "Calendar item in next commitment".to_string(),
+                    description: None,
+                    tags: Vec::new(),
+                    source_type: "google_calendar".to_string(),
+                    due_at: Some(due_at),
+                    deadline: None,
+                    project: None,
+                    is_inbox_project: false,
+                    commitment_kind: Some("todo".to_string()),
+                }),
+            },
+            attention: services::now::NowAttentionOutput {
+                state: services::now::NowLabelOutput {
+                    key: "on_task".to_string(),
+                    label: "On task".to_string(),
+                },
+                drift: services::now::NowLabelOutput {
+                    key: "none".to_string(),
+                    label: "None".to_string(),
+                },
+                severity: services::now::NowLabelOutput {
+                    key: "none".to_string(),
+                    label: "None".to_string(),
+                },
+                confidence: None,
+                reasons: Vec::new(),
+            },
+            sources: services::now::NowSourcesOutput {
+                git_activity: None,
+                health: None,
+                mood: None,
+                pain: None,
+                note_document: None,
+                assistant_message: None,
+            },
+            freshness: services::now::NowFreshnessOutput {
+                overall_status: "ok".to_string(),
+                sources: Vec::new(),
+            },
+            trust_readiness: services::now::TrustReadinessOutput {
+                level: "ok".to_string(),
+                headline: "Ready".to_string(),
+                summary: "Ready".to_string(),
+                backup: services::now::TrustReadinessFacetOutput {
+                    level: "ok".to_string(),
+                    label: "Backup".to_string(),
+                    detail: "Fresh backup".to_string(),
+                },
+                freshness: services::now::TrustReadinessFacetOutput {
+                    level: "ok".to_string(),
+                    label: "Freshness".to_string(),
+                    detail: "Fresh".to_string(),
+                },
+                review: services::now::TrustReadinessReviewOutput {
+                    open_action_count: 0,
+                    pending_execution_reviews: 0,
+                    pending_writeback_count: 0,
+                    conflict_count: 0,
+                },
+                guidance: Vec::new(),
+                follow_through: Vec::new(),
+            },
+            planning_profile_summary: None,
+            commitment_scheduling_summary: None,
+            check_in: None,
+            day_plan: None,
+            reflow: None,
+            reflow_status: None,
+            action_items: Vec::new(),
+            review_snapshot: vel_core::ReviewSnapshot {
+                open_action_count: 0,
+                triage_count: 0,
+                projects_needing_review: 0,
+                pending_execution_reviews: 0,
+            },
+            pending_writebacks: Vec::new(),
+            conflicts: Vec::new(),
+            people: Vec::new(),
+            reasons: Vec::new(),
+            debug: services::now::NowDebugOutput {
+                raw_context: json!({}),
+                signals_used: Vec::new(),
+                commitments_used: Vec::new(),
+                risk_used: Vec::new(),
+            },
+        }
+        .into();
+        let json = serde_json::to_value(dto).unwrap();
+
+        assert_eq!(json["tasks"]["todoist"], json!([]));
+        assert_eq!(json["tasks"]["other_open"], json!([]));
+        assert!(json["tasks"]["next_commitment"].is_null());
+        assert_eq!(json["next_up_items"], json!([]));
     }
 }

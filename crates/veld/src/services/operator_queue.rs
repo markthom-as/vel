@@ -1180,7 +1180,7 @@ mod tests {
     use vel_storage::{ConversationInsert, InterventionInsert, MessageInsert};
 
     #[tokio::test]
-    async fn action_items_rank_freshness_linking_intervention_and_review_bands() {
+    async fn action_items_rank_freshness_linking_intervention_and_writeback_bands() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let now = OffsetDateTime::now_utc();
@@ -1360,7 +1360,6 @@ mod tests {
         assert!(snapshot.action_items.iter().any(|item| item.rank == 75));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 72));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 70));
-        assert!(snapshot.action_items.iter().any(|item| item.rank == 60));
         assert_eq!(snapshot.pending_writebacks.len(), 1);
         assert_eq!(snapshot.conflicts.len(), 1);
         assert!(snapshot

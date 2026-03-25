@@ -7,6 +7,7 @@ use vel_api_types::{
     ClusterBootstrapData, CommandExecuteRequest,
     CommandExecutionPlanData, CommandExecutionResultData, CommandPlanRequest,
     CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectAttachData,
+    DailyLoopCheckInSkipRequestData, DailyLoopCheckInSkipResponseData,
     ConnectInstanceData, DailyLoopOverdueApplyRequestData, DailyLoopOverdueApplyResponseData,
     DailyLoopOverdueConfirmRequestData, DailyLoopOverdueConfirmResponseData,
     DailyLoopOverdueMenuRequestData, DailyLoopOverdueMenuResponseData,
@@ -675,6 +676,18 @@ impl ApiClient {
                 action,
                 response_text,
             },
+        )
+        .await
+    }
+
+    pub async fn daily_loop_check_in_skip(
+        &self,
+        check_in_event_id: &str,
+        request: &DailyLoopCheckInSkipRequestData,
+    ) -> anyhow::Result<ApiResponse<DailyLoopCheckInSkipResponseData>> {
+        self.post_json(
+            &format!("/v1/daily-loop/check-ins/{check_in_event_id}/skip"),
+            request,
         )
         .await
     }

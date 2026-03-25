@@ -283,6 +283,7 @@ pub struct NowTaskOutput {
     pub due_at: Option<OffsetDateTime>,
     pub deadline: Option<OffsetDateTime>,
     pub project: Option<String>,
+    pub is_inbox_project: bool,
     pub commitment_kind: Option<String>,
 }
 
@@ -489,9 +490,15 @@ async fn get_now_internal(
     config: &AppConfig,
     state: Option<&AppState>,
 ) -> Result<NowOutput, AppError> {
-    let now = OffsetDateTime::now_utc();
-    let now_ts = now.unix_timestamp();
+    let wall_now = OffsetDateTime::now_utc();
+    let wall_now_ts = wall_now.unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
+    let stored_context = storage.get_current_context().await?;
+    let now = stored_context
+        .as_ref()
+        .and_then(|(computed_at, _)| OffsetDateTime::from_unix_timestamp(*computed_at).ok())
+        .unwrap_or(wall_now);
+    let now_ts = now.unix_timestamp();
     let current_day = crate::services::timezone::current_day_window(&timezone, now)?;
     let check_in = crate::services::check_in::get_current_check_in(storage, &timezone).await?;
     let apple_behavior_summary =
@@ -509,7 +516,7 @@ async fn get_now_internal(
             storage,
         )
         .await?;
-    let Some((computed_at, context)) = storage.get_current_context().await? else {
+    let Some((computed_at, context)) = stored_context else {
         return Ok(empty_now(
             now_ts,
             &timezone.name,
@@ -648,7 +655,7 @@ async fn get_now_internal(
             }),
         },
     };
-    let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
+    let freshness = build_freshness(wall_now_ts, computed_at, &integrations, &calendar_selection);
     let trust_readiness = build_trust_readiness(storage, &freshness, &action_queue).await?;
     let people = storage.list_people().await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
@@ -745,8 +752,16 @@ async fn get_now_internal(
             following_day_events,
         },
         tasks: NowTasksOutput {
-            todoist: task_buckets.pullable,
-            other_open: task_buckets.in_play,
+            todoist: all_open_tasks
+                .iter()
+                .filter(|task| task.source_type.eq_ignore_ascii_case("todoist"))
+                .cloned()
+                .collect(),
+            other_open: all_open_tasks
+                .iter()
+                .filter(|task| !task.source_type.eq_ignore_ascii_case("todoist"))
+                .cloned()
+                .collect(),
             next_commitment: task_buckets.next_commitment,
         },
         attention: NowAttentionOutput {
@@ -1941,12 +1956,7 @@ fn build_progress(task_lane: Option<&NowTaskLaneOutput>) -> NowProgressOutput {
 }
 
 fn is_server_inbox_task(task: &NowTaskOutput) -> bool {
-    task.source_type.eq_ignore_ascii_case("todoist")
-        && task
-            .project
-            .as_deref()
-            .map(|value| value.trim().eq_ignore_ascii_case("inbox"))
-            .unwrap_or(true)
+    task.source_type.eq_ignore_ascii_case("todoist") && task.is_inbox_project
 }
 
 async fn build_completed_today_tasks(
@@ -2984,6 +2994,16 @@ fn now_task(commitment: &Commitment) -> NowTaskOutput {
                     .ok()
                 })
         });
+    let is_inbox_project = commitment
+        .metadata_json
+        .get("is_inbox_project")
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false)
+        || commitment
+            .project
+            .as_deref()
+            .map(|value| value.trim().eq_ignore_ascii_case("inbox"))
+            .unwrap_or(false);
     NowTaskOutput {
         id: commitment.id.as_ref().to_string(),
         text: commitment.text.clone(),
@@ -2994,6 +3014,7 @@ fn now_task(commitment: &Commitment) -> NowTaskOutput {
         due_at: commitment.due_at,
         deadline,
         project: normalized_now_task_project(commitment),
+        is_inbox_project,
         commitment_kind: commitment.commitment_kind.clone(),
     }
 }
@@ -3922,12 +3943,12 @@ mod tests {
                 labels: vec!["Urgent".to_string()],
                 project_id: Some("proj_ops".to_string()),
                 due: Some(crate::services::integrations_todoist::TodoistDue {
-                    date: Some("2026-03-24".to_string()),
+                    date: Some("2026-03-16".to_string()),
                     datetime: None,
                 }),
                 deadline: None,
-                updated_at: Some("2026-03-24T15:00:00Z".to_string()),
-                completed_at: Some("2026-03-24T15:00:00Z".to_string()),
+                updated_at: Some("2026-03-16T07:00:00Z".to_string()),
+                completed_at: Some("2026-03-16T07:00:00Z".to_string()),
             },
         ];
         let pending_writebacks = vec![WritebackOperationRecord {

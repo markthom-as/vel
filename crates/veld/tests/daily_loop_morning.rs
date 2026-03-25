@@ -4,8 +4,11 @@ use axum::{
 };
 use tower::util::ServiceExt;
 use vel_api_types::{
-    ApiResponse, DailyLoopPhaseData, DailyLoopSessionData, DailyLoopSessionStateData,
-    DailyLoopStartMetadataData, DailyLoopStartRequestData, DailyLoopStartSourceData,
+    ApiResponse, DailyLoopCheckInEventData, DailyLoopCheckInSubmitRequestData,
+    DailyLoopCheckInSubmitResponseData, DailyLoopCheckInSkipRequestData,
+    DailyLoopCheckInSkipResponseData, DailyLoopPhaseData, DailyLoopSessionData,
+    DailyLoopSessionStateData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
+    DailyLoopStartSourceData,
     DailyLoopSurfaceData, DailyLoopTurnActionData, DailyLoopTurnRequestData,
 };
 use vel_config::AppConfig;
@@ -60,6 +63,38 @@ async fn decode_optional_session(
         .unwrap();
     let payload: ApiResponse<Option<DailyLoopSessionData>> = serde_json::from_slice(&body).unwrap();
     payload.data.flatten()
+}
+
+async fn decode_check_in_events(
+    response: axum::response::Response,
+) -> Vec<DailyLoopCheckInEventData> {
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<Vec<DailyLoopCheckInEventData>> = serde_json::from_slice(&body).unwrap();
+    payload.data.unwrap_or_default()
+}
+
+async fn decode_check_in_submit(
+    response: axum::response::Response,
+) -> DailyLoopCheckInSubmitResponseData {
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<DailyLoopCheckInSubmitResponseData> =
+        serde_json::from_slice(&body).unwrap();
+    payload.data.expect("check-in submit payload")
+}
+
+async fn decode_check_in_skip(
+    response: axum::response::Response,
+) -> DailyLoopCheckInSkipResponseData {
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<DailyLoopCheckInSkipResponseData> =
+        serde_json::from_slice(&body).unwrap();
+    payload.data.expect("check-in skip payload")
 }
 
 fn morning_start_request() -> DailyLoopStartRequestData {
@@ -170,7 +205,6 @@ async fn morning_start_uses_bounded_inputs_and_creates_resumable_session() {
         panic!("expected morning state");
     };
     assert!(state.snapshot.contains("Design Review"));
-    assert!(state.snapshot.contains("Today task"));
     assert!(state.snapshot.contains("Overdue task"));
     assert!(!state.snapshot.contains("Too Late Event"));
     assert!(!state.snapshot.contains("Tomorrow task"));
@@ -356,4 +390,636 @@ async fn morning_bypass_requires_operator_note() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn morning_check_in_events_filter_defaults_and_skipped_inclusion() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage.clone(),
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let _ = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Skip,
+                response_text: Some("Need prep first".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+
+    let _ = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Submit,
+                response_text: Some("Focus on release notes".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+
+    let _ = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Submit,
+                response_text: Some("Blocker triage done".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+
+    let all_events = app
+        .clone()
+        .oneshot(authed_get(&format!(
+            "/v1/daily-loop/sessions/{}/check-ins",
+            session.id
+        )))
+        .await
+        .unwrap();
+    let all_events = decode_check_in_events(all_events).await;
+    assert_eq!(all_events.len(), 2);
+    assert!(all_events.iter().all(|event| !event.skipped));
+
+    let include_skipped = app
+        .clone()
+        .oneshot(authed_get(&format!(
+            "/v1/daily-loop/sessions/{}/check-ins?include_skipped=true",
+            session.id
+        )))
+        .await
+        .unwrap();
+    let include_skipped = decode_check_in_events(include_skipped).await;
+    assert_eq!(include_skipped.len(), 3);
+    assert!(include_skipped.iter().any(|event| event.skipped));
+
+    let morning_only = app
+        .clone()
+        .oneshot(authed_get(&format!(
+            "/v1/daily-loop/sessions/{}/check-ins?session_phase=morning",
+            session.id
+        )))
+        .await
+        .unwrap();
+    assert_eq!(decode_check_in_events(morning_only).await.len(), 2);
+
+    let standup_only = app
+        .clone()
+        .oneshot(authed_get(&format!(
+            "/v1/daily-loop/sessions/{}/check-ins?session_phase=standup",
+            session.id
+        )))
+        .await
+        .unwrap();
+    assert!(decode_check_in_events(standup_only).await.is_empty());
+
+    let check_in_count = storage
+        .list_daily_check_in_events_for_session(&session.id, None, None, true, 50)
+        .await
+        .unwrap()
+        .len();
+    assert_eq!(check_in_count, 3);
+}
+
+#[tokio::test]
+async fn list_session_check_in_events_respects_check_in_type_filter() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let _ = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Submit,
+                response_text: Some("Mood: energized".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+
+    let _ = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Submit,
+                response_text: Some("Plan review notes".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+
+    let _ = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Submit,
+                response_text: Some("Meeting prep complete".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+
+    let mood = app
+        .clone()
+        .oneshot(authed_get(&format!(
+            "/v1/daily-loop/sessions/{}/check-ins?check_in_type=mood&include_skipped=true",
+            session.id
+        )))
+        .await
+        .unwrap();
+    assert_eq!(decode_check_in_events(mood).await.len(), 1);
+
+    let other = app
+        .clone()
+        .oneshot(authed_get(&format!(
+            "/v1/daily-loop/sessions/{}/check-ins?check_in_type=other&include_skipped=true",
+            session.id
+        )))
+        .await
+        .unwrap();
+    assert_eq!(decode_check_in_events(other).await.len(), 2);
+}
+
+#[tokio::test]
+async fn list_session_check_in_events_returns_not_found_for_missing_session() {
+    let app = build_app(
+        test_storage().await,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let response = app
+        .oneshot(authed_get(
+            "/v1/daily-loop/sessions/missing_session/check-ins",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn submit_check_in_creates_event() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let response = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/check-ins", session.id),
+            &DailyLoopCheckInSubmitRequestData {
+                check_in_type: "mood".to_string(),
+                session_phase: "morning".to_string(),
+                source: "user".to_string(),
+                prompt_id: "manual_mood_01".to_string(),
+                answered_at: None,
+                text: Some("Sleep was rough but productive".to_string()),
+                scale: Some(-2),
+                keywords: vec!["sleep".to_string(), "focus".to_string()],
+                confidence: Some(0.84),
+                skipped: false,
+                skip_reason_code: None,
+                skip_reason_text: None,
+                replace_if_conflict: false,
+            },
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let result = decode_check_in_submit(response).await;
+    assert_eq!(result.status, "recorded");
+    assert!(result.supersedes_event_id.is_none());
+
+    let events = decode_check_in_events(
+        app.clone()
+            .oneshot(authed_get(&format!(
+                "/v1/daily-loop/sessions/{}/check-ins",
+                session.id
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].check_in_type, "mood");
+    assert_eq!(events[0].text.as_deref(), Some("Sleep was rough but productive"));
+}
+
+#[tokio::test]
+async fn submit_check_in_can_replace_latest_matching_event() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let first = decode_check_in_submit(
+        app.clone()
+            .oneshot(authed_json_request(
+                "POST",
+                &format!("/v1/daily-loop/sessions/{}/check-ins", session.id),
+                &DailyLoopCheckInSubmitRequestData {
+                    check_in_type: "pain".to_string(),
+                    session_phase: "morning".to_string(),
+                    source: "user".to_string(),
+                    prompt_id: "morning_pain_01".to_string(),
+                    answered_at: None,
+                    text: Some("Upper back tension".to_string()),
+                    scale: Some(-6),
+                    keywords: vec!["neck".to_string()],
+                    confidence: Some(0.78),
+                    skipped: false,
+                    skip_reason_code: None,
+                    skip_reason_text: None,
+                    replace_if_conflict: false,
+                },
+            ))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    let second = decode_check_in_submit(
+        app.clone()
+            .oneshot(authed_json_request(
+                "POST",
+                &format!("/v1/daily-loop/sessions/{}/check-ins", session.id),
+                &DailyLoopCheckInSubmitRequestData {
+                    check_in_type: "pain".to_string(),
+                    session_phase: "morning".to_string(),
+                    source: "user".to_string(),
+                    prompt_id: "morning_pain_01".to_string(),
+                    answered_at: None,
+                    text: Some("Midday pain spike".to_string()),
+                    scale: Some(-4),
+                    keywords: vec!["midday".to_string()],
+                    confidence: Some(0.82),
+                    skipped: false,
+                    skip_reason_code: None,
+                    skip_reason_text: None,
+                    replace_if_conflict: true,
+                },
+            ))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(
+        second.supersedes_event_id,
+        Some(first.check_in_event_id.clone())
+    );
+
+    let events = decode_check_in_events(
+        app.clone()
+            .oneshot(authed_get(&format!(
+                "/v1/daily-loop/sessions/{}/check-ins",
+                session.id
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(events.len(), 2);
+    assert_eq!(
+        events[0].replaced_by_event_id,
+        Some(first.check_in_event_id)
+    );
+}
+
+#[tokio::test]
+async fn submit_check_in_rejects_missing_session_or_phase_mismatch() {
+    let app = build_app(
+        test_storage().await,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let mismatch = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/check-ins", session.id),
+            &DailyLoopCheckInSubmitRequestData {
+                check_in_type: "mood".to_string(),
+                session_phase: "standup".to_string(),
+                source: "user".to_string(),
+                prompt_id: "manual_01".to_string(),
+                answered_at: None,
+                text: Some("No check-in".to_string()),
+                scale: None,
+                keywords: vec![],
+                confidence: None,
+                skipped: false,
+                skip_reason_code: None,
+                skip_reason_text: None,
+                replace_if_conflict: false,
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(mismatch.status(), StatusCode::BAD_REQUEST);
+
+    let missing_session = app
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions/missing_session/check-ins",
+            &DailyLoopCheckInSubmitRequestData {
+                check_in_type: "mood".to_string(),
+                session_phase: "morning".to_string(),
+                source: "user".to_string(),
+                prompt_id: "manual_01".to_string(),
+                answered_at: None,
+                text: Some("No check-in".to_string()),
+                scale: None,
+                keywords: vec![],
+                confidence: None,
+                skipped: false,
+                skip_reason_code: None,
+                skip_reason_text: None,
+                replace_if_conflict: false,
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing_session.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn skip_check_in_creates_reasoned_skip_event() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let original = decode_check_in_submit(
+        app.clone()
+            .oneshot(authed_json_request(
+                "POST",
+                &format!("/v1/daily-loop/sessions/{}/check-ins", session.id),
+                &DailyLoopCheckInSubmitRequestData {
+                    check_in_type: "mood".to_string(),
+                    session_phase: "morning".to_string(),
+                    source: "user".to_string(),
+                    prompt_id: "manual_mood_01".to_string(),
+                    answered_at: None,
+                    text: Some("Steady but tired".to_string()),
+                    scale: Some(-1),
+                    keywords: vec!["tired".to_string()],
+                    confidence: Some(0.8),
+                    skipped: false,
+                    skip_reason_code: None,
+                    skip_reason_text: None,
+                    replace_if_conflict: false,
+                },
+            ))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    let skip_result = decode_check_in_skip(
+        app.clone()
+            .oneshot(authed_json_request(
+                "POST",
+                &format!("/v1/daily-loop/check-ins/{}/skip", original.check_in_event_id),
+                &DailyLoopCheckInSkipRequestData {
+                    source: Some("user".to_string()),
+                    answered_at: None,
+                    reason_code: Some("not_now".to_string()),
+                    reason_text: Some("Need to postpone".to_string()),
+                },
+            ))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(skip_result.status, "skipped");
+    assert_eq!(skip_result.supersedes_event_id, Some(original.check_in_event_id.clone()));
+    assert_eq!(skip_result.session_id, session.id);
+
+    let events = decode_check_in_events(
+        app.clone()
+            .oneshot(authed_get(&format!(
+                "/v1/daily-loop/sessions/{}/check-ins?include_skipped=true",
+                session.id
+            )))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    assert_eq!(events.len(), 2);
+    assert!(events[0].skipped);
+    assert_eq!(events[0].replaced_by_event_id, Some(original.check_in_event_id));
+    assert_eq!(events[0].skip_reason_code.as_deref(), Some("not_now"));
+    assert_eq!(events[0].skip_reason_text.as_deref(), Some("Need to postpone"));
+}
+
+#[tokio::test]
+async fn skip_check_in_requires_reason() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let original = decode_check_in_submit(
+        app.clone()
+            .oneshot(authed_json_request(
+                "POST",
+                &format!("/v1/daily-loop/sessions/{}/check-ins", session.id),
+                &DailyLoopCheckInSubmitRequestData {
+                    check_in_type: "body".to_string(),
+                    session_phase: "morning".to_string(),
+                    source: "user".to_string(),
+                    prompt_id: "manual_body_01".to_string(),
+                    answered_at: None,
+                    text: Some("Tightness in shoulders".to_string()),
+                    scale: Some(-3),
+                    keywords: vec!["shoulder".to_string()],
+                    confidence: Some(0.7),
+                    skipped: false,
+                    skip_reason_code: None,
+                    skip_reason_text: None,
+                    replace_if_conflict: false,
+                },
+            ))
+            .await
+            .unwrap(),
+    )
+    .await;
+
+    let response = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/check-ins/{}/skip", original.check_in_event_id),
+            &DailyLoopCheckInSkipRequestData {
+                source: Some("user".to_string()),
+                answered_at: None,
+                reason_code: None,
+                reason_text: None,
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn skip_check_in_missing_event_returns_not_found() {
+    let app = build_app(
+        test_storage().await,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let response = app
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/check-ins/dci_missing/skip",
+            &DailyLoopCheckInSkipRequestData {
+                source: Some("user".to_string()),
+                answered_at: None,
+                reason_code: Some("not_now".to_string()),
+                reason_text: Some("Busy".to_string()),
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }

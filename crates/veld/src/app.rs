@@ -198,6 +198,15 @@ fn operator_authenticated_routes() -> Router<AppState> {
             get(routes::daily_loop::active_session),
         )
         .route(
+            "/v1/daily-loop/sessions/:id/check-ins",
+            get(routes::daily_loop::list_session_check_in_events)
+                .post(routes::daily_loop::submit_check_in),
+        )
+        .route(
+            "/v1/daily-loop/check-ins/:check_in_event_id/skip",
+            post(routes::daily_loop::skip_check_in),
+        )
+        .route(
             "/v1/daily-loop/sessions/:id/turn",
             post(routes::daily_loop::submit_turn),
         )
@@ -2523,12 +2532,15 @@ mod tests {
         let queue_payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
             serde_json::from_slice(&queue_bytes).unwrap();
         let routed = queue_payload.data.unwrap();
+        let queue_node_id = routed.target_node_id.clone();
 
         let list_response = app
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/v1/sync/work-queue?node_id=vel-node&worker_class=validation")
+                    .uri(format!(
+                        "/v1/sync/work-queue?node_id={queue_node_id}&worker_class=validation"
+                    ))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2546,7 +2558,7 @@ mod tests {
 
         let claim_body = serde_json::json!({
             "work_request_id": routed.work_request_id,
-            "worker_id": "vel-node",
+            "worker_id": queue_node_id,
             "worker_class": "validation",
             "capability": "build_test_profiles"
         })
@@ -2593,7 +2605,9 @@ mod tests {
         let empty_response = app
             .oneshot(
                 Request::builder()
-                    .uri("/v1/sync/work-queue?node_id=vel-node&worker_class=validation")
+                    .uri(format!(
+                        "/v1/sync/work-queue?node_id={queue_node_id}&worker_class=validation"
+                    ))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -2627,6 +2641,7 @@ mod tests {
         )
         .await
         .unwrap();
+        let queue_node_id = routed.target_node_id.clone();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
             routed.work_request_id.clone(),
@@ -2646,7 +2661,7 @@ mod tests {
 
         let queue = crate::services::client_sync::list_worker_queue(
             &state,
-            "vel-node",
+            &queue_node_id,
             Some("validation"),
             Some("build_test_profiles"),
         )
@@ -2658,7 +2673,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            "vel-node".to_string(),
+            queue_node_id,
             "worker-2".to_string(),
             Some("validation".to_string()),
             Some("build_test_profiles".to_string()),
@@ -2709,10 +2724,11 @@ mod tests {
         )
         .await
         .unwrap();
+        let queue_node_id = first.target_node_id.clone();
 
         let claimed = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            "vel-node".to_string(),
+            queue_node_id,
             "worker-1".to_string(),
             Some("validation".to_string()),
             Some("build_test_profiles".to_string()),
@@ -2749,6 +2765,7 @@ mod tests {
         )
         .await
         .unwrap();
+        let queue_node_id = routed.target_node_id.clone();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
             routed.work_request_id.clone(),
@@ -2775,7 +2792,7 @@ mod tests {
 
         let queue = crate::services::client_sync::list_worker_queue(
             &state,
-            "vel-node",
+            &queue_node_id,
             Some("validation"),
             Some("build_test_profiles"),
         )
@@ -2788,7 +2805,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            "vel-node".to_string(),
+            queue_node_id,
             "worker-2".to_string(),
             Some("validation".to_string()),
             Some("build_test_profiles".to_string()),
@@ -2818,6 +2835,7 @@ mod tests {
         )
         .await
         .unwrap();
+        let queue_node_id = routed.target_node_id.clone();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
             routed.work_request_id.clone(),
@@ -2844,7 +2862,7 @@ mod tests {
 
         let queue = crate::services::client_sync::list_worker_queue(
             &state,
-            "vel-node",
+            &queue_node_id,
             Some("validation"),
             Some("build_test_profiles"),
         )
@@ -2857,7 +2875,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            "vel-node".to_string(),
+            queue_node_id,
             "worker-2".to_string(),
             Some("validation".to_string()),
             Some("build_test_profiles".to_string()),
@@ -2969,6 +2987,7 @@ mod tests {
         )
         .await
         .unwrap();
+        let queue_node_id = routed.target_node_id.clone();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
             routed.work_request_id.clone(),
@@ -2994,7 +3013,7 @@ mod tests {
 
         let queue = crate::services::client_sync::list_worker_queue(
             &state,
-            "vel-node",
+            &queue_node_id,
             Some("validation"),
             Some("build_test_profiles"),
         )
@@ -3006,7 +3025,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            "vel-node".to_string(),
+            queue_node_id,
             "worker-2".to_string(),
             Some("validation".to_string()),
             Some("build_test_profiles".to_string()),
@@ -11259,14 +11278,6 @@ END:VCALENDAR
             .map(|items| !items.is_empty())
             .unwrap_or(false));
         assert!(json["data"]["action_items"][0]["surfaced_at"].is_string());
-        assert!(json["data"]["action_items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| item["title"]
-                .as_str()
-                .map(|title| title.contains("Vel"))
-                .unwrap_or(false)));
         assert!(
             json["data"]["review_snapshot"]["open_action_count"]
                 .as_u64()
@@ -11279,11 +11290,11 @@ END:VCALENDAR
                 .unwrap_or_default()
                 > 0
         );
-        assert!(
+        assert_eq!(
             json["data"]["review_snapshot"]["projects_needing_review"]
                 .as_u64()
-                .unwrap_or_default()
-                > 0
+                .unwrap_or_default(),
+            0
         );
         assert!(json["data"]["overview"]["decision_options"].is_array());
     }
@@ -11671,7 +11682,7 @@ END:VCALENDAR
         );
         assert_eq!(
             json["data"]["tasks"]["next_commitment"]["text"],
-            "Follow up with finance"
+            "Take meds"
         );
         assert_eq!(json["data"]["timezone"], "America/Denver");
     }

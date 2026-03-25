@@ -1,11 +1,12 @@
 use time::OffsetDateTime;
+use vel_storage::{DailyCheckInEventInsert, DailyCheckInEventRecord, Storage};
 use vel_core::{
     ActionItemId, CheckInCard, CheckInEscalation, CheckInEscalationTarget, CheckInSourceKind,
     CheckInSubmitTarget, CheckInSubmitTargetKind, CheckInTransition, CheckInTransitionKind,
     CheckInTransitionTargetKind, DailyLoopCheckInResolution, DailyLoopCheckInResolutionKind,
     DailyLoopPhase, DailyLoopSession, DailyLoopTurnAction, DailyLoopTurnRequest,
 };
-use vel_storage::Storage;
+use serde_json::Value as JsonValue;
 
 use crate::{
     errors::AppError,
@@ -29,6 +30,256 @@ pub async fn get_current_check_in(
     }
 
     Ok(None)
+}
+
+pub async fn list_session_check_in_events(
+    storage: &Storage,
+    session_id: &str,
+    check_in_type: Option<&str>,
+    session_phase: Option<&str>,
+    include_skipped: bool,
+    limit: u32,
+) -> Result<Vec<DailyCheckInEventRecord>, AppError> {
+    storage
+        .list_daily_check_in_events_for_session(
+            session_id,
+            check_in_type,
+            session_phase,
+            include_skipped,
+            limit,
+        )
+        .await
+        .map_err(|error| AppError::internal(format!("list daily check-in events: {error}")))
+}
+
+#[derive(Debug)]
+pub struct DailyCheckInSubmitInput {
+    pub check_in_type: String,
+    pub session_phase: String,
+    pub source: String,
+    pub prompt_id: String,
+    pub answered_at: Option<i64>,
+    pub text: Option<String>,
+    pub scale: Option<i64>,
+    pub keywords: Vec<String>,
+    pub confidence: Option<f64>,
+    pub skipped: bool,
+    pub skip_reason_code: Option<String>,
+    pub skip_reason_text: Option<String>,
+    pub replace_if_conflict: bool,
+    pub run_id: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct DailyCheckInSubmitResult {
+    pub check_in_event_id: String,
+    pub supersedes_event_id: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct DailyCheckInSkipInput {
+    pub source: Option<String>,
+    pub answered_at: Option<i64>,
+    pub reason_code: Option<String>,
+    pub reason_text: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct DailyCheckInSkipResult {
+    pub check_in_event_id: String,
+    pub session_id: String,
+    pub supersedes_event_id: Option<String>,
+}
+
+pub async fn submit_check_in(
+    storage: &Storage,
+    session_id: &str,
+    input: DailyCheckInSubmitInput,
+) -> Result<DailyCheckInSubmitResult, AppError> {
+    let check_in_type = check_in_type_label(&input.check_in_type)?;
+    let session_phase = session_phase_label_input(&input.session_phase)?;
+    let source = input
+        .source
+        .trim()
+        .to_lowercase();
+    if source != "user" && source != "inferred" {
+        return Err(AppError::bad_request("source must be `user` or `inferred`"));
+    }
+
+    let prompt_id = input.prompt_id.trim().to_string();
+    if prompt_id.is_empty() {
+        return Err(AppError::bad_request("prompt_id is required"));
+    }
+
+    if input.skipped {
+        if input
+            .text
+            .as_ref()
+            .and_then(|value| (!value.trim().is_empty()).then_some(()))
+            .is_some()
+            && input.scale.is_none()
+        {
+            return Err(AppError::bad_request(
+                "skipped check-ins cannot include a free-form response",
+            ));
+        }
+    } else if input.scale.is_none() {
+        let has_text = input
+            .text
+            .as_ref()
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false);
+        if !has_text {
+            return Err(AppError::bad_request(
+                "non-skipped check-ins require text or scale",
+            ));
+        }
+    }
+
+    if input.scale.is_some() && (input.scale.unwrap_or(0) < -10 || input.scale.unwrap_or(0) > 10) {
+        return Err(AppError::bad_request("scale must be between -10 and 10"));
+    }
+
+    if !input
+        .confidence
+        .map(|value| (0.0..=1.0).contains(&value))
+        .unwrap_or(true)
+    {
+        return Err(AppError::bad_request(
+            "confidence must be between 0.0 and 1.0",
+        ));
+    }
+
+    let response_text = input
+        .text
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty());
+    let text = response_text.map(str::to_string);
+    let keywords = if input.keywords.is_empty() {
+        extract_keywords(response_text)
+    } else {
+        input
+            .keywords
+            .into_iter()
+            .filter_map(normalize_keyword)
+            .collect::<Vec<_>>()
+    };
+
+    let supersedes_event_id = if input.replace_if_conflict {
+        let candidates = storage
+            .list_daily_check_in_events_for_session(
+                session_id,
+                Some(check_in_type.as_str()),
+                Some(session_phase.as_str()),
+                true,
+                16,
+            )
+            .await
+            .map_err(|error| {
+                AppError::internal(format!("find replacement candidate for check-in: {error}"))
+            })?;
+        candidates
+            .into_iter()
+            .find(|record| record.prompt_id == prompt_id)
+            .map(|record| record.event_id.clone())
+    } else {
+        None
+    };
+
+    let check_in_event_id = storage
+        .insert_daily_check_in_event(DailyCheckInEventInsert {
+            session_id: session_id.to_string(),
+            prompt_id: prompt_id.clone(),
+            check_in_type,
+            session_phase,
+            source: source.clone(),
+            answered_at: input.answered_at,
+            text,
+            scale: input.scale,
+            scale_min: -10,
+            scale_max: 10,
+            keywords_json: JsonValue::Array(keywords),
+            confidence: input.confidence,
+            schema_version: 1,
+            skipped: input.skipped,
+            skip_reason_code: input.skip_reason_code.map(|value| value.trim().to_string()),
+            skip_reason_text: input.skip_reason_text.map(|value| value.trim().to_string()),
+            replaced_by_event_id: supersedes_event_id.clone(),
+            run_id: input.run_id,
+            meta_json: serde_json::json!({
+                "source": source,
+                "prompt_id": prompt_id,
+                "scale_min": -10,
+                "scale_max": 10,
+            }),
+        })
+        .await
+        .map_err(|error| AppError::internal(format!("insert daily check-in event: {error}")))?;
+
+    Ok(DailyCheckInSubmitResult {
+        check_in_event_id,
+        supersedes_event_id,
+    })
+}
+
+pub async fn skip_check_in(
+    storage: &Storage,
+    check_in_event_id: &str,
+    input: DailyCheckInSkipInput,
+) -> Result<DailyCheckInSkipResult, AppError> {
+    let target_event_id = check_in_event_id.to_string();
+    let target_event = storage
+        .get_daily_check_in_event(&target_event_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("check-in event not found"))?;
+
+    let source = input.source.unwrap_or_else(|| "user".to_string());
+    let source = source.trim().to_lowercase();
+    if source != "user" && source != "inferred" {
+        return Err(AppError::bad_request("source must be `user` or `inferred`"));
+    }
+
+    let reason_code = input.reason_code.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+    let reason_text = input.reason_text.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+    if reason_code.is_none() && reason_text.is_none() {
+        return Err(AppError::bad_request("skip requires a reason_code or reason_text"));
+    }
+
+    let new_check_in_event_id = storage
+        .insert_daily_check_in_event(DailyCheckInEventInsert {
+            session_id: target_event.session_id.clone(),
+            prompt_id: target_event.prompt_id.clone(),
+            check_in_type: target_event.check_in_type,
+            session_phase: target_event.session_phase,
+            source: source.clone(),
+            answered_at: input.answered_at,
+            text: None,
+            scale: None,
+            scale_min: -10,
+            scale_max: 10,
+            keywords_json: JsonValue::Array(vec![]),
+            confidence: None,
+            schema_version: 1,
+            skipped: true,
+            skip_reason_code: reason_code,
+            skip_reason_text: reason_text,
+            replaced_by_event_id: Some(target_event_id.clone()),
+            run_id: None,
+            meta_json: serde_json::json!({
+                "source": source.clone(),
+                "supersedes_event_id": target_event_id.clone(),
+                "skipped_by": "api",
+            }),
+        })
+        .await
+        .map_err(|error| AppError::internal(format!("insert daily check-in skip event: {error}")))?;
+
+    Ok(DailyCheckInSkipResult {
+        check_in_event_id: new_check_in_event_id,
+        session_id: target_event.session_id,
+        supersedes_event_id: Some(target_event_id),
+    })
 }
 
 fn escalation_thread_id(session_id: &str, prompt_id: &str) -> String {
@@ -164,9 +415,129 @@ pub async fn persist_resolution_follow_through(
     resolution: Option<&DailyLoopCheckInResolution>,
 ) -> Result<(), AppError> {
     if let Some(resolution) = resolution {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let response_text = resolution
+            .response_text
+            .as_deref()
+            .or(resolution.note_text.as_deref());
+        let skipped = matches!(resolution.kind, DailyLoopCheckInResolutionKind::Bypassed);
+        let skip_reason_text = if skipped {
+            resolution.note_text.clone()
+        } else {
+            None
+        };
+
+        storage
+            .insert_daily_check_in_event(DailyCheckInEventInsert {
+                session_id: session.id.to_string(),
+                prompt_id: resolution.prompt_id.clone(),
+                check_in_type: check_in_type_for_prompt(&session.phase, &resolution.response_text),
+                session_phase: session_phase_label(&session.phase),
+                source: "user".to_string(),
+                answered_at: Some(now),
+                text: response_text.map(ToString::to_string),
+                scale: None,
+                scale_min: -10,
+                scale_max: 10,
+                keywords_json: JsonValue::Array(extract_keywords(response_text)),
+                confidence: Some(1.0),
+                schema_version: 1,
+                skipped,
+                skip_reason_code: if skipped {
+                    Some("user_skip".to_string())
+                } else {
+                    None
+                },
+                skip_reason_text,
+                replaced_by_event_id: None,
+                run_id: None,
+                meta_json: serde_json::json!({
+                    "phase": session_phase_label(&session.phase),
+                    "prompt_id": resolution.prompt_id,
+                    "ordinal": resolution.ordinal,
+                    "check_in_kind": check_in_kind_label(&resolution.kind),
+                }),
+            })
+            .await?;
+
         update_follow_through_thread_status(storage, session, resolution).await?;
     }
     Ok(())
+}
+
+fn check_in_type_for_prompt(
+    phase: &DailyLoopPhase,
+    response_text: &Option<String>,
+) -> String {
+    if let Some(text) = response_text {
+        if text.to_lowercase().contains("mood") {
+            return "mood".to_string();
+        }
+    }
+
+    match phase {
+        DailyLoopPhase::MorningOverview => "other".to_string(),
+        DailyLoopPhase::Standup => "other".to_string(),
+    }
+}
+
+fn session_phase_label(phase: &DailyLoopPhase) -> String {
+    match phase {
+        DailyLoopPhase::MorningOverview => "morning".to_string(),
+        DailyLoopPhase::Standup => "standup".to_string(),
+    }
+}
+
+pub(crate) fn session_phase_label_input(value: &str) -> Result<String, AppError> {
+    match value.trim() {
+        "morning" => Ok("morning".to_string()),
+        "standup" => Ok("standup".to_string()),
+        _ => Err(AppError::bad_request(
+            "session_phase must be `morning` or `standup`",
+        )),
+    }
+}
+
+fn check_in_type_label(value: &str) -> Result<String, AppError> {
+    match value.trim() {
+        "mood" => Ok("mood".to_string()),
+        "body" => Ok("body".to_string()),
+        "sleep" => Ok("sleep".to_string()),
+        "dream" => Ok("dream".to_string()),
+        "pain" => Ok("pain".to_string()),
+        "other" => Ok("other".to_string()),
+        _ => Err(AppError::bad_request(
+            "check_in_type must be one of mood, body, sleep, dream, pain, other",
+        )),
+    }
+}
+
+fn normalize_keyword(value: String) -> Option<JsonValue> {
+    let value = value.trim().to_lowercase();
+    if value.is_empty() {
+        None
+    } else {
+        Some(JsonValue::String(value))
+    }
+}
+
+fn check_in_kind_label(kind: &DailyLoopCheckInResolutionKind) -> &'static str {
+    match kind {
+        DailyLoopCheckInResolutionKind::Submitted => "submitted",
+        DailyLoopCheckInResolutionKind::Bypassed => "bypassed",
+    }
+}
+
+fn extract_keywords(text: Option<&str>) -> Vec<JsonValue> {
+    text.map(|value| {
+        value
+            .split_whitespace()
+            .map(|token| token.trim_matches(|ch: char| !ch.is_alphanumeric()))
+            .filter(|token| token.len() >= 3)
+            .map(|token| JsonValue::String(token.to_ascii_lowercase()))
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 pub fn commitment_action_labels_for_card(card: &CheckInCard) -> Vec<&'static str> {

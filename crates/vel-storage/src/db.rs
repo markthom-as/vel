@@ -4,7 +4,7 @@ use crate::{
         artifacts_repo, assistant_transcripts_repo, backup_runs_repo, broker_events_repo,
         captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
         conflict_cases_repo, connect_run_events_repo, connect_runs_repo, context_timeline_repo,
-        current_context_repo, daily_sessions_repo, execution_contexts_repo,
+        current_context_repo, daily_check_in_events_repo, daily_sessions_repo, execution_contexts_repo,
         execution_handoffs_repo, import_repo, inferred_state_repo, integration_connections_repo,
         linking_repo, nudges_repo, people_repo, planning_profiles_repo, processing_jobs_repo,
         projects_repo,
@@ -258,6 +258,54 @@ pub struct NudgeRecord {
     pub signals_snapshot_json: Option<String>,
     pub inference_snapshot_json: Option<String>,
     pub metadata_json: JsonValue,
+}
+
+pub struct DailyCheckInEventInsert {
+    pub session_id: String,
+    pub prompt_id: String,
+    pub check_in_type: String,
+    pub session_phase: String,
+    pub source: String,
+    pub answered_at: Option<i64>,
+    pub text: Option<String>,
+    pub scale: Option<i64>,
+    pub scale_min: i64,
+    pub scale_max: i64,
+    pub keywords_json: JsonValue,
+    pub confidence: Option<f64>,
+    pub schema_version: i64,
+    pub skipped: bool,
+    pub skip_reason_code: Option<String>,
+    pub skip_reason_text: Option<String>,
+    pub replaced_by_event_id: Option<String>,
+    pub run_id: Option<String>,
+    pub meta_json: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DailyCheckInEventRecord {
+    pub event_id: String,
+    pub session_id: String,
+    pub prompt_id: String,
+    pub check_in_type: String,
+    pub session_phase: String,
+    pub source: String,
+    pub answered_at: Option<i64>,
+    pub text: Option<String>,
+    pub scale: Option<i64>,
+    pub scale_min: i64,
+    pub scale_max: i64,
+    pub keywords_json: JsonValue,
+    pub confidence: Option<f64>,
+    pub schema_version: i64,
+    pub skipped: bool,
+    pub skip_reason_code: Option<String>,
+    pub skip_reason_text: Option<String>,
+    pub replaced_by_event_id: Option<String>,
+    pub meta_json: JsonValue,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub run_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1342,6 +1390,41 @@ impl Storage {
             resolved_at,
             inference_snapshot_json,
             metadata_json,
+        )
+        .await
+    }
+
+    // --- Daily loop check-ins (V0) ---
+
+    pub async fn insert_daily_check_in_event(
+        &self,
+        input: DailyCheckInEventInsert,
+    ) -> Result<String, StorageError> {
+        daily_check_in_events_repo::insert_daily_check_in_event(self.pool(), input).await
+    }
+
+    pub async fn get_daily_check_in_event(
+        &self,
+        event_id: &str,
+    ) -> Result<Option<DailyCheckInEventRecord>, StorageError> {
+        daily_check_in_events_repo::get_daily_check_in_event(self.pool(), event_id).await
+    }
+
+    pub async fn list_daily_check_in_events_for_session(
+        &self,
+        session_id: &str,
+        check_in_type: Option<&str>,
+        session_phase: Option<&str>,
+        include_skipped: bool,
+        limit: u32,
+    ) -> Result<Vec<DailyCheckInEventRecord>, StorageError> {
+        daily_check_in_events_repo::list_daily_check_in_events_for_session(
+            self.pool(),
+            session_id,
+            check_in_type,
+            session_phase,
+            include_skipped,
+            limit,
         )
         .await
     }

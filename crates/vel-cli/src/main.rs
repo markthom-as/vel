@@ -944,6 +944,17 @@ enum DailyLoopCommand {
         #[arg(long)]
         json: bool,
     },
+    SkipCheckIn {
+        check_in_event_id: String,
+        #[arg(long)]
+        reason_code: Option<String>,
+        #[arg(long)]
+        reason_text: Option<String>,
+        #[arg(long)]
+        source: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     Overdue {
         #[command(subcommand)]
         command: DailyLoopOverdueCommand,
@@ -1572,6 +1583,23 @@ async fn main() -> anyhow::Result<()> {
             } => commands::daily_loop::run_reply(&client, &session_id, text, json).await,
             DailyLoopCommand::Skip { session_id, json } => {
                 commands::daily_loop::run_skip(&client, &session_id, json).await
+            }
+            DailyLoopCommand::SkipCheckIn {
+                check_in_event_id,
+                reason_code,
+                reason_text,
+                source,
+                json,
+            } => {
+                commands::daily_loop::run_skip_check_in(
+                    &client,
+                    &check_in_event_id,
+                    reason_code,
+                    reason_text,
+                    source,
+                    json,
+                )
+                .await
             }
             DailyLoopCommand::Overdue { command } => match command {
                 DailyLoopOverdueCommand::Menu { limit, json } => {
@@ -2488,6 +2516,41 @@ mod tests {
                 assert!(json);
             }
             _ => panic!("expected daily-loop overdue confirm command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_daily_loop_check_in_skip_command() {
+        let parsed = Cli::try_parse_from([
+            "vel",
+            "daily-loop",
+            "skip-check-in",
+            "dci_123",
+            "--reason-code",
+            "not_applicable",
+            "--reason-text",
+            "in a meeting",
+            "--json",
+        ])
+        .unwrap();
+        match parsed.command {
+            Command::DailyLoop {
+                command:
+                    DailyLoopCommand::SkipCheckIn {
+                        check_in_event_id,
+                        reason_code,
+                        reason_text,
+                        source,
+                        json,
+                    },
+            } => {
+                assert_eq!(check_in_event_id, "dci_123");
+                assert_eq!(reason_code.as_deref(), Some("not_applicable"));
+                assert_eq!(reason_text.as_deref(), Some("in a meeting"));
+                assert!(source.is_none());
+                assert!(json);
+            }
+            _ => panic!("expected daily-loop skip-check-in command"),
         }
     }
 

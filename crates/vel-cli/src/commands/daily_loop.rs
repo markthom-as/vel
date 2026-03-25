@@ -3,6 +3,7 @@ use time::OffsetDateTime;
 use vel_api_types::{
     DailyLoopOverdueActionData, DailyLoopOverdueApplyRequestData,
     DailyLoopOverdueConfirmRequestData, DailyLoopOverdueMenuRequestData,
+    DailyLoopCheckInSkipRequestData,
     DailyLoopOverdueReschedulePayloadData, DailyLoopOverdueUndoRequestData, DailyLoopPhaseData,
     DailyLoopSessionData, DailyLoopSessionStateData, DailyLoopStartMetadataData,
     DailyLoopStartRequestData, DailyLoopStartSourceData, DailyLoopSurfaceData,
@@ -85,6 +86,40 @@ pub async fn run_skip(client: &ApiClient, session_id: &str, json: bool) -> anyho
         return Ok(());
     }
     print_session(&session);
+    Ok(())
+}
+
+pub async fn run_skip_check_in(
+    client: &ApiClient,
+    check_in_event_id: &str,
+    reason_code: Option<String>,
+    reason_text: Option<String>,
+    source: Option<String>,
+    json: bool,
+) -> anyhow::Result<()> {
+    let response = client
+        .daily_loop_check_in_skip(
+            check_in_event_id,
+            &DailyLoopCheckInSkipRequestData {
+                source,
+                answered_at: None,
+                reason_code,
+                reason_text,
+            },
+        )
+        .await
+        .context("skip daily-loop check-in")?;
+    let data = response
+        .data
+        .ok_or_else(|| anyhow::anyhow!("check-in skip response missing data"))?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&data)?);
+        return Ok(());
+    }
+    println!("check_in_event_id: {}", data.check_in_event_id);
+    println!("session_id: {}", data.session_id);
+    println!("status: {}", data.status);
+    println!("supersedes_event_id: {:?}", data.supersedes_event_id);
     Ok(())
 }
 

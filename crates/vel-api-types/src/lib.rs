@@ -743,6 +743,108 @@ pub struct DailyLoopOverdueUndoResponseData {
     pub after: DailyLoopOverdueStateSnapshotData,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInEventsQueryData {
+    #[serde(default)]
+    pub check_in_type: Option<String>,
+    #[serde(default)]
+    pub session_phase: Option<String>,
+    #[serde(default)]
+    pub include_skipped: bool,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInSubmitRequestData {
+    pub check_in_type: String,
+    pub session_phase: String,
+    pub source: String,
+    pub prompt_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub answered_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scale: Option<i64>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub keywords: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f64>,
+    #[serde(default)]
+    pub skipped: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason_text: Option<String>,
+    #[serde(default)]
+    pub replace_if_conflict: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInSubmitResponseData {
+    pub check_in_event_id: String,
+    pub session_id: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_event_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInSkipRequestData {
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub answered_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInSkipResponseData {
+    pub check_in_event_id: String,
+    pub session_id: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_event_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInEventData {
+    pub event_id: String,
+    pub session_id: String,
+    pub prompt_id: String,
+    pub check_in_type: String,
+    pub session_phase: String,
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub answered_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scale: Option<i64>,
+    pub scale_min: i64,
+    pub scale_max: i64,
+    pub keywords_json: JsonValue,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f64>,
+    pub schema_version: i64,
+    pub skipped: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replaced_by_event_id: Option<String>,
+    pub meta_json: JsonValue,
+    pub created_at: i64,
+    pub updated_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DailyLoopPromptKindData {

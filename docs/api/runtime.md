@@ -303,6 +303,9 @@ CLI fallback when the web shell is unavailable:
 ### `POST /v1/daily-loop/sessions`
 ### `GET /v1/daily-loop/sessions/active`
 ### `POST /v1/daily-loop/sessions/:id/turn`
+### `GET /v1/daily-loop/sessions/:id/check-ins`
+### `POST /v1/daily-loop/sessions/:id/check-ins`
+### `POST /v1/daily-loop/check-ins/:check_in_event_id/skip`
 ### `POST /v1/daily-loop/sessions/:id/overdue/menu`
 ### `POST /v1/daily-loop/sessions/:id/overdue/confirm`
 ### `POST /v1/daily-loop/sessions/:id/overdue/apply`
@@ -312,6 +315,9 @@ CLI fallback when the web shell is unavailable:
 - shared by CLI (`vel morning`, `vel standup`), web Now, and Apple clients
 - `POST /v1/daily-loop/sessions` starts a typed session for `phase=morning_overview` or `phase=standup`
 - `GET /v1/daily-loop/sessions/active` resumes the active session for a `session_date` and `phase`
+- `GET /v1/daily-loop/sessions/:id/check-ins` returns persisted check-in event records for the given session with optional query filters (`check_in_type`, `session_phase`, `include_skipped`, `limit`)
+- `POST /v1/daily-loop/sessions/:id/check-ins` creates one typed check-in event row (including optional replacement behavior for repeated prompts)
+- `POST /v1/daily-loop/check-ins/:check_in_event_id/skip` creates a skip event linked to the original check-in event with required reason metadata
 - `POST /v1/daily-loop/sessions/:id/turn` advances the current prompt with bounded submit/skip actions and returns the updated typed session
 - when a daily-loop `check_in` needs longer follow-through, the backend preserves a deterministic thread-backed escalation target and updates that thread with typed deferred/resolved status as the session advances
 - `/overdue/*` endpoints now ship a baseline implementation for proposal/confirm/apply/undo with idempotency-key handling; deeper policy and undo guarantees continue under ticket `038`
