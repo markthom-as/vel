@@ -20,6 +20,10 @@ See [`runtime.md`](runtime.md) for:
 - explain endpoints
 - synthesis
 
+Planned contract drafts for not-yet-mounted runtime slices:
+
+- [`standup-overdue-workflow-contract.md`](standup-overdue-workflow-contract.md) (`menu -> confirm -> apply -> undo` overdue-task workflow)
+
 ## Chat API (`/api`)
 
 See [`chat.md`](chat.md) for:

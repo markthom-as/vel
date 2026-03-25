@@ -63,6 +63,54 @@ What you are looking for:
 - whether Vel is asking for a check-in or recommending a reflow,
 - whether recent source data looks fresh enough to trust.
 
+## Morning standup and planning meeting playbook
+
+This is the first utilitarian workflow target for a repeatable morning planning meeting.
+Treat this section as the product-operating checklist for the standup lane.
+
+Current command anchors:
+
+```bash
+cargo run -p vel-cli -- morning
+cargo run -p vel-cli -- standup
+cargo run -p vel-cli -- nudges
+cargo run -p vel-cli -- commitments
+```
+
+Workflow sequence:
+
+1. morning check-in: dreams, sleep quality, pain, and mood.
+2. calendar review: day view first, then week boundary scan.
+3. morning communications review: email, messages, articles, and package/delivery signals.
+4. discuss commitments and deadlines.
+5. work down inbox toward inbox zero through decision, metadata, or explicit skip/defer.
+6. resolve overdue tasks.
+7. set or discuss goals and planning intent for today.
+8. commit to tasks for the day.
+9. enforce up-next versus backlog boundary.
+
+Overdue-task action policy for this playbook:
+
+- close complete work.
+- reschedule to a new due date.
+- return to inbox by removing due date.
+- delete or tombstone when the task should not continue.
+- when possible, confirm a Vel due-date guess before applying a change.
+
+Shipped today versus planned next:
+
+- shipped now: morning/standup session starts, commitments and nudges review, calendar and context orientation, inbox and thread triage, and bounded voice entry through existing assistant seams.
+- planned next: one unified overdue-task action menu in the standup loop (`close`, `reschedule`, `back_to_inbox`, `tombstone`) with explicit confirm/undo and due-date guess confirmation before mutation.
+- planned next: tighter meeting-mode flow that can run this full sequence end-to-end without route switching.
+
+Voice and accessibility expectations:
+
+- desktop/browser voice remains local STT/TTS over the same backend-owned daily-loop authority.
+- Apple phone/watch should keep quick voice capture and reaction actions bounded to the same run/trace lineage, not a separate local planning authority.
+- if voice transport or local STT is unavailable, surfaces should fail closed to typed input and preserve the same checklist order.
+
+If you want to implement this playbook as an integration/internal workflow slice, use the supervised authoring template in [Coding Workflows](coding-workflows.md#reusable-workflow-definition-template).
+
 ## During the day
 
 Capture quickly instead of trying to remember everything:

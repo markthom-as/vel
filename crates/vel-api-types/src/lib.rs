@@ -698,6 +698,7 @@ pub struct DailyLoopOverdueConfirmRequestData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DailyLoopOverdueConfirmResponseData {
     pub proposal_id: String,
+    pub confirmation_token: String,
     pub requires_confirmation: bool,
     #[serde(default)]
     pub write_scope: Vec<String>,
