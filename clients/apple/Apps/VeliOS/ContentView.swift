@@ -2660,8 +2660,8 @@ private struct SettingsTab: View {
         instances
             .filter { $0.status == "ready" }
             .sorted { (lhs, rhs) in
-                let left = lhs.last_seen_at ?? 0
-                let right = rhs.last_seen_at ?? 0
+                let left = lhs.last_seen_at ?? ""
+                let right = rhs.last_seen_at ?? ""
                 if left == right {
                     return lhs.id > rhs.id
                 }
