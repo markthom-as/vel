@@ -21,8 +21,25 @@ const NUDGE_TAG_ICON = 10;
 /** Lead glyph (floating left of the nudge card). */
 const NUDGE_LEAD_ICON = 14;
 
+export function nudgeUsesSystemPresentation(bar: { id: string; actions: Array<{ kind: string }> }): boolean {
+  if (
+    bar.id === 'core_setup_required'
+    || bar.id === 'backup_trust_warning'
+    || bar.id === 'mesh_summary_warning'
+  ) {
+    return true;
+  }
+  return bar.actions.some((action) => action.kind.startsWith('open_settings'));
+}
+
+export function nudgeLeadKindForBar(bar: { id: string; kind: string; actions: Array<{ kind: string }> }): string {
+  return nudgeUsesSystemPresentation(bar) ? 'system_settings' : bar.kind;
+}
+
 export function nudgeIcon(kind: string, urgent = false): ReactNode {
   switch (kind) {
+    case 'system_settings':
+      return <SettingsIcon size={NUDGE_LEAD_ICON} />;
     case 'needs_input':
       return <ThreadsIcon size={NUDGE_LEAD_ICON} />;
     case 'trust_warning':
@@ -40,6 +57,8 @@ export function nudgeIcon(kind: string, urgent = false): ReactNode {
 /** Default icon for nudge kind tags (dense; matches `nudgeIcon` semantics). */
 export function nudgeKindTagIcon(kind: string): ReactNode {
   switch (kind) {
+    case 'system_settings':
+      return <SettingsIcon size={NUDGE_TAG_ICON} />;
     case 'needs_input':
       return <ThreadsIcon size={NUDGE_TAG_ICON} />;
     case 'trust_warning':
@@ -57,8 +76,10 @@ export function nudgeKindTagIcon(kind: string): ReactNode {
   }
 }
 
-function nudgeOrbColorFamily(kind: string): 'brand' | 'warm' | 'sky' | 'emerald' | 'orange' {
+function nudgeOrbColorFamily(kind: string): 'brand' | 'warm' | 'sky' | 'emerald' | 'orange' | 'indigo' {
   switch (kind) {
+    case 'system_settings':
+      return 'indigo';
     case 'trust_warning':
       return 'warm';
     case 'freshness_warning':
@@ -77,6 +98,8 @@ function nudgeOrbColorFamily(kind: string): 'brand' | 'warm' | 'sky' | 'emerald'
 
 export function nudgeBadgeTone(kind: string, urgent: boolean): string {
   switch (nudgeOrbColorFamily(kind)) {
+    case 'indigo':
+      return 'text-indigo-300';
     case 'warm':
       return 'text-amber-300';
     case 'sky':
@@ -100,13 +123,16 @@ export function NudgeLeadOrb({
   urgent,
   warmSurface,
   isPrimary,
+  iconKind,
 }: {
   kind: string;
   urgent: boolean;
   warmSurface: boolean;
   isPrimary: boolean;
+  iconKind?: string;
 }) {
-  const family = warmSurface && nudgeOrbColorFamily(kind) === 'brand' ? 'warm' : nudgeOrbColorFamily(kind);
+  const resolvedKind = iconKind ?? kind;
+  const family = warmSurface && nudgeOrbColorFamily(resolvedKind) === 'brand' ? 'warm' : nudgeOrbColorFamily(resolvedKind);
   const ringClass = `vel-nudge-orb-ring--${family}`;
   const iconClass = `vel-nudge-orb-icon--${family}`;
 
@@ -129,10 +155,10 @@ export function NudgeLeadOrb({
             className={cn(
               'vel-nudge-orb-icon flex items-center justify-center',
               iconClass,
-              nudgeBadgeTone(kind, urgent),
+              nudgeBadgeTone(resolvedKind, urgent),
             )}
           >
-            {nudgeIcon(kind, urgent)}
+            {nudgeIcon(resolvedKind, urgent)}
           </span>
         </div>
       </div>
@@ -195,7 +221,7 @@ export function nudgeActionToneClass(kind: string): string {
     case 'open_inbox':
       return `${base} !border-orange-900/40 !text-orange-400/55 shadow-[0_0_6px_rgba(251,146,60,0.08)] hover:!text-orange-200/80`;
     case 'open_settings':
-      return `${base} !border-zinc-800/40 !text-zinc-500/55 shadow-[0_0_6px_rgba(161,161,170,0.06)] hover:!text-zinc-300/80`;
+      return `${base} !border-indigo-900/40 !text-indigo-400/60 shadow-[0_0_6px_rgba(129,140,248,0.08)] hover:!text-indigo-200/85`;
     default:
       if (kind.startsWith('reschedule_today')) {
         return `${base} !border-sky-900/40 !text-sky-400/55 shadow-[0_0_6px_rgba(56,189,248,0.08)] hover:!text-sky-200/80`;
@@ -204,7 +230,7 @@ export function nudgeActionToneClass(kind: string): string {
         return `${base} !border-violet-900/40 !text-violet-400/55 shadow-[0_0_6px_rgba(167,139,250,0.08)] hover:!text-violet-200/80`;
       }
       if (kind.startsWith('open_settings')) {
-        return `${base} !border-zinc-800/40 !text-zinc-500/55 shadow-[0_0_6px_rgba(161,161,170,0.06)] hover:!text-zinc-300/80`;
+        return `${base} !border-indigo-900/40 !text-indigo-400/60 shadow-[0_0_6px_rgba(129,140,248,0.08)] hover:!text-indigo-200/85`;
       }
       return base;
   }

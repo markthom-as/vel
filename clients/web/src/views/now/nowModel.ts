@@ -36,17 +36,22 @@ export function nudgeOpenSystemTarget(
   bar: { id: string },
   action?: Pick<NowNudgeActionData, 'kind'> | null,
 ): SystemNavigationTarget {
+  const actionKind = action?.kind ?? 'open_settings';
+  const directTarget = coreSetupChecklistTarget(actionKind);
+  if (directTarget) {
+    return directTarget;
+  }
   if (bar.id === 'core_setup_required') {
-    return coreSetupChecklistTarget(action?.kind ?? 'open_settings:core_settings')
+    return coreSetupChecklistTarget(actionKind)
       ?? { section: 'core', subsection: 'core_settings', anchor: 'core-settings-required-setup' };
   }
   if (bar.id === 'backup_trust_warning') {
-    return { section: 'integrations', subsection: 'providers' };
+    return { section: 'operations', subsection: 'recovery' };
   }
   if (bar.id === 'mesh_summary_warning') {
     return { section: 'integrations', subsection: 'accounts' };
   }
-  return { section: 'integrations' };
+  return { section: 'core', subsection: 'core_settings' };
 }
 
 export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTaskData[] {

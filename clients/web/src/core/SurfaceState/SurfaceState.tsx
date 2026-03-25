@@ -38,7 +38,9 @@ export function SurfaceState({
         : 'text-zinc-500'
   const layoutClass =
     layout === 'centered'
-      ? 'flex-1 flex items-center justify-center px-6 text-center'
+      ? showSpinner
+        ? 'flex min-h-[calc(100vh-9rem)] w-full items-center justify-center px-6 text-center'
+        : 'flex-1 flex items-center justify-center px-6 text-center'
       : layout === 'drawer'
         ? 'text-sm'
         : 'p-4 text-sm'

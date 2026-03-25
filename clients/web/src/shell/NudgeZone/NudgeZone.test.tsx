@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../api/client'
 import { clearQueryCache } from '../../data/query'
@@ -235,7 +235,7 @@ describe('NudgeZone', () => {
     expect(screen.getByText('NUDGES (5)')).toBeInTheDocument()
     expect(screen.getByText('Extra hidden nudge')).toBeInTheDocument()
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Open thread \(Standup check-in\) · check_in_bar/i }).at(-1) as HTMLElement)
+    fireEvent.click(screen.getAllByRole('button', { name: /Open \(Standup check-in\) · check_in_bar/i }).at(-1) as HTMLElement)
     expect(onOpenThread).toHaveBeenCalledWith('conv_1')
 
     fireEvent.click(screen.getAllByRole('button', { name: /Sync & clients \(Vel Desktop needs attention\) · mesh_summary_warning/i }).at(-1) as HTMLElement)
@@ -427,18 +427,17 @@ describe('NudgeZone', () => {
 
     const standupSummary = screen.getAllByText('Vel needs one short answer before the standup can continue.').at(-1) as HTMLElement
     const standupActions = Array.from(standupArticle.querySelectorAll('div')).filter((node) =>
-      (node as HTMLElement).className.includes('max-w-[46%]'),
+      (node as HTMLElement).className.includes('w-[5.5rem]'),
     )
     const standupSummaryRow = standupSummary.parentElement as HTMLElement
 
-    expect(standupBody.className).toContain('items-start')
+    expect(standupBody.className).toContain('items-stretch')
     expect(standupBody.className).toContain('gap-3')
     expect(standupBody.className).toContain('py-3')
-    expect(standupSummary.className).toContain('leading-5')
-    expect(standupSummary.className).toContain('w-full')
-    expect(standupSummaryRow.className).toContain('w-full')
+    expect(standupSummary.className).toContain('text-xs')
+    expect(standupSummaryRow.className).toContain('flex')
     expect(standupSummaryRow.className).toContain('flex-col')
-    expect(standupActions.some((node) => (node as HTMLElement).className.includes('pt-0.5'))).toBe(true)
+    expect(standupActions.length).toBeGreaterThan(0)
     expect(standupArticle.parentElement?.className).toContain('gap-3')
   })
 
@@ -449,7 +448,7 @@ describe('NudgeZone', () => {
       expect(screen.getAllByText('Review morning plan').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Open thread \(Review morning plan\) · review_bar/i }).at(-1) as HTMLElement)
+    fireEvent.click(screen.getAllByRole('button', { name: /Open \(Review morning plan\) · review_bar/i }).at(-1) as HTMLElement)
 
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
@@ -524,7 +523,7 @@ describe('NudgeZone', () => {
       expect(screen.getByText('2 overdue items are still unresolved')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Reschedule all to today \(2 overdue items are still unresolved\)/i }))
+    fireEvent.click(screen.getByRole('button', { name: /To Today \(2 overdue items are still unresolved\)/i }))
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/v1/now/tasks/reschedule-today',
@@ -533,18 +532,112 @@ describe('NudgeZone', () => {
       )
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Review backlog \(2 overdue items are still unresolved\)/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Backlog \(2 overdue items are still unresolved\)/i }))
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
 
     document.body.removeChild(backlogNode)
   })
 
-  it('keeps synced calendar toggles visible when display is turned off and persists the change', async () => {
+  it('hides non-visible calendars and their events from the sidebar while persisting visibility changes', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            schedule: {
+              empty_message: null,
+              next_event: {
+                event_id: 'evt_1',
+                calendar_id: 'cal_1',
+                calendar_name: 'Primary',
+                title: 'Design review',
+                start_ts: 1710003600,
+                end_ts: 1710007200,
+                event_url: 'https://calendar.google.com/calendar/event?eid=evt_1',
+                location: 'Studio',
+                notes: 'Review mocks and unblock the handoff.',
+                attendees: ['alex@example.com', 'sam@example.com', 'pat@example.com'],
+                video_url: 'https://meet.google.com/abc-defg-hij',
+                video_provider: 'google_meet',
+                prep_minutes: 15,
+                travel_minutes: 0,
+                leave_by_ts: 1710003600,
+                rescheduled: false,
+              },
+              upcoming_events: [
+                {
+                  event_id: 'evt_1',
+                  calendar_id: 'cal_1',
+                  calendar_name: 'Primary',
+                  title: 'Design review',
+                  start_ts: 1710003600,
+                  end_ts: 1710007200,
+                  event_url: 'https://calendar.google.com/calendar/event?eid=evt_1',
+                  location: 'Studio',
+                  notes: 'Review mocks and unblock the handoff.',
+                  attendees: ['alex@example.com', 'sam@example.com', 'pat@example.com'],
+                  video_url: 'https://meet.google.com/abc-defg-hij',
+                  video_provider: 'google_meet',
+                  prep_minutes: 15,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710003600,
+                  rescheduled: false,
+                },
+                {
+                  event_id: 'evt_2',
+                  calendar_id: 'cal_2',
+                  calendar_name: 'Team',
+                  title: 'Hidden team sync',
+                  start_ts: 1710010800,
+                  end_ts: 1710012600,
+                  event_url: 'https://calendar.google.com/calendar/event?eid=evt_2',
+                  location: 'War room',
+                  notes: null,
+                  attendees: [],
+                  video_url: null,
+                  video_provider: null,
+                  prep_minutes: 0,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710010800,
+                  rescheduled: false,
+                },
+              ],
+              following_day_events: [],
+            },
+          }),
+          meta: { request_id: 'req_now_hidden_calendar' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations_hidden_calendar' },
+        } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
     render(<NudgeZone activeView="now" />)
 
     expect((await screen.findAllByRole('table')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('button', { name: /Team/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Hidden team sync')).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('button', { name: /Team/i })).toHaveLength(0)
+
+    vi.mocked(api.apiPatch).mockResolvedValueOnce({
+      ok: true,
+      data: buildIntegrationsData({
+        google_calendar: {
+          ...buildIntegrationsData().google_calendar,
+          calendars: [
+            { id: 'cal_1', summary: 'Primary', primary: true, sync_enabled: true, display_enabled: false },
+            { id: 'cal_2', summary: 'Team', primary: false, sync_enabled: true, display_enabled: false },
+          ],
+        },
+      }),
+      meta: { request_id: 'req_patch_hide_calendar' },
+    } as never)
 
     fireEvent.click(screen.getAllByRole('button', { name: /Primary/i }).at(-1) as HTMLElement)
     await waitFor(() => {
@@ -562,6 +655,74 @@ describe('NudgeZone', () => {
       )
     })
     expect(screen.getAllByRole('button', { name: /Primary/i }).length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('button', { name: /Team/i })).toHaveLength(0)
+  })
+
+  it('uses contextual day copy when the selected calendar stream is empty', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            schedule: {
+              empty_message: null,
+              next_event: {
+                event_id: 'evt_2',
+                calendar_id: 'cal_2',
+                calendar_name: 'Team',
+                title: 'Hidden team sync',
+                start_ts: 1710010800,
+                end_ts: 1710012600,
+                event_url: 'https://calendar.google.com/calendar/event?eid=evt_2',
+                location: 'War room',
+                notes: null,
+                attendees: [],
+                video_url: null,
+                video_provider: null,
+                prep_minutes: 0,
+                travel_minutes: 0,
+                leave_by_ts: 1710010800,
+                rescheduled: false,
+              },
+              upcoming_events: [
+                {
+                  event_id: 'evt_2',
+                  calendar_id: 'cal_2',
+                  calendar_name: 'Team',
+                  title: 'Hidden team sync',
+                  start_ts: 1710010800,
+                  end_ts: 1710012600,
+                  event_url: 'https://calendar.google.com/calendar/event?eid=evt_2',
+                  location: 'War room',
+                  notes: null,
+                  attendees: [],
+                  video_url: null,
+                  video_provider: null,
+                  prep_minutes: 0,
+                  travel_minutes: 0,
+                  leave_by_ts: 1710010800,
+                  rescheduled: false,
+                },
+              ],
+              following_day_events: [],
+            },
+          }),
+          meta: { request_id: 'req_now_empty_selected_stream' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations_empty_selected_stream' },
+        } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    render(<NudgeZone activeView="now" />)
+
+    expect(await screen.findByText(/No calendar events for /i)).toBeInTheDocument()
   })
 
   it('posts drag-and-drop calendar reschedules through the now api', async () => {
@@ -693,8 +854,11 @@ describe('NudgeZone', () => {
 
     render(<NudgeZone activeView="now" />)
 
+    const calendarSections = screen.getAllByLabelText('Calendar')
     await waitFor(() => {
-      expect(screen.getByText('No events in the selected calendar stream.')).toBeInTheDocument()
+      expect(
+        calendarSections.some((section) => within(section as HTMLElement).queryAllByText(/No calendar events for/i).length > 0),
+      ).toBe(true)
     })
 
     expect(screen.queryByText('Team offsite')).not.toBeInTheDocument()
@@ -776,7 +940,8 @@ describe('NudgeZone', () => {
 
     expect(screen.queryByText('Tomorrow planning')).not.toBeInTheDocument()
 
-    fireEvent.click(await screen.findByRole('button', { name: /Show next day/i }))
+    const nextDayCheckbox = (await screen.findAllByRole('checkbox', { name: /Next day/i })).at(0) as HTMLInputElement
+    fireEvent.click(nextDayCheckbox as HTMLInputElement)
 
     await waitFor(() => {
       expect(screen.getByText('Tomorrow planning')).toBeInTheDocument()
@@ -848,14 +1013,21 @@ describe('NudgeZone', () => {
 
     render(<NudgeZone activeView="now" />)
 
+    const calendarSections = screen.getAllByLabelText('Calendar')
+    let nextDayCheckbox: HTMLInputElement | null = null
     await waitFor(() => {
-      expect(screen.getByText('No events in the selected calendar stream.')).toBeInTheDocument()
+      const sectionWithNoEvents = calendarSections.find((section) =>
+        within(section as HTMLElement).queryAllByText(/No calendar events for/i).length > 0,
+      )
+      expect(sectionWithNoEvents).not.toBeUndefined()
+      nextDayCheckbox = within(sectionWithNoEvents as HTMLElement).getByRole('checkbox', { name: /Next day/i }) as HTMLInputElement
+      expect(nextDayCheckbox).toBeTruthy()
     })
 
-    fireEvent.click(await screen.findByRole('button', { name: /Show next day/i }))
+    fireEvent.click(nextDayCheckbox)
 
     await waitFor(() => {
-      expect(screen.getByText('Tomorrow retro')).toBeInTheDocument()
+      expect(screen.getByText(/Tomorrow retro/i)).toBeInTheDocument()
     })
   })
 })

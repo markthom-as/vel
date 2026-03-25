@@ -7,6 +7,7 @@ import {
   NudgeActionIcon,
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
+  nudgeLeadKindForBar,
   NudgeLeadOrb,
   nudgeKindTagIcon,
 } from '../nowNudgePresentation';
@@ -47,7 +48,13 @@ export function NowNudgeStrip({
             className="pointer-events-none absolute -left-11 top-1/2 z-10 -translate-y-1/2"
             aria-hidden
           >
-            <NudgeLeadOrb kind={bar.kind} urgent={bar.urgent} warmSurface={warmUrgent} isPrimary={isPrimary} />
+            <NudgeLeadOrb
+              kind={bar.kind}
+              iconKind={nudgeLeadKindForBar(bar)}
+              urgent={bar.urgent}
+              warmSurface={warmUrgent}
+              isPrimary={isPrimary}
+            />
           </div>
           <div className="relative z-10 flex min-w-0 flex-row items-stretch gap-2">
             <div className="min-w-0 flex-1 flex flex-col justify-center gap-1">
