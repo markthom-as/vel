@@ -2973,7 +2973,6 @@ function CoreSettingsDetail({
             </>
           </SystemDocumentItem>
         </SystemDocumentList>
-      </div>
     </div>
   );
 }
