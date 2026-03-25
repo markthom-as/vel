@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod adapters;
 mod app;
 mod broadcast;

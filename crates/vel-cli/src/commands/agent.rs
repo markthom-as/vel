@@ -200,10 +200,11 @@ mod tests {
                     task_lane: None,
                     next_up_items: Vec::new(),
                     progress: vel_api_types::NowProgressData {
-                        active_count: 0,
+                        base_count: 0,
                         completed_count: 0,
-                        blocked_count: 0,
-                        total_count: 0,
+                        backlog_count: 0,
+                        completed_ratio: 0.0,
+                        backlog_ratio: 0.0,
                     },
                     docked_input: None,
                     overview: vel_api_types::NowOverviewData {
@@ -306,10 +307,6 @@ mod tests {
                         guidance: Vec::new(),
                         follow_through: Vec::new(),
                     },
-                    check_in: None,
-                    day_plan: None,
-                    reflow: None,
-                    reflow_status: None,
                     action_items: Vec::new(),
                     review_snapshot: ReviewSnapshotData {
                         open_action_count: 3,

@@ -454,10 +454,11 @@ mod tests {
             task_lane: None,
             next_up_items: Vec::new(),
             progress: vel_api_types::NowProgressData {
-                active_count: 0,
+                base_count: 0,
                 completed_count: 0,
-                blocked_count: 0,
-                total_count: 1,
+                backlog_count: 0,
+                completed_ratio: 0.0,
+                backlog_ratio: 1.0,
             },
             docked_input: None,
             overview: vel_api_types::NowOverviewData {
@@ -560,10 +561,6 @@ mod tests {
                 guidance: vec![],
                 follow_through: vec![],
             },
-            check_in: None,
-            day_plan: None,
-            reflow: None,
-            reflow_status: None,
             action_items: vec![ActionItemData {
                 id: ActionItemId::from("act_person".to_string()),
                 surface: ActionSurfaceData::Now,
