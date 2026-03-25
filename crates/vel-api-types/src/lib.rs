@@ -5858,6 +5858,7 @@ pub struct CommitmentData {
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339::option")]
     pub resolved_at: Option<OffsetDateTime>,
+    #[serde(default)]
     pub scheduler_rules: CanonicalScheduleRulesData,
     pub metadata: JsonValue,
 }
@@ -6419,7 +6420,7 @@ impl From<PlanningProfileEditProposalData> for vel_core::PlanningProfileEditProp
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct CanonicalScheduleRulesData {
     #[serde(default)]
     pub block_target: Option<String>,
