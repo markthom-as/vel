@@ -17,7 +17,6 @@ import {
   PlusIcon,
   SendArrowIcon,
   SyncIcon,
-  ThreadsIcon,
 } from '../Icons';
 import { uiTheme } from '../Theme';
 
@@ -730,7 +729,7 @@ export function MessageComposer({
           setAttachmentMenuOpen((open) => !open);
         }}
         disabled={disabled}
-        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/90 text-[var(--vel-color-accent-soft)] transition hover:border-[var(--vel-color-accent)] hover:text-[var(--vel-color-text)]"
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-transparent text-zinc-500 transition-colors hover:text-zinc-300"
       >
         <PlusIcon size={15} className="block" />
       </button>
@@ -799,12 +798,9 @@ export function MessageComposer({
       aria-label="Open mini composer terminal"
       onClick={() => onOpenMiniMode?.(conversationId ?? null)}
       disabled={disabled || interactionDisabled}
-      className="shrink-0 rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/90 px-2 py-1 text-xs uppercase tracking-[0.12em] text-[var(--vel-color-accent-soft)] transition hover:border-[var(--vel-color-accent-strong)] hover:text-[var(--vel-color-text)] disabled:pointer-events-none disabled:opacity-50"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-transparent font-['JetBrainsMono_Nerd_Font',_'JetBrains_Mono',_monospace] text-[10px] leading-none -tracking-[0.03em] text-zinc-500 transition-colors hover:text-zinc-300 disabled:pointer-events-none disabled:opacity-50"
     >
-      <span className="inline-flex items-center gap-1">
-        <ThreadsIcon size={12} />
-        <span>~/.</span>
-      </span>
+      ~/.
     </button>
   ) : null;
 
