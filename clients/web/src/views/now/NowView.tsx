@@ -593,7 +593,7 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         onClick={() => toggleSection(section)}
         className={cn(
           uiFonts.display,
-          'flex w-full items-center gap-1 text-[5px] uppercase leading-none tracking-[0.05em] transition hover:text-[var(--vel-color-text)]',
+          'flex w-full items-center gap-1 text-[10px] uppercase leading-none tracking-[0.05em] transition hover:text-[var(--vel-color-text)]',
           options.toneClass ?? 'text-[var(--vel-color-muted)]',
         )}
         aria-expanded={expanded}
@@ -606,7 +606,7 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         <span className="ml-auto inline-flex min-w-0 flex-1 items-center justify-end gap-1.5">
           <span className="h-px min-w-4 flex-1 bg-[var(--vel-color-border)]/80" aria-hidden />
           <ChevronRightIcon
-            size={9}
+            size={11}
             className={cn('shrink-0 transition-transform', expanded ? 'rotate-90' : '')}
           />
         </span>
@@ -730,21 +730,23 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
                     ) : (
                       <span className="opacity-35">None</span>
                     )}
-                    <span className="shrink-0 text-[var(--vel-color-dim)]">→</span>
                     {nextEvent ? (
-                      <button
-                        type="button"
-                        onClick={() => scrollToSidebarEvent(nextEvent.title)}
-                        className="inline-flex min-w-0 items-center gap-1.5 truncate transition hover:text-[var(--vel-color-text)]"
-                      >
-                        <CalendarIcon size={12} className="shrink-0" />
-                        <span className="truncate">{nextEvent.title}</span>
-                        <span className={`shrink-0 text-xs opacity-60 ${uiFonts.mono}`}>
-                          {formatTimeUntil(nextEvent.start_ts, nowTs)}
-                        </span>
-                      </button>
+                      <>
+                        <span className="shrink-0 text-[var(--vel-color-dim)]">→</span>
+                        <button
+                          type="button"
+                          onClick={() => scrollToSidebarEvent(nextEvent.title)}
+                          className="inline-flex min-w-0 items-center gap-1.5 truncate transition hover:text-[var(--vel-color-text)]"
+                        >
+                          <CalendarIcon size={12} className="shrink-0" />
+                          <span className="truncate">{nextEvent.title}</span>
+                          <span className={`shrink-0 text-xs opacity-60 ${uiFonts.mono}`}>
+                            {formatTimeUntil(nextEvent.start_ts, nowTs)}
+                          </span>
+                        </button>
+                      </>
                     ) : (
-                      <span className="opacity-35">None</span>
+                      null
                     )}
                   </p>
                   <div className="max-w-3xl space-y-1 pt-1">

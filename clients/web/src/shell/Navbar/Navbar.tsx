@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useQuery } from '../../data/query';
 import { cn } from '../../core/cn';
 import { ActionChipButton } from '../../core/FilterToggleTag';
-import { CalendarIcon, CheckCircleIcon, LayoutGridIcon, MinimizeIcon, SparkIcon, SyncIcon, WarningIcon } from '../../core/Icons';
+import { CalendarIcon, CheckCircleIcon, LayoutGridIcon, MapPinIcon, MinimizeIcon, MonitorIcon, ServerIcon, SmartphoneIcon, SparkIcon, SyncIcon, WarningIcon } from '../../core/Icons';
 import { uiFonts } from '../../core/Theme';
 import {
   NAVBAR_HEADER_CLASSNAME,
@@ -21,6 +21,15 @@ import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 import type { SystemNavigationTarget } from '../../views/system';
 
 type TabletLayoutMode = 'auto' | 'single' | 'split';
+
+const PHONE_HINTS = /phone|iphone|ios|watch|mobile|android/i;
+const SERVER_HINTS = /server|daemon|veld|authority|node|worker/i;
+
+function clientIcon(label: string, size: number) {
+  if (PHONE_HINTS.test(label)) return <SmartphoneIcon size={size} />;
+  if (SERVER_HINTS.test(label)) return <ServerIcon size={size} />;
+  return <MonitorIcon size={size} />;
+}
 
 export interface NavbarProps {
   activeView: MainView;
@@ -55,7 +64,9 @@ export function Navbar({
   const activeEvent = data ? findActiveEvent(data.schedule.upcoming_events, data.computed_at) : null;
   const activeTask = data?.task_lane?.active?.text ?? 'No active task';
   const clientName = data?.mesh_summary?.authority_label ?? 'Client Unknown';
-  const location = activeEvent?.location?.trim() || data?.schedule?.upcoming_events?.[0]?.location?.trim() || 'Location Unknown';
+  const rawLocation = activeEvent?.location?.trim() || data?.schedule?.upcoming_events?.[0]?.location?.trim() || '';
+  const hasLocation = rawLocation.length > 0;
+  const location = hasLocation ? rawLocation : 'None';
   const activeItems = data?.task_lane?.active_items ?? (data?.task_lane?.active ? [data.task_lane.active] : []);
   const nextUpItems = data?.task_lane?.next_up ?? data?.task_lane?.pending ?? [];
   const completedItems = data?.task_lane?.completed ?? data?.task_lane?.recent_completed ?? [];
@@ -84,8 +95,19 @@ export function Navbar({
             </div>
             <div className="min-w-0">
               <p className={`${uiFonts.display} text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)] truncate`}>
-                <span className={isMobileSurface ? 'hidden' : 'inline'}>{clientName}</span>
-                <span className="hidden sm:inline">{clientName} | {location}</span>
+                <span className={cn('inline-flex items-center gap-1', isMobileSurface ? '' : 'sm:hidden')}>
+                  {clientIcon(clientName, 11)}
+                  {clientName}
+                </span>
+                <span className="hidden items-center gap-1 sm:inline-flex">
+                  {clientIcon(clientName, 11)}
+                  <span>{clientName}</span>
+                  <span className="mx-0.5 text-[var(--vel-color-dim)]">|</span>
+                  <span className={cn('inline-flex items-center gap-1', hasLocation ? '' : 'opacity-35')}>
+                    <MapPinIcon size={11} />
+                    <span>{location}</span>
+                  </span>
+                </span>
               </p>
               <p className={`hidden sm:block truncate text-xs text-[var(--vel-color-muted)] ${uiFonts.mono}`}>{dateTime}</p>
             </div>

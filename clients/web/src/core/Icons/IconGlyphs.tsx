@@ -17,15 +17,19 @@ import {
   Info,
   Inbox,
   Layers,
+  MapPin,
   MessagesSquare,
   Mic,
   Minus,
+  Monitor,
   Paperclip,
   Plus,
   RefreshCw,
   Search,
   Send,
+  Server,
   Settings,
+  Smartphone,
   Sparkles,
   SquareArrowOutUpRight,
   Tag,
@@ -165,6 +169,22 @@ export function LayoutGridIcon({ size = defaults.size, strokeWidth = defaults.st
 
 export function FolderIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <Folder aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MonitorIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Monitor aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function SmartphoneIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Smartphone aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ServerIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Server aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MapPinIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <MapPin aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
 export function DotIcon({ size = defaults.size, className, ...props }: IconProps) {

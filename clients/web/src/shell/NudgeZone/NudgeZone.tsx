@@ -421,26 +421,24 @@ function CalendarSection({
       aria-label="Calendar"
       className="space-y-3 opacity-65 transition-opacity hover:opacity-100"
     >
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
         <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)]`}>
           <CalendarIcon size={11} />
           Calendar
         </p>
-        <div className="flex justify-center">
-          {visibleFollowingDayEvents.length > 0 ? (
-            <ActionChipButton
-              onClick={() => setShowFollowingDay((current) => !current)}
-              className={cn(actionChipClass, '!min-h-[0.95rem] !px-1.5 !py-[0.1rem] !text-[8px] !uppercase')}
-            >
-              <span>{showFollowingDay ? 'HIDE NEXT DAY' : 'SHOW NEXT DAY'}</span>
-            </ActionChipButton>
-          ) : null}
-        </div>
-        <div className="flex justify-end">
-          <span className={`${uiFonts.mono} text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]`}>
-            {formatCalendarDayLabel(computedAt, timezone)}
-          </span>
-        </div>
+        {visibleFollowingDayEvents.length > 0 ? (
+          <label className="inline-flex cursor-pointer items-center gap-1.5 select-none">
+            <input
+              type="checkbox"
+              checked={showFollowingDay}
+              onChange={() => setShowFollowingDay((current) => !current)}
+              className="h-2.5 w-2.5 cursor-pointer appearance-none rounded-[2px] border border-[var(--vel-color-border)] bg-transparent checked:border-[var(--vel-color-accent-border)] checked:bg-[var(--vel-color-accent-strong)]"
+            />
+            <span className={`${uiFonts.mono} text-[8px] uppercase tracking-[0.1em] text-[var(--vel-color-muted)]`}>
+              Next day
+            </span>
+          </label>
+        ) : null}
       </div>
 
       {googleCalendar ? (
@@ -478,6 +476,9 @@ function CalendarSection({
       ) : null}
 
       <div className="space-y-3">
+        <p className={`${uiFonts.mono} text-right text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]`}>
+          {formatCalendarDayLabel(computedAt, timezone)}
+        </p>
         {visibleEvents.length === 0 ? (
           <p className="text-xs text-[var(--vel-color-muted)] opacity-60">
             No events in the selected calendar stream.

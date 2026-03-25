@@ -100,8 +100,11 @@
   :root {
     color-scheme: dark;
     font-synthesis: none;
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     --vel-color-bg: #13110f;
     --vel-color-bg-overlay: rgba(19, 17, 15, 0.92);
     --vel-color-bg-elevated: #15120f;
@@ -145,6 +148,7 @@
 
   body {
     font-family: var(--font-sans);
+    font-optical-sizing: auto;
     font-variant-numeric: tabular-nums;
   }
 }
