@@ -1,5 +1,6 @@
 use vel_core::{SynthesisFailure, SynthesisFailureKind, SynthesisRequest, SynthesisResponse};
 
+#[allow(async_fn_in_trait)]
 pub trait HarnessLlm {
     async fn synthesize(
         &self,
