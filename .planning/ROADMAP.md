@@ -287,7 +287,7 @@ Closeout checkpoint:
 **Success Criteria:**
 1. `veld` no longer mixes `chrono` and `time` in the active service/test seams targeted by the audit.
 2. Any required timezone support is re-established through the chosen `time`-compatible path before legacy time crates are removed.
-3. Orphaned database tables are re-verified as unused and dropped through a forward migration.
+3. Flagged schema objects are re-verified against the live codebase and Master Plan, and only truly unowned tables are dropped.
 4. Tests and docs prove the cleanup did not break temporal logic or schema verification.
 
 ### Phase 108: Velocity cleanup: error boundary standardization and crate fate decisions
@@ -297,7 +297,7 @@ Closeout checkpoint:
 **Depends on:** Phase 107
 **Success Criteria:**
 1. The chosen error-boundary normalization is applied consistently across at least one full route → service → storage seam and documented as the forward pattern.
-2. `vel-sim` and `vel-agent-sdk` each have an explicit purpose, CLI integration point, and documented near-term use case.
+2. `vel-sim` and `vel-agent-sdk` each have an explicit purpose, an integration point under existing CLI surfaces, and a documented near-term use case.
 3. Any deferred error-boundary cleanup is narrowed to named follow-ons rather than left as a vague repo-wide aspiration.
 4. The crate-retention decision is implemented, not merely discussed.
 
