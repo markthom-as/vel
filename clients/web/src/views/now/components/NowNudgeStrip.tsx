@@ -1,16 +1,16 @@
 import type { ActionItemData, NowData } from '../../../types';
-import { ActionChipButton, FilterDenseTag, NudgeKindTag, ProjectTag } from '../../../core/FilterToggleTag';
+import { FilterDenseTag, NudgeKindTag, ProjectTag } from '../../../core/FilterToggleTag';
 import { TagIcon } from '../../../core/Icons';
 import { NowItemRowShell } from '../../../core/NowItemRow';
 import { findBarProjectTags, formatNowBarKind, formatRelativeMinutes } from '../nowModel';
 import {
-  NudgeActionIcon,
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
   nudgeLeadKindForBar,
   NudgeLeadOrb,
   nudgeKindTagIcon,
 } from '../nowNudgePresentation';
+import { NudgeActionButton } from '../NudgeActionButton';
 
 export function NowNudgeStrip({
   bars,
@@ -88,14 +88,13 @@ export function NowNudgeStrip({
             </div>
             <div className="flex shrink-0 flex-col items-end justify-center gap-1.5 self-stretch">
               {bar.actions.map((action, actionIndex) => (
-                <ActionChipButton
+                <NudgeActionButton
                   key={`${bar.id}-${actionIndex}-${action.kind}-${action.label}`}
+                  kind={action.kind}
+                  label={nudgeActionButtonLabel(action, bar)}
                   onClick={() => onBarAction(bar, action)}
                   aria-label={nudgeActionAriaLabel(bar, action, actionIndex, bar.actions.length)}
-                >
-                  <NudgeActionIcon kind={action.kind} size={16} className="shrink-0" aria-hidden />
-                  <span className="capitalize">{nudgeActionButtonLabel(action, bar)}</span>
-                </ActionChipButton>
+                />
               ))}
             </div>
           </div>

@@ -29,12 +29,12 @@ import { GoogleMeetBrandIcon, ZoomBrandIcon } from '../../core/Icons';
 import { uiFonts } from '../../core/Theme';
 import { nudgeOpenSystemTarget } from '../../views/now/nowModel';
 import {
-  NudgeActionIcon,
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
   nudgeActionToneClass,
   nudgeSurfaceTone,
 } from '../../views/now/nowNudgePresentation';
+import { NudgeActionButton } from '../../views/now/NudgeActionButton';
 import type { SystemNavigationTarget } from '../../views/system';
 import { cn } from '../../core/cn';
 import { ActionChipButton } from '../../core/FilterToggleTag';
@@ -667,22 +667,23 @@ export function NudgeZone({
                   const actionTone = nudgeActionToneClass(action.kind);
                   if (action.kind.startsWith('open_settings')) {
                     return (
-                      <ActionChipButton
+                      <NudgeActionButton
                         key={actionKey}
+                        kind={action.kind}
+                        label={label}
                         onClick={() => onOpenSystem?.(nudgeOpenSystemTarget(bar, action))}
                         aria-label={ariaLabel}
                         className={cn(nudgeActionChipClass, actionTone)}
-                      >
-                        <NudgeActionIcon kind={action.kind} size={11} />
-                        {label ? <span>{label}</span> : null}
-                      </ActionChipButton>
+                      />
                     );
                   }
                   if (action.kind.startsWith('reschedule_today')) {
                     const commitmentIds = parseRescheduleCommitmentIds(action.kind);
                     return (
-                      <ActionChipButton
+                      <NudgeActionButton
                         key={actionKey}
+                        kind={action.kind}
+                        label={label}
                         onClick={() => {
                           if (commitmentIds.length === 0) {
                             return;
@@ -692,17 +693,16 @@ export function NudgeZone({
                         disabled={pendingActionKey === actionKey || commitmentIds.length === 0}
                         aria-label={ariaLabel}
                         className={cn(nudgeActionChipClass, actionTone)}
-                      >
-                        <NudgeActionIcon kind={action.kind} size={11} />
-                        {label ? <span>{label}</span> : null}
-                      </ActionChipButton>
+                      />
                     );
                   }
                   if (action.kind.startsWith('jump_backlog')) {
                     const anchor = parseJumpAnchor(action.kind);
                     return (
-                      <ActionChipButton
+                      <NudgeActionButton
                         key={actionKey}
+                        kind={action.kind}
+                        label={label}
                         onClick={() => {
                           if (activeView !== 'now' || !anchor) {
                             return;
@@ -712,54 +712,50 @@ export function NudgeZone({
                         disabled={activeView !== 'now' || !anchor}
                         aria-label={ariaLabel}
                         className={cn(nudgeActionChipClass, actionTone)}
-                      >
-                        <NudgeActionIcon kind={action.kind} size={11} />
-                        {label ? <span>{label}</span> : null}
-                      </ActionChipButton>
+                      />
                     );
                   }
                   if (interventionId && (action.kind === 'accept' || action.kind === 'acknowledge')) {
                     return (
-                      <ActionChipButton
+                      <NudgeActionButton
                         key={actionKey}
+                        kind={action.kind}
+                        label={label}
                         onClick={() => {
                           void runNudgeMutation(actionKey, () => acknowledgeInboxItem(interventionId));
                         }}
                         disabled={pendingActionKey === actionKey}
                         className={cn(nudgeActionChipClass, actionTone)}
                         aria-label={ariaLabel}
-                      >
-                        <NudgeActionIcon kind={action.kind} size={11} />
-                        {label ? <span>{label}</span> : null}
-                      </ActionChipButton>
+                      />
                     );
                   }
                   if (bar.primary_thread_id && (action.kind === 'expand' || action.kind === 'escalate' || action.kind === 'edit' || action.kind === 'open_thread')) {
                     return (
-                      <ActionChipButton
+                      <NudgeActionButton
                         key={actionKey}
+                        kind={action.kind}
+                        label={label}
                         onClick={() => onOpenThread?.(bar.primary_thread_id!)}
                         className={cn(nudgeActionChipClass, actionTone)}
                         aria-label={ariaLabel}
-                      >
-                        <NudgeActionIcon kind={action.kind} size={11} />
-                        {label ? <span>{label}</span> : null}
-                      </ActionChipButton>
+                      />
                     );
                   }
                   return (
-                    <ActionChipButton
+                    <NudgeActionButton
                       key={actionKey}
+                      kind={action.kind}
+                      label={label}
                       aria-label={ariaLabel}
                       disabled
                       className={cn(nudgeActionChipClass, actionTone)}
-                    >
-                      <NudgeActionIcon kind={action.kind} size={11} />
-                      {label ? <span>{label}</span> : null}
-                    </ActionChipButton>
+                    />
                   );
                 })}
-                <ActionChipButton
+                <NudgeActionButton
+                  kind="snooze"
+                  label="Defer"
                   aria-label={`Defer (${bar.title}) · ${bar.id}`}
                   className={cn(nudgeActionChipClass, nudgeActionToneClass('snooze'))}
                   disabled={!interventionId || pendingActionKey === `${bar.id}-defer`}
@@ -767,10 +763,7 @@ export function NudgeZone({
                     if (!interventionId) return;
                     void runNudgeMutation(`${bar.id}-defer`, () => snoozeInboxItem(interventionId, 10));
                   }}
-                >
-                  <NudgeActionIcon kind="snooze" size={11} />
-                  <span>Defer</span>
-                </ActionChipButton>
+                />
               </>
             );
 
