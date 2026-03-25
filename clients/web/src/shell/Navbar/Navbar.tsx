@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useQuery } from '../../data/query';
 import { cn } from '../../core/cn';
 import { ActionChipButton } from '../../core/FilterToggleTag';
-import { CalendarIcon, CheckCircleIcon, SparkIcon, SyncIcon, WarningIcon } from '../../core/Icons';
+import { CalendarIcon, CheckCircleIcon, LayoutGridIcon, MinimizeIcon, SparkIcon, SyncIcon, WarningIcon } from '../../core/Icons';
 import { uiFonts } from '../../core/Theme';
 import {
   NAVBAR_HEADER_CLASSNAME,
@@ -20,14 +20,29 @@ import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 import type { SystemNavigationTarget } from '../../views/system';
 
+type TabletLayoutMode = 'auto' | 'single' | 'split';
+
 export interface NavbarProps {
   activeView: MainView;
   surface?: ViewportSurface;
   onSelectView: (view: MainView) => void;
   onDeepLink?: (target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => void;
+  layoutMode?: TabletLayoutMode;
+  onLayoutMode?: (mode: TabletLayoutMode) => void;
+  layoutSurfaceSupportsToggle?: boolean;
+  splitModeActive?: boolean;
 }
 
-export function Navbar({ activeView, surface = 'desktop', onSelectView, onDeepLink }: NavbarProps) {
+export function Navbar({
+  activeView,
+  surface = 'desktop',
+  onSelectView,
+  onDeepLink,
+  layoutMode = 'auto',
+  onLayoutMode,
+  layoutSurfaceSupportsToggle = false,
+  splitModeActive = false,
+}: NavbarProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const { data } = useQuery(
     nowKey,
@@ -41,8 +56,11 @@ export function Navbar({ activeView, surface = 'desktop', onSelectView, onDeepLi
   const activeTask = data?.task_lane?.active?.text ?? 'No active task';
   const clientName = data?.mesh_summary?.authority_label ?? 'Client Unknown';
   const location = activeEvent?.location?.trim() || data?.schedule?.upcoming_events?.[0]?.location?.trim() || 'Location Unknown';
-  const completedCount = data?.task_lane?.recent_completed?.length ?? 0;
-  const taskTotal = completedCount + (data?.task_lane?.pending?.length ?? 0) + (data?.task_lane?.active ? 1 : 0);
+  const activeItems = data?.task_lane?.active_items ?? (data?.task_lane?.active ? [data.task_lane.active] : []);
+  const nextUpItems = data?.task_lane?.next_up ?? data?.task_lane?.pending ?? [];
+  const completedItems = data?.task_lane?.completed ?? data?.task_lane?.recent_completed ?? [];
+  const completedCount = completedItems.length;
+  const taskTotal = activeItems.length + nextUpItems.length + completedCount;
   const nudgeCount = data?.nudge_bars?.length ?? 0;
   const syncTone = data?.mesh_summary?.sync_state?.replaceAll('_', ' ') ?? 'unknown';
   const syncBadgeClassName =
@@ -53,6 +71,8 @@ export function Navbar({ activeView, surface = 'desktop', onSelectView, onDeepLi
         : 'border-emerald-500/20 bg-emerald-950/20 text-emerald-200/62 hover:border-emerald-400/38 hover:text-emerald-100/82';
 
   const isMobileSurface = surface === 'mobile';
+  const canSwitchLayout = layoutSurfaceSupportsToggle && Boolean(onLayoutMode);
+  const showLayoutPanel = !isMobileSurface && canSwitchLayout;
 
   return (
     <>
@@ -126,6 +146,58 @@ export function Navbar({ activeView, surface = 'desktop', onSelectView, onDeepLi
               </div>
               <div className="flex min-w-0 items-center gap-3">
                 <NavbarNavLinks activeView={activeView} onSelectView={onSelectView} onDeepLink={onDeepLink} surface={surface} />
+                {showLayoutPanel ? (
+                  <div className="ml-auto flex items-center gap-1 rounded-full border border-[var(--vel-color-border)] px-1 py-1">
+                    <button
+                      type="button"
+                      onClick={() => onLayoutMode?.('auto')}
+                      className={cn(
+                        'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[9px] uppercase tracking-[0.12em] transition',
+                        layoutMode === 'auto'
+                          ? 'border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-[var(--vel-color-accent-soft)]'
+                          : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]',
+                      )}
+                      aria-pressed={layoutMode === 'auto'}
+                      title="Auto layout follows surface orientation"
+                      aria-label="Auto layout"
+                    >
+                      <LayoutGridIcon size={11} />
+                      <span>Auto</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onLayoutMode?.('single')}
+                      className={cn(
+                        'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[9px] uppercase tracking-[0.12em] transition',
+                        layoutMode === 'single'
+                          ? 'border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-[var(--vel-color-accent-soft)]'
+                          : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]',
+                      )}
+                      aria-pressed={layoutMode === 'single'}
+                      title="Single-pane thread layout"
+                      aria-label="Single-pane threads layout"
+                    >
+                      <MinimizeIcon size={11} />
+                      <span>Single</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onLayoutMode?.('split')}
+                      className={cn(
+                        'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[9px] uppercase tracking-[0.12em] transition',
+                        splitModeActive && layoutMode !== 'single'
+                          ? 'border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-[var(--vel-color-accent-soft)]'
+                          : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]',
+                      )}
+                      aria-pressed={layoutMode === 'split' || (splitModeActive && layoutMode !== 'single')}
+                      title="Split-pane thread layout"
+                      aria-label="Split-pane threads layout"
+                    >
+                      <LayoutGridIcon size={11} />
+                      <span>Split</span>
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </>
           )}

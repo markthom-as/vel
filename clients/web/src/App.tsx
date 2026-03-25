@@ -8,6 +8,21 @@ import type { MainView } from './data/operatorSurfaces';
 import type { NowNudgeBarData } from './types';
 import type { SystemNavigationTarget } from './views/system';
 
+type TabletLayoutMode = 'auto' | 'single' | 'split';
+
+const TABLET_LAYOUT_KEY = 'vel-webui-tablet-layout';
+
+function readTabletLayoutMode(): TabletLayoutMode {
+  if (typeof window === 'undefined') {
+    return 'auto';
+  }
+  const stored = window.localStorage.getItem(TABLET_LAYOUT_KEY);
+  if (stored === 'single' || stored === 'split' || stored === 'auto') {
+    return stored;
+  }
+  return 'auto';
+}
+
 function focusDeepLinkedNode(anchor: string) {
   const node = document.getElementById(anchor);
   if (!(node instanceof HTMLElement)) {
@@ -31,7 +46,18 @@ function App() {
   const [highlightedNudge, setHighlightedNudge] = useState<{ id: string; nonce: number } | null>(null);
   const [miniChatOpen, setMiniChatOpen] = useState(false);
   const [miniChatThreadId, setMiniChatThreadId] = useState<string | null>(null);
-  const { surface: viewportSurface } = useViewportSurface();
+  const { surface: viewportSurface, isLandscape } = useViewportSurface();
+  const [tabletLayoutMode, setTabletLayoutMode] = useState<TabletLayoutMode>(() => readTabletLayoutMode());
+  const tabletSplitMode =
+    viewportSurface === 'tablet' && (tabletLayoutMode === 'split' || (tabletLayoutMode === 'auto' && isLandscape));
+
+  const setLayoutMode = useCallback((nextMode: TabletLayoutMode) => {
+    setTabletLayoutMode(nextMode);
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(TABLET_LAYOUT_KEY, nextMode);
+  }, []);
 
   const pushLocalNudge = useCallback((nudge: NowNudgeBarData) => {
     setLocalNudges((current) => {
@@ -113,6 +139,10 @@ function App() {
           surface={viewportSurface}
           onSelectView={setMainView}
           onDeepLink={deepLink}
+          layoutMode={tabletLayoutMode}
+          onLayoutMode={(nextMode) => setLayoutMode(nextMode)}
+          layoutSurfaceSupportsToggle={viewportSurface === 'tablet'}
+          splitModeActive={tabletSplitMode}
         />
       )}
       nudgeZone={(
@@ -137,6 +167,7 @@ function App() {
           onNavigate={setMainView}
           onOpenThread={openConversationThread}
           onOpenSystem={openSystem}
+          threadLayoutSplit={tabletSplitMode}
           miniComposerOpen={miniChatOpen}
           onOpenMiniComposer={openMiniComposer}
           onVoiceUnavailable={() => {
@@ -154,6 +185,8 @@ function App() {
         />
       )}
       surface={viewportSurface}
+      layoutMode={tabletLayoutMode}
+      splitModeActive={tabletSplitMode}
     />
   );
 }

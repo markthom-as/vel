@@ -29,6 +29,7 @@ interface ThreadViewProps {
   conversationId: string | null;
   onSelectConversation?: (conversationId: string) => void;
   miniMode?: boolean;
+  threadLayoutSplit?: boolean;
   surface?: ViewportSurface;
   className?: string;
   onMiniChatClose?: () => void;
@@ -78,6 +79,7 @@ export function ThreadView({
   conversationId,
   onSelectConversation,
   miniMode = false,
+  threadLayoutSplit = false,
   surface = 'desktop',
   className,
   onMiniChatClose,
@@ -411,7 +413,8 @@ export function ThreadView({
   // showInlineComposer is false on mobile (floating composer from MainPanel handles input).
   const showInlineComposer = miniMode;
   const isMobileSurface = surface === 'mobile';
-  const isCompactThreadSurface = miniMode || isMobileSurface;
+  const isSingleTabletSurface = surface === 'tablet' && !threadLayoutSplit && !miniMode;
+  const isCompactThreadSurface = miniMode || isMobileSurface || isSingleTabletSurface;
 
   if (isCompactThreadSurface) {
     const error = conversationsError ?? messagesError;

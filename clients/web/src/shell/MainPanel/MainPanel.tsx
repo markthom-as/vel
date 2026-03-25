@@ -109,6 +109,7 @@ interface MainPanelProps {
   mainView: MainView;
   onNavigate: (view: MainView) => void;
   onOpenThread: (conversationId: string) => void;
+  threadLayoutSplit?: boolean;
   miniComposerOpen?: boolean;
   onOpenMiniComposer?: (conversationId: string | null) => void;
   systemTarget: SystemNavigationTarget;
@@ -124,6 +125,7 @@ export function MainPanel({
   mainView,
   onNavigate,
   onOpenThread,
+  threadLayoutSplit = false,
   miniComposerOpen = false,
   onOpenMiniComposer,
   surface = 'desktop',
@@ -369,7 +371,12 @@ export function MainPanel({
   } else if (mainView === 'threads') {
     body = (
       <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
-        <ThreadView conversationId={conversationId} onSelectConversation={onOpenThread} surface={surface} />
+        <ThreadView
+          conversationId={conversationId}
+          onSelectConversation={onOpenThread}
+          surface={surface}
+          threadLayoutSplit={threadLayoutSplit}
+        />
       </div>
     );
   } else if (mainView === 'system') {
