@@ -15,13 +15,17 @@ pub struct PolicyConfig {
     pub policies: PoliciesMap,
 }
 
-/// Policy map: fields are populated from YAML and read via accessors (commute_leave_time in use; others for future use).
-#[allow(dead_code)]
+/// Policy map: fields are populated from YAML and read via accessors.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PoliciesMap {
+    // Reserved policy surfaces that are still represented in checked-in config/schema/examples.
+    #[allow(dead_code)]
     pub meds_not_logged: Option<PolicyMedsNotLogged>,
     pub meeting_prep_window: Option<PolicyMeetingPrepWindow>,
     pub commute_leave_time: Option<PolicyCommuteLeaveTime>,
+    // Reserved policy surface kept in config while the suggestion engine still uses its own
+    // threshold settings instead of these structured values.
+    #[allow(dead_code)]
     pub morning_drift: Option<PolicyMorningDrift>,
 }
 
@@ -35,7 +39,6 @@ pub struct PolicyMedsNotLogged {
     pub default_snooze_minutes: u32,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PolicyMeetingPrepWindow {
     pub enabled: bool,
@@ -46,7 +49,6 @@ pub struct PolicyMeetingPrepWindow {
     pub default_snooze_minutes: u32,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PolicyCommuteLeaveTime {
     pub enabled: bool,
@@ -312,7 +314,6 @@ impl PolicyConfig {
     pub fn meds_not_logged(&self) -> Option<&PolicyMedsNotLogged> {
         self.policies.meds_not_logged.as_ref()
     }
-    #[allow(dead_code)]
     pub fn meeting_prep_window(&self) -> Option<&PolicyMeetingPrepWindow> {
         self.policies.meeting_prep_window.as_ref()
     }
