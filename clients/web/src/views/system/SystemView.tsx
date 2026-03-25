@@ -2762,63 +2762,65 @@ function CoreSettingsDetail({
       <div className="space-y-3">
         <SystemDocumentSectionLabel>Core settings</SystemDocumentSectionLabel>
         <SystemDocumentList>
-          <SystemDocumentItem
-            id={systemChildAnchor('core_settings', 'required-setup')}
-            title="Required setup"
-            subtitle="Vel stays partially disabled until every required Core item is saved."
-            trailing={<SystemDocumentStatusChip tone={coreSetupStatus.ready ? 'done' : 'warning'}>{coreSetupStatus.ready ? 'ready' : 'blocked'}</SystemDocumentStatusChip>}
-          >
-            <>
-              <p className="rounded-[18px] border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-sm leading-6 text-amber-100">
-                Vel will not be fully functional until required Core settings are submitted. Required items are marked below, and host details are auto-inferred when possible.
-              </p>
-              <div className="space-y-0.5 rounded-[18px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)]/35 px-3 py-1.5">
-                <RequiredSetupRow
-                  label="Your name"
-                  detail="Used in operator-facing setup, nudges, and proof flows."
-                  ready={hasMeaningfulText(coreSettings?.user_display_name)}
-                />
-                <RequiredSetupRow
-                  label="Node name"
-                  detail={inferredNodeName ? `Auto-inferred from this host as ${inferredNodeName}.` : 'Required so Vel can identify this authority node clearly.'}
-                  ready={hasMeaningfulText(settings?.node_display_name)}
-                />
-                <RequiredSetupRow
-                  label="Agent profile"
-                  detail="At least one role, preference, constraint, or freeform note is required."
-                  ready={hasAgentProfile}
-                />
-                <RequiredSetupRow
-                  label="LLM integration"
-                  detail="A default enabled chat profile is required before the composer can work."
-                  ready={hasConfiguredLlm}
-                  action={(
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onJumpToTarget({ section: 'integrations', subsection: 'providers', anchor: systemChildAnchor('providers', 'llm-routing') })}
-                    >
-                      Open LLM routing
-                    </Button>
-                  )}
-                />
-                <RequiredSetupRow
-                  label="Synced provider"
-                  detail="Connect at least Google Calendar or Todoist so Now has grounded external truth."
-                  ready={hasSyncedProvider}
-                  action={(
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onJumpToTarget({ section: 'integrations', subsection: 'providers', anchor: systemChildAnchor('providers', 'google_calendar') })}
-                    >
-                      Open integrations
-                    </Button>
-                  )}
-                />
-              </div>
-            </>
-          </SystemDocumentItem>
+          {!coreSetupStatus.ready && (
+            <SystemDocumentItem
+              id={systemChildAnchor('core_settings', 'required-setup')}
+              title="Required setup"
+              subtitle="Vel stays partially disabled until every required Core item is saved."
+              trailing={<SystemDocumentStatusChip tone={coreSetupStatus.ready ? 'done' : 'warning'}>{coreSetupStatus.ready ? 'ready' : 'blocked'}</SystemDocumentStatusChip>}
+            >
+              <>
+                <p className="rounded-[18px] border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-sm leading-6 text-amber-100">
+                  Vel will not be fully functional until required Core settings are submitted. Required items are marked below, and host details are auto-inferred when possible.
+                </p>
+                <div className="space-y-0.5 rounded-[18px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)]/35 px-3 py-1.5">
+                  <RequiredSetupRow
+                    label="Your name"
+                    detail="Used in operator-facing setup, nudges, and proof flows."
+                    ready={hasMeaningfulText(coreSettings?.user_display_name)}
+                  />
+                  <RequiredSetupRow
+                    label="Node name"
+                    detail={inferredNodeName ? `Auto-inferred from this host as ${inferredNodeName}.` : 'Required so Vel can identify this authority node clearly.'}
+                    ready={hasMeaningfulText(settings?.node_display_name)}
+                  />
+                  <RequiredSetupRow
+                    label="Agent profile"
+                    detail="At least one role, preference, constraint, or freeform note is required."
+                    ready={hasAgentProfile}
+                  />
+                  <RequiredSetupRow
+                    label="LLM integration"
+                    detail="A default enabled chat profile is required before the composer can work."
+                    ready={hasConfiguredLlm}
+                    action={(
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onJumpToTarget({ section: 'integrations', subsection: 'providers', anchor: systemChildAnchor('providers', 'llm-routing') })}
+                      >
+                        Open LLM routing
+                      </Button>
+                    )}
+                  />
+                  <RequiredSetupRow
+                    label="Synced provider"
+                    detail="Connect at least Google Calendar or Todoist so Now has grounded external truth."
+                    ready={hasSyncedProvider}
+                    action={(
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onJumpToTarget({ section: 'integrations', subsection: 'providers', anchor: systemChildAnchor('providers', 'google_calendar') })}
+                      >
+                        Open integrations
+                      </Button>
+                    )}
+                  />
+                </div>
+              </>
+            </SystemDocumentItem>
+          )}
 
           <SystemDocumentItem
             id={systemChildAnchor('core_settings', 'identity')}

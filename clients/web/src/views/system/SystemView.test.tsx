@@ -859,7 +859,20 @@ describe('SystemView', () => {
     expect(loadSettings).toHaveBeenCalledTimes(1)
   })
 
-  it('shows required setup copy in the top-level core section', async () => {
+  it('shows required setup copy in the top-level core section when setup is incomplete', async () => {
+    const defaultSettings = buildSettings();
+    loadSettings.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        ...defaultSettings,
+        core_settings: {
+          ...defaultSettings.core_settings,
+          user_display_name: '',
+        },
+      },
+      meta: { request_id: 'req_settings_incomplete' },
+    });
+
     render(<SystemView target={{ section: 'core', subsection: 'core_settings' }} />)
 
     await waitFor(() => {
@@ -868,6 +881,18 @@ describe('SystemView', () => {
 
     expect(screen.getAllByText('Open LLM routing').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Open integrations').length).toBeGreaterThan(0)
+  })
+
+  it('hides required setup copy in the top-level core section when setup is complete', async () => {
+    render(<SystemView target={{ section: 'core', subsection: 'core_settings' }} />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Core settings').length).toBeGreaterThan(0)
+    })
+
+    expect(screen.queryByText(/Vel will not be fully functional until required Core settings are submitted/i)).toBeNull()
+    expect(screen.queryByText('Open LLM routing')).toBeNull()
+    expect(screen.queryByText('Open integrations')).toBeNull()
   })
 
   it('auto-infers host node name and timezone when they are missing', async () => {
