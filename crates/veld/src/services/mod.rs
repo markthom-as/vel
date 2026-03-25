@@ -3,6 +3,10 @@
 //! **Read vs evaluate boundary:** Explain and read routes use only storage (read-only). The only
 //! entry point for recompute-and-persist is [evaluate::run]. See docs/tickets/repo-feedback/001.
 
+use vel_config::AppConfig;
+
+use crate::state::AppState;
+
 pub mod action_registry;
 pub mod adaptive_policies;
 pub mod agent_grounding;
@@ -86,3 +90,15 @@ pub mod workflow_context_binding;
 pub mod workflow_runner;
 pub mod write_intent_dispatch;
 pub mod writeback;
+
+pub async fn run_lan_discovery_responder(state: AppState) {
+    lan_discovery::run_responder(state).await;
+}
+
+pub fn discover_lan_base_url(config: &AppConfig) -> Option<String> {
+    local_network::discover_lan_base_url(config)
+}
+
+pub async fn discover_tailscale_base_url(config: &AppConfig) -> Option<String> {
+    tailscale::discover_base_url(config).await
+}

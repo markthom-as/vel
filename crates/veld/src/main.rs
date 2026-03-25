@@ -1,25 +1,10 @@
-#![allow(dead_code)]
-
-mod adapters;
-mod app;
-mod broadcast;
-mod errors;
-mod llm;
-mod middleware;
-mod policy_config;
-mod routes;
-mod services;
-mod state;
-mod worker;
-
 use anyhow::Context;
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 use tracing::info;
 use vel_config::AppConfig;
 use vel_storage::Storage;
-
-use crate::state::AppState;
+use veld::{app, llm, policy_config, services, state::AppState, worker};
 
 const DEFAULT_POLICIES_PATH: &str = "config/policies.yaml";
 
@@ -94,7 +79,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     tokio::spawn(worker::run_background_workers(state.clone()));
-    tokio::spawn(services::lan_discovery::run_responder(state.clone()));
+    tokio::spawn(services::run_lan_discovery_responder(state.clone()));
 
     let bind_addr = effective_bind_addr(&config).await;
     let listener = TcpListener::bind(&bind_addr)
@@ -134,11 +119,9 @@ async fn effective_bind_addr(config: &AppConfig) -> String {
     }
 
     let has_remote_discovery_transport = config.lan_base_url.is_some()
-        || crate::services::local_network::discover_lan_base_url(config).is_some()
+        || services::discover_lan_base_url(config).is_some()
         || config.tailscale_base_url.is_some()
-        || crate::services::tailscale::discover_base_url(config)
-            .await
-            .is_some();
+        || services::discover_tailscale_base_url(config).await.is_some();
 
     if !has_remote_discovery_transport {
         return config.bind_addr.clone();
