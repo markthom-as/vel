@@ -57,14 +57,14 @@ export function SystemDocumentSectionLabel({
   className?: string;
 }) {
   return (
-    <p
+    <h2
       className={cn(
         'text-[10px] uppercase tracking-[0.18em] text-[var(--vel-color-muted)]',
         className,
       )}
     >
       {children}
-    </p>
+    </h2>
   );
 }
 

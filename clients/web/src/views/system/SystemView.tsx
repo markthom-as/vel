@@ -2680,7 +2680,7 @@ function RequiredSetupRow({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--vel-color-border)] py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium leading-5 text-[var(--vel-color-text)]">{label}</p>
+        <h4 className="text-sm font-medium leading-5 text-[var(--vel-color-text)]">{label}</h4>
         <p className="text-xs leading-5 text-[var(--vel-color-muted)]">{detail}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
