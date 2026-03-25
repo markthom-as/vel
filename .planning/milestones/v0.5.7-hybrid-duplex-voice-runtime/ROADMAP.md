@@ -1,12 +1,12 @@
 # Milestone v0.5.7: Hybrid Duplex Voice Runtime
 
-**Status:** QUEUED  
+**Status:** IN PROGRESS
 **Milestone:** v0.5.7  
 **Theme:** native Apple audio shell + portable Rust speech engine
 
 ## Overview
 
-`v0.5.7` is the planned follow-on milestone after the queued `0.5.6` single-node MVP line.
+`v0.5.7` is now active as the follow-on to the closed `0.5.6` single-node MVP line.
 
 Its purpose is to add truthful duplex voice interaction without collapsing into either of the two bad architectural extremes:
 
@@ -72,7 +72,7 @@ This milestone therefore locks and implements a hybrid design:
 
 **Goal:** lock the hybrid architecture before implementation normalizes bad boundaries.  
 **Depends on:** `0.5.6` closeout or explicit approval to plan ahead  
-**Status:** QUEUED
+**Status:** NOT STARTED
 
 Expected outcomes:
 

@@ -138,7 +138,7 @@ Packet:
 
 ## `0.5.7` Scope Guardrails
 
-The queued `0.5.7` line should remain bounded by:
+The active `0.5.7` line should remain bounded by:
 
 - no all-Rust ownership of privileged Apple audio/session behavior
 - no “everything native” erosion of the Rust product core
@@ -163,6 +163,15 @@ The queued `0.5.7` line should remain bounded by:
 - [ ] **Phase 103: Proving adapter and duplex thread loop** - prove the engine end to end before iOS-specific quality claims.
 - [ ] **Phase 104: iOS native voice-processing bridge** - add the Apple-quality path without moving logic out of Rust.
 - [ ] **Phase 105: Duplex validation, proof, and closeout** - execute the full validation matrix and close honestly.
+
+## Post-`0.5.7` Queued Cleanup Lane
+
+`docs/VELOCITY-DRIFT-CLEANUP.md` is now the seed audit for the next cleanup packet after duplex voice closes. The goal is to pay down structural drift without mixing unrelated repository cleanup into the active voice-runtime line.
+
+- [ ] **Phase 106: Velocity cleanup: simplify traits, policy dead code, and suppression triage** - close VD-01 through VD-04 by removing single-implementation indirection, deleting unused policy scaffolding, and replacing blanket dead-code suppression with targeted decisions.
+- [ ] **Phase 107: Velocity cleanup: time migration and orphaned storage cleanup** - close VD-05 and VD-06 by finishing the `chrono` to `time` migration and removing schema objects that no longer have runtime ownership.
+- [ ] **Phase 108: Velocity cleanup: error boundary standardization and crate fate decisions** - close VD-10 and VD-11 by normalizing boundary error patterns and deciding whether `vel-sim` and `vel-agent-sdk` stay, move, or retire.
+- [ ] **Phase 109: Velocity cleanup: module splits and DTO reorganization** - close VD-07 through VD-09 by splitting monolithic route/service files and breaking `vel-api-types` into maintainable modules.
 
 ## `0.5.6` Scope Guardrails (Closed)
 
@@ -258,6 +267,50 @@ Closeout checkpoint:
 2. Manual/API checks cover integrations, settings mutation, and chat provider paths.
 3. Final acceptance audit is run directly against the copied verbatim feedback.
 4. Any remaining work is moved into explicit deferred scope with a stated reason.
+
+### Phase 106: Velocity cleanup: simplify traits, policy dead code, and suppression triage
+
+**Goal:** remove the lowest-risk cleanup drift called out in `docs/VELOCITY-DRIFT-CLEANUP.md` without widening scope into broader refactors.
+**Requirements:** post-`0.5.7` cleanup lane (`VD-01`, `VD-02`, `VD-03`, `VD-04`)
+**Depends on:** Phase 105
+**Success Criteria:**
+1. `CapabilityResolver` and `ToolRunner` no longer use single-implementation traits where no polymorphism exists.
+2. Dead policy structs and accessors that have no runtime readers are removed cleanly, while still preserving any actively used policy fields.
+3. Blanket crate-level `#![allow(dead_code)]` suppressions are reduced or removed for the touched crates, with any remaining suppression moved to item-local documented allows.
+4. The resulting warning/dead-code posture is documented truthfully, including anything intentionally retained for near-term follow-on work.
+
+### Phase 107: Velocity cleanup: time migration and orphaned storage cleanup
+
+**Goal:** finish the stalled temporal-library migration and remove schema objects with no runtime ownership.
+**Requirements:** post-`0.5.7` cleanup lane (`VD-05`, `VD-06`)
+**Depends on:** Phase 106
+**Success Criteria:**
+1. `veld` no longer mixes `chrono` and `time` in the active service/test seams targeted by the audit.
+2. Any required timezone support is re-established through the chosen `time`-compatible path before legacy time crates are removed.
+3. Orphaned database tables are re-verified as unused and dropped through a forward migration.
+4. Tests and docs prove the cleanup did not break temporal logic or schema verification.
+
+### Phase 108: Velocity cleanup: error boundary standardization and crate fate decisions
+
+**Goal:** make cross-layer error handling more coherent and keep `vel-sim` plus `vel-agent-sdk` as explicit, integrated surfaces rather than orphan crates.
+**Requirements:** post-`0.5.7` cleanup lane (`VD-10`, `VD-11`)
+**Depends on:** Phase 107
+**Success Criteria:**
+1. The chosen error-boundary normalization is applied consistently across at least one full route → service → storage seam and documented as the forward pattern.
+2. `vel-sim` and `vel-agent-sdk` each have an explicit purpose, CLI integration point, and documented near-term use case.
+3. Any deferred error-boundary cleanup is narrowed to named follow-ons rather than left as a vague repo-wide aspiration.
+4. The crate-retention decision is implemented, not merely discussed.
+
+### Phase 109: Velocity cleanup: module splits and DTO reorganization
+
+**Goal:** pay down navigability debt in the monolithic daemon and DTO files without reopening behavior contracts.
+**Requirements:** post-`0.5.7` cleanup lane (`VD-07`, `VD-08`, `VD-09`)
+**Depends on:** Phase 108
+**Success Criteria:**
+1. `app.rs`, `now.rs`, and `vel-api-types/src/lib.rs` are split into maintainable modules while preserving external behavior.
+2. Public APIs remain stable unless a clearly justified boundary cleanup is bundled and documented.
+3. Tests and build checks show the file-organization changes are behavior-preserving.
+4. The new layout is obvious enough that future work does not need another cleanup audit just to find the owning file.
 
 ## Active Packet
 

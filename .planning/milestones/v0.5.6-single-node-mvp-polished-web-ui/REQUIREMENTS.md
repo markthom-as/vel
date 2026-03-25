@@ -1,6 +1,6 @@
 # Milestone v0.5.6 Requirements
 
-**Status:** IN PROGRESS  
+**Status:** SHIPPED 2026-03-25  
 **Milestone:** v0.5.6
 **Theme:** single-node MVP and polished web UI
 

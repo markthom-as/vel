@@ -1,12 +1,12 @@
 # Milestone v0.5.6: Single-Node MVP and Polished Web UI
 
-**Status:** IN PROGRESS
+**Status:** SHIPPED 2026-03-25
 **Milestone:** v0.5.6
 **Source of truth:** [TODO.md](/home/jove/code/vel/TODO.md)
 
 ## Overview
 
-`v0.5.6` is the next milestone after the closed `0.5.5` API/functionality/polish line.
+`v0.5.6` was the follow-on milestone after the closed `0.5.5` API/functionality/polish line.
 
 Its purpose is to turn the currently accepted three-surface web line into a credibly working single-node MVP:
 
@@ -117,7 +117,7 @@ Expected outcomes:
 
 **Goal:** prove the single-node MVP works end to end and close the line honestly.  
 **Depends on:** Phase 99
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 Expected outcomes:
 

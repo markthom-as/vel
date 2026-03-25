@@ -86,22 +86,22 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 **Accepted debt:**
 - live browser workflow dispatch remains deferred until a future milestone ships canonical workflow invocation transport
 
-## Next Milestone Goals
+## Current Active Milestone
 
-The next queued milestone is `v0.5.6` — single-node MVP and polished web UI.
+The active milestone is `v0.5.7` — hybrid duplex voice runtime.
 
-This line is intentionally scoped from direct operator feedback in [TODO.md](/home/jove/code/vel/TODO.md), copied verbatim into the planning packet at [00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md).
+This line locks the duplex ownership split and proof obligations for:
 
 Primary goals:
-- make one local Vel node work as a credible MVP through the web UI
-- make Google/Todoist integration, chat provider selection, and single-node settings/config truthful enough for real operator use
-- polish `Now`, `Threads`, and `System` to the accepted web-quality bar
-- defer additional future phases until new feedback arrives after this MVP line
+- lock native shell / Rust engine duplex boundaries
+- support duplex thread call mode with barge-in, interruption, recovery, and single-active-turn truth
+- prove desktop/harness and iOS native paths with validation evidence before closeout
+- keep validation evidence explicit for structural, behavioral, temporal, and adverse-case behavior
 
 Immediate planning packet:
-- [v0.5.6 roadmap](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md)
-- [v0.5.6 requirements](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
-- [v0.5.6 verbatim feedback copy](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
+- [v0.5.7 roadmap](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
+- [v0.5.7 requirements](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md)
+- [v0.5.7 architecture packet](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md)
 
 ## Requirements
 
@@ -146,7 +146,7 @@ Immediate planning packet:
 
 ### Active
 
-- `v0.5.2` operator-surface embodiment
+- `v0.5.7` hybrid duplex voice runtime
 
 ### Out of Scope
 
@@ -232,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-23 after queuing `v0.5.6` as the single-node MVP and polished-web-UI milestone*
+*Last updated: 2026-03-25 after activating `v0.5.7` as the hybrid duplex voice runtime milestone*

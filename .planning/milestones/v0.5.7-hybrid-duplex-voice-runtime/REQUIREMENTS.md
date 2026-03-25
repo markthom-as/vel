@@ -1,6 +1,6 @@
 # Milestone v0.5.7 Requirements
 
-**Status:** QUEUED  
+**Status:** IN PROGRESS
 **Milestone:** v0.5.7  
 **Theme:** hybrid duplex voice runtime
 

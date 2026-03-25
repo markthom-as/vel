@@ -20,7 +20,7 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-23)
+See: .planning/PROJECT.md (updated 2026-03-25)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** execute Phase 101 duplex architecture lock and contract packet for the `0.5.7` hybrid duplex voice runtime line
@@ -66,6 +66,7 @@ Plan: Not started
 - implementation drift remains the main risk
 - maintaining native/rust ownership boundaries in duplex voice runtime
 - proving duplex behavior without widening to wake-word/diarization scope
+- converting `docs/VELOCITY-DRIFT-CLEANUP.md` into a queued post-`0.5.7` cleanup packet without mixing it into active voice scope
 
 ### Next Step
 
@@ -85,6 +86,7 @@ Start Phase 101 planning and implementation for duplex architecture lock, then a
 - `0.5.6` closed with archived milestone packet and explicit audit record
 - `0.5.7` is now active as the hybrid duplex voice runtime line
 - Phase 101 is now active for ownership lock and contract packeting
+- Queued cleanup phases 106 through 109 from `docs/VELOCITY-DRIFT-CLEANUP.md` as the post-`0.5.7` velocity-drift lane
 
 ---
 *Last updated: 2026-03-25 after closing `0.5.6` and activating `0.5.7` at Phase 101*
