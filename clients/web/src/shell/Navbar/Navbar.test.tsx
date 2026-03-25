@@ -17,7 +17,7 @@ afterEach(() => {
 })
 
 describe('Navbar', () => {
-  function renderNavbar(activeView: 'now' | 'threads' | 'system' = 'now') {
+  function renderNavbar(activeView: 'now' | 'threads' | 'system' = 'now', surface: 'mobile' | 'tablet' | 'desktop' = 'desktop') {
     const onSelectView = vi.fn()
     const onDeepLink = vi.fn()
 
@@ -26,11 +26,37 @@ describe('Navbar', () => {
         activeView={activeView}
         onSelectView={onSelectView}
         onDeepLink={onDeepLink}
-      />,
+        surface={surface}
+      />, 
     )
 
     return { onSelectView, onDeepLink }
   }
+
+  it('renders compact bottom navigation tabs on mobile', () => {
+    renderNavbar('now', 'mobile')
+
+    const nowTab = screen.getByRole('tab', { name: 'Now' })
+    const threadsTab = screen.getByRole('tab', { name: 'Threads' })
+    const nudgesTab = screen.getByRole('tab', { name: 'Nudges' })
+    const systemTab = screen.getByRole('tab', { name: 'System' })
+
+    expect(nowTab).toBeInTheDocument()
+    expect(threadsTab).toBeInTheDocument()
+    expect(nudgesTab).toBeInTheDocument()
+    expect(systemTab).toBeInTheDocument()
+    expect(nowTab).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('routes mobile nudges tab into now-nudges deep link', () => {
+    const { onSelectView, onDeepLink } = renderNavbar('now', 'mobile')
+
+    const nudgesTab = screen.getByRole('tab', { name: 'Nudges' })
+    fireEvent.click(nudgesTab)
+
+    expect(onDeepLink).toHaveBeenCalledWith({ view: 'now', anchor: 'nudges-section' })
+    expect(onSelectView).toHaveBeenCalledWith('now')
+  })
 
   it('renders top nav items and routes clicks through handlers', () => {
     const { onSelectView } = renderNavbar()

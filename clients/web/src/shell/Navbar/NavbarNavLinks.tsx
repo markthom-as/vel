@@ -1,14 +1,16 @@
-import { primarySurfaces, supportSurfaces, type MainView } from '../../data/operatorSurfaces';
+import { primarySurfaces, type MainView } from '../../data/operatorSurfaces';
 import { ActionChipButton } from '../../core/FilterToggleTag';
 import { cn } from '../../core/cn';
 import {
   InfoCircleIcon,
   SettingsIcon,
   SparkIcon,
+  WarningIcon,
   ThreadsIcon,
 } from '../../core/Icons';
 import { uiTheme } from '../../core/Theme';
 import type { SystemNavigationTarget } from '../../views/system';
+import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 const ACCENT = uiTheme.brandText;
 
@@ -16,35 +18,67 @@ interface NavbarNavLinksProps {
   activeView: MainView;
   onSelectView: (view: MainView) => void;
   onDeepLink?: (target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => void;
+  surface?: ViewportSurface;
 }
 
-export function NavbarNavLinks({ activeView, onSelectView, onDeepLink }: NavbarNavLinksProps) {
+export function NavbarNavLinks({ activeView, onSelectView, onDeepLink, surface = 'desktop' }: NavbarNavLinksProps) {
+  const isMobile = surface === 'mobile';
+
+  const primaryItems = [...primarySurfaces].map((item) => ({
+    key: item.view,
+    label: item.label,
+    icon: surfaceIcon(item.view),
+    isActive: activeView === item.view,
+    onActivate: () => onSelectView(item.view),
+  }));
+
+  const nudgeItem = {
+    key: 'nudges',
+    label: 'Nudges',
+    icon: <WarningIcon size={15} strokeWidth={1.85} />,
+    isActive: false,
+    onActivate: () => onDeepLink?.({ view: 'now', anchor: 'nudges-section' }) ?? onSelectView('now'),
+  };
+
+  const navItems = isMobile ? [...primaryItems, nudgeItem] : primaryItems;
+
   return (
     <nav
-      className="flex min-w-0 items-center gap-x-2 sm:gap-x-3"
+      className={cn(
+        'flex min-w-0 items-center',
+        isMobile ? 'w-full justify-around gap-x-1' : 'items-center gap-x-2 sm:gap-x-3',
+      )}
       aria-label="Primary"
+      role="tablist"
     >
-      {[...primarySurfaces, ...supportSurfaces].map((item) => (
+      {navItems.map((item) => (
         <button
-          key={item.view}
+          key={item.key}
           type="button"
-          onClick={() => onSelectView(item.view)}
-          className={`group inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-2 py-2 sm:px-3 text-xs font-medium normal-case tracking-normal transition ${
-            activeView === item.view
+          onClick={item.onActivate}
+          role="tab"
+          aria-selected={item.isActive}
+          aria-label={item.label}
+          className={cn(
+            'group inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border transition',
+            isMobile
+              ? 'min-h-[2.85rem] w-full flex-1 flex-col justify-center px-2 py-2 text-[8px] font-medium uppercase tracking-[0.06em]'
+              : 'rounded-full border px-2 py-2 sm:px-3 text-xs font-medium normal-case tracking-normal',
+            item.isActive
               ? `border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] ${ACCENT}`
-              : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]'
-          }`}
+              : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]',
+          )}
         >
           <span
             aria-hidden="true"
             className={cn(
               'inline-flex shrink-0',
-              activeView === item.view ? '' : 'opacity-90 text-[var(--vel-color-dim)] group-hover:text-[var(--vel-color-muted)]',
+              item.isActive ? '' : 'opacity-90 text-[var(--vel-color-dim)] group-hover:text-[var(--vel-color-muted)]',
             )}
           >
-            {surfaceIcon(item.view)}
+            {item.icon}
           </span>
-          <span className="hidden sm:inline leading-none">{item.label}</span>
+          <span className={cn(isMobile ? 'leading-tight' : 'hidden sm:inline leading-none')}>{item.label}</span>
         </button>
       ))}
       <ActionChipButton
@@ -62,6 +96,7 @@ export function NavbarNavLinks({ activeView, onSelectView, onDeepLink }: NavbarN
         className="ml-1 text-[var(--vel-color-dim)] hover:text-[var(--vel-color-text)]"
       >
         <InfoCircleIcon size={16} />
+        {isMobile ? null : <span className="sr-only">System documentation</span>}
       </ActionChipButton>
     </nav>
   );

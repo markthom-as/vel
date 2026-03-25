@@ -411,8 +411,9 @@ export function ThreadView({
   // showInlineComposer is false on mobile (floating composer from MainPanel handles input).
   const showInlineComposer = miniMode;
   const isMobileSurface = surface === 'mobile';
+  const isCompactThreadSurface = miniMode || isMobileSurface;
 
-  if (miniMode || isMobileSurface) {
+  if (isCompactThreadSurface) {
     const error = conversationsError ?? messagesError;
     if (conversationsLoading && miniThreadList.length === 0) {
       return <SurfaceState message="Loading threads…" layout="centered" />;
@@ -598,7 +599,7 @@ export function ThreadView({
         <aside
           className={cn(
             'shrink-0 border-r border-[var(--vel-color-border)] w-full max-w-[20rem]',
-            surface === 'mobile' ? 'hidden' : 'md:block',
+            isMobileSurface ? 'hidden' : 'md:block',
           )}
         >
           <div className="sticky top-[5.25rem] flex min-h-[32rem] flex-col">

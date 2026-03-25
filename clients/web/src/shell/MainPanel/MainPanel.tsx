@@ -190,6 +190,9 @@ export function MainPanel({
   const [pendingAssistantPayload, setPendingAssistantPayload] = useState<SubmittedAssistantEntryPayload | null>(null);
   const [assistantErrorRetryable, setAssistantErrorRetryable] = useState(false);
   const [reclassifyingIntent, setReclassifyingIntent] = useState(false);
+  const mobileComposerBottomClassName = surface === 'mobile'
+    ? 'bottom-[calc(3.9rem+env(safe-area-inset-bottom))]'
+    : 'bottom-6 sm:bottom-8';
 
   const speakAssistantReply = useCallback((response: AssistantEntryResponse) => {
     if (!response.conversation.call_mode_active) {
@@ -417,7 +420,7 @@ export function MainPanel({
           floating
           hideHelperText
           onOpenMiniMode={onOpenMiniComposer}
-          floatingOffsetClassName={surface === 'mobile' ? 'bottom-[calc(0.9rem+env(safe-area-inset-bottom))]' : 'bottom-6 sm:bottom-8'}
+          floatingOffsetClassName={mobileComposerBottomClassName}
           disabled={!coreSetupStatus.ready}
           disabledReason={composerDisabledReason}
           onDisabledInteract={() => {
