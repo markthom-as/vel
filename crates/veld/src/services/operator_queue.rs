@@ -983,7 +983,7 @@ async fn build_intervention_items(
     Ok(items)
 }
 
-fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<ActionItem> {
+fn build_project_items(_now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<ActionItem> {
     let mut items = Vec::new();
 
     for project in projects {

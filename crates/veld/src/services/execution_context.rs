@@ -609,7 +609,7 @@ mod tests {
                         overall_status: "fresh".to_string(),
                         sources: Vec::new(),
                     },
-                    trust_readiness: vel_api_types::TrustReadinessData {
+                    trust_readiness: Some(vel_api_types::TrustReadinessData {
                         level: "ok".to_string(),
                         headline: "Ready".to_string(),
                         summary: "Backup, freshness, and review pressure look healthy enough for normal operation."
@@ -633,7 +633,7 @@ mod tests {
                         },
                         guidance: vec!["Backup trust is healthy.".to_string()],
                         follow_through: Vec::new(),
-                    },
+                    }),
                     check_in: None,
                     planning_profile_summary: None,
                     commitment_scheduling_summary: None,
