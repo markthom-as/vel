@@ -2616,7 +2616,6 @@ function ControlCapabilitiesDetail({
         ) : (
           filteredBlockers.map((blocker) => <SystemDocumentMetaRow key={blocker.code} label={blocker.code} value={blocker.message} />)
         )}
-      </div>
     </div>
   );
 }
