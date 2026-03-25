@@ -446,6 +446,20 @@ mod tests {
         let now = NowData {
             computed_at: 0,
             timezone: "America/Denver".to_string(),
+            header: None,
+            mesh_summary: None,
+            status_row: None,
+            context_line: None,
+            nudge_bars: Vec::new(),
+            task_lane: None,
+            next_up_items: Vec::new(),
+            progress: vel_api_types::NowProgressData {
+                active_count: 0,
+                completed_count: 0,
+                blocked_count: 0,
+                total_count: 1,
+            },
+            docked_input: None,
             overview: vel_api_types::NowOverviewData {
                 dominant_action: None,
                 today_timeline: vec![],
@@ -482,7 +496,12 @@ mod tests {
                 empty_message: None,
                 next_event: None,
                 upcoming_events: vec![],
+                following_day_events: Vec::new(),
             },
+            check_in: None,
+            day_plan: None,
+            reflow: None,
+            reflow_status: None,
             tasks: NowTasksData {
                 todoist: vec![],
                 other_open: vec![],
