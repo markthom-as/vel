@@ -212,8 +212,31 @@ fn normalize_event_payload(event_type: RunEventType, payload: Value) -> Value {
         RunEventType::RunStarted | RunEventType::RunSucceeded | RunEventType::RefsCreated => {
             serde_json::json!({})
         }
+        RunEventType::SearchExecuted => normalize_search_payload(payload),
         _ => payload,
     }
+}
+
+/// Strip non-deterministic capture IDs from search event hits so replay
+/// comparisons are stable across runs that generate fresh UUIDs.
+fn normalize_search_payload(mut payload: Value) -> Value {
+    if let Some(hits) = payload.get_mut("hits").and_then(Value::as_array_mut) {
+        for hit in hits.iter_mut() {
+            for key in &["record_id", "source_id"] {
+                if let Some(v) = hit.get_mut(*key) {
+                    *v = Value::String("<id>".to_string());
+                }
+            }
+            if let Some(prov) = hit.get_mut("provenance") {
+                if let Some(cid) = prov.get_mut("capture_id") {
+                    if cid.is_string() {
+                        *cid = Value::String("<capture_id>".to_string());
+                    }
+                }
+            }
+        }
+    }
+    payload
 }
 
 fn normalize_report_json(value: Value) -> Value {
@@ -316,6 +339,58 @@ mod tests {
                 BoundaryEvent {
                     event_type: RunEventType::RunStarted,
                     payload: serde_json::json!({}),
+                },
+                BoundaryEvent {
+                    event_type: RunEventType::SearchExecuted,
+                    payload: serde_json::json!({
+                        "hit_count": 2,
+                        "hits": [
+                            {
+                                "combined_score": 0.2796874940395355_f64,
+                                "lexical_score": 0.625,
+                                "provenance": {
+                                    "artifact_id": null,
+                                    "capture_id": "<capture_id>",
+                                    "external_id": null,
+                                    "message_id": null,
+                                    "note_path": null,
+                                    "person_id": null,
+                                    "project_id": null,
+                                    "run_id": null,
+                                    "thread_id": null,
+                                    "trace_id": null,
+                                    "transcript_id": null,
+                                },
+                                "record_id": "<id>",
+                                "semantic_score": 0.09375,
+                                "source_id": "<id>",
+                                "source_kind": "capture",
+                            },
+                            {
+                                "combined_score": 0.26999998092651367_f64,
+                                "lexical_score": 0.5625,
+                                "provenance": {
+                                    "artifact_id": null,
+                                    "capture_id": "<capture_id>",
+                                    "external_id": null,
+                                    "message_id": null,
+                                    "note_path": null,
+                                    "person_id": null,
+                                    "project_id": null,
+                                    "run_id": null,
+                                    "thread_id": null,
+                                    "trace_id": null,
+                                    "transcript_id": null,
+                                },
+                                "record_id": "<id>",
+                                "semantic_score": 0.11250000447034836_f64,
+                                "source_id": "<id>",
+                                "source_kind": "capture",
+                            },
+                        ],
+                        "query_text": "agenda check follow remember the forecast budget before the 4pm chec follow up with Sam on the review agenda",
+                        "strategy": "hybrid",
+                    }),
                 },
                 BoundaryEvent {
                     event_type: RunEventType::ContextGenerated,
