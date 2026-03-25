@@ -16,11 +16,9 @@ import {
 import { loadIntegrations, updateGoogleCalendarIntegration } from '../../data/operator';
 import {
   CalendarIcon,
-  ClockIcon,
   FileIcon,
   AttachmentIcon,
   ChevronLeftIcon,
-  OpenThreadIcon,
   PersonIcon,
   ThreadsIcon,
   CloseIcon,
@@ -32,19 +30,18 @@ import { uiFonts } from '../../core/Theme';
 import { nudgeOpenSystemTarget } from '../../views/now/nowModel';
 import {
   NudgeActionIcon,
-  NudgeLeadOrb,
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
   nudgeActionToneClass,
-  nudgeLeadKindForBar,
-  nudgeUsesSystemPresentation,
+  nudgeSurfaceTone,
 } from '../../views/now/nowNudgePresentation';
 import type { SystemNavigationTarget } from '../../views/system';
 import { cn } from '../../core/cn';
 import { ActionChipButton } from '../../core/FilterToggleTag';
-import { FloatingPill } from '../../core/FloatingPill';
 import { SurfaceSpinner } from '../../core/SurfaceState';
 import { ThreadView } from '../../views/threads';
+import { CoreSetupChecklist, type CoreChecklistItem } from './CoreSetupChecklist';
+import { NudgeCard } from './NudgeCard';
 
 interface NudgeZoneProps {
   activeView: MainView;
@@ -59,67 +56,10 @@ interface NudgeZoneProps {
   onOpenSystem?: (target?: SystemNavigationTarget) => void;
 }
 
-function nudgeTone(bar: NowNudgeBarData) {
-  if (nudgeUsesSystemPresentation(bar)) {
-    return {
-      shell: '!border-indigo-400/38 bg-indigo-950/18 text-indigo-100 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]',
-      activeOutline: 'ring-1 ring-indigo-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(129,140,248,0.28),0_0_24px_rgba(99,102,241,0.16)]',
-      warmSurface: false,
-    };
-  }
-  switch (bar.kind) {
-    case 'trust_warning':
-      return {
-        shell: '!border-amber-400/45 bg-amber-950/30 text-amber-100 shadow-[0_0_0_1px_rgba(245,158,11,0.12)]',
-        activeOutline: 'ring-1 ring-amber-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(251,191,36,0.3),0_0_24px_rgba(245,158,11,0.18)]',
-        warmSurface: true,
-      };
-    case 'freshness_warning':
-      return {
-        shell: '!border-sky-400/38 bg-sky-950/25 text-sky-100 shadow-[0_0_0_1px_rgba(14,165,233,0.1)]',
-        activeOutline: 'ring-1 ring-sky-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(56,189,248,0.28),0_0_24px_rgba(14,165,233,0.16)]',
-        warmSurface: false,
-      };
-    case 'needs_input':
-      return {
-        shell:
-          '!border-[color:rgba(255,107,0,0.34)] bg-[color:var(--vel-color-panel)]/82 text-[var(--vel-color-text)] shadow-[0_0_0_1px_rgba(255,107,0,0.1)]',
-        activeOutline: 'ring-1 ring-[var(--vel-color-accent-strong)]/80 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(255,107,0,0.34),0_0_24px_rgba(255,107,0,0.18)]',
-        warmSurface: false,
-      };
-    case 'review_request':
-      return {
-        shell: '!border-emerald-400/34 bg-emerald-950/20 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.1)]',
-        activeOutline: 'ring-1 ring-emerald-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(52,211,153,0.28),0_0_24px_rgba(16,185,129,0.16)]',
-        warmSurface: false,
-      };
-    case 'reflow_proposal':
-      return {
-        shell: '!border-orange-400/38 bg-orange-950/20 text-orange-100 shadow-[0_0_0_1px_rgba(249,115,22,0.1)]',
-        activeOutline: 'ring-1 ring-orange-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(251,146,60,0.28),0_0_24px_rgba(249,115,22,0.16)]',
-        warmSurface: true,
-      };
-    default:
-      return {
-        shell:
-          '!border-[color:rgba(255,107,0,0.24)] bg-[color:var(--vel-color-panel)]/78 text-[var(--vel-color-text)] shadow-[0_0_0_1px_rgba(255,107,0,0.08)]',
-        activeOutline: 'ring-1 ring-[var(--vel-color-accent-border)]/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(255,107,0,0.22),0_0_20px_rgba(255,107,0,0.12)]',
-        warmSurface: false,
-      };
-  }
-}
-
 const actionChipClass =
   '!min-h-[1.1rem] !gap-1.5 !rounded-full !px-2 !py-[0.2rem] !text-[9px] !tracking-[0.1em] opacity-90';
 const nudgeActionChipClass =
   `${actionChipClass} w-full justify-center`;
-
-type CoreChecklistItem = {
-  id: string;
-  label: string;
-  state: 'required' | 'ready';
-  value: string | null;
-};
 
 function parseCoreSetupChecklistItem(action: NowNudgeBarData['actions'][number]): CoreChecklistItem | null {
   const parts = action.kind.split(':');
@@ -707,7 +647,7 @@ export function NudgeZone({
             </p>
           ) : null}
           {orderedNudges.map((bar) => {
-            const tone = nudgeTone(bar);
+            const tone = nudgeSurfaceTone(bar);
             const isExpanded = expandedNudgeId === bar.id;
             const interventionId = interventionIdForBar(bar, data ?? null);
             const coreSetupChecklist = bar.id === 'core_setup_required'
@@ -835,134 +775,25 @@ export function NudgeZone({
             );
 
             return (
-              <FloatingPill
+              <NudgeCard
                 key={bar.id}
-                decoration={
-                  <NudgeLeadOrb
-                    kind={bar.kind}
-                    iconKind={nudgeLeadKindForBar(bar)}
-                    urgent={bar.urgent}
-                    warmSurface={tone.warmSurface}
-                    isPrimary={bar.urgent}
+                bar={bar}
+                tone={tone}
+                isExpanded={isExpanded}
+                isFlashing={flashingNudgeId === bar.id}
+                timestampLabel={formatNudgeAge(bar.timestamp)}
+                onToggle={() => toggleNudgeExpansion(bar.id)}
+                actionButtons={actionButtons}
+                checklistContent={
+                  <CoreSetupChecklist
+                    bar={bar}
+                    items={coreSetupChecklist}
+                    onOpenSystemAction={(action) => {
+                      onOpenSystem?.(nudgeOpenSystemTarget(bar, action));
+                    }}
                   />
                 }
-                decorationClassName="h-[1.875rem] w-[1.875rem] rounded-none border-0 bg-transparent shadow-none"
-                decorationOffsetClassName="-translate-x-[114%]"
-                onPress={() => toggleNudgeExpansion(bar.id)}
-                contentClassName={cn(
-                  isExpanded ? 'items-stretch gap-3 py-3' : 'items-stretch',
-                  tone.shell,
-                  isExpanded ? tone.activeOutline : null,
-                  flashingNudgeId === bar.id
-                    ? 'ring-2 ring-[var(--vel-color-accent-strong)] ring-offset-2 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(255,107,0,0.42),0_0_32px_rgba(255,107,0,0.28)] animate-[pulse_0.38s_ease-in-out_4]'
-                    : null,
-                )}
-              >
-                {isExpanded ? (
-                  <div className="-my-3 flex min-w-0 flex-1 self-stretch gap-3 py-3">
-                    <div className="flex min-w-0 flex-1 flex-col gap-3">
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 overflow-hidden pt-0.5 text-left"
-                        onClick={() => toggleNudgeExpansion(bar.id)}
-                        data-testid={`nudge-toggle-${bar.id}`}
-                      >
-                        <div className="flex min-w-0 flex-col gap-1">
-                          {bar.timestamp ? (
-                            <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)] ${uiFonts.mono}`}>
-                              <ClockIcon size={10} />
-                              {formatNudgeAge(bar.timestamp)}
-                            </span>
-                          ) : null}
-                          <p className="text-sm font-medium whitespace-normal">{bar.title}</p>
-                        </div>
-                      </button>
-                      <div className="flex w-full flex-col">
-                        <p className="w-full whitespace-normal text-xs leading-5 text-[var(--vel-color-muted)]">
-                          {bar.summary}
-                        </p>
-                        {coreSetupChecklist.length > 0 ? (
-                          <div className="mt-1 flex w-full flex-col gap-1">
-                            {coreSetupChecklist.map(({ action, checklist }, index) => (
-                              <button
-                                key={`${bar.id}-check-${checklist.id}-${index}`}
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  onOpenSystem?.(nudgeOpenSystemTarget(bar, action));
-                                }}
-                                aria-label={nudgeActionAriaLabel(bar, action, index, coreSetupChecklist.length)}
-                                className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left transition hover:bg-[var(--vel-color-panel)]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vel-color-accent-strong)]/40"
-                              >
-                                <span
-                                  aria-hidden
-                                  className={cn(
-                                    'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border text-[10px] leading-none',
-                                    checklist.state === 'ready'
-                                      ? 'border-emerald-500/40 bg-emerald-950/35 text-emerald-100'
-                                      : 'border-[var(--vel-color-border)] bg-transparent text-transparent',
-                                  )}
-                                >
-                                  {checklist.state === 'ready' ? '✓' : '·'}
-                                </span>
-                                <span className="shrink-0 text-xs leading-5 text-[var(--vel-color-text)]">
-                                  {checklist.label}
-                                </span>
-                                {checklist.value ? (
-                                  <span className="min-w-0 flex-1 truncate text-[11px] leading-5 text-[var(--vel-color-muted)]">
-                                    {checklist.value}
-                                  </span>
-                                ) : null}
-                                <span
-                                  aria-hidden
-                                  className="ml-auto inline-flex shrink-0 items-center text-[var(--vel-color-muted)]"
-                                  data-testid={`core-setup-open-icon-${checklist.id}`}
-                                >
-                                  <OpenThreadIcon size={11} />
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div
-                      className="-my-3 flex w-[5.5rem] shrink-0 self-stretch flex-col gap-1 overflow-hidden py-3"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {actionButtons}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="-my-2.5 min-w-0 flex-1 self-stretch overflow-hidden py-2.5 text-left"
-                      onClick={() => toggleNudgeExpansion(bar.id)}
-                      data-testid={`nudge-toggle-${bar.id}`}
-                    >
-                      <div className="flex min-w-0 flex-col gap-1">
-                        {bar.timestamp ? (
-                          <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)] ${uiFonts.mono}`}>
-                            <ClockIcon size={10} />
-                            {formatNudgeAge(bar.timestamp)}
-                          </span>
-                        ) : null}
-                        <p className="text-sm font-medium whitespace-normal break-words leading-5">{bar.title}</p>
-                      </div>
-                      <p className="truncate text-xs text-[var(--vel-color-muted)]">
-                        {bar.summary}
-                      </p>
-                    </button>
-                    <div
-                      className="-my-2.5 flex w-[5.5rem] shrink-0 self-stretch flex-col gap-1 overflow-hidden py-2.5"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {actionButtons}
-                    </div>
-                  </>
-                )}
-              </FloatingPill>
+              />
             );
           })}
         </div>
