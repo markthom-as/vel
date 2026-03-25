@@ -30,6 +30,7 @@ import {
   decodeRecallContextData,
   decodeReviewSnapshotData,
   decodeRiskCardContent,
+  decodeTextMessageContent,
   decodeRunSummaryData,
   decodeSettingsData,
   decodeSuggestionData,
@@ -3403,6 +3404,90 @@ describe('transport decoders', () => {
       dependency_ids: ['dep_1', 'dep_2'],
       proposed_next_step: undefined,
     })
+  })
+
+  it('decodes video attachments in text message payloads', () => {
+    const content = decodeTextMessageContent({
+      text: 'Watch this',
+      attachments: [
+        {
+          kind: 'video',
+          label: 'intro.mp4',
+          mime_type: 'video/mp4',
+          metadata: {
+            url: 'https://cdn.example.com/intro.mp4',
+          },
+        },
+      ],
+    })
+
+    expect(content?.attachments?.[0]).toEqual(
+      expect.objectContaining({
+        kind: 'video',
+        label: 'intro.mp4',
+        mime_type: 'video/mp4',
+      }),
+    )
+  })
+
+  it('decodes audio and link attachments in text message payloads', () => {
+    const content = decodeTextMessageContent({
+      text: 'Listen and open',
+      attachments: [
+        {
+          kind: 'audio',
+          label: 'clip.mp3',
+          mime_type: 'audio/mpeg',
+          metadata: {
+            url: 'https://cdn.example.com/clip.mp3',
+          },
+        },
+        {
+          kind: 'link',
+          label: 'notes',
+          metadata: {
+            href: 'https://example.com/notes',
+          },
+        },
+      ],
+    })
+
+    expect(content?.attachments?.[0]).toEqual(
+      expect.objectContaining({
+        kind: 'audio',
+        label: 'clip.mp3',
+        mime_type: 'audio/mpeg',
+      }),
+    )
+    expect(content?.attachments?.[1]).toEqual(
+      expect.objectContaining({
+        kind: 'link',
+        label: 'notes',
+      }),
+    )
+  })
+
+  it('decodes markdown attachments in text message payloads', () => {
+    const content = decodeTextMessageContent({
+      text: 'Read this',
+      attachments: [
+        {
+          kind: 'markdown',
+          label: 'spec.md',
+          metadata: {
+            markdown:
+              '# Heading\n\n```js\nconsole.log(1)\n```',
+          },
+        },
+      ],
+    })
+
+    expect(content?.attachments?.[0]).toEqual(
+      expect.objectContaining({
+        kind: 'markdown',
+        label: 'spec.md',
+      }),
+    )
   })
 
   it('decodes websocket context update events', () => {

@@ -1,7 +1,16 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MessageRenderer } from './MessageRenderer'
 import type { MessageData } from '../../types'
+
+vi.mock('video.js', () => ({
+  default: vi.fn((_element, _options, ready) => {
+    ready?.()
+    return {
+      dispose: vi.fn(),
+    }
+  }),
+}))
 
 describe('MessageRenderer', () => {
   it('renders text message content', () => {
@@ -158,7 +167,7 @@ describe('MessageRenderer', () => {
     expect(screen.getByText('careful')).toBeInTheDocument()
   })
 
-  it('renders persisted text-message attachments as visible chips', () => {
+  it('renders file and image message attachments as cards', () => {
     const message: MessageData = {
       id: 'msg_attached',
       conversation_id: 'conv_1',
@@ -177,10 +186,313 @@ describe('MessageRenderer', () => {
       updated_at: null,
     }
 
-    render(<MessageRenderer message={message} />)
+    const { container } = render(<MessageRenderer message={message} />)
+    const messageScope = within(container)
 
     expect(screen.getByText('brief.txt · text/plain')).toBeInTheDocument()
-    expect(screen.getByText('diagram.png · image/png')).toBeInTheDocument()
+    expect(messageScope.getByAltText('diagram.png')).toBeInTheDocument()
+    expect(messageScope.getByRole('button', { name: 'Full View' })).toBeInTheDocument()
+  })
+
+  it('renders a video attachment as a portable video player when URL is present', () => {
+    const message: MessageData = {
+      id: 'msg_video_attachment',
+      conversation_id: 'conv_1',
+      role: 'user',
+      kind: 'text',
+      content: {
+        text: 'Check this clip',
+        attachments: [
+          {
+            kind: 'video',
+            label: 'briefing.mp4',
+            mime_type: 'video/mp4',
+            metadata: { url: 'https://example.com/briefing.mp4' },
+          },
+        ],
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByTestId('portable-video-player')).toBeInTheDocument()
+  })
+
+  it('falls back to an attachment chip when video attachment has no source', () => {
+    const message: MessageData = {
+      id: 'msg_video_attachment_fallback',
+      conversation_id: 'conv_1',
+      role: 'user',
+      kind: 'text',
+      content: {
+        text: 'Missing source',
+        attachments: [
+          {
+            kind: 'video',
+            label: 'missing',
+            mime_type: 'video/mp4',
+          },
+        ],
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('missing · video/mp4')).toBeInTheDocument()
+  })
+
+  it('renders an image attachment with full-view and popout actions', () => {
+    const message: MessageData = {
+      id: 'msg_image_attachment',
+      conversation_id: 'conv_1',
+      role: 'user',
+      kind: 'text',
+      content: {
+        text: 'See this image',
+        attachments: [
+          {
+            kind: 'image',
+            label: 'diagram.png',
+            mime_type: 'image/png',
+            metadata: { url: 'https://example.com/diagram.png' },
+          },
+        ],
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    const { container } = render(<MessageRenderer message={message} />)
+    const messageScope = within(container)
+
+    expect(messageScope.getByAltText('diagram.png')).toBeInTheDocument()
+    expect(messageScope.getByRole('link', { name: 'Popout' })).toHaveAttribute(
+      'href',
+      'https://example.com/diagram.png',
+    )
+    fireEvent.click(messageScope.getByRole('button', { name: 'Full View' }))
+    expect(messageScope.getByLabelText('Close media preview')).toBeInTheDocument()
+    fireEvent.click(messageScope.getByLabelText('Close media preview'))
+    expect(messageScope.queryByLabelText('Close media preview')).not.toBeInTheDocument()
+  })
+
+  it('renders an audio attachment with scrubber and transcript action', () => {
+    const message: MessageData = {
+      id: 'msg_audio_attachment',
+      conversation_id: 'conv_1',
+      role: 'user',
+      kind: 'text',
+      content: {
+        text: 'Listen',
+        attachments: [
+          {
+            kind: 'audio',
+            label: 'voice-note.m4a',
+            mime_type: 'audio/mp4',
+            metadata: { url: 'https://example.com/voice-note.m4a' },
+          },
+        ],
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByLabelText('Audio scrubber for voice-note.m4a')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /stt/i })).toBeInTheDocument()
+  })
+
+  it('renders markdown attachments with frontmatter and markdown body', () => {
+    const message: MessageData = {
+      id: 'msg_markdown_attachment',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'text',
+      content: {
+        text: 'Attached notes',
+        attachments: [
+          {
+            kind: 'markdown',
+            label: 'notes.md',
+            metadata: {
+              content:
+                '---\nlang: en\nstatus: draft\n---\n# Notes\n\n- alpha\n- beta',
+            },
+          },
+        ],
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('Markdown')).toBeInTheDocument()
+    expect(screen.getByText('Frontmatter')).toBeInTheDocument()
+    expect(screen.getByText('lang')).toBeInTheDocument()
+    expect(screen.getByText('draft')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Notes' })).toBeInTheDocument()
+  })
+
+  it('renders top-level object messages as a card with action chips', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    })
+
+    const message: MessageData = {
+      id: 'msg_top_level_object',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'thread',
+      content: { title: 'Design thread', source: 'https://example.com/thread/42', extra: { note: 'follow-up' } },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('Thread')).toBeInTheDocument()
+    expect(screen.getByText('Open source')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /copy payload/i }))
+    expect(writeText).toHaveBeenCalledWith(
+      JSON.stringify({ title: 'Design thread', source: 'https://example.com/thread/42', extra: { note: 'follow-up' } }, null, 2),
+    )
+  })
+
+  it('renders top-level image object messages as image cards', () => {
+    const message: MessageData = {
+      id: 'msg_top_level_image',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'thread',
+      content: {
+        kind: 'image',
+        label: 'diagram.png',
+        metadata: { url: 'https://example.com/diagram.png' },
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    };
+
+    const { container } = render(<MessageRenderer message={message} />);
+    expect(within(container).getByAltText('diagram.png')).toBeInTheDocument()
+    expect(screen.getByText('Image')).toBeInTheDocument()
+  })
+
+  it('renders top-level video object messages with media actions', () => {
+    const message: MessageData = {
+      id: 'msg_top_level_video',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'thread',
+      content: {
+        kind: 'video',
+        label: 'briefing.mp4',
+        metadata: { url: 'https://example.com/briefing.mp4', mime_type: 'video/mp4' },
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    };
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('briefing.mp4')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Full View' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Popout' })).toHaveAttribute('href', 'https://example.com/briefing.mp4')
+  })
+
+  it('renders top-level audio object messages with scrubber controls', () => {
+    const message: MessageData = {
+      id: 'msg_top_level_audio',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'audio',
+      content: {
+        kind: 'audio',
+        label: 'voice-note.m4a',
+        metadata: { url: 'https://example.com/voice-note.m4a' },
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    };
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByLabelText('Audio scrubber for voice-note.m4a')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /stt/i })).toBeInTheDocument()
+  })
+
+  it('renders top-level markdown objects with frontmatter and body preview', () => {
+    const message: MessageData = {
+      id: 'msg_top_level_markdown',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'markdown',
+      content: {
+        kind: 'markdown',
+        content: '---\nlang: en\nstatus: draft\n---\n# Heading\n\nPreview',
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    };
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('Frontmatter')).toBeInTheDocument()
+    expect(screen.getByText('lang')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Heading' })).toBeInTheDocument()
+  })
+
+  it('renders top-level link object messages with open actions', () => {
+    const message: MessageData = {
+      id: 'msg_top_level_link',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'link',
+      content: {
+        kind: 'link',
+        label: 'Project link',
+        source: 'https://example.com/projects/1',
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+      };
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('Web Link')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open link' })).toHaveAttribute(
+      'href',
+      'https://example.com/projects/1',
+    )
   })
 
   it('uses the tail-less chat bubble chrome for assistant messages', () => {

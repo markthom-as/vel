@@ -142,7 +142,16 @@ export interface AssistantEntryVoiceProvenanceData {
   queued_at?: string | null;
 }
 
-export type AssistantEntryAttachmentKindData = 'file' | 'image' | 'person' | 'event' | 'task';
+export type AssistantEntryAttachmentKindData =
+  | 'file'
+  | 'image'
+  | 'person'
+  | 'event'
+  | 'task'
+  | 'video'
+  | 'audio'
+  | 'link'
+  | 'markdown';
 
 export interface AssistantEntryAttachmentData {
   kind: AssistantEntryAttachmentKindData;
@@ -5954,7 +5963,19 @@ export function decodeTextMessageContent(value: JsonValue): TextMessageContent |
 export function decodeAssistantEntryAttachmentData(value: unknown): AssistantEntryAttachmentData {
   const record = expectRecord(value, 'assistant entry attachment');
   const kind = expectString(record.kind, 'assistant entry attachment.kind');
-  if (!['file', 'image', 'person', 'event', 'task'].includes(kind)) {
+  if (
+    ![
+      'file',
+      'image',
+      'person',
+      'event',
+      'task',
+      'video',
+      'audio',
+      'link',
+      'markdown',
+    ].includes(kind)
+  ) {
     throw new Error(`Unsupported assistant entry attachment kind: ${kind}`);
   }
   return {

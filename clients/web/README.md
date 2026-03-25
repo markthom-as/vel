@@ -9,6 +9,7 @@ The `Settings` runtime tab owns implementation-aware controls such as loop toggl
 ```bash
 # From repo root
 npm run dev:web
+npm run gallery:web
 
 # Or from this directory
 npm run dev

@@ -112,6 +112,22 @@ Use it for:
 
 It is important, but it is not the default triage surface.
 
+### Planned Rich Media Surface Enhancements
+
+Planned follow-up in the Threads surface:
+
+- Portable media cards for attachments (images, video, audio).
+  - Video cards are currently implemented with `video.js` (`^8.23.8`) and should migrate to the v10 API surface (`https://github.com/videojs/v10`) once a stable npm publish is adopted.
+- Full-view lightbox and popout support for image/video cards.
+- In-card markdown rendering for snippets, code snippets, and full markdown payloads with frontmatter.
+- Audio cards with scrubber controls and optional speech-to-text (STT) capture.
+- Link cards with direct open action.
+- Verified card rendering for top-level object message types.
+- Component-level regression tooling for these card types via a dedicated visual playground (Storybook or equivalent) to enable deterministic snapshots and interaction checks outside full-thread flows.
+- A lightweight dedicated gallery is now available as a stepping stone:
+  - `npm run gallery:web` (repo root) from `clients/web/gallery.html`
+  - use this for local verification of attachment/object/card render cases before thread-level integration assertions.
+
 ## Projects
 
 Projects are a supporting coordination surface, not the home screen.
