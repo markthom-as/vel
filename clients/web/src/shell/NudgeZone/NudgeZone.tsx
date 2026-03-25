@@ -248,7 +248,8 @@ function CalendarEventTable({
           return (
             <tr
               key={`${eventKey}-${event.start_ts}`}
-              className="border-t border-[var(--vel-color-border-subtle)]/80 align-top"
+              data-event-title={event.title}
+              className="border-t border-[var(--vel-color-border-subtle)]/80 align-top transition-[outline]"
               onDragOver={(dragEvent) => {
                 if (!draggedEventKey) {
                   return;
@@ -416,6 +417,7 @@ function CalendarSection({
 
   return (
     <section
+      id="sidebar-calendar"
       aria-label="Calendar"
       className="space-y-3 opacity-65 transition-opacity hover:opacity-100"
     >

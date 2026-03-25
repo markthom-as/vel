@@ -23,8 +23,13 @@ export const shellChrome = {
   app: 'flex min-h-screen flex-col overflow-visible bg-[radial-gradient(circle_at_top,_rgba(44,31,22,0.78)_0%,_var(--vel-color-bg)_36%)] text-[var(--vel-color-text)]',
   workspace:
     'mx-auto grid w-full max-w-[1540px] flex-1 gap-5 overflow-visible px-4 pb-36 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-start',
+  workspaceMobile:
+    'mx-auto flex w-full max-w-[1540px] flex-1 gap-5 overflow-visible px-4 pb-36 pt-4 sm:px-6',
+  workspaceTablet:
+    'mx-auto grid w-full max-w-[1540px] flex-1 gap-5 overflow-visible px-4 pb-36 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start',
   workspaceMain: 'flex min-h-0 min-w-0 flex-col overflow-visible',
-  workspaceAside: 'sticky top-[5.25rem] hidden overflow-visible self-start lg:block',
+  workspaceAside: 'sticky top-[5.25rem] overflow-visible self-start lg:block',
+  workspaceAsideHidden: 'hidden',
   workspaceAsideInner: 'overflow-visible',
   workspaceAsideScroll: 'overflow-visible px-8 py-3',
   topBand:

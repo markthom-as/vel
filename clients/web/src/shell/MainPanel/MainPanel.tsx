@@ -15,6 +15,7 @@ import type { SystemNavigationTarget } from '../../views/system';
 import { SystemView } from '../../views/system';
 import { ThreadView } from '../../views/threads';
 import type { IntegrationsData, SettingsData } from '../../types';
+import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 function assistantReplyText(response: AssistantEntryResponse): string | null {
   const content = response.assistant_message?.content;
@@ -103,6 +104,7 @@ function buildCoreSetupNudgeActions(
 }
 
 interface MainPanelProps {
+  surface?: ViewportSurface;
   conversationId: string | null;
   mainView: MainView;
   onNavigate: (view: MainView) => void;
@@ -124,6 +126,7 @@ export function MainPanel({
   onOpenThread,
   miniComposerOpen = false,
   onOpenMiniComposer,
+  surface = 'desktop',
   systemTarget,
   onOpenSystem,
   onVoiceUnavailable,
@@ -363,7 +366,7 @@ export function MainPanel({
   } else if (mainView === 'threads') {
     body = (
       <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
-        <ThreadView conversationId={conversationId} onSelectConversation={onOpenThread} />
+        <ThreadView conversationId={conversationId} onSelectConversation={onOpenThread} surface={surface} />
       </div>
     );
   } else if (mainView === 'system') {
@@ -414,7 +417,7 @@ export function MainPanel({
           floating
           hideHelperText
           onOpenMiniMode={onOpenMiniComposer}
-          floatingOffsetClassName="bottom-6 sm:bottom-8"
+          floatingOffsetClassName={surface === 'mobile' ? 'bottom-[calc(0.9rem+env(safe-area-inset-bottom))]' : 'bottom-6 sm:bottom-8'}
           disabled={!coreSetupStatus.ready}
           disabledReason={composerDisabledReason}
           onDisabledInteract={() => {

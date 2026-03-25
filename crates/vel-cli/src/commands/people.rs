@@ -34,8 +34,14 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
     }
     println!("id:               {}", p.id);
     println!("display_name:     {}", p.display_name);
-    println!("given_name:       {}", p.given_name.as_deref().unwrap_or("—"));
-    println!("family_name:      {}", p.family_name.as_deref().unwrap_or("—"));
+    println!(
+        "given_name:       {}",
+        p.given_name.as_deref().unwrap_or("—")
+    );
+    println!(
+        "family_name:      {}",
+        p.family_name.as_deref().unwrap_or("—")
+    );
     println!(
         "relationship:     {}",
         p.relationship_context.as_deref().unwrap_or("—")

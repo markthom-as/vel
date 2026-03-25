@@ -1671,7 +1671,10 @@ async fn main() -> anyhow::Result<()> {
         Command::Suggestions { state, json } => {
             commands::suggestions::run_list(&client, state.as_deref(), json).await
         }
-        Command::PlanningProfile { json, apply_proposal } => {
+        Command::PlanningProfile {
+            json,
+            apply_proposal,
+        } => {
             if let Some(id) = apply_proposal {
                 commands::planning_profile::run_apply_proposal(&client, &id, json).await
             } else {
@@ -1705,14 +1708,8 @@ async fn main() -> anyhow::Result<()> {
                 limit,
                 json,
             } => {
-                commands::signals::run_list(
-                    &client,
-                    signal_type.as_deref(),
-                    since_ts,
-                    limit,
-                    json,
-                )
-                .await
+                commands::signals::run_list(&client, signal_type.as_deref(), since_ts, limit, json)
+                    .await
             }
             SignalCommand::Create {
                 signal_type,

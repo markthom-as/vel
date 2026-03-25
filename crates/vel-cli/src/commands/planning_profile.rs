@@ -163,11 +163,7 @@ fn render_profile_text(
     lines.join("\n")
 }
 
-pub async fn run_apply_proposal(
-    client: &ApiClient,
-    id: &str,
-    json: bool,
-) -> anyhow::Result<()> {
+pub async fn run_apply_proposal(client: &ApiClient, id: &str, json: bool) -> anyhow::Result<()> {
     let resp = client
         .apply_planning_profile_proposal(id)
         .await

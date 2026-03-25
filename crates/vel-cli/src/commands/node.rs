@@ -165,10 +165,7 @@ fn format_scope_summary(scopes: &LinkScopeData) -> String {
 
 /// Handler for `vel node link revoke`.
 pub async fn run_link_revoke(client: &ApiClient, node_id: &str) -> anyhow::Result<()> {
-    client
-        .revoke_link(node_id)
-        .await
-        .context("revoke link")?;
+    client.revoke_link(node_id).await.context("revoke link")?;
     println!("Link for node {} revoked.", node_id);
     Ok(())
 }

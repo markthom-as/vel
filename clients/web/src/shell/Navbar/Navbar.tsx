@@ -11,15 +11,17 @@ import { NavbarBrand } from './NavbarBrand';
 import { NavbarNavLinks } from './NavbarNavLinks';
 import { formatNavbarDateTime } from './formatNavbarDateTime';
 import { findActiveEvent } from '../../views/now/nowModel';
+import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 import type { SystemNavigationTarget } from '../../views/system';
 export interface NavbarProps {
   activeView: MainView;
+  surface?: ViewportSurface;
   onSelectView: (view: MainView) => void;
   onDeepLink?: (target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => void;
 }
 
-export function Navbar({ activeView, onSelectView, onDeepLink }: NavbarProps) {
+export function Navbar({ activeView, surface = 'desktop', onSelectView, onDeepLink }: NavbarProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const { data } = useQuery(
     nowKey,
@@ -47,18 +49,18 @@ export function Navbar({ activeView, onSelectView, onDeepLink }: NavbarProps) {
   return (
     <header className={NAVBAR_HEADER_CLASSNAME} role="banner">
       <div className={NAVBAR_INNER_CLASSNAME}>
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="mr-3 sm:mr-7">
-            <NavbarBrand onSelectNow={() => onSelectView('now')} />
-          </div>
-          <div className="min-w-0">
-            <p className={`${uiFonts.display} text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)] truncate`}>
-              <span className="sm:hidden">{clientName}</span>
-              <span className="hidden sm:inline">{clientName} | {location}</span>
-            </p>
-            <p className={`hidden sm:block truncate text-xs text-[var(--vel-color-muted)] ${uiFonts.mono}`}>{dateTime}</p>
-          </div>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="mr-3 sm:mr-7">
+          <NavbarBrand onSelectNow={() => onSelectView('now')} />
         </div>
+        <div className="min-w-0">
+          <p className={`${uiFonts.display} text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)] truncate`}>
+            <span className={surface === 'mobile' ? 'hidden' : 'inline'}>{clientName}</span>
+            <span className="hidden sm:inline">{clientName} | {location}</span>
+          </p>
+          <p className={`hidden sm:block truncate text-xs text-[var(--vel-color-muted)] ${uiFonts.mono}`}>{dateTime}</p>
+        </div>
+      </div>
         <div className="mx-auto hidden min-w-0 items-center gap-2 lg:flex">
           {activeView !== 'now' ? (
             <ActionChipButton

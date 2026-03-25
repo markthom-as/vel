@@ -17,11 +17,11 @@ use vel_core::{
 };
 use vel_storage::{ArtifactInsert, ArtifactRecord, CaptureInsert, CommitmentInsert, SignalInsert};
 
-use crate::services::capability_resolver::{CapabilityResolver, DefaultCapabilityResolver};
+use crate::services::capability_resolver::resolve as resolve_capability;
 use crate::services::harness_llm::{HarnessLlm, HarnessLlmAdapter};
 use crate::services::mutation_guard;
 use crate::services::redaction::redact_json;
-use crate::services::tool_runner::{ShellToolRunner, ToolRunner};
+use crate::services::tool_runner::run_tool;
 use crate::{errors::AppError, state::AppState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -494,7 +494,7 @@ pub async fn record_dry_run_preview(
     } else {
         CapabilityTargetKind::ReadOnlyExecution
     };
-    let decision = DefaultCapabilityResolver.resolve(&CapabilityResolutionRequest {
+    let decision = resolve_capability(&CapabilityResolutionRequest {
         capability: format!(
             "{}:{}",
             command.operation,
@@ -612,7 +612,7 @@ pub async fn execute_command_with_options(
     } else {
         CapabilityTargetKind::ReadOnlyExecution
     };
-    let policy_decision = DefaultCapabilityResolver.resolve(&CapabilityResolutionRequest {
+    let policy_decision = resolve_capability(&CapabilityResolutionRequest {
         capability: format!(
             "{}:{}",
             command.operation,
@@ -725,7 +725,7 @@ pub async fn execute_command_with_options(
             )
             .await
             .map_err(|error| AppError::internal(format!("append tool start event: {error}")))?;
-        let tool_outcome = ShellToolRunner.run(&tool_request).await;
+        let tool_outcome = run_tool(&tool_request).await;
         state
             .storage
             .append_run_event_auto(

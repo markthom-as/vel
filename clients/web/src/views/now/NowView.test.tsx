@@ -514,9 +514,8 @@ describe('NowView', () => {
       expect(screen.getByRole('heading', { name: /Now/ })).toBeInTheDocument()
     })
     expect(screen.getByText(/Saturday, March 9, 2024.*MST/i)).toBeInTheDocument()
-    expect(
-      screen.getByText('No current event | NEXT_EVENT Design review'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('None')).toBeInTheDocument()
+    expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getByText('ACTIVE TASK (1)')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ACTIVE TASK (1)' })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
@@ -524,7 +523,7 @@ describe('NowView', () => {
     expect(screen.getByRole('button', { name: 'NEXT UP (2)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'NEXT UP (2)' })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
-    expect(screen.getByText('Design review')).toBeInTheDocument()
+    expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getByText('INBOX (1)')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'INBOX (1)' }).at(0)).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText('BACKLOG (1)')).toBeInTheDocument()

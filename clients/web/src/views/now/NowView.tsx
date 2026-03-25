@@ -18,6 +18,7 @@ import {
   findActiveEvent,
   findNextEvent,
   formatTime,
+  formatTimeUntil,
 } from './nowModel';
 import { NowNudgeStrip } from './components/NowNudgeStrip';
 
@@ -323,10 +324,7 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
 
   const upcomingEvents = data.schedule?.upcoming_events ?? [];
   const activeEvent = findActiveEvent(upcomingEvents, nowTs);
-  const currentEventLabel = activeEvent?.title ?? 'No current event';
   const nextEvent = data.schedule?.next_event ?? findNextEvent(upcomingEvents, nowTs);
-  const nextEventLabel = nextEvent?.title ?? 'No upcoming event';
-  const eventSummaryLabel = `${currentEventLabel} | NEXT_EVENT ${nextEventLabel}`;
   const stretchGoals = sectionTasks.later;
   const fallbackProgressBaseCount = Math.max(1, sectionTasks.active.length + sectionTasks.next.length + sectionTasks.completed.length);
   const progress = data.progress ?? {
@@ -656,6 +654,23 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
     }
   };
 
+  const scrollToSidebarEvent = (eventTitle: string) => {
+    const calendar = document.getElementById('sidebar-calendar');
+    if (!calendar) return;
+    calendar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const row = calendar.querySelector<HTMLElement>(`tr[data-event-title="${CSS.escape(eventTitle)}"]`);
+    if (row) {
+      row.style.outline = '1px solid var(--vel-color-accent-border)';
+      row.style.outlineOffset = '-1px';
+      row.style.borderRadius = '4px';
+      window.setTimeout(() => {
+        row.style.outline = '';
+        row.style.outlineOffset = '';
+        row.style.borderRadius = '';
+      }, 2200);
+    }
+  };
+
   return (
     <div className={surfaceShell.mainColumn}>
       <div className={surfaceShell.flowColumn}>
@@ -704,7 +719,33 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
                   <p className={`text-sm text-[var(--vel-color-muted)] ${uiFonts.mono}`}>{formatNowTimestamp(nowTs, data.timezone)}</p>
                   <p className="flex max-w-3xl items-center gap-2 text-sm leading-6 text-[var(--vel-color-muted)]">
                     <CalendarIcon size={14} className="shrink-0 text-[var(--vel-color-dim)]" />
-                    <span className="truncate">{eventSummaryLabel}</span>
+                    {activeEvent ? (
+                      <button
+                        type="button"
+                        onClick={() => scrollToSidebarEvent(activeEvent.title)}
+                        className="min-w-0 truncate transition hover:text-[var(--vel-color-text)]"
+                      >
+                        {activeEvent.title}
+                      </button>
+                    ) : (
+                      <span className="opacity-35">None</span>
+                    )}
+                    <span className="shrink-0 text-[var(--vel-color-dim)]">→</span>
+                    {nextEvent ? (
+                      <button
+                        type="button"
+                        onClick={() => scrollToSidebarEvent(nextEvent.title)}
+                        className="inline-flex min-w-0 items-center gap-1.5 truncate transition hover:text-[var(--vel-color-text)]"
+                      >
+                        <CalendarIcon size={12} className="shrink-0" />
+                        <span className="truncate">{nextEvent.title}</span>
+                        <span className={`shrink-0 text-xs opacity-60 ${uiFonts.mono}`}>
+                          {formatTimeUntil(nextEvent.start_ts, nowTs)}
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="opacity-35">None</span>
+                    )}
                   </p>
                   <div className="max-w-3xl space-y-1 pt-1">
                     <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">

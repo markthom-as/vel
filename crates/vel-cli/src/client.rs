@@ -16,11 +16,11 @@ use vel_api_types::{
     DailyLoopTurnRequestData, DoctorData, EndOfDayData, EvaluateResultData, ExecutionHandoffData,
     HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
     LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
-    NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData,
-    PersonRecordData, PlanningProfileProposalApplyResponseData, PlanningProfileResponseData,
-    ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
-    SignalCreateRequest, SignalData, SyncBootstrapData, SyncClusterStateData, SyncResultData,
-    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
+    NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData, PersonRecordData,
+    PlanningProfileProposalApplyResponseData, PlanningProfileResponseData, ProjectListResponseData,
+    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SignalCreateRequest,
+    SignalData, SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData,
+    TodayData, UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 

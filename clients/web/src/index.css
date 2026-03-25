@@ -137,6 +137,10 @@
     );
     --vel-brand-shimmer-size: 260% 260%;
     --vel-brand-shimmer-pos: 48% 52%;
+    --vel-safe-area-top: env(safe-area-inset-top);
+    --vel-safe-area-right: env(safe-area-inset-right);
+    --vel-safe-area-bottom: env(safe-area-inset-bottom);
+    --vel-safe-area-left: env(safe-area-inset-left);
   }
 
   body {

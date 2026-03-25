@@ -136,6 +136,17 @@ function deriveInferredActivity(data: NowData): { title: string; detail: string 
   return null;
 }
 
+export function formatTimeUntil(targetTs: number, nowTs: number): string {
+  const diffSeconds = targetTs - nowTs;
+  if (diffSeconds <= 0) return 'now';
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `in ${diffMinutes}m`;
+  const hours = Math.floor(diffMinutes / 60);
+  const mins = diffMinutes % 60;
+  if (hours < 24) return mins > 0 ? `in ${hours}h ${mins}m` : `in ${hours}h`;
+  return `in ${Math.floor(hours / 24)}d`;
+}
+
 export function formatTime(timestamp: number, timezone: string): string {
   return new Date(timestamp * 1000).toLocaleTimeString(undefined, {
     timeZone: timezone,

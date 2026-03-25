@@ -34,6 +34,7 @@ final class VelWatchStore: ObservableObject {
     @Published var scheduleDetail: String?
     @Published var scheduleProposalStatus: String?
     @Published var topActionTitle: String?
+    @Published var activeThreadID: String?
     @Published var behaviorHeadline: String?
     @Published var behaviorReason: String?
     @Published var lastActionStatus: String?
@@ -89,6 +90,7 @@ final class VelWatchStore: ObservableObject {
                 scheduleSummary = nil
                 scheduleDetail = nil
                 scheduleProposalStatus = nil
+                activeThreadID = nil
                 topActionTitle = nil
                 behaviorHeadline = nil
                 behaviorReason = nil
@@ -153,6 +155,38 @@ final class VelWatchStore: ObservableObject {
         } catch {
             offlineStore.enqueueCommitmentCreate(text: trimmed)
             lastActionStatus = "Task queued for sync."
+        }
+
+        pendingActionCount = offlineStore.pendingActionCount()
+        await refresh()
+    }
+
+    func submitThreadText(_ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        guard let threadID = resolveActiveThreadID(from: offlineStore.cachedNow()) else {
+            await createCapture(
+                text: trimmed,
+                type: "watch_thread_capture",
+                source: "apple_watch",
+            )
+            lastActionStatus = "No active thread found. Saved as watch note."
+            return
+        }
+
+        do {
+            _ = try await client.submitAssistantEntry(text: trimmed, conversationID: threadID)
+            lastActionStatus = "Saved to thread \(threadID)."
+        } catch {
+            offlineStore.enqueueCaptureCreate(
+                text: queuedCaptureText(
+                    text: "watch_thread_append:\nthread_id: \(threadID)\n\n\(trimmed)",
+                    type: "watch_thread_capture",
+                    source: "apple_watch",
+                ),
+            )
+            lastActionStatus = "Thread save failed; queued for review."
         }
 
         pendingActionCount = offlineStore.pendingActionCount()
@@ -224,9 +258,32 @@ final class VelWatchStore: ObservableObject {
         scheduleSummary = scheduleSummaryValue
         scheduleDetail = scheduleDetailValue
         scheduleProposalStatus = scheduleProposalStatusValue
+        activeThreadID = resolveActiveThreadID(from: now)
         topActionTitle = now?.action_items.first?.title
         behaviorHeadline = behavior?.headline
         behaviorReason = behavior?.reasons.first
+    }
+
+    private func resolveActiveThreadID(from now: NowData?) -> String? {
+        guard let now else { return nil }
+        if let nudgeThreadID = now.nudge_bars?.first(where: { normalizeThreadID($0.primary_thread_id) != nil })?.primary_thread_id {
+            return normalizeThreadID(nudgeThreadID)
+        }
+        if let taskThreadID = now.task_lane?.active?.primary_thread_id {
+            return normalizeThreadID(taskThreadID)
+        }
+        if let dockedThreadID = now.docked_input?.raw_capture_thread_id {
+            return normalizeThreadID(dockedThreadID)
+        }
+        if let contextThreadID = now.context_line?.thread_id {
+            return normalizeThreadID(contextThreadID)
+        }
+        return nil
+    }
+
+    private func normalizeThreadID(_ threadID: String?) -> String? {
+        let trimmed = threadID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed == nil || trimmed!.isEmpty ? nil : trimmed
     }
 }
 

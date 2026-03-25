@@ -3,6 +3,7 @@ import { AppShell } from './shell/AppShell';
 import { MainPanel } from './shell/MainPanel';
 import { Navbar } from './shell/Navbar';
 import { NudgeZone } from './shell/NudgeZone';
+import { useViewportSurface } from './core/hooks/useViewportSurface';
 import type { MainView } from './data/operatorSurfaces';
 import type { NowNudgeBarData } from './types';
 import type { SystemNavigationTarget } from './views/system';
@@ -30,6 +31,7 @@ function App() {
   const [highlightedNudge, setHighlightedNudge] = useState<{ id: string; nonce: number } | null>(null);
   const [miniChatOpen, setMiniChatOpen] = useState(false);
   const [miniChatThreadId, setMiniChatThreadId] = useState<string | null>(null);
+  const { surface: viewportSurface } = useViewportSurface();
 
   const pushLocalNudge = useCallback((nudge: NowNudgeBarData) => {
     setLocalNudges((current) => {
@@ -108,6 +110,7 @@ function App() {
       navigation={(
         <Navbar
           activeView={mainView}
+          surface={viewportSurface}
           onSelectView={setMainView}
           onDeepLink={deepLink}
         />
@@ -128,6 +131,7 @@ function App() {
       )}
       main={(
         <MainPanel
+          surface={viewportSurface}
           conversationId={selectedConversationId}
           mainView={mainView}
           onNavigate={setMainView}
@@ -149,6 +153,7 @@ function App() {
           systemTarget={systemTarget}
         />
       )}
+      surface={viewportSurface}
     />
   );
 }

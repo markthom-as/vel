@@ -23,11 +23,13 @@ import { SurfaceState } from '../../core/SurfaceState';
 import { uiFonts } from '../../core/Theme';
 import { SearchField } from '../../core/SearchField/SearchField';
 import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
+import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 interface ThreadViewProps {
   conversationId: string | null;
   onSelectConversation?: (conversationId: string) => void;
   miniMode?: boolean;
+  surface?: ViewportSurface;
   className?: string;
   onMiniChatClose?: () => void;
 }
@@ -76,6 +78,7 @@ export function ThreadView({
   conversationId,
   onSelectConversation,
   miniMode = false,
+  surface = 'desktop',
   className,
   onMiniChatClose,
 }: ThreadViewProps) {
@@ -88,15 +91,6 @@ export function ThreadView({
   const [miniThreadListCollapsed, setMiniThreadListCollapsed] = useState(false);
   const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
   const [togglingCallModeId, setTogglingCallModeId] = useState<string | null>(null);
-  const [isMobileView, setIsMobileView] = useState(
-    () => typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
-    const onChange = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
@@ -416,8 +410,9 @@ export function ThreadView({
   // On mobile full-screen, use the TUI view; sidebar uses explicit miniMode prop.
   // showInlineComposer is false on mobile (floating composer from MainPanel handles input).
   const showInlineComposer = miniMode;
+  const isMobileSurface = surface === 'mobile';
 
-  if (miniMode || isMobileView) {
+  if (miniMode || isMobileSurface) {
     const error = conversationsError ?? messagesError;
     if (conversationsLoading && miniThreadList.length === 0) {
       return <SurfaceState message="Loading threads…" layout="centered" />;
@@ -601,7 +596,10 @@ export function ThreadView({
     <>
       <div className="flex min-h-0 flex-1">
         <aside
-          className="hidden shrink-0 border-r border-[var(--vel-color-border)] lg:block w-full max-w-[20rem]"
+          className={cn(
+            'shrink-0 border-r border-[var(--vel-color-border)] w-full max-w-[20rem]',
+            surface === 'mobile' ? 'hidden' : 'md:block',
+          )}
         >
           <div className="sticky top-[5.25rem] flex min-h-[32rem] flex-col">
             <div className="flex items-center justify-between border-b border-[var(--vel-color-border)] px-3 py-3">

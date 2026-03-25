@@ -36,4 +36,34 @@ describe('AppShell', () => {
     expect(screen.getAllByTestId('app-shell-nudges-scroll').at(-1)?.className).not.toContain('overflow-y-auto')
     expect(screen.getAllByTestId('app-shell-nudges-scroll').at(-1)?.className).toContain('overflow-visible')
   })
+
+  it('hides nudge rail on mobile surface', () => {
+    render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        surface="mobile"
+      />,
+    )
+
+    expect(screen.queryByTestId('app-shell-nudges')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('app-shell-nudges-scroll')).not.toBeInTheDocument()
+    expect(screen.getByTestId('app-shell-workspace-mobile')).toBeInTheDocument()
+  })
+
+  it('shows nudge rail on tablet surface', () => {
+    render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        surface="tablet"
+      />,
+    )
+
+    expect(screen.getByTestId('app-shell-nudges')).toBeInTheDocument()
+    expect(screen.getByTestId('app-shell-nudges-scroll')).toBeInTheDocument()
+    expect(screen.getByTestId('app-shell-workspace-tablet')).toBeInTheDocument()
+  })
 })

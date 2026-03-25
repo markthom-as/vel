@@ -110,6 +110,47 @@ public struct HealthData: Codable, Sendable {
     public let version: String?
 }
 
+// MARK: - Assistant entry (web surface continuation)
+
+public typealias AssistantEntryResponse = APIEnvelope<AssistantEntryResponseData>
+
+public struct AssistantEntryRequestData: Encodable, Sendable {
+    public let text: String
+    public let conversation_id: String?
+
+    public init(text: String, conversationID: String? = nil) {
+        self.text = text
+        self.conversation_id = conversationID
+    }
+}
+
+public struct AssistantEntryResponseData: Codable, Sendable {
+    public let conversation: AssistantEntryConversationData?
+    public let route_target: String?
+    public let assistant_error: String?
+    public let assistant_error_retryable: Bool?
+
+    public init(
+        conversation: AssistantEntryConversationData? = nil,
+        route_target: String? = nil,
+        assistant_error: String? = nil,
+        assistant_error_retryable: Bool? = nil,
+    ) {
+        self.conversation = conversation
+        self.route_target = route_target
+        self.assistant_error = assistant_error
+        self.assistant_error_retryable = assistant_error_retryable
+    }
+}
+
+public struct AssistantEntryConversationData: Codable, Sendable {
+    public let id: String
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
 // MARK: - Apple quick loops
 
 public typealias AppleVoiceTurnResponse = APIEnvelope<AppleVoiceTurnResponseData>

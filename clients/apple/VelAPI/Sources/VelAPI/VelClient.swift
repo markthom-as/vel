@@ -289,6 +289,16 @@ public final class VelClient {
         return try await post("/v1/captures", body: body)
     }
 
+    // MARK: - Assistant
+
+    public func submitAssistantEntry(
+        text: String,
+        conversationID: String? = nil
+    ) async throws -> AssistantEntryResponseData {
+        let body = AssistantEntryRequestData(text: text, conversationID: conversationID)
+        return try await post("/api/assistant/entry", body: body)
+    }
+
     // MARK: - Local source sync
 
     public func syncLocalSource(_ source: VelLocalSourceKind) async throws -> SyncResultData {

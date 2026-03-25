@@ -6,6 +6,7 @@ struct ContentView: View {
     @EnvironmentObject var store: VelWatchStore
     @State private var captureText = ""
     @State private var commitmentText = ""
+    @State private var threadText = ""
 
     var body: some View {
         let linkedNodes = store.offlineStore.cachedLinkedNodes()
@@ -113,6 +114,29 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
+                if let activeThreadID = store.activeThreadID, !activeThreadID.isEmpty {
+                    Text("Active thread: \(activeThreadID)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } else {
+                    Text("No active thread available yet.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                TextField("Append to active thread", text: $threadText)
+
+                Button("Send to thread") {
+                    let trimmed = threadText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    Task {
+                        await store.submitThreadText(trimmed)
+                        await MainActor.run { threadText = "" }
+                    }
+                }
+                .disabled(threadText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Text("Use iPhone or Mac when the work stops being compact.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
