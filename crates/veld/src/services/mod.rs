@@ -29,7 +29,6 @@ pub mod context_runs;
 pub mod core_module_bootstrap;
 pub mod daily_loop;
 pub mod daily_loop_inputs;
-pub mod daily_loop_overdue;
 pub mod day_plan;
 pub mod doctor;
 pub mod evaluate;
