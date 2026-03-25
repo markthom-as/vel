@@ -2,7 +2,6 @@
 //!
 //! This module validates `vel_core::ResolvedCommand`, builds dry-run plans, and
 //! executes the low-risk command slice currently supported by the shared route.
-#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
@@ -1576,9 +1575,6 @@ async fn execute_create_planning_artifact(
 
     Ok(CommandExecutionResult {
         result: match result_kind {
-            CommandExecutionPayloadKind::ArtifactCreated => {
-                CommandExecutionPayload::ArtifactCreated(planning.artifact)
-            }
             CommandExecutionPayloadKind::SpecDraftCreated => {
                 CommandExecutionPayload::SpecDraftCreated(planning)
             }
@@ -1596,7 +1592,6 @@ async fn execute_create_planning_artifact(
 #[derive(Debug, Clone, Copy)]
 #[allow(clippy::enum_variant_names)]
 enum CommandExecutionPayloadKind {
-    ArtifactCreated,
     SpecDraftCreated,
     ExecutionPlanCreated,
     DelegationPlanCreated,

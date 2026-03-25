@@ -33,6 +33,7 @@ pub(crate) struct TodoistCompletedTaskSnapshot {
     pub id: String,
     pub content: String,
     pub labels: Vec<String>,
+    #[allow(dead_code)] // Retained from upstream payload for future project-aware reconciliation.
     pub project_id: Option<String>,
     pub due: Option<TodoistDue>,
     pub deadline: Option<TodoistDue>,

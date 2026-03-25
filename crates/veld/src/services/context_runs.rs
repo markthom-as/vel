@@ -493,10 +493,6 @@ where
     Ok((artifact_id, data))
 }
 
-async fn fail_run(state: &AppState, run_id: &RunId, error: &AppError) {
-    fail_run_at(state, run_id, error, SystemClock.now()).await;
-}
-
 async fn fail_run_at(state: &AppState, run_id: &RunId, error: &AppError, now: OffsetDateTime) {
     let finished_at = now.unix_timestamp();
     let error_json = serde_json::json!({ "message": error.to_string() });

@@ -104,19 +104,17 @@ pub async fn load_daily_loop_inputs(
 #[derive(Debug, Clone)]
 struct CalendarEventTitle {
     title: String,
-    start_ts: i64,
 }
 
 fn calendar_event_title(signal: SignalRecord) -> Option<CalendarEventTitle> {
     let payload = signal.payload_json;
     let title = payload.get("title")?.as_str()?.trim();
-    let start_ts = json_i64(&payload, "start")?;
+    let _ = json_i64(&payload, "start")?;
     if title.is_empty() {
         return None;
     }
     Some(CalendarEventTitle {
         title: title.to_string(),
-        start_ts,
     })
 }
 

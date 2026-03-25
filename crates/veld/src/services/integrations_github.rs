@@ -1,3 +1,5 @@
+#![allow(dead_code)] // GitHub writeback helpers are staged until supervised mutation entry points land.
+
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use uuid::Uuid;

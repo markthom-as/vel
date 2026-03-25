@@ -2803,6 +2803,7 @@ fn split_now_tasks(
     }
 }
 
+#[cfg(test)]
 fn compare_commitments(
     left: &Commitment,
     right: &Commitment,

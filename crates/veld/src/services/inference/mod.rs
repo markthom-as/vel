@@ -55,6 +55,7 @@ struct TemporalWindows {
     next_event_start_ts: Option<i64>,
 }
 
+#[allow(dead_code)] // Retained for upcoming context/explainability surfacing of message-derived state.
 struct MessageSummary {
     waiting_on_me_count: usize,
     waiting_on_others_count: usize,
@@ -112,6 +113,7 @@ struct SignalInputs<'a> {
     latest_assistant_message: Option<&'a vel_storage::SignalRecord>,
 }
 
+#[allow(dead_code)] // Carries intermediate summaries that will be surfaced by adjacent explain/context routes.
 struct DerivedContextState {
     message_summary: MessageSummary,
     inference_state: InferenceState,
@@ -491,6 +493,7 @@ async fn collect_inputs(
     })
 }
 
+#[allow(dead_code)] // Preserved as structured health provenance even while current outputs use coarser summaries.
 #[derive(Clone)]
 struct HealthSummary {
     timestamp: i64,
@@ -501,6 +504,7 @@ struct HealthSummary {
     device: Option<String>,
 }
 
+#[allow(dead_code)] // Preserved as structured git provenance even while current outputs use coarser summaries.
 #[derive(Clone)]
 struct GitActivitySummary {
     timestamp: i64,

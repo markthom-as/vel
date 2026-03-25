@@ -1,4 +1,5 @@
 //! Reminders adapter: ingest local reminders snapshots and emit replay-safe reminder_item signals.
+#![allow(dead_code)] // Reminder writeback remains staged while the operator path stays read-first.
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;

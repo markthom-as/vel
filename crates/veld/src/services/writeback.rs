@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Writeback orchestration is kept local until the supervised writeback lane is wired through.
+
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;

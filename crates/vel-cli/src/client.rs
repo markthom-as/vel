@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -15,7 +13,7 @@ use vel_api_types::{
     DailyLoopSessionData, DailyLoopStartRequestData, DailyLoopTurnActionData,
     DailyLoopTurnRequestData, DoctorData, EndOfDayData, EvaluateResultData, ExecutionHandoffData,
     HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
-    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
+    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, NowData,
     NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData, PersonRecordData,
     PlanningProfileProposalApplyResponseData, PlanningProfileResponseData, ProjectListResponseData,
     QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SignalCreateRequest,
@@ -195,39 +193,6 @@ pub struct ExecutionLaunchPreviewData {
     pub blockers: Vec<String>,
     pub handoff: ExecutionHandoffData,
     pub routing: ExecutionRoutingDecisionData,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct CreateExecutionHandoffRequestData {
-    pub project_id: String,
-    pub from_agent: String,
-    pub to_agent: String,
-    pub origin_kind: String,
-    pub objective: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub task_kind: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token_budget: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub review_gate: Option<String>,
-    #[serde(default)]
-    pub read_scopes: Vec<String>,
-    #[serde(default)]
-    pub write_scopes: Vec<String>,
-    #[serde(default)]
-    pub allowed_tools: Vec<String>,
-    #[serde(default)]
-    pub constraints: Vec<String>,
-    #[serde(default)]
-    pub inputs: serde_json::Value,
-    #[serde(default)]
-    pub expected_output_schema: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requested_by: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -672,10 +637,6 @@ impl ApiClient {
 
     pub async fn today(&self) -> anyhow::Result<ApiResponse<TodayData>> {
         self.get("/v1/context/today").await
-    }
-
-    pub async fn morning(&self) -> anyhow::Result<ApiResponse<MorningData>> {
-        self.get("/v1/context/morning").await
     }
 
     pub async fn start_daily_loop_session(
@@ -1218,13 +1179,6 @@ impl ApiClient {
             body,
         )
         .await
-    }
-
-    pub async fn create_execution_handoff(
-        &self,
-        body: &CreateExecutionHandoffRequestData,
-    ) -> anyhow::Result<ApiResponse<ExecutionHandoffRecordData>> {
-        self.post_json("/v1/execution/handoffs", body).await
     }
 
     pub async fn list_execution_handoffs(

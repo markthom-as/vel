@@ -1,4 +1,5 @@
 //! Notes adapter: ingest markdown/plaintext files into captures with replay-safe deterministic IDs.
+#![allow(dead_code)] // Scoped note writeback is staged but not yet reachable from active flows.
 
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};

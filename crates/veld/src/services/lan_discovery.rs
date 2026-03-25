@@ -37,10 +37,12 @@ struct DiscoveryResponse {
 
 #[derive(Debug, Clone)]
 pub(crate) struct LanDiscoveredPeer {
+    #[allow(dead_code)] // Preserved for peer diagnostics even though current flows consume cluster data only.
     pub source_addr: SocketAddr,
     pub cluster: ClusterBootstrapData,
 }
 
+#[allow(dead_code)] // Referenced from the daemon binary; lib-only checks would otherwise misclassify it.
 pub(crate) async fn run_responder(state: AppState) {
     let socket = match UdpSocket::bind(("0.0.0.0", DISCOVERY_PORT)).await {
         Ok(socket) => socket,
