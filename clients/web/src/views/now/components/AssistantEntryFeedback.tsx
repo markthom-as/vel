@@ -17,6 +17,7 @@ function renderInlineAssistantText(content: unknown): string {
 const intentLabels: Record<NowDockedInputIntentData | 'thread' | 'capture', string> = {
   task: 'Task',
   question: 'Question',
+  url: 'URL',
   note: 'Note',
   command: 'Command',
   continuation: 'Continuation',

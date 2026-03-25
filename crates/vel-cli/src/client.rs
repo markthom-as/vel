@@ -7,8 +7,12 @@ use vel_api_types::{
     AgentInspectData, ApiResponse, BackupManifestData, BackupStatusData, BranchSyncRequestData,
     CaptureCreateRequest, CaptureCreateResponse, ClusterBootstrapData, CommandExecuteRequest,
     CommandExecutionPlanData, CommandExecutionResultData, CommandPlanRequest,
-    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectInstanceData,
-    DailyLoopPhaseData, DailyLoopSessionData, DailyLoopStartRequestData, DailyLoopTurnActionData,
+    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectAttachData,
+    ConnectInstanceData, DailyLoopOverdueApplyRequestData, DailyLoopOverdueApplyResponseData,
+    DailyLoopOverdueConfirmRequestData, DailyLoopOverdueConfirmResponseData,
+    DailyLoopOverdueMenuRequestData, DailyLoopOverdueMenuResponseData,
+    DailyLoopOverdueUndoRequestData, DailyLoopOverdueUndoResponseData, DailyLoopPhaseData,
+    DailyLoopSessionData, DailyLoopStartRequestData, DailyLoopTurnActionData,
     DailyLoopTurnRequestData, DoctorData, EndOfDayData, EvaluateResultData, ExecutionHandoffData,
     HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
     LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
@@ -232,6 +236,83 @@ pub struct ReviewExecutionHandoffRequestData {
     pub decision_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LaunchExecutionHandoffRequestData {
+    pub runtime_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub command: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub writable_roots: Vec<String>,
+    #[serde(default)]
+    pub capability_allowlist: Vec<vel_core::CapabilityDescriptor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lease_seconds: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectHeartbeatResponseData {
+    pub id: String,
+    pub status: String,
+    pub lease_expires_at: i64,
+    pub trace_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectRunEventData {
+    pub id: i64,
+    pub run_id: String,
+    pub stream: String,
+    pub chunk: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectStdinWriteAckData {
+    pub run_id: String,
+    pub accepted_bytes: u32,
+    pub event_id: i64,
+    pub trace_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ConnectHeartbeatRequestData {
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ConnectTerminateRequestData {
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ConnectStdinRequestData {
+    pub input: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ConnectLaunchRequestData {
+    pub runtime_kind: String,
+    pub actor_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub command: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub writable_roots: Vec<String>,
+    #[serde(default)]
+    pub capability_allowlist: Vec<vel_core::CapabilityDescriptor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lease_seconds: Option<i64>,
+}
+
 #[derive(Clone)]
 pub struct ApiClient {
     http: Client,
@@ -414,12 +495,14 @@ impl ApiClient {
     pub async fn plan_command(
         &self,
         command: &ResolvedCommand,
+        persist_preview: bool,
     ) -> anyhow::Result<ApiResponse<CommandExecutionPlanData>> {
         let response = self
             .http
             .post(format!("{}{}", self.base_url, "/v1/command/plan"))
             .json(&CommandPlanRequest {
                 command: command.clone(),
+                persist_preview,
             })
             .send()
             .await
@@ -430,12 +513,20 @@ impl ApiClient {
     pub async fn execute_command(
         &self,
         command: &ResolvedCommand,
+        dry_run: bool,
+        approve: bool,
+        idempotency_key: Option<String>,
+        write_scope: Vec<String>,
     ) -> anyhow::Result<ApiResponse<CommandExecutionResultData>> {
         let response = self
             .http
             .post(format!("{}{}", self.base_url, "/v1/command/execute"))
             .json(&CommandExecuteRequest {
                 command: command.clone(),
+                dry_run,
+                approve,
+                idempotency_key,
+                write_scope,
             })
             .send()
             .await
@@ -582,6 +673,54 @@ impl ApiClient {
                 action,
                 response_text,
             },
+        )
+        .await
+    }
+
+    pub async fn daily_loop_overdue_menu(
+        &self,
+        session_id: &str,
+        request: &DailyLoopOverdueMenuRequestData,
+    ) -> anyhow::Result<ApiResponse<DailyLoopOverdueMenuResponseData>> {
+        self.post_json(
+            &format!("/v1/daily-loop/sessions/{session_id}/overdue/menu"),
+            request,
+        )
+        .await
+    }
+
+    pub async fn daily_loop_overdue_confirm(
+        &self,
+        session_id: &str,
+        request: &DailyLoopOverdueConfirmRequestData,
+    ) -> anyhow::Result<ApiResponse<DailyLoopOverdueConfirmResponseData>> {
+        self.post_json(
+            &format!("/v1/daily-loop/sessions/{session_id}/overdue/confirm"),
+            request,
+        )
+        .await
+    }
+
+    pub async fn daily_loop_overdue_apply(
+        &self,
+        session_id: &str,
+        request: &DailyLoopOverdueApplyRequestData,
+    ) -> anyhow::Result<ApiResponse<DailyLoopOverdueApplyResponseData>> {
+        self.post_json(
+            &format!("/v1/daily-loop/sessions/{session_id}/overdue/apply"),
+            request,
+        )
+        .await
+    }
+
+    pub async fn daily_loop_overdue_undo(
+        &self,
+        session_id: &str,
+        request: &DailyLoopOverdueUndoRequestData,
+    ) -> anyhow::Result<ApiResponse<DailyLoopOverdueUndoResponseData>> {
+        self.post_json(
+            &format!("/v1/daily-loop/sessions/{session_id}/overdue/undo"),
+            request,
         )
         .await
     }
@@ -740,6 +879,109 @@ impl ApiClient {
         id: &str,
     ) -> anyhow::Result<ApiResponse<ConnectInstanceData>> {
         self.get(&format!("/v1/connect/instances/{}", id)).await
+    }
+
+    pub async fn attach_connect_instance(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<ConnectAttachData>> {
+        self.get(&format!("/v1/connect/instances/{id}/attach"))
+            .await
+    }
+
+    pub async fn launch_connect_instance(
+        &self,
+        body: &ConnectLaunchRequestData,
+    ) -> anyhow::Result<ApiResponse<ConnectInstanceData>> {
+        self.post_json("/v1/connect/instances", body).await
+    }
+
+    pub async fn heartbeat_connect_instance(
+        &self,
+        id: &str,
+        body: &ConnectHeartbeatRequestData,
+    ) -> anyhow::Result<ApiResponse<ConnectHeartbeatResponseData>> {
+        self.post_json(&format!("/v1/connect/instances/{id}/heartbeat"), body)
+            .await
+    }
+
+    pub async fn terminate_connect_instance(
+        &self,
+        id: &str,
+        body: &ConnectTerminateRequestData,
+    ) -> anyhow::Result<ApiResponse<ConnectInstanceData>> {
+        self.post_json(&format!("/v1/connect/instances/{id}/terminate"), body)
+            .await
+    }
+
+    pub async fn write_connect_instance_stdin(
+        &self,
+        id: &str,
+        body: &ConnectStdinRequestData,
+    ) -> anyhow::Result<ApiResponse<ConnectStdinWriteAckData>> {
+        self.post_json(&format!("/v1/connect/instances/{id}/stdin"), body)
+            .await
+    }
+
+    pub async fn list_connect_instance_events(
+        &self,
+        id: &str,
+        after_id: Option<i64>,
+        limit: Option<u32>,
+    ) -> anyhow::Result<ApiResponse<Vec<ConnectRunEventData>>> {
+        let mut path = format!("/v1/connect/instances/{id}/events");
+        let mut query = Vec::new();
+        if let Some(after_id) = after_id {
+            query.push(format!("after_id={after_id}"));
+        }
+        if let Some(limit) = limit {
+            query.push(format!("limit={limit}"));
+        }
+        if !query.is_empty() {
+            path.push('?');
+            path.push_str(&query.join("&"));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn stream_connect_instance_events(
+        &self,
+        id: &str,
+        after_id: Option<i64>,
+        limit: Option<u32>,
+        poll_ms: Option<u64>,
+        max_events: Option<u32>,
+    ) -> anyhow::Result<reqwest::Response> {
+        let mut path = format!("/v1/connect/instances/{id}/events/stream");
+        let mut query = Vec::new();
+        if let Some(after_id) = after_id {
+            query.push(format!("after_id={after_id}"));
+        }
+        if let Some(limit) = limit {
+            query.push(format!("limit={limit}"));
+        }
+        if let Some(poll_ms) = poll_ms {
+            query.push(format!("poll_ms={poll_ms}"));
+        }
+        if let Some(max_events) = max_events {
+            query.push(format!("max_events={max_events}"));
+        }
+        if !query.is_empty() {
+            path.push('?');
+            path.push_str(&query.join("&"));
+        }
+        let response = self
+            .http
+            .get(format!("{}{}", self.base_url, path))
+            .send()
+            .await
+            .with_context(|| format!("sending GET {}", path))?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.context("reading stream error body")?;
+            bail!("request failed with status {}: {}", status, body);
+        }
+        Ok(response)
     }
 
     pub async fn sync_cluster_state(&self) -> anyhow::Result<ApiResponse<SyncClusterStateData>> {
@@ -985,6 +1227,15 @@ impl ApiClient {
         body: &ReviewExecutionHandoffRequestData,
     ) -> anyhow::Result<ApiResponse<ExecutionHandoffRecordData>> {
         self.post_json(&format!("/v1/execution/handoffs/{handoff_id}/reject"), body)
+            .await
+    }
+
+    pub async fn launch_execution_handoff(
+        &self,
+        handoff_id: &str,
+        body: &LaunchExecutionHandoffRequestData,
+    ) -> anyhow::Result<ApiResponse<ConnectInstanceData>> {
+        self.post_json(&format!("/v1/execution/handoffs/{handoff_id}/launch"), body)
             .await
     }
 

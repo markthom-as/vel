@@ -1952,10 +1952,20 @@ private struct SettingsTab: View {
     @State private var unpairingNodeID: String?
     @State private var confirmUnpairNodeID: String?
     @State private var linkedPermissionDrafts: [String: LinkScopeData] = [:]
+    @State private var connectInstanceID = ""
+    @State private var connectInput = ""
+    @State private var connectStatusMessage: String?
+    @State private var connectEvents: [ConnectRunEventData] = []
+    @State private var connectStreaming = false
+    @State private var connectStreamTask: Task<Void, Never>?
+    @State private var resolvingConnectInstance = false
+    @State private var connectRecentInstances: [ConnectInstanceData] = []
+    @State private var selectedConnectRecentID: String = ""
 
     var body: some View {
         List {
             runtimeSection
+            connectRuntimeSection
             endpointOverrideSection
             linkingSection
             linkedDevicesSection
@@ -1963,6 +1973,11 @@ private struct SettingsTab: View {
             docsSection
         }
         .velCompactListStyle()
+        .onDisappear {
+            connectStreamTask?.cancel()
+            connectStreamTask = nil
+            connectStreaming = false
+        }
         .onAppear {
             if selectedDiscoveredNodeID == nil {
                 selectedDiscoveredNodeID = store.discoveredWorkers.first?.node_id
@@ -2062,6 +2077,103 @@ private struct SettingsTab: View {
             Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var connectRuntimeSection: some View {
+        Section("Connect runtime console") {
+            Text("Use this only for supervised runtime debugging. Daily work should stay in `Now`, `Inbox`, and `Threads`.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            TextField("run_...", text: $connectInstanceID)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(.body, design: .monospaced))
+
+            if !connectRecentInstances.isEmpty {
+                Picker("Recent runtime", selection: Binding(
+                    get: {
+                        selectedConnectRecentID.isEmpty
+                            ? (connectRecentInstances.first?.id ?? "")
+                            : selectedConnectRecentID
+                    },
+                    set: { newValue in
+                        selectedConnectRecentID = newValue
+                        if !newValue.isEmpty {
+                            connectInstanceID = newValue
+                            if let instance = connectRecentInstances.first(where: { $0.id == newValue }) {
+                                connectStatusMessage = "Selected \(instance.display_name) (\(instance.id))."
+                            }
+                        }
+                    }
+                )) {
+                    ForEach(connectRecentInstances, id: \.id) { instance in
+                        Text("\(instance.display_name) • \(instance.id)")
+                            .tag(instance.id)
+                    }
+                }
+            }
+
+            Button(resolvingConnectInstance ? "Resolving..." : "Use latest running instance") {
+                Task { await useLatestRunningConnectInstance() }
+            }
+            .velActionButtonStyle()
+            .disabled(resolvingConnectInstance)
+
+            HStack {
+                Button(connectStreaming ? "Reattach" : "Attach + stream") {
+                    Task { await attachAndStartConnectStream() }
+                }
+                .velProminentActionButtonStyle()
+                .disabled(connectInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Button("Stop stream") {
+                    stopConnectStream()
+                }
+                .velActionButtonStyle()
+                .disabled(!connectStreaming)
+            }
+
+            HStack {
+                TextField("stdin input", text: $connectInput)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("Send") {
+                    Task { await sendConnectInput() }
+                }
+                .velActionButtonStyle()
+                .disabled(connectInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            Button("Terminate runtime") {
+                Task { await terminateConnectRuntime() }
+            }
+            .velActionButtonStyle()
+            .disabled(connectInstanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            if let connectStatusMessage, !connectStatusMessage.isEmpty {
+                Text(connectStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if connectEvents.isEmpty {
+                Text("No streamed events yet.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            } else {
+                ForEach(Array(connectEvents.suffix(40).enumerated()), id: \.element.id) { _, event in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("[\(event.id)] \(event.stream)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(event.chunk)
+                            .font(.caption2.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+            }
         }
     }
 
@@ -2403,6 +2515,158 @@ private struct SettingsTab: View {
         Toggle(isOn: value) {
             Text(label)
         }
+    }
+
+    private func attachAndStartConnectStream() async {
+        let runID = connectInstanceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !runID.isEmpty else {
+            connectStatusMessage = "Enter a connect runtime id first."
+            return
+        }
+        guard store.isReachable else {
+            connectStatusMessage = "Reconnect to Vel before attaching to a runtime."
+            return
+        }
+
+        do {
+            let attach = try await store.client.attachConnectInstance(id: runID)
+            connectStatusMessage = "Attached to \(attach.instance.display_name). Streaming from \(attach.latest_event_id.map(String.init) ?? "start")."
+            startConnectStream(runID: runID, afterID: attach.latest_event_id)
+        } catch {
+            connectStatusMessage = "Attach failed. \(error.localizedDescription)"
+        }
+    }
+
+    private func startConnectStream(runID: String, afterID: Int?) {
+        connectStreamTask?.cancel()
+        connectStreaming = true
+        connectStreamTask = Task {
+            do {
+                for try await event in store.client.streamConnectInstanceEvents(
+                    id: runID,
+                    afterID: afterID,
+                    limit: 200,
+                    pollMS: 500,
+                    maxEvents: nil
+                ) {
+                    await MainActor.run {
+                        connectEvents.append(event)
+                        if connectEvents.count > 500 {
+                            connectEvents.removeFirst(connectEvents.count - 500)
+                        }
+                    }
+                }
+                await MainActor.run {
+                    connectStreaming = false
+                    connectStatusMessage = "Stream ended."
+                    connectStreamTask = nil
+                }
+            } catch {
+                if Task.isCancelled {
+                    await MainActor.run {
+                        connectStreaming = false
+                        connectStatusMessage = "Stream stopped."
+                        connectStreamTask = nil
+                    }
+                    return
+                }
+                await MainActor.run {
+                    connectStreaming = false
+                    connectStatusMessage = "Stream failed. \(error.localizedDescription)"
+                    connectStreamTask = nil
+                }
+            }
+        }
+    }
+
+    private func stopConnectStream() {
+        connectStreamTask?.cancel()
+        connectStreamTask = nil
+        connectStreaming = false
+        connectStatusMessage = "Stream stopped."
+    }
+
+    private func sendConnectInput() async {
+        let runID = connectInstanceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let input = connectInput
+        guard !runID.isEmpty else {
+            connectStatusMessage = "Enter a connect runtime id first."
+            return
+        }
+        guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            connectStatusMessage = "Type input before sending."
+            return
+        }
+        guard store.isReachable else {
+            connectStatusMessage = "Reconnect to Vel before sending runtime input."
+            return
+        }
+
+        do {
+            let ack = try await store.client.writeConnectInstanceStdin(id: runID, input: input)
+            connectInput = ""
+            connectStatusMessage = "Sent \(ack.accepted_bytes) bytes."
+        } catch {
+            connectStatusMessage = "stdin send failed. \(error.localizedDescription)"
+        }
+    }
+
+    private func terminateConnectRuntime() async {
+        let runID = connectInstanceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !runID.isEmpty else {
+            connectStatusMessage = "Enter a connect runtime id first."
+            return
+        }
+        guard store.isReachable else {
+            connectStatusMessage = "Reconnect to Vel before terminating runtime."
+            return
+        }
+
+        do {
+            _ = try await store.client.terminateConnectInstance(id: runID)
+            stopConnectStream()
+            connectStatusMessage = "Runtime terminated."
+        } catch {
+            connectStatusMessage = "Terminate failed. \(error.localizedDescription)"
+        }
+    }
+
+    private func useLatestRunningConnectInstance() async {
+        guard store.isReachable else {
+            connectStatusMessage = "Reconnect to Vel before resolving runtime instances."
+            return
+        }
+
+        resolvingConnectInstance = true
+        defer { resolvingConnectInstance = false }
+
+        do {
+            let instances = try await store.client.listConnectInstances()
+            let running = sortedRunningConnectInstances(from: instances)
+            connectRecentInstances = Array(running.prefix(8))
+            guard let latest = running.first else {
+                connectStatusMessage = "No running connect instances found."
+                return
+            }
+            selectedConnectRecentID = latest.id
+            connectInstanceID = latest.id
+            connectStatusMessage = "Selected \(latest.display_name) (\(latest.id))."
+        } catch {
+            connectStatusMessage = "Could not resolve connect instances. \(error.localizedDescription)"
+        }
+    }
+
+    private func sortedRunningConnectInstances(from instances: [ConnectInstanceData]) -> [ConnectInstanceData] {
+        instances
+            .filter { $0.status == "ready" }
+            .sorted { (lhs, rhs) in
+                let left = lhs.last_seen_at ?? 0
+                let right = rhs.last_seen_at ?? 0
+                if left == right {
+                    return lhs.id > rhs.id
+                }
+                return left > right
+            }
     }
 }
 

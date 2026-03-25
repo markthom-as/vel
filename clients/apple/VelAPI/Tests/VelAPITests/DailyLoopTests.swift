@@ -60,7 +60,7 @@ final class DailyLoopTests: XCTestCase {
         XCTAssertEqual(morning.data?.phase, .morningOverview)
         XCTAssertEqual(morning.data?.start.surface, .appleVoice)
         XCTAssertEqual(morning.data?.continuity_summary, "Morning overview is waiting on question 1 of 3 with 1 captured signal(s).")
-        XCTAssertEqual(morning.data?.allowed_actions, [.accept, .defer, .choose, .close])
+        XCTAssertEqual(morning.data?.allowed_actions, [.accept, .`defer`, .choose, .close])
         XCTAssertEqual(morning.data?.state.snapshot, "Two meetings before noon.")
         XCTAssertEqual(morning.data?.current_prompt?.kind, .intentQuestion)
         XCTAssertEqual(morning.data?.outcome?.signals.first?.kind, "focus_intent")

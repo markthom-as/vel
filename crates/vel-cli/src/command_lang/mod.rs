@@ -25,11 +25,11 @@ pub async fn run(
 
     if dry_run {
         if json_output {
-            let service_plan = client
-                .plan_command(&resolution.resolved)
-                .await
-                .ok()
-                .and_then(|response| response.data);
+            let (service_plan, service_warnings) =
+                match client.plan_command(&resolution.resolved, true).await {
+                    Ok(response) => (response.data, response.warnings),
+                    Err(_) => (None, Vec::new()),
+                };
             println!(
                 "{}",
                 serde_json::to_string_pretty(&json!({
@@ -41,13 +41,17 @@ pub async fn run(
                     "completion_hints": completion::next_tokens(&input),
                     "registry": registry::default_registry(),
                     "service_plan": service_plan,
+                    "service_warnings": service_warnings,
                 }))?
             );
         } else {
             println!("{}", preview::render(&resolution));
             println!();
             println!("{}", explain::render_explanation(&resolution));
-            if let Ok(response) = client.plan_command(&resolution.resolved).await {
+            if let Ok(response) = client.plan_command(&resolution.resolved, true).await {
+                for warning in &response.warnings {
+                    println!("warning: {warning}");
+                }
                 if let Some(plan) = response.data {
                     println!();
                     println!("Service plan:");
@@ -96,7 +100,9 @@ async fn execute_via_service(
     command: &vel_core::ResolvedCommand,
     json_output: bool,
 ) -> anyhow::Result<()> {
-    let response = client.execute_command(command).await?;
+    let response = client
+        .execute_command(command, false, true, None, Vec::new())
+        .await?;
     let data = response
         .data
         .expect("command execute response missing data");

@@ -93,6 +93,10 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    Policy {
+        #[command(subcommand)]
+        command: PolicyCommand,
+    },
     Inspect {
         #[command(subcommand)]
         command: InspectCommand,
@@ -356,6 +360,25 @@ enum ExecCommand {
         #[arg(long)]
         json: bool,
     },
+    Launch {
+        handoff_id: String,
+        #[arg(long, default_value = "local_command")]
+        runtime_kind: String,
+        #[arg(long)]
+        actor_id: Option<String>,
+        #[arg(long)]
+        display_name: Option<String>,
+        #[arg(long)]
+        working_dir: Option<String>,
+        #[arg(long = "writable-root")]
+        writable_roots: Vec<String>,
+        #[arg(long)]
+        lease_seconds: Option<i64>,
+        #[arg(long)]
+        json: bool,
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        command: Vec<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -426,10 +449,84 @@ enum ConnectCommand {
         #[arg(long)]
         json: bool,
     },
+    Launch {
+        #[arg(long, default_value = "local_command")]
+        runtime_kind: String,
+        #[arg(long)]
+        actor_id: String,
+        #[arg(long)]
+        display_name: Option<String>,
+        #[arg(long)]
+        working_dir: Option<String>,
+        #[arg(long = "writable-root")]
+        writable_roots: Vec<String>,
+        #[arg(long)]
+        lease_seconds: Option<i64>,
+        #[arg(long)]
+        json: bool,
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        command: Vec<String>,
+    },
     Inspect {
         id: String,
         #[arg(long)]
         json: bool,
+    },
+    Attach {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Heartbeat {
+        id: String,
+        #[arg(long, default_value = "healthy")]
+        status: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Terminate {
+        id: String,
+        #[arg(long, default_value = "operator_requested")]
+        reason: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Stdin {
+        id: String,
+        input: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Events {
+        id: String,
+        #[arg(long)]
+        after_id: Option<i64>,
+        #[arg(long)]
+        limit: Option<u32>,
+        #[arg(long)]
+        json: bool,
+    },
+    Tail {
+        id: String,
+        #[arg(long)]
+        after_id: Option<i64>,
+        #[arg(long, default_value = "200")]
+        limit: u32,
+        #[arg(long, default_value = "500")]
+        poll_ms: u64,
+        #[arg(long)]
+        once: bool,
+    },
+    Stream {
+        id: String,
+        #[arg(long)]
+        after_id: Option<i64>,
+        #[arg(long, default_value = "200")]
+        limit: u32,
+        #[arg(long, default_value = "500")]
+        poll_ms: u64,
+        #[arg(long)]
+        max_events: Option<u32>,
     },
 }
 
@@ -465,6 +562,20 @@ enum AgentCommand {
 
 #[derive(Debug, Subcommand)]
 enum RunCommand {
+    /// Execute an intent-driven run path via command-language orchestration.
+    Intent {
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        input: Vec<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Preview an intent-driven run path without mutating side effects.
+    DryRun {
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        input: Vec<String>,
+        #[arg(long)]
+        json: bool,
+    },
     List {
         #[arg(long)]
         kind: Option<String>,
@@ -500,6 +611,16 @@ enum RunCommand {
 #[derive(Debug, Subcommand)]
 enum ConfigCommand {
     Show {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PolicyCommand {
+    Check {
+        #[arg(long)]
+        path: Option<String>,
         #[arg(long)]
         json: bool,
     },
@@ -578,6 +699,11 @@ enum ArtifactCommand {
     Latest {
         #[arg(long)]
         r#type: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Run {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -730,6 +856,12 @@ enum ExplainCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Explain a run from persisted events, artifacts, and status metadata.
+    Run {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Explain current drift/attention state
     Drift {
         #[arg(long)]
@@ -754,6 +886,49 @@ enum DailyLoopCommand {
     },
     Skip {
         session_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Overdue {
+        #[command(subcommand)]
+        command: DailyLoopOverdueCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum DailyLoopOverdueCommand {
+    Menu {
+        #[arg(long, default_value = "50")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    Confirm {
+        commitment_id: String,
+        #[arg(long)]
+        action: String,
+        #[arg(long)]
+        due_at: Option<String>,
+        #[arg(long)]
+        reason: Option<String>,
+        #[arg(long)]
+        use_vel_guess: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    Apply {
+        proposal_id: String,
+        #[arg(long)]
+        confirmation_token: String,
+        #[arg(long)]
+        idempotency_key: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Undo {
+        action_event_id: String,
+        #[arg(long)]
+        idempotency_key: Option<String>,
         #[arg(long)]
         json: bool,
     },
@@ -821,6 +996,11 @@ async fn main() -> anyhow::Result<()> {
         Command::Config { command } => match command {
             ConfigCommand::Show { json } => commands::config::run(&config, json),
         },
+        Command::Policy { command } => match command {
+            PolicyCommand::Check { path, json } => {
+                commands::policy::run_check(path.as_deref(), json)
+            }
+        },
         Command::Inspect { command } => match command {
             InspectCommand::Capture { id } => commands::inspect::run_capture(&client, &id).await,
             InspectCommand::Artifact { id } => commands::inspect::run_artifact(&client, &id).await,
@@ -829,6 +1009,12 @@ async fn main() -> anyhow::Result<()> {
             AgentCommand::Inspect { json } => commands::agent::run_inspect(&client, json).await,
         },
         Command::Run { command } => match command {
+            RunCommand::Intent { input, json } => {
+                command_lang::run(&client, input, false, json).await
+            }
+            RunCommand::DryRun { input, json } => {
+                command_lang::run(&client, input, true, json).await
+            }
             RunCommand::List {
                 kind,
                 today,
@@ -893,8 +1079,74 @@ async fn main() -> anyhow::Result<()> {
             ConnectCommand::Instances { json } => {
                 commands::connect::run_list_instances(&client, json).await
             }
+            ConnectCommand::Launch {
+                runtime_kind,
+                actor_id,
+                display_name,
+                command,
+                working_dir,
+                writable_roots,
+                lease_seconds,
+                json,
+            } => {
+                commands::connect::run_launch_instance(
+                    &client,
+                    crate::client::ConnectLaunchRequestData {
+                        runtime_kind,
+                        actor_id,
+                        display_name,
+                        command,
+                        working_dir,
+                        writable_roots,
+                        capability_allowlist: Vec::new(),
+                        lease_seconds,
+                    },
+                    json,
+                )
+                .await
+            }
             ConnectCommand::Inspect { id, json } => {
                 commands::connect::run_inspect_instance(&client, &id, json).await
+            }
+            ConnectCommand::Attach { id, json } => {
+                commands::connect::run_attach_instance(&client, &id, json).await
+            }
+            ConnectCommand::Heartbeat { id, status, json } => {
+                commands::connect::run_heartbeat_instance(&client, &id, &status, json).await
+            }
+            ConnectCommand::Terminate { id, reason, json } => {
+                commands::connect::run_terminate_instance(&client, &id, &reason, json).await
+            }
+            ConnectCommand::Stdin { id, input, json } => {
+                commands::connect::run_stdin_instance(&client, &id, &input, json).await
+            }
+            ConnectCommand::Events {
+                id,
+                after_id,
+                limit,
+                json,
+            } => commands::connect::run_events_instance(&client, &id, after_id, limit, json).await,
+            ConnectCommand::Tail {
+                id,
+                after_id,
+                limit,
+                poll_ms,
+                once,
+            } => {
+                commands::connect::run_tail_instance(&client, &id, after_id, limit, poll_ms, once)
+                    .await
+            }
+            ConnectCommand::Stream {
+                id,
+                after_id,
+                limit,
+                poll_ms,
+                max_events,
+            } => {
+                commands::connect::run_stream_instance(
+                    &client, &id, after_id, limit, poll_ms, max_events,
+                )
+                .await
             }
         },
         Command::Node { command } => match command {
@@ -952,6 +1204,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Artifact { command } => match command {
             ArtifactCommand::Latest { r#type: t, json } => {
                 commands::artifact::run_latest(&client, &t, json).await
+            }
+            ArtifactCommand::Run { id, json } => {
+                commands::artifact::run_for_run(&client, &id, json).await
             }
         },
         Command::Import { command } => match command {
@@ -1216,6 +1471,34 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await
             }
+            ExecCommand::Launch {
+                handoff_id,
+                runtime_kind,
+                actor_id,
+                display_name,
+                working_dir,
+                writable_roots,
+                lease_seconds,
+                json,
+                command,
+            } => {
+                commands::exec::run_launch_handoff(
+                    &client,
+                    &handoff_id,
+                    crate::client::LaunchExecutionHandoffRequestData {
+                        runtime_kind,
+                        actor_id,
+                        display_name,
+                        command,
+                        working_dir,
+                        writable_roots,
+                        capability_allowlist: Vec::new(),
+                        lease_seconds,
+                    },
+                    json,
+                )
+                .await
+            }
         },
         Command::Context { command } => match command {
             ContextCommand::Show { json } => commands::context::run_current(&client, json).await,
@@ -1232,6 +1515,70 @@ async fn main() -> anyhow::Result<()> {
             DailyLoopCommand::Skip { session_id, json } => {
                 commands::daily_loop::run_skip(&client, &session_id, json).await
             }
+            DailyLoopCommand::Overdue { command } => match command {
+                DailyLoopOverdueCommand::Menu { limit, json } => {
+                    commands::daily_loop::run_overdue_menu(&client, limit, json).await
+                }
+                DailyLoopOverdueCommand::Confirm {
+                    commitment_id,
+                    action,
+                    due_at,
+                    reason,
+                    use_vel_guess,
+                    json,
+                } => {
+                    let action = match action.as_str() {
+                        "close" => vel_api_types::DailyLoopOverdueActionData::Close,
+                        "reschedule" => vel_api_types::DailyLoopOverdueActionData::Reschedule,
+                        "back_to_inbox" => vel_api_types::DailyLoopOverdueActionData::BackToInbox,
+                        "tombstone" => vel_api_types::DailyLoopOverdueActionData::Tombstone,
+                        other => {
+                            return Err(anyhow::anyhow!(
+                                "unsupported overdue action '{}'; use close|reschedule|back_to_inbox|tombstone",
+                                other
+                            ))
+                        }
+                    };
+                    commands::daily_loop::run_overdue_confirm(
+                        &client,
+                        &commitment_id,
+                        action,
+                        due_at,
+                        reason,
+                        use_vel_guess,
+                        json,
+                    )
+                    .await
+                }
+                DailyLoopOverdueCommand::Apply {
+                    proposal_id,
+                    confirmation_token,
+                    idempotency_key,
+                    json,
+                } => {
+                    commands::daily_loop::run_overdue_apply(
+                        &client,
+                        &proposal_id,
+                        &confirmation_token,
+                        idempotency_key,
+                        json,
+                    )
+                    .await
+                }
+                DailyLoopOverdueCommand::Undo {
+                    action_event_id,
+                    idempotency_key,
+                    json,
+                } => {
+                    commands::daily_loop::run_overdue_undo(
+                        &client,
+                        &action_event_id,
+                        idempotency_key,
+                        json,
+                    )
+                    .await
+                }
+            },
         },
         Command::Explain { command } => match command {
             ExplainCommand::Nudge { id, json } => {
@@ -1240,6 +1587,9 @@ async fn main() -> anyhow::Result<()> {
             ExplainCommand::Context { json } => commands::explain::run_context(&client, json).await,
             ExplainCommand::Commitment { id, json } => {
                 commands::explain::run_commitment(&client, &id, json).await
+            }
+            ExplainCommand::Run { id, json } => {
+                commands::runs::run_inspect(&client, &id, json).await
             }
             ExplainCommand::Drift { json } => commands::explain::run_drift(&client, json).await,
             ExplainCommand::Command { input, json } => {
@@ -1460,6 +1810,20 @@ mod tests {
                 assert!(json);
             }
             _ => panic!("expected explain command subcommand"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_explain_run_command() {
+        let cli = Cli::try_parse_from(["vel", "explain", "run", "run_123", "--json"]).unwrap();
+        match cli.command {
+            Command::Explain {
+                command: ExplainCommand::Run { id, json },
+            } => {
+                assert_eq!(id, "run_123");
+                assert!(json);
+            }
+            _ => panic!("expected explain run command"),
         }
     }
 
@@ -1909,6 +2273,120 @@ mod tests {
                 assert!(blocked_reason.is_none());
             }
             _ => panic!("expected run status command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_policy_check_command() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "policy",
+            "check",
+            "--path",
+            "config/policies.yaml",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Policy {
+                command: PolicyCommand::Check { path, json },
+            } => {
+                assert_eq!(path.as_deref(), Some("config/policies.yaml"));
+                assert!(json);
+            }
+            _ => panic!("expected policy check command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_artifact_run_command() {
+        let cli = Cli::try_parse_from(["vel", "artifact", "run", "run_777", "--json"]).unwrap();
+        match cli.command {
+            Command::Artifact {
+                command: ArtifactCommand::Run { id, json },
+            } => {
+                assert_eq!(id, "run_777");
+                assert!(json);
+            }
+            _ => panic!("expected artifact run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_intent_and_dry_run_commands() {
+        let intent = Cli::try_parse_from([
+            "vel", "run", "intent", "--json", "should", "capture", "remember", "this",
+        ])
+        .expect("intent run command should parse");
+        match intent.command {
+            Command::Run {
+                command: RunCommand::Intent { input, json },
+            } => {
+                assert!(json);
+                assert_eq!(input, vec!["should", "capture", "remember", "this"]);
+            }
+            _ => panic!("expected run intent command"),
+        }
+
+        let dry = Cli::try_parse_from(["vel", "run", "dry-run", "should", "review", "today"])
+            .expect("dry-run command should parse");
+        match dry.command {
+            Command::Run {
+                command: RunCommand::DryRun { input, json },
+            } => {
+                assert!(!json);
+                assert_eq!(input, vec!["should", "review", "today"]);
+            }
+            _ => panic!("expected run dry-run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_daily_loop_overdue_commands() {
+        let menu =
+            Cli::try_parse_from(["vel", "daily-loop", "overdue", "menu", "--limit", "25"]).unwrap();
+        match menu.command {
+            Command::DailyLoop {
+                command:
+                    DailyLoopCommand::Overdue {
+                        command: DailyLoopOverdueCommand::Menu { limit, json },
+                    },
+            } => {
+                assert_eq!(limit, 25);
+                assert!(!json);
+            }
+            _ => panic!("expected daily-loop overdue menu command"),
+        }
+
+        let confirm = Cli::try_parse_from([
+            "vel",
+            "daily-loop",
+            "overdue",
+            "confirm",
+            "com_123",
+            "--action",
+            "close",
+            "--json",
+        ])
+        .unwrap();
+        match confirm.command {
+            Command::DailyLoop {
+                command:
+                    DailyLoopCommand::Overdue {
+                        command:
+                            DailyLoopOverdueCommand::Confirm {
+                                commitment_id,
+                                action,
+                                json,
+                                ..
+                            },
+                    },
+            } => {
+                assert_eq!(commitment_id, "com_123");
+                assert_eq!(action, "close");
+                assert!(json);
+            }
+            _ => panic!("expected daily-loop overdue confirm command"),
         }
     }
 

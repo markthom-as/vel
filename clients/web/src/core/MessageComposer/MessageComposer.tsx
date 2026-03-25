@@ -8,7 +8,17 @@ import {
   type AssistantEntryVoiceProvenanceData,
 } from '../../types';
 import { cn } from '../cn';
-import { ClipboardCheckIcon, CloseIcon, FileIcon, ImageIcon, MicIcon, PlusIcon, SendArrowIcon } from '../Icons';
+import {
+  ClipboardCheckIcon,
+  CloseIcon,
+  FileIcon,
+  ImageIcon,
+  MicIcon,
+  PlusIcon,
+  SendArrowIcon,
+  SyncIcon,
+  ThreadsIcon,
+} from '../Icons';
 import { uiTheme } from '../Theme';
 
 /** Browser STT session cap — pie + auto-stop use this as the full ring. */
@@ -101,7 +111,14 @@ interface MessageComposerProps {
   ) => void;
   onSendFailed?: (clientMessageId: string | undefined) => void;
   onVoiceUnavailable?: () => void;
+  onOpenMiniMode?: (conversationId: string | null) => void;
+  onCommand?: (command: string) => {
+    handled: boolean;
+    message?: string;
+    error?: boolean;
+  } | null;
   compact?: boolean;
+  compactTui?: boolean;
   hideHelperText?: boolean;
   floating?: boolean;
   floatingOffsetClassName?: string;
@@ -133,17 +150,22 @@ export function MessageComposer({
   onSent,
   onSendFailed,
   onVoiceUnavailable,
-  compact: _compact = false,
+  onOpenMiniMode,
+  onCommand,
+  compact = false,
+  compactTui = false,
   hideHelperText = false,
   floating = false,
   floatingOffsetClassName = 'bottom-5',
   disabled = false,
-  disabledReason: _disabledReason = null,
+  disabledReason = null,
   onDisabledInteract,
 }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [commandMessage, setCommandMessage] = useState<string | null>(null);
+  const [commandMessageError, setCommandMessageError] = useState(false);
   const [pendingVoice, setPendingVoice] = useState<AssistantEntryVoiceProvenanceData | null>(null);
   const pendingVoiceRef = useRef<AssistantEntryVoiceProvenanceData | null>(null);
   const voicePressActiveRef = useRef(false);
@@ -304,8 +326,50 @@ export function MessageComposer({
 
   const send = useCallback(async () => {
     const trimmed = mergedMessage.trim();
-    if (!trimmed || sending || disabled) return;
+    if (!trimmed || sending) return;
+    if (trimmed.startsWith('/') && onCommand) {
+      const commandResult = onCommand(trimmed);
+      if (!commandResult) {
+        setCommandMessage('Unknown command. Type /help for available commands.');
+        setCommandMessageError(true);
+        return;
+      }
+      if (commandResult.message) {
+        setCommandMessage(commandResult.message);
+        setCommandMessageError(Boolean(commandResult.error));
+      } else {
+        setCommandMessage(null);
+        setCommandMessageError(false);
+      }
+      if (commandResult.handled) {
+        setError(null);
+        setText('');
+        setQueuedAttachments([]);
+        setSelectedIntent(null);
+        pendingVoiceRef.current = null;
+        setPendingVoice(null);
+        return;
+      }
+      if (commandResult.error) {
+        setError(commandResult.message ?? 'Unknown command. Type /help for available commands.');
+      } else if (!commandResult.message) {
+        setError('Unknown command. Type /help for available commands.');
+      } else {
+        setError(null);
+      }
+      return;
+    }
+    if (disabled) {
+      setError(disabledReason ?? 'Cannot send message right now.');
+      return;
+    }
+    if (!conversationId && onCommand) {
+      setError(disabledReason ?? 'Select a thread before sending.');
+      return;
+    }
     setError(null);
+    setCommandMessage(null);
+    setCommandMessageError(false);
     setSending(true);
     const intent = selectedIntent ?? inferImplicitIntent(trimmed);
     const clientMessageId = onOptimisticSend?.(trimmed);
@@ -347,7 +411,18 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [mergedMessage, conversationId, sending, attachmentPayload, onOptimisticSend, onSent, onSendFailed, disabled, selectedIntent]);
+  }, [
+    mergedMessage,
+    conversationId,
+    sending,
+    attachmentPayload,
+    onOptimisticSend,
+    onSent,
+    onSendFailed,
+    disabled,
+    onCommand,
+    selectedIntent,
+  ]);
 
   const enqueueAttachments = useCallback((files: FileList | null, kind: AttachmentDraft['kind']) => {
     if (!files || files.length === 0) return;
@@ -491,8 +566,7 @@ export function MessageComposer({
     }
   };
 
-  const displayError = error ?? voiceError ?? null;
-  const showSendButton = !floating || sending || hasSendablePayload;
+  const showSendButton = compactTui ? false : !floating || sending || hasSendablePayload;
   const interactionDisabled = sending || disabled;
 
   const voiceHint = voiceSupported
@@ -531,6 +605,15 @@ export function MessageComposer({
     : pendingVoice
       ? 'Recorded'
       : null;
+  const compactTuiAgentStatus = sending
+    ? 'Agent thinking'
+    : isListening
+      ? 'Agent listening'
+      : pendingVoice
+        ? 'Voice draft captured'
+        : interactionDisabled
+          ? 'Agent offline'
+          : 'Agent live';
 
   const micButtonEl = floating ? (
       <div className={`flex items-center ${isListening ? 'gap-1' : ''}`}>
@@ -586,15 +669,19 @@ export function MessageComposer({
         aria-pressed={isListening}
         aria-label={micAriaLabel}
         title={micTitle}
-        className={`shrink-0 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-[#ff6b00]/35 disabled:pointer-events-none disabled:opacity-50 ${
+        className={cn(
+          compactTui
+            ? 'absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-none border-0 bg-transparent p-0 text-[9px] leading-none text-zinc-500 transition-colors focus:outline-none focus:ring-2 focus:ring-[#ff6b00]/35 disabled:pointer-events-none disabled:opacity-50'
+            : `shrink-0 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-[#ff6b00]/35 disabled:pointer-events-none disabled:opacity-50 ${
           isListening
             ? 'bg-red-900/40 border-red-600/60 text-red-200'
             : voiceSupported
               ? 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100'
               : 'bg-zinc-900/55 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
-        }`}
+            }`,
+        )}
       >
-        <MicIcon listening={isListening} />
+        <MicIcon listening={isListening} size={compactTui ? 10 : undefined} />
       </button>
     );
 
@@ -607,18 +694,24 @@ export function MessageComposer({
       className={
         floating
           ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 text-zinc-950 transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-40'
-          : `shrink-0 rounded-full bg-[#ff6b00] px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-[#ff8f40] disabled:pointer-events-none disabled:opacity-50 ${
+          : compactTui
+            ? `shrink-0 rounded border border-[#ff6b00]/55 bg-[#ff6b00]/85 px-2 py-1 text-[9px] font-medium text-zinc-950 hover:bg-[#ff8f40] disabled:pointer-events-none disabled:opacity-50 ${mergedMessage.trim() ? 'opacity-100' : 'opacity-0'}`
+            : `shrink-0 rounded-full bg-[#ff6b00] px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-[#ff8f40] disabled:pointer-events-none disabled:opacity-50 ${
               mergedMessage.trim() ? 'opacity-100' : 'opacity-0'
             }`
       }
       style={floating ? { backgroundColor: uiTheme.brandHex } : undefined}
     >
       {sending ? (
-        <span className="text-xs leading-none" aria-hidden>
+        <span className={cn('leading-none', compactTui ? 'text-[9px]' : 'text-xs')} aria-hidden>
           …
         </span>
       ) : (
-        <SendArrowIcon size={floating ? 14 : 16} strokeWidth={2.2} className={floating ? 'text-white' : undefined} />
+        <SendArrowIcon
+          size={floating ? 14 : compactTui ? 12 : 16}
+          strokeWidth={2.2}
+          className={floating ? 'text-white' : undefined}
+        />
       )}
     </button>
   ) : null;
@@ -700,22 +793,57 @@ export function MessageComposer({
     </div>
   ) : null;
 
+  const miniModeButtonEl = floating ? (
+    <button
+      type="button"
+      aria-label="Open mini composer terminal"
+      onClick={() => onOpenMiniMode?.(conversationId ?? null)}
+      disabled={disabled || interactionDisabled}
+      className="shrink-0 rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/90 px-2 py-1 text-xs uppercase tracking-[0.12em] text-[var(--vel-color-accent-soft)] transition hover:border-[var(--vel-color-accent-strong)] hover:text-[var(--vel-color-text)] disabled:pointer-events-none disabled:opacity-50"
+    >
+      <span className="inline-flex items-center gap-1">
+        <ThreadsIcon size={12} />
+        <span>~/.</span>
+      </span>
+    </button>
+  ) : null;
+
+  const containerClass = floating
+    ? `fixed inset-x-0 z-30 px-4 ${floatingOffsetClassName}`
+    : compactTui
+      ? 'shrink-0 w-full border-t border-[var(--vel-color-border)]/50 bg-[color:var(--vel-color-bg)] px-0 py-1 font-mono'
+      : compact
+      ? 'shrink-0 border-t border-zinc-800 px-1.5 py-1.5'
+      : 'shrink-0 border-t border-zinc-800 p-3';
+
+  const compactFieldClass = compact
+    ? compactTui
+      ? 'w-full resize-none rounded-none border-0 bg-[color:var(--vel-color-bg)] px-2 py-1 leading-5 text-[10px] font-mono text-[var(--vel-color-text)] placeholder-[var(--vel-color-muted)] transition-colors duration-150 focus:bg-[color:var(--vel-color-panel)]/85 focus:outline-none'
+      : 'w-full resize-none rounded-full border-0 bg-zinc-800/30 px-3 py-1 leading-4 text-[11px] placeholder-zinc-500 transition-colors duration-150 focus:bg-zinc-700/55 focus:outline-none'
+    : 'w-full resize-none rounded-full border-0 bg-zinc-800/30 px-4 py-2 text-zinc-100 placeholder-zinc-500 transition-colors duration-150 focus:bg-zinc-700/55 focus:outline-none';
+
   return (
-    <div className={`${floating ? `fixed inset-x-0 z-30 px-4 ${floatingOffsetClassName}` : 'shrink-0 border-t border-zinc-800 p-3'}`}>
-      {displayError && (
-        <p className="mx-auto mb-1.5 max-w-2xl text-xs text-red-400" role="alert">
-          {displayError}
+      <div className={containerClass}>
+      {(error ?? commandMessage) && (
+        <p
+          className={cn(
+            'mx-auto mb-1.5 max-w-2xl text-xs',
+            error || commandMessageError ? 'text-red-400' : 'text-[var(--vel-color-muted)]',
+          )}
+          role="alert"
+        >
+          {error ?? commandMessage}
         </p>
       )}
-      <div className={cn('relative mx-auto flex max-w-2xl gap-2', floating ? 'group w-full items-center' : 'items-end')}>
+      <div className={cn('relative mx-auto flex gap-2', compactTui ? 'w-full max-w-none items-center' : 'max-w-2xl items-end', floating ? 'group w-full items-center' : null)}>
         {disabled ? (
-          <button
-            type="button"
-            aria-label={_disabledReason ?? 'Composer disabled'}
-            className={cn(
-              'absolute inset-0 z-20 cursor-not-allowed rounded-full',
-              floating ? null : 'rounded-[1.75rem]',
-            )}
+            <button
+              type="button"
+              aria-label={disabledReason ?? 'Composer disabled'}
+          className={cn(
+            'absolute inset-0 z-20 cursor-not-allowed',
+            floating ? null : compactTui ? 'rounded-none' : 'rounded-[1.75rem]',
+        )}
             onClick={() => onDisabledInteract?.()}
           />
         ) : null}
@@ -763,7 +891,12 @@ export function MessageComposer({
             <textarea
               ref={textareaRef}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                setCommandMessage(null);
+                setCommandMessageError(false);
+                setError(null);
+              }}
               onKeyDown={handleKeyDown}
               placeholder="Ask, capture, or talk to Vel…"
               data-vel-composer-input="true"
@@ -809,6 +942,7 @@ export function MessageComposer({
               </span>
             ) : null}
             <div className="flex shrink-0 items-center gap-1">
+              {miniModeButtonEl}
               {micButtonEl}
               {sendButtonEl}
             </div>
@@ -817,32 +951,60 @@ export function MessageComposer({
         ) : (
           <>
             <div className={cn('flex min-w-0 flex-1 flex-col gap-1 transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)"
-                rows={1}
-                className="w-full resize-none rounded-full border-0 bg-zinc-800/30 px-4 py-2 text-zinc-100 placeholder-zinc-500 transition-colors duration-150 focus:bg-zinc-700/55 focus:outline-none"
-              disabled={interactionDisabled}
-                style={{ scrollbarWidth: 'none' }}
-              />
+              <div className={cn('relative', compactTui ? 'w-full' : 'w-full')}>
+                <textarea
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    setCommandMessage(null);
+                    setCommandMessageError(false);
+                    setError(null);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={compactTui ? 'Type a message…' : 'Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)'}
+                  rows={1}
+                  className={cn(compactFieldClass, compactTui ? 'pr-7' : null)}
+                  disabled={interactionDisabled}
+                  style={compactTui ? { scrollbarWidth: 'none', minHeight: '2rem' } : { scrollbarWidth: 'none' }}
+                />
+                {compactTui ? micButtonEl : null}
+              </div>
+              {compactTui ? <div className="h-px w-full bg-[var(--vel-color-border)]/28" aria-hidden /> : null}
+              {compactTui ? (
+                <div
+                  className="flex items-center gap-1.5 px-0.5 text-[8px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]/80"
+                  aria-live="polite"
+                >
+                  <SyncIcon
+                    size={8}
+                    className={cn(
+                      'shrink-0',
+                      sending
+                        ? 'animate-spin text-[var(--vel-color-accent-soft)]'
+                        : isListening
+                          ? 'animate-spin text-[var(--vel-color-muted)]'
+                          : 'text-[var(--vel-color-muted)]/55',
+                    )}
+                  />
+                  <span>{compactTuiAgentStatus}</span>
+                </div>
+              ) : null}
               {interimTranscript && !hideHelperText ? (
-                <p className="text-zinc-500 text-xs" aria-live="polite">
+                <p className={cn('text-zinc-500', compactTui ? 'text-[9px]' : compact ? 'text-[11px]' : 'text-xs')} aria-live="polite">
                   Listening locally… {interimTranscript}
                 </p>
               ) : null}
-              {!interimTranscript && !hideHelperText && !interactionDisabled ? (
-                <p className="text-zinc-500 text-xs" aria-live="polite">
+              {!compactTui && !interimTranscript && !hideHelperText && !interactionDisabled ? (
+                <p className={cn('text-zinc-500', compactTui ? 'text-[9px]' : compact ? 'text-[11px]' : 'text-xs')} aria-live="polite">
                   {voiceHint}
                 </p>
               ) : null}
             </div>
           </>
         )}
-        {!floating && micButtonEl}
-        {!floating && sendButtonEl}
+          {!floating && !compactTui && micButtonEl}
+          {!floating && !compactTui && sendButtonEl}
+        </div>
       </div>
-    </div>
   );
 }

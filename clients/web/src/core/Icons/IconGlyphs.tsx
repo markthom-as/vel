@@ -19,6 +19,7 @@ import {
   Layers,
   MessagesSquare,
   Mic,
+  Minus,
   Paperclip,
   Plus,
   RefreshCw,
@@ -134,6 +135,10 @@ export function ArchiveIcon({ size = defaults.size, strokeWidth = defaults.strok
 
 export function CloseIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <X aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function MinimizeIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Minus aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
 export function MicIcon(props: IconProps & { listening?: boolean }) {

@@ -29,7 +29,7 @@ export function NavbarNavLinks({ activeView, onSelectView, onDeepLink }: NavbarN
           key={item.view}
           type="button"
           onClick={() => onSelectView(item.view)}
-          className={`group inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-medium normal-case tracking-normal transition ${
+          className={`group inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-2 py-2 sm:px-3 text-xs font-medium normal-case tracking-normal transition ${
             activeView === item.view
               ? `border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] ${ACCENT}`
               : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]'
@@ -44,7 +44,7 @@ export function NavbarNavLinks({ activeView, onSelectView, onDeepLink }: NavbarN
           >
             {surfaceIcon(item.view)}
           </span>
-          <span className="leading-none">{item.label}</span>
+          <span className="hidden sm:inline leading-none">{item.label}</span>
         </button>
       ))}
       <ActionChipButton

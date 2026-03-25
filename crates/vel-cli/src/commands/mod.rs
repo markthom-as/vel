@@ -24,6 +24,7 @@ pub mod morning;
 pub mod node;
 pub mod nudges;
 pub mod planning_profile;
+pub mod policy;
 pub mod recent;
 pub mod review;
 pub mod risk;

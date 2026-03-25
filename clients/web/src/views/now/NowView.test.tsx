@@ -259,6 +259,7 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
     item: Record<string, unknown>,
     lane: 'active' | 'next_up' | 'inbox' | 'if_time_allows' | 'completed',
   ) => {
+    const id = typeof item.id === 'string' ? item.id : '';
     const dueAt = typeof item.due_at === 'string' ? item.due_at : null
     const deadline = typeof item.deadline === 'string' ? item.deadline : null
     const dueTs = dueAt ? Date.parse(dueAt) : Number.NaN
@@ -280,6 +281,7 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
                   : null
                 : null
     return {
+      id,
       ...item,
       title: item.title ?? item.text,
       description: item.description ?? null,
@@ -1164,46 +1166,42 @@ describe('NowView', () => {
       throw new Error(`Unmocked apiGet path: ${path}`)
     })
 
-    let resolvePatch: (() => void) | null = null
     vi.mocked(api.apiPatch).mockImplementation(
-      async () =>
-        await new Promise((resolve) => {
-          resolvePatch = () => {
-            currentNow = buildNowData({
-              task_lane: {
-                active: null,
-                pending: [
-                  {
-                    id: 'commit_todoist_1',
-                    task_kind: 'task',
-                    text: 'Reply to Dimitri',
-                    state: 'pending',
-                    project: 'Ops',
-                    primary_thread_id: null,
-                  },
-                ],
-                recent_completed: [
-                  {
-                    id: 'commit_local_1',
-                    task_kind: 'commitment',
-                    text: 'Write weekly review',
-                    state: 'done',
-                    project: null,
-                    primary_thread_id: null,
-                  },
-                ],
-                overflow_count: 0,
+      async () => {
+        currentNow = buildNowData({
+          task_lane: {
+            active: null,
+            pending: [
+              {
+                id: 'commit_todoist_1',
+                task_kind: 'task',
+                text: 'Reply to Dimitri',
+                state: 'pending',
+                project: 'Ops',
+                primary_thread_id: null,
               },
-              tasks: { todoist: [], other_open: [], next_commitment: null },
-            })
+            ],
+            recent_completed: [
+              {
+                id: 'commit_local_1',
+                task_kind: 'commitment',
+                text: 'Write weekly review',
+                state: 'done',
+                project: null,
+                primary_thread_id: null,
+              },
+            ],
+            overflow_count: 0,
+          },
+          tasks: { todoist: [], other_open: [], next_commitment: null },
+        })
 
-            resolve({
-              ok: true,
-              data: currentNow,
-              meta: { request_id: 'req_patch' },
-            } as never)
-          }
-        }),
+        return {
+          ok: true,
+          data: currentNow,
+          meta: { request_id: 'req_patch' },
+        }
+      },
     )
 
     render(<NowView />)
@@ -1221,8 +1219,6 @@ describe('NowView', () => {
         expect.any(Function),
       )
     })
-
-    resolvePatch?.()
 
     await waitFor(() => {
       expect(screen.getAllByText('COMPLETED (1)').length).toBeGreaterThan(0)

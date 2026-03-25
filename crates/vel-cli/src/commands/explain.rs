@@ -138,7 +138,7 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
     let completion_hints = command_lang::completion::next_tokens(&input);
     let intent_hints = command_lang::completion::intent_hints(&resolution);
     let daemon_plan = client
-        .plan_command(&resolution.resolved)
+        .plan_command(&resolution.resolved, false)
         .await
         .ok()
         .and_then(|response| response.data);

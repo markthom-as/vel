@@ -38,6 +38,173 @@ public final class VelClient {
         try await get("/v1/sync/bootstrap")
     }
 
+    // MARK: - Connect runtime
+
+    public func listConnectInstances() async throws -> [ConnectInstanceData] {
+        try await get("/v1/connect/instances")
+    }
+
+    public func getConnectInstance(id: String) async throws -> ConnectInstanceData {
+        try await get("/v1/connect/instances/\(id)")
+    }
+
+    public func attachConnectInstance(id: String) async throws -> ConnectAttachData {
+        try await get("/v1/connect/instances/\(id)/attach")
+    }
+
+    public func launchConnectInstance(_ request: ConnectLaunchRequestData) async throws -> ConnectInstanceData {
+        try await post("/v1/connect/instances", body: request)
+    }
+
+    public func heartbeatConnectInstance(
+        id: String,
+        status: String = "healthy"
+    ) async throws -> ConnectHeartbeatResponseData {
+        try await post(
+            "/v1/connect/instances/\(id)/heartbeat",
+            body: ConnectHeartbeatRequestData(status: status)
+        )
+    }
+
+    public func terminateConnectInstance(
+        id: String,
+        reason: String = "operator_requested"
+    ) async throws -> ConnectInstanceData {
+        try await post(
+            "/v1/connect/instances/\(id)/terminate",
+            body: ConnectTerminateRequestData(reason: reason)
+        )
+    }
+
+    public func writeConnectInstanceStdin(
+        id: String,
+        input: String
+    ) async throws -> ConnectStdinWriteAckData {
+        try await post(
+            "/v1/connect/instances/\(id)/stdin",
+            body: ConnectStdinRequestData(input: input)
+        )
+    }
+
+    public func listConnectInstanceEvents(
+        id: String,
+        afterID: Int? = nil,
+        limit: Int? = nil
+    ) async throws -> [ConnectRunEventData] {
+        var query: [String] = []
+        if let afterID {
+            query.append("after_id=\(afterID)")
+        }
+        if let limit {
+            query.append("limit=\(limit)")
+        }
+        let suffix = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
+        return try await get("/v1/connect/instances/\(id)/events\(suffix)")
+    }
+
+    public func streamConnectInstanceEvents(
+        id: String,
+        afterID: Int? = nil,
+        limit: Int? = nil,
+        pollMS: Int? = nil,
+        maxEvents: Int? = nil
+    ) -> AsyncThrowingStream<ConnectRunEventData, Error> {
+        var query: [String] = []
+        if let afterID {
+            query.append("after_id=\(afterID)")
+        }
+        if let limit {
+            query.append("limit=\(limit)")
+        }
+        if let pollMS {
+            query.append("poll_ms=\(pollMS)")
+        }
+        if let maxEvents {
+            query.append("max_events=\(maxEvents)")
+        }
+        let suffix = query.isEmpty ? "" : "?\(query.joined(separator: "&"))"
+        let path = "/v1/connect/instances/\(id)/events/stream\(suffix)"
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    #if canImport(FoundationNetworking)
+                    var cursor = afterID
+                    var emitted = 0
+                    let clampedPollMS = max(50, pollMS ?? 500)
+                    let sleepNanos = UInt64(clampedPollMS) * 1_000_000
+                    while !Task.isCancelled {
+                        let events = try await listConnectInstanceEvents(
+                            id: id,
+                            afterID: cursor,
+                            limit: max(1, limit ?? 200)
+                        )
+                        if events.isEmpty {
+                            try await Task.sleep(nanoseconds: sleepNanos)
+                            continue
+                        }
+                        for event in events {
+                            continuation.yield(event)
+                            cursor = event.id
+                            emitted += 1
+                            if let maxEvents, emitted >= maxEvents {
+                                continuation.finish()
+                                return
+                            }
+                        }
+                    }
+                    continuation.finish()
+                    #else
+                    let request = try makeRequest(
+                        path: path,
+                        method: "GET",
+                        body: nil,
+                        accept: "text/event-stream"
+                    )
+                    let (bytes, response) = try await session.bytes(for: request)
+                    guard let http = response as? HTTPURLResponse else {
+                        continuation.finish()
+                        return
+                    }
+                    guard (200..<300).contains(http.statusCode) else {
+                        throw VelClientError.http(statusCode: http.statusCode, message: "connect stream failed")
+                    }
+
+                    var parser = ConnectSSEParser()
+                    for try await line in bytes.lines {
+                        if Task.isCancelled {
+                            break
+                        }
+                        if let frame = parser.consume(line: line) {
+                            if frame.eventName == "connect_error" {
+                                throw VelClientError.apiError(frame.data)
+                            }
+                            if frame.eventName == "connect_event" || frame.eventName == nil {
+                                let data = Data(frame.data.utf8)
+                                let event = try JSONDecoder().decode(ConnectRunEventData.self, from: data)
+                                continuation.yield(event)
+                            }
+                        }
+                    }
+                    continuation.finish()
+                    #endif
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
+    public func launchExecutionHandoff(
+        handoffID: String,
+        request: LaunchExecutionHandoffRequestData
+    ) async throws -> ConnectInstanceData {
+        try await post("/v1/execution/handoffs/\(handoffID)/launch", body: request)
+    }
+
     // MARK: - Context
 
     public func currentContext() async throws -> CurrentContextData {
@@ -222,17 +389,7 @@ public final class VelClient {
     }
 
     private func request(path: String, method: String, body: Data?) async throws -> Data {
-        guard let url = URL(string: path, relativeTo: baseURL) else {
-            throw VelClientError.apiError("Invalid URL path: \(path)")
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        applyAuthHeaders(to: &request)
-        if method == "POST" || method == "PATCH" {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = body
-        }
+        let request = try makeRequest(path: path, method: method, body: body)
         let (data, response) = try await send(request)
         guard let http = response as? HTTPURLResponse else { return data }
         guard (200..<300).contains(http.statusCode) else {
@@ -240,6 +397,21 @@ public final class VelClient {
             throw VelClientError.http(statusCode: http.statusCode, message: message)
         }
         return data
+    }
+
+    private func makeRequest(path: String, method: String, body: Data?, accept: String = "application/json") throws -> URLRequest {
+        guard let url = URL(string: path, relativeTo: baseURL) else {
+            throw VelClientError.apiError("Invalid URL path: \(path)")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue(accept, forHTTPHeaderField: "Accept")
+        applyAuthHeaders(to: &request)
+        if method == "POST" || method == "PATCH" {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+        }
+        return request
     }
 
     private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
@@ -354,4 +526,45 @@ private struct CommitmentCreateBody: Encodable {
 
 private struct CommitmentPatchBody: Encodable {
     let status: String
+}
+
+struct ConnectSSEFrame: Equatable {
+    let eventName: String?
+    let data: String
+}
+
+struct ConnectSSEParser {
+    private var eventName: String?
+    private var dataLines: [String] = []
+
+    mutating func consume(line: String) -> ConnectSSEFrame? {
+        if line.isEmpty {
+            return flush()
+        }
+        if line.hasPrefix(":") {
+            return nil
+        }
+        if line.hasPrefix("event:") {
+            let value = String(line.dropFirst("event:".count))
+            eventName = value.trimmingCharacters(in: .whitespaces)
+            return nil
+        }
+        if line.hasPrefix("data:") {
+            let value = String(line.dropFirst("data:".count))
+            dataLines.append(value.trimmingCharacters(in: .whitespaces))
+            return nil
+        }
+        return nil
+    }
+
+    private mutating func flush() -> ConnectSSEFrame? {
+        guard !dataLines.isEmpty else {
+            eventName = nil
+            return nil
+        }
+        let frame = ConnectSSEFrame(eventName: eventName, data: dataLines.joined(separator: "\n"))
+        eventName = nil
+        dataLines.removeAll(keepingCapacity: true)
+        return frame
+    }
 }

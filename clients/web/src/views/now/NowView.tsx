@@ -663,12 +663,12 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
           <section className="flex flex-col gap-5">
             <div className="space-y-3">
               <div className="space-y-2">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
                   <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight text-[var(--vel-color-text)]">
                     <SparkIcon size={20} className="text-[var(--vel-color-accent-soft)]" />
                     <span>Now</span>
                   </h1>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     {sectionTasks.completed.length ? (
                       <FilterDenseTag tone="muted" className="border-emerald-700/35 bg-emerald-950/18 text-emerald-200">
                         <CheckCircleIcon size={11} />

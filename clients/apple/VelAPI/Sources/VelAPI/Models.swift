@@ -307,7 +307,7 @@ public enum DailyLoopTurnStateData: String, Codable, Sendable {
 
 public enum DailyLoopCommitmentActionData: String, Codable, Sendable {
     case accept
-    case defer
+    case `defer`
     case choose
     case close
 }
@@ -1371,4 +1371,112 @@ public enum VelLocalSourceKind: String, Codable, Sendable, CaseIterable {
     case reminders
     case notes
     case transcripts
+}
+
+// MARK: - Connect runtime
+
+public struct ConnectRuntimeCapabilityData: Codable, Sendable {
+    public let runtime_id: String
+    public let display_name: String
+    public let supports_launch: Bool
+    public let supports_interactive_followup: Bool
+    public let supports_native_open: Bool
+    public let supports_host_agent_control: Bool
+}
+
+public struct ConnectInstanceCapabilityManifestData: Codable, Sendable {
+    public let worker_classes: [String]
+    public let capabilities: [String]
+    public let launchable_runtimes: [ConnectRuntimeCapabilityData]
+    public let supports_agent_launch: Bool
+    public let supports_interactive_followup: Bool
+    public let supports_native_open: Bool
+    public let supports_host_agent_control: Bool
+}
+
+public struct ConnectInstanceData: Codable, Sendable {
+    public let id: String
+    public let node_id: String
+    public let display_name: String
+    public let connection_id: String?
+    public let status: String
+    public let reachability: String
+    public let sync_base_url: String?
+    public let sync_transport: String?
+    public let tailscale_base_url: String?
+    public let lan_base_url: String?
+    public let localhost_base_url: String?
+    public let worker_ids: [String]
+    public let worker_classes: [String]
+    public let last_seen_at: String?
+    public let manifest: ConnectInstanceCapabilityManifestData
+    public let metadata: JSONValue
+}
+
+public struct ConnectCapabilityDescriptorData: Codable, Sendable {
+    public let scope: String
+    public let resource: String?
+    public let action: String
+}
+
+public struct ConnectLaunchRequestData: Codable, Sendable {
+    public let runtime_kind: String
+    public let actor_id: String
+    public let display_name: String?
+    public let command: [String]
+    public let working_dir: String?
+    public let writable_roots: [String]
+    public let capability_allowlist: [ConnectCapabilityDescriptorData]
+    public let lease_seconds: Int?
+}
+
+public struct ConnectHeartbeatRequestData: Codable, Sendable {
+    public let status: String
+}
+
+public struct ConnectHeartbeatResponseData: Codable, Sendable {
+    public let id: String
+    public let status: String
+    public let lease_expires_at: Int
+    public let trace_id: String
+}
+
+public struct ConnectTerminateRequestData: Codable, Sendable {
+    public let reason: String
+}
+
+public struct ConnectStdinRequestData: Codable, Sendable {
+    public let input: String
+}
+
+public struct ConnectStdinWriteAckData: Codable, Sendable {
+    public let run_id: String
+    public let accepted_bytes: Int
+    public let event_id: Int
+    public let trace_id: String?
+}
+
+public struct ConnectRunEventData: Codable, Sendable {
+    public let id: Int
+    public let run_id: String
+    public let stream: String
+    public let chunk: String
+    public let created_at: Int
+}
+
+public struct ConnectAttachData: Codable, Sendable {
+    public let instance: ConnectInstanceData
+    public let latest_event_id: Int?
+    public let stream_path: String
+}
+
+public struct LaunchExecutionHandoffRequestData: Codable, Sendable {
+    public let runtime_kind: String
+    public let actor_id: String?
+    public let display_name: String?
+    public let command: [String]
+    public let working_dir: String?
+    public let writable_roots: [String]
+    public let capability_allowlist: [ConnectCapabilityDescriptorData]
+    public let lease_seconds: Int?
 }

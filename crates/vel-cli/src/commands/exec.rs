@@ -3,7 +3,8 @@ use anyhow::anyhow;
 use crate::client::{
     ApiClient, ExecutionArtifactPackData, ExecutionArtifactRequestData, ExecutionContextData,
     ExecutionContextSaveRequestData, ExecutionExportResultData, ExecutionHandoffRecordData,
-    ExecutionLaunchPreviewData, ReviewExecutionHandoffRequestData,
+    ExecutionLaunchPreviewData, LaunchExecutionHandoffRequestData,
+    ReviewExecutionHandoffRequestData,
 };
 
 pub async fn run_show_context(
@@ -203,6 +204,39 @@ pub async fn run_reject_handoff(
         .data
         .ok_or_else(|| anyhow!("execution handoff rejection missing data"))?;
     println!("{}", format_execution_handoff(&handoff));
+    Ok(())
+}
+
+pub async fn run_launch_handoff(
+    client: &ApiClient,
+    handoff_id: &str,
+    payload: LaunchExecutionHandoffRequestData,
+    json: bool,
+) -> anyhow::Result<()> {
+    let response = client
+        .launch_execution_handoff(handoff_id, &payload)
+        .await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&response)?);
+        return Ok(());
+    }
+
+    let launched = response
+        .data
+        .ok_or_else(|| anyhow!("execution handoff launch missing connect instance data"))?;
+    println!("connect_instance_id: {}", launched.id);
+    println!("display_name: {}", launched.display_name);
+    println!("status: {}", launched.status);
+    println!("reachability: {}", launched.reachability);
+    println!("node_id: {}", launched.node_id);
+    println!(
+        "trace_id: {}",
+        launched
+            .metadata
+            .get("trace_id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("—")
+    );
     Ok(())
 }
 

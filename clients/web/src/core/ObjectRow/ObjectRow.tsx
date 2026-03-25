@@ -73,18 +73,18 @@ export function ObjectRowTitleMetaBand({
   titleTruncate?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1">
+    <div className="flex min-w-0 flex-col gap-y-1.5 sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-2 sm:gap-y-1">
       <span
         className={cn(
           titleTruncate
             ? 'max-w-[min(100%,12rem)] shrink-0 truncate text-sm font-medium leading-tight tracking-tight'
-            : 'min-w-0 flex-1 whitespace-normal break-words text-sm font-medium leading-tight tracking-tight',
+            : 'min-w-0 sm:flex-1 whitespace-normal break-words text-sm font-medium leading-tight tracking-tight',
           titleClassName,
         )}
       >
         {title}
       </span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-1.5 gap-y-1">{meta}</div>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 sm:flex-1 sm:justify-end">{meta}</div>
     </div>
   );
 }

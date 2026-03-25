@@ -1504,6 +1504,7 @@ export interface NowEventData {
   title: string;
   start_ts: UnixSeconds;
   end_ts: UnixSeconds | null;
+  all_day: boolean;
   event_url: string | null;
   attachment_url: string | null;
   location: string | null;
@@ -3940,6 +3941,7 @@ export function decodeNowEventData(value: unknown): NowEventData {
     title: expectString(record.title, 'now event.title'),
     start_ts: expectUnixSeconds(record.start_ts, 'now event.start_ts'),
     end_ts: expectNullableUnixSeconds(record.end_ts, 'now event.end_ts'),
+    all_day: expectBoolean(record.all_day ?? false, 'now event.all_day'),
     event_url: expectNullableString(record.event_url ?? null, 'now event.event_url'),
     attachment_url: expectNullableString(record.attachment_url ?? null, 'now event.attachment_url'),
     location: expectNullableString(record.location, 'now event.location'),
@@ -4328,6 +4330,7 @@ function decodeNowDockedInputData(value: unknown): NowDockedInputData {
 
 export function decodeNowData(value: unknown): NowData {
   const record = expectRecord(value, 'now data');
+  const progress = expectRecord(record.progress ?? {}, 'now data.progress');
   const overview = expectRecord(record.overview, 'now data.overview');
   const summary = expectRecord(record.summary, 'now data.summary');
   const schedule = expectRecord(record.schedule, 'now data.schedule');
@@ -4362,21 +4365,21 @@ export function decodeNowData(value: unknown): NowData {
         : decodeNullable(record.task_lane, decodeNowTaskLaneData),
     next_up_items: decodeArray(record.next_up_items ?? [], decodeNowNextUpItemData),
     progress: {
-      base_count: expectNumber(record.progress?.base_count ?? 1, 'now data.progress.base_count'),
+      base_count: expectNumber(progress.base_count ?? 1, 'now data.progress.base_count'),
       completed_count: expectNumber(
-        record.progress?.completed_count ?? 0,
+        progress.completed_count ?? 0,
         'now data.progress.completed_count',
       ),
       backlog_count: expectNumber(
-        record.progress?.backlog_count ?? 0,
+        progress.backlog_count ?? 0,
         'now data.progress.backlog_count',
       ),
       completed_ratio: expectNumber(
-        record.progress?.completed_ratio ?? 0,
+        progress.completed_ratio ?? 0,
         'now data.progress.completed_ratio',
       ),
       backlog_ratio: expectNumber(
-        record.progress?.backlog_ratio ?? 0,
+        progress.backlog_ratio ?? 0,
         'now data.progress.backlog_ratio',
       ),
     },

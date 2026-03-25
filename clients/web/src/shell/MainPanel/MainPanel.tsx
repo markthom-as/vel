@@ -107,6 +107,8 @@ interface MainPanelProps {
   mainView: MainView;
   onNavigate: (view: MainView) => void;
   onOpenThread: (conversationId: string) => void;
+  miniComposerOpen?: boolean;
+  onOpenMiniComposer?: (conversationId: string | null) => void;
   systemTarget: SystemNavigationTarget;
   onOpenSystem: (target?: SystemNavigationTarget) => void;
   onVoiceUnavailable?: () => void;
@@ -120,6 +122,8 @@ export function MainPanel({
   mainView,
   onNavigate,
   onOpenThread,
+  miniComposerOpen = false,
+  onOpenMiniComposer,
   systemTarget,
   onOpenSystem,
   onVoiceUnavailable,
@@ -127,6 +131,7 @@ export function MainPanel({
   onClearNudge,
   shellOwnsNowNudges = false,
 }: MainPanelProps) {
+  void onOpenSystem;
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const settingsKey = useMemo(() => operatorQueryKeys.settings(), []);
@@ -403,89 +408,92 @@ export function MainPanel({
           </div>
         </div>
       ) : null}
-      <MessageComposer
-        compact
-        floating
-        hideHelperText
-        floatingOffsetClassName="bottom-6 sm:bottom-8"
-        disabled={!coreSetupStatus.ready}
-        disabledReason={composerDisabledReason}
-        onDisabledInteract={() => {
-          if (!coreSetupStatus.ready) {
+      {miniComposerOpen ? null : (
+        <MessageComposer
+          compact
+          floating
+          hideHelperText
+          onOpenMiniMode={onOpenMiniComposer}
+          floatingOffsetClassName="bottom-6 sm:bottom-8"
+          disabled={!coreSetupStatus.ready}
+          disabledReason={composerDisabledReason}
+          onDisabledInteract={() => {
+            if (!coreSetupStatus.ready) {
+              onRaiseNudge?.({
+                id: 'core_setup_required',
+                kind: 'needs_input',
+                title: coreSetupStatus.title,
+                summary: coreSetupNudgeSummary ?? coreSetupStatus.summary,
+                timestamp: Math.floor(Date.now() / 1000),
+                urgent: true,
+                primary_thread_id: null,
+                actions: coreSetupNudgeActions,
+              });
+            }
+          }}
+          onVoiceUnavailable={onVoiceUnavailable}
+          conversationId={mainView === 'threads' ? resolvedThreadId : undefined}
+          onOptimisticSend={
+            mainView === 'threads' && resolvedThreadId && threadMessagesKey
+              ? (text) => {
+                  const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                  const optimisticMessage: MessageData = {
+                    id: clientMessageId,
+                    conversation_id: resolvedThreadId,
+                    role: 'user',
+                    kind: 'text',
+                    content: { text },
+                    status: 'sending',
+                    importance: null,
+                    created_at: Math.floor(Date.now() / 1000),
+                    updated_at: null,
+                  };
+                  setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
+                    appendUniqueMessages(prev, [optimisticMessage]),
+                  );
+                  return clientMessageId;
+                }
+              : undefined
+          }
+          onSent={(clientMessageId, response, submitted) => {
+            if (mainView === 'threads' && threadMessagesKey && resolvedThreadId) {
+              setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
+                reconcileConfirmedSend(
+                  prev,
+                  clientMessageId,
+                  response.user_message,
+                  response.assistant_message ? [response.assistant_message] : [],
+                ),
+              );
+              invalidateQuery(conversationsKey, { refetch: true });
+              invalidateQuery(threadMessagesKey, { refetch: true });
+            }
+            void handleAssistantEntry(response, submitted);
+            invalidateQuery(nowKey, { refetch: true });
+          }}
+          onSendFailed={(clientMessageId) => {
+            if (mainView === 'threads' && threadMessagesKey && clientMessageId) {
+              setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
+                prev.filter((message) => message.id !== clientMessageId),
+              );
+            }
             onRaiseNudge?.({
-              id: 'core_setup_required',
-              kind: 'needs_input',
-              title: coreSetupStatus.title,
-              summary: coreSetupNudgeSummary ?? coreSetupStatus.summary,
+              id: `assistant_entry_failed_${Date.now()}`,
+              kind: 'trust_warning',
+              title: 'Assistant entry failed',
+              summary: 'Vel could not send this request. Review runtime state or try again.',
               timestamp: Math.floor(Date.now() / 1000),
               urgent: true,
               primary_thread_id: null,
-              actions: coreSetupNudgeActions,
+              actions: [{ kind: 'open_settings', label: 'Open system' }],
             });
-          }
-        }}
-        onVoiceUnavailable={onVoiceUnavailable}
-        conversationId={mainView === 'threads' ? resolvedThreadId : undefined}
-        onOptimisticSend={
-          mainView === 'threads' && resolvedThreadId && threadMessagesKey
-            ? (text) => {
-                const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                const optimisticMessage: MessageData = {
-                  id: clientMessageId,
-                  conversation_id: resolvedThreadId,
-                  role: 'user',
-                  kind: 'text',
-                  content: { text },
-                  status: 'sending',
-                  importance: null,
-                  created_at: Math.floor(Date.now() / 1000),
-                  updated_at: null,
-                };
-                setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
-                  appendUniqueMessages(prev, [optimisticMessage]),
-                );
-                return clientMessageId;
-              }
-            : undefined
-        }
-        onSent={(clientMessageId, response, submitted) => {
-          if (mainView === 'threads' && threadMessagesKey && resolvedThreadId) {
-            setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
-              reconcileConfirmedSend(
-                prev,
-                clientMessageId,
-                response.user_message,
-                response.assistant_message ? [response.assistant_message] : [],
-              ),
-            );
-            invalidateQuery(conversationsKey, { refetch: true });
-            invalidateQuery(threadMessagesKey, { refetch: true });
-          }
-          void handleAssistantEntry(response, submitted);
-          invalidateQuery(nowKey, { refetch: true });
-        }}
-        onSendFailed={(clientMessageId) => {
-          if (mainView === 'threads' && threadMessagesKey && clientMessageId) {
-            setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
-              prev.filter((message) => message.id !== clientMessageId),
-            );
-          }
-          onRaiseNudge?.({
-            id: `assistant_entry_failed_${Date.now()}`,
-            kind: 'trust_warning',
-            title: 'Assistant entry failed',
-            summary: 'Vel could not send this request. Review runtime state or try again.',
-            timestamp: Math.floor(Date.now() / 1000),
-            urgent: true,
-            primary_thread_id: null,
-            actions: [{ kind: 'open_settings', label: 'Open system' }],
-          });
-          setAssistantEntryMessage({
-            status: 'error',
-            message: 'Failed to send assistant entry.',
-          });
-        }}
-      />
+            setAssistantEntryMessage({
+              status: 'error',
+              message: 'Failed to send assistant entry.',
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

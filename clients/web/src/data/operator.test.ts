@@ -537,6 +537,11 @@ describe('buildCoreSetupStatus', () => {
           configured: true,
           connected: true,
           has_api_token: true,
+          write_capabilities: {
+            completion_status: true,
+            due_date: true,
+            tags: false,
+          },
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -585,6 +590,11 @@ function buildIntegrations(overrides: Partial<IntegrationsData> = {}): Integrati
       configured: false,
       connected: false,
       has_api_token: false,
+      write_capabilities: {
+        completion_status: true,
+        due_date: true,
+        tags: false,
+      },
       last_sync_at: null,
       last_sync_status: null,
       last_error: null,

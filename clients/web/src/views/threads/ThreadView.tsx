@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ConversationData, JsonValue, MessageData } from '../../types';
 import {
   chatQueryKeys,
@@ -8,6 +8,7 @@ import {
   updateConversationCallMode,
   updateConversationTitle,
 } from '../../data/chat';
+import { appendUniqueMessages, reconcileConfirmedSend } from '../../data/chat-state';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import { subscribeWsQuerySync } from '../../data/ws-sync';
 import { cn } from '../../core/cn';
@@ -21,10 +22,14 @@ import { useResolvedThreadConversationId } from './useResolvedThreadConversation
 import { SurfaceState } from '../../core/SurfaceState';
 import { uiFonts } from '../../core/Theme';
 import { SearchField } from '../../core/SearchField/SearchField';
+import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
 
 interface ThreadViewProps {
   conversationId: string | null;
   onSelectConversation?: (conversationId: string) => void;
+  miniMode?: boolean;
+  className?: string;
+  onMiniChatClose?: () => void;
 }
 
 function capabilityStateLabel(state: string): string {
@@ -67,15 +72,31 @@ function continuationContextRows(conversation: ConversationData): Array<{ label:
     }));
 }
 
-export function ThreadView({ conversationId, onSelectConversation }: ThreadViewProps) {
+export function ThreadView({
+  conversationId,
+  onSelectConversation,
+  miniMode = false,
+  className,
+  onMiniChatClose,
+}: ThreadViewProps) {
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const [threadFilter, setThreadFilter] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'unread' | 'needs_review' | 'active' | 'archived'>('all');
   const [draftTitle, setDraftTitle] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [savingTitle, setSavingTitle] = useState(false);
+  const [miniThreadListCollapsed, setMiniThreadListCollapsed] = useState(false);
   const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
   const [togglingCallModeId, setTogglingCallModeId] = useState<string | null>(null);
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const onChange = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
@@ -237,6 +258,303 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
       el.scrollTop = el.scrollHeight;
     }
   }, [messages]);
+
+  const miniThreadList = useMemo(
+    () => conversations
+      .filter((conversation) => !conversation.archived)
+      .sort((left, right) => right.updated_at - left.updated_at),
+    [conversations],
+  );
+  const miniThreadListCommandMatch = useCallback((conversation: ConversationData, query: string): boolean => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) {
+      return false;
+    }
+    const title = threadTitle(conversation).toLowerCase();
+    return (
+      conversation.id.toLowerCase() === needle
+      || conversation.id.toLowerCase().includes(needle)
+      || conversation.kind.toLowerCase().includes(needle)
+      || title.includes(needle)
+    );
+  }, []);
+  const activeMiniThreadIndex = useMemo(
+    () => miniThreadList.findIndex((conversation) => conversation.id === resolvedConversationId),
+    [miniThreadList, resolvedConversationId],
+  );
+
+  const resolveMiniThreadTarget = useCallback((query: string): string | null => {
+    const normalized = query.toLowerCase().trim();
+    if (!normalized) {
+      return null;
+    }
+    const numeric = Number(normalized);
+    if (Number.isInteger(numeric) && String(numeric) === normalized && numeric > 0 && numeric <= miniThreadList.length) {
+      return miniThreadList[numeric - 1]?.id ?? null;
+    }
+    const direct = miniThreadList.find(
+      (conversation) =>
+        conversation.id === query
+        || conversation.id.toLowerCase().startsWith(normalized),
+    );
+    if (direct) {
+      return direct.id;
+    }
+    return miniThreadList.find((conversation) => miniThreadListCommandMatch(conversation, normalized))?.id ?? null;
+  }, [miniThreadList, miniThreadListCommandMatch]);
+
+  const cycleMiniThreadIndex = useCallback((step: number): string | null => {
+    if (miniThreadList.length === 0) {
+      return null;
+    }
+    if (activeMiniThreadIndex === -1) {
+      return step >= 0 ? miniThreadList[0].id : miniThreadList[miniThreadList.length - 1].id;
+    }
+    const nextIndex = (activeMiniThreadIndex + step) % miniThreadList.length;
+    return miniThreadList[(nextIndex + miniThreadList.length) % miniThreadList.length].id;
+  }, [activeMiniThreadIndex, miniThreadList]);
+
+  const handleMiniChatCommand = useCallback((command: string) => {
+    const normalized = command.trim().slice(1).trim();
+    if (!normalized) {
+      return {
+        handled: false,
+        message: 'Available commands: /help, /ls, /list, /open <index|id|query>, /next, /prev',
+        error: false,
+      };
+    }
+    const [rawName, ...rawParts] = normalized.split(/\s+/);
+    const name = rawName.toLowerCase();
+    const arg = rawParts.join(' ').trim();
+    if (name === 'help' || name === 'h' || name === '?') {
+      return {
+        handled: true,
+        message: 'Mini CLI commands: /help, /ls, /list, /open <index|id|query>, /next, /prev, /thread <index|id|query>, /close',
+      };
+    }
+    if (name === 'list' || name === 'threads' || name === 'ls' || name === 'l') {
+      return {
+        handled: true,
+        message: `Threads: ${miniThreadList.length} available. Current: ${threadTitle(selectedConversation ?? null)}.`,
+      };
+    }
+    if (name === 'next' || name === 'n') {
+      const target = cycleMiniThreadIndex(1);
+      if (!target) {
+        return { handled: true, message: 'No threads available.', error: true };
+      }
+      if (!onSelectConversation) {
+        return { handled: true, message: 'Cannot switch threads in this context.', error: true };
+      }
+      onSelectConversation(target);
+      return { handled: true, message: 'Switched to next thread.' };
+    }
+    if (name === 'prev' || name === 'previous' || name === 'p') {
+      const target = cycleMiniThreadIndex(-1);
+      if (!target) {
+        return { handled: true, message: 'No threads available.', error: true };
+      }
+      if (!onSelectConversation) {
+        return { handled: true, message: 'Cannot switch threads in this context.', error: true };
+      }
+      onSelectConversation(target);
+      return { handled: true, message: 'Switched to previous thread.' };
+    }
+    if (name === 'open' || name === 'thread' || name === 'switch') {
+      if (!arg) {
+        return {
+          handled: false,
+          message: `Use /${name} <index|id|query> to open a thread by list number, conversation ID, or title search.`,
+          error: true,
+        };
+      }
+      const target = resolveMiniThreadTarget(arg);
+      if (!target) {
+        return {
+          handled: true,
+          message: `No thread matched "${arg}".`,
+          error: true,
+        };
+      }
+      if (!onSelectConversation) {
+        return {
+          handled: true,
+          message: 'Cannot switch threads in this context.',
+          error: true,
+        };
+      }
+      onSelectConversation(target);
+      return {
+        handled: true,
+        message: `Switched to ${threadTitle(conversations.find((conversation) => conversation.id === target) ?? null)}.`,
+      };
+    }
+    if (name === 'close') {
+      if (onMiniChatClose) {
+        onMiniChatClose();
+      }
+      return { handled: true, message: 'Mini chat closed.' };
+    }
+    const directTarget = resolveMiniThreadTarget(normalized);
+    if (directTarget) {
+      if (onSelectConversation) {
+        onSelectConversation(directTarget);
+        return {
+          handled: true,
+          message: `Switched to ${threadTitle(conversations.find((conversation) => conversation.id === directTarget) ?? null)}.`,
+        };
+      }
+      return { handled: true, message: 'Cannot switch threads in this context.', error: true };
+    }
+    return {
+      handled: false,
+      message: 'Unknown command. Type /help for available commands.',
+      error: true,
+    };
+  }, [conversations, onMiniChatClose, onSelectConversation, resolveMiniThreadTarget, selectedConversation, cycleMiniThreadIndex, miniThreadList.length]);
+
+  // On mobile full-screen, use the TUI view; sidebar uses explicit miniMode prop.
+  // showInlineComposer is false on mobile (floating composer from MainPanel handles input).
+  const showInlineComposer = miniMode;
+
+  if (miniMode || isMobileView) {
+    const error = conversationsError ?? messagesError;
+    if (conversationsLoading && miniThreadList.length === 0) {
+      return <SurfaceState message="Loading threads…" layout="centered" />;
+    }
+    if (conversationsError) {
+      return <SurfaceState message={conversationsError} layout="centered" tone="danger" />;
+    }
+
+      return (
+      <section className={cn('flex min-h-0 w-full flex-col font-mono', className)}>
+        <div className="border-b border-[var(--vel-color-border)]/50">
+          <button
+            type="button"
+            onClick={() => setMiniThreadListCollapsed((current) => !current)}
+            aria-expanded={!miniThreadListCollapsed}
+            className="flex w-full items-center justify-between px-1.5 py-1 text-left text-[8px] uppercase tracking-[0.08em] text-[var(--vel-color-muted)] transition hover:text-[var(--vel-color-text)]"
+          >
+            <span>Threads ({miniThreadList.length})</span>
+            <span className="text-[8px]">{miniThreadListCollapsed ? 'Show' : 'Hide'}</span>
+          </button>
+          {!miniThreadListCollapsed ? (
+            <div className="max-h-40 w-full overflow-y-auto overflow-x-hidden border-t border-[var(--vel-color-border)]/30">
+              {miniThreadList.length === 0 ? (
+                <p className="px-1.5 py-1 text-[9px] text-[var(--vel-color-muted)]">No threads available.</p>
+              ) : miniThreadList.map((conversation, index) => {
+                const isActive = conversation.id === resolvedConversationId;
+                const lastUpdated = conversation.last_message_at ?? conversation.updated_at;
+                return (
+                  <button
+                    type="button"
+                    key={conversation.id}
+                    onClick={() => onSelectConversation?.(conversation.id)}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-1 border-l border-r border-[var(--vel-color-border)]/25 px-1.5 py-0.5 text-left transition',
+                      index === 0 ? 'border-t border-[var(--vel-color-border)]/50' : null,
+                      isActive ? 'bg-[color:var(--vel-color-panel)]/35' : 'hover:bg-[color:var(--vel-color-panel)]/10',
+                    )}
+                  >
+                    <span className="min-w-0 truncate text-[9px] leading-snug text-[var(--vel-color-text)]">
+                      <span className="text-[8px] text-[var(--vel-color-muted)]">{index + 1}.</span> {threadTitle(conversation)}
+                    </span>
+                    <span className="shrink-0 text-[8px] uppercase tracking-[0.08em] text-[var(--vel-color-muted)]">
+                      {formatAbsoluteTimestamp(lastUpdated ?? conversation.updated_at)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-0 flex min-h-0 grow flex-col gap-0 overflow-hidden border-l border-r border-[var(--vel-color-border)]/25">
+          {messagesLoading ? (
+            <p className="px-1.5 py-1 text-[9px] text-[var(--vel-color-muted)]">Loading messages…</p>
+          ) : error ? (
+            <p className="px-1.5 py-1 text-[9px] text-red-400">{error}</p>
+          ) : resolvedConversationId ? (
+            messages.length === 0 ? (
+              <p className="px-1.5 py-1 text-[9px] text-[var(--vel-color-muted)]">No messages in this thread yet.</p>
+            ) : (
+              <div className={cn('min-h-0 flex-1 space-y-0.5 overflow-y-auto border-b border-[var(--vel-color-border)]/45 pr-0.5', !showInlineComposer && 'pb-24')}>
+                {messages.map((message) => (
+                  <MessageRenderer
+                    key={message.id}
+                    message={message}
+                    onShowWhy={setProvenanceMessageId}
+                    tuiMode
+                    compact
+                  />
+                ))}
+              </div>
+            )
+          ) : (
+            <p className="px-1.5 py-1 text-[9px] text-[var(--vel-color-muted)]">Select a thread to show messages.</p>
+          )}
+        </div>
+        {showInlineComposer ? <MessageComposer
+          compact
+          compactTui
+          hideHelperText
+          conversationId={resolvedConversationId}
+          disabled={false}
+          disabledReason={resolvedConversationId ? null : 'Select a thread before sending'}
+          onOptimisticSend={
+            resolvedConversationId
+              ? (text) => {
+                const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                const optimisticMessage: MessageData = {
+                  id: clientMessageId,
+                  conversation_id: resolvedConversationId,
+                  role: 'user',
+                  kind: 'text',
+                  content: { text },
+                  status: 'sending',
+                  importance: null,
+                  created_at: Math.floor(Date.now() / 1000),
+                  updated_at: null,
+                };
+                setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+                  appendUniqueMessages(prev, [optimisticMessage]),
+                );
+                return clientMessageId;
+              }
+              : undefined
+          }
+          onSent={(clientMessageId, response, _submitted: SubmittedAssistantEntryPayload) => {
+            setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+              reconcileConfirmedSend(
+                prev,
+                clientMessageId,
+                response.user_message,
+                response.assistant_message ? [response.assistant_message] : [],
+              ),
+            );
+            if (response.conversation.id !== resolvedConversationId) {
+              onSelectConversation?.(response.conversation.id);
+            }
+            invalidateQuery(conversationsKey, { refetch: true });
+            invalidateQuery(messagesKey, { refetch: true });
+          }}
+          onSendFailed={(clientMessageId) => {
+            if (resolvedConversationId && clientMessageId) {
+              setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+                prev.filter((message) => message.id !== clientMessageId),
+              );
+            }
+          }}
+          onCommand={handleMiniChatCommand}
+        /> : null}
+        {provenanceMessageId ? (
+          <ProvenanceDrawer
+            messageId={provenanceMessageId}
+            onClose={() => setProvenanceMessageId(null)}
+          />
+        ) : null}
+      </section>
+    );
+  }
 
   if (!resolvedConversationId) {
     if (conversationsLoading) {

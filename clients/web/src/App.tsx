@@ -28,6 +28,8 @@ function App() {
   const [systemTarget, setSystemTarget] = useState<SystemNavigationTarget>({});
   const [localNudges, setLocalNudges] = useState<NowNudgeBarData[]>([]);
   const [highlightedNudge, setHighlightedNudge] = useState<{ id: string; nonce: number } | null>(null);
+  const [miniChatOpen, setMiniChatOpen] = useState(false);
+  const [miniChatThreadId, setMiniChatThreadId] = useState<string | null>(null);
 
   const pushLocalNudge = useCallback((nudge: NowNudgeBarData) => {
     setLocalNudges((current) => {
@@ -87,6 +89,20 @@ function App() {
     });
   }, [localNudges, pushLocalNudge]);
 
+  const openMiniComposer = useCallback((conversationId: string | null) => {
+    setMiniChatOpen(true);
+    setMiniChatThreadId((current) => conversationId ?? current);
+  }, []);
+
+  const closeMiniComposer = useCallback(() => {
+    setMiniChatOpen(false);
+  }, []);
+
+  const setMiniComposerThread = useCallback((conversationId: string) => {
+    setMiniChatThreadId(conversationId);
+    setMiniChatOpen(true);
+  }, []);
+
   return (
     <AppShell
       navigation={(
@@ -103,6 +119,10 @@ function App() {
           highlightedNudgeId={highlightedNudge?.id ?? null}
           highlightedNudgeNonce={highlightedNudge?.nonce ?? null}
           onOpenThread={openConversationThread}
+          miniChatOpen={miniChatOpen}
+          miniChatThreadId={miniChatThreadId}
+          onMiniChatThreadSelect={setMiniComposerThread}
+          onMiniChatClose={closeMiniComposer}
           onOpenSystem={openSystem}
         />
       )}
@@ -113,6 +133,8 @@ function App() {
           onNavigate={setMainView}
           onOpenThread={openConversationThread}
           onOpenSystem={openSystem}
+          miniComposerOpen={miniChatOpen}
+          onOpenMiniComposer={openMiniComposer}
           onVoiceUnavailable={() => {
             raiseVoiceUnavailableNudge();
             openSystem({

@@ -8,14 +8,23 @@ import {
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import type { MainView } from '../../data/operatorSurfaces';
 import type { IntegrationsData, NowData, NowEventData, NowNudgeBarData } from '../../types';
-import { acknowledgeInboxItem, invalidateInboxQueries, snoozeInboxItem } from '../../data/chat';
+import {
+  acknowledgeInboxItem,
+  invalidateInboxQueries,
+  snoozeInboxItem,
+} from '../../data/chat';
 import { loadIntegrations, updateGoogleCalendarIntegration } from '../../data/operator';
 import {
   CalendarIcon,
   ClockIcon,
   FileIcon,
+  AttachmentIcon,
+  ChevronLeftIcon,
   OpenThreadIcon,
   PersonIcon,
+  ThreadsIcon,
+  CloseIcon,
+  MinimizeIcon,
   WarningIcon,
 } from '../../core/Icons';
 import { GoogleMeetBrandIcon, ZoomBrandIcon } from '../../core/Icons';
@@ -32,6 +41,7 @@ import { cn } from '../../core/cn';
 import { ActionChipButton } from '../../core/FilterToggleTag';
 import { FloatingPill } from '../../core/FloatingPill';
 import { SurfaceSpinner } from '../../core/SurfaceState';
+import { ThreadView } from '../../views/threads';
 
 interface NudgeZoneProps {
   activeView: MainView;
@@ -39,6 +49,10 @@ interface NudgeZoneProps {
   highlightedNudgeId?: string | null;
   highlightedNudgeNonce?: number | null;
   onOpenThread?: (conversationId: string) => void;
+  miniChatOpen?: boolean;
+  miniChatThreadId?: string | null;
+  onMiniChatThreadSelect?: (conversationId: string) => void;
+  onMiniChatClose?: () => void;
   onOpenSystem?: (target?: SystemNavigationTarget) => void;
 }
 
@@ -398,7 +412,6 @@ function CalendarSection({
     () => followingDayEvents.filter((event) => !event.calendar_id || visibleCalendarIds.has(event.calendar_id)),
     [followingDayEvents, visibleCalendarIds],
   );
-  const calendarDragMimeType = 'application/x-vel-calendar-event';
   const followingDayAnchorTs = visibleFollowingDayEvents[0]?.start_ts ?? (computedAt + (24 * 60 * 60));
 
   return (
@@ -513,6 +526,10 @@ export function NudgeZone({
   highlightedNudgeId = null,
   highlightedNudgeNonce = null,
   onOpenThread,
+  miniChatOpen = false,
+  miniChatThreadId,
+  onMiniChatThreadSelect,
+  onMiniChatClose,
   onOpenSystem,
 }: NudgeZoneProps) {
   const [expandedNudgeId, setExpandedNudgeId] = useState<string | null>(null);
@@ -536,7 +553,6 @@ export function NudgeZone({
       return response.ok ? response.data ?? null : null;
     },
   );
-
   const nudgeBars = [...extraNudges, ...(data?.nudge_bars ?? [])];
   const orderedNudges = nudgeBars
     .filter((bar, index) => nudgeBars.findIndex((item) => item.id === bar.id) === index)
@@ -655,7 +671,7 @@ export function NudgeZone({
   }
 
   return (
-    <aside id="nudges-section" aria-label="Nudges" className="flex flex-col gap-2 overflow-visible pl-6 pr-3">
+    <aside id="nudges-section" aria-label="Nudges" className="relative min-h-[calc(100vh-6rem)] flex flex-col gap-2 overflow-visible pl-6 pr-3">
       <div className="flex items-center justify-between gap-3 px-2">
         <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)]`}>
           <WarningIcon size={11} />
@@ -950,6 +966,55 @@ export function NudgeZone({
             onRescheduleEvent={moveCalendarEvent}
           />
         </div>
+      ) : null}
+      {miniChatOpen ? (
+        <section
+          aria-label="Mini chat panel"
+          className="absolute inset-x-0 bottom-2 z-40 flex max-h-[calc(100%-1rem)] w-full flex-col overflow-hidden border-b-[7px] border-b-[#2a160c] bg-[color:var(--vel-color-bg)]/95 py-1 font-mono ring-1 ring-[var(--vel-color-border)]/85 shadow-[0_2px_8px_rgba(0,0,0,0.26)]"
+        >
+          <div className="flex items-center justify-between gap-1 border-b border-[var(--vel-color-border)] px-2 py-1">
+            <p className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[10px] uppercase leading-none tracking-[0.14em] text-[var(--vel-color-accent-soft)]">
+              <ThreadsIcon size={14} />
+              TERMINAL CHAT
+            </p>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onMiniChatClose?.()}
+                aria-label="Return to GUI mode"
+                className="inline-flex h-5 min-w-[2.35rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded border border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)]/70 px-1 !text-[8px] uppercase leading-none tracking-[0.1em] text-[var(--vel-color-accent-soft)] transition hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]"
+              >
+                <ChevronLeftIcon size={9} />
+                <span>GUI</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onMiniChatClose?.()}
+                aria-label="Minimize mini chat"
+                className="mt-0.5 inline-flex h-6 w-6 items-center justify-center text-[var(--vel-color-accent-soft)] transition hover:text-[var(--vel-color-text)]"
+              >
+                <MinimizeIcon size={11} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMiniChatClose?.()}
+                aria-label="Close mini chat"
+                className="inline-flex h-6 w-6 items-center justify-center text-[var(--vel-color-accent-soft)] transition hover:text-[var(--vel-color-text)]"
+              >
+                <CloseIcon size={11} />
+              </button>
+            </div>
+          </div>
+          <ThreadView
+            miniMode
+            className="min-h-0 flex-1 px-1 pb-1"
+            conversationId={miniChatThreadId ?? null}
+            onMiniChatClose={onMiniChatClose}
+            onSelectConversation={(conversationId) => {
+              onMiniChatThreadSelect?.(conversationId);
+            }}
+          />
+        </section>
       ) : null}
     </aside>
   );

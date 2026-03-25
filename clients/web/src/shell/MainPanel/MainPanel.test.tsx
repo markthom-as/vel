@@ -623,7 +623,13 @@ describe('MainPanel', () => {
           continuation: null,
         },
       },
-      { text: 'Talk to me', conversationId: 'conv_1', voice: null, attachments: null },
+      {
+        text: 'Talk to me',
+        conversationId: 'conv_1',
+        intent: null,
+        voice: null,
+        attachments: null,
+      },
     )
 
     expect(cancel).toHaveBeenCalled()

@@ -39,3 +39,28 @@ pub async fn run_latest(client: &ApiClient, artifact_type: &str, json: bool) -> 
     }
     Ok(())
 }
+
+pub async fn run_for_run(client: &ApiClient, run_id: &str, json: bool) -> anyhow::Result<()> {
+    let response = client.get_run(run_id).await?;
+    let run = response.data.expect("get_run response missing data");
+    if json {
+        println!("{}", serde_json::to_string_pretty(&run.artifacts)?);
+        return Ok(());
+    }
+    if run.artifacts.is_empty() {
+        println!("No artifacts linked to run '{}'.", run_id);
+        return Ok(());
+    }
+    println!("run_id: {}", run_id);
+    for artifact in &run.artifacts {
+        println!();
+        println!("artifact_id: {}", artifact.artifact_id);
+        println!("artifact_type: {}", artifact.artifact_type);
+        println!("storage_kind: {}", artifact.storage_kind);
+        println!("storage_uri: {}", artifact.storage_uri);
+        if let Some(size) = artifact.size_bytes {
+            println!("size: {}", format_size(size));
+        }
+    }
+    Ok(())
+}

@@ -5,6 +5,14 @@ export interface PendingInterventionAction {
   confirmed: boolean;
 }
 
+function extractMessageText(content: MessageData['content']): string | null {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    return null;
+  }
+  const text = (content as Record<string, unknown>).text;
+  return typeof text === 'string' ? text.trim() : null;
+}
+
 export function appendUniqueMessages(existing: MessageData[], nextMessages: MessageData[]): MessageData[] {
   if (nextMessages.length === 0) {
     return existing;
@@ -30,14 +38,22 @@ export function reconcileIncomingMessage(existing: MessageData[], incoming: Mess
     return next;
   }
 
-  const pendingIndex = existing.findIndex(
-    (message) =>
-      message.status === 'sending'
-      && message.conversation_id === incoming.conversation_id
-      && message.role === incoming.role
-      && message.kind === incoming.kind
-      && JSON.stringify(message.content) === JSON.stringify(incoming.content),
-  );
+  const incomingText = incoming.kind === 'text' ? extractMessageText(incoming.content) : null;
+  const pendingIndex = existing.findIndex((message) => {
+    if (
+      message.status !== 'sending'
+      || message.conversation_id !== incoming.conversation_id
+      || message.role !== incoming.role
+      || message.kind !== incoming.kind
+    ) {
+      return false;
+    }
+    if (incomingText !== null && message.kind === 'text') {
+      const pendingText = extractMessageText(message.content);
+      return pendingText !== null && pendingText === incomingText;
+    }
+    return JSON.stringify(message.content) === JSON.stringify(incoming.content);
+  });
   if (pendingIndex !== -1) {
     const next = [...existing];
     next[pendingIndex] = incoming;
