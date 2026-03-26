@@ -2629,6 +2629,8 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local voice continuity packaging", value: configuration.permits(.localVoiceContinuityPackaging))
             BoolStatusRow(label: "Local queued action packaging", value: configuration.permits(.localQueuedActionPackaging))
             BoolStatusRow(label: "Local linking settings normalization", value: configuration.permits(.localLinkingSettingsNormalization))
+            BoolStatusRow(label: "Local assistant entry fallback packaging", value: configuration.permits(.localAssistantEntryFallbackPackaging))
+            BoolStatusRow(label: "Local linking request packaging", value: configuration.permits(.localLinkingRequestPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2640,6 +2642,8 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Voice continuity symbols loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuityPackaging))
             BoolStatusRow(label: "Queued action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQueuedActionPackaging))
             BoolStatusRow(label: "Linking settings symbols loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingSettingsNormalization))
+            BoolStatusRow(label: "Assistant entry fallback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localAssistantEntryFallbackPackaging))
+            BoolStatusRow(label: "Linking request symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingRequestPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")

@@ -285,15 +285,12 @@ final class VelClientStore: ObservableObject {
             errorMessage = nil
             return response
         } catch {
-            let fallbackText = [
-                "queued_assistant_entry:",
-                preparedConversationID.map { "requested_conversation_id: \($0)" },
-                "",
-                preparedText
-            ]
-                .compactMap { $0 }
-                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                .joined(separator: "\n")
+            let fallbackText = embeddedBridge.assistantEntryFallbackBridge
+                .prepareAssistantEntryFallback(
+                    text: preparedText,
+                    conversationID: preparedConversationID
+                )
+                .payload
 
             offlineStore.enqueueCaptureCreate(
                 text: packageOfflineRequestPayload(
@@ -363,12 +360,15 @@ final class VelClientStore: ObservableObject {
             scopes: scopes,
             target_node_id: targetWorker?.node_id,
             target_node_display_name: targetWorker?.node_display_name,
-            target_base_url: preferredRemoteBaseURL(
-                syncBaseURL: targetWorker?.sync_base_url,
-                tailscaleBaseURL: targetWorker?.tailscale_base_url,
-                lanBaseURL: targetWorker?.lan_base_url,
-                publicBaseURL: nil
-            )
+            target_base_url: embeddedBridge.linkingRequestBridge.prepareLinkingRequest(
+                tokenCode: nil,
+                targetBaseURL: preferredRemoteBaseURL(
+                    syncBaseURL: targetWorker?.sync_base_url,
+                    tailscaleBaseURL: targetWorker?.tailscale_base_url,
+                    lanBaseURL: targetWorker?.lan_base_url,
+                    publicBaseURL: nil
+                )
+            ).targetBaseURL
         )
         let token = try await client.issuePairingToken(request)
         await refresh()
@@ -384,7 +384,10 @@ final class VelClientStore: ObservableObject {
         }
         let linkedNode = try await client.redeemPairingToken(
             PairingTokenRedeemRequestData(
-                token_code: tokenCode,
+                token_code: embeddedBridge.linkingRequestBridge.prepareLinkingRequest(
+                    tokenCode: tokenCode,
+                    targetBaseURL: nil
+                ).tokenCode ?? tokenCode,
                 node_id: bootstrap.node_id,
                 node_display_name: bootstrap.node_display_name,
                 transport_hint: bootstrap.sync_transport,

@@ -118,7 +118,9 @@ public struct VelAppEnvironment {
                     .localVoiceQuickActionPackaging,
                     .localVoiceContinuityPackaging,
                     .localQueuedActionPackaging,
-                    .localLinkingSettingsNormalization
+                    .localLinkingSettingsNormalization,
+                    .localAssistantEntryFallbackPackaging,
+                    .localLinkingRequestPackaging
                 ]
                 : []
         )

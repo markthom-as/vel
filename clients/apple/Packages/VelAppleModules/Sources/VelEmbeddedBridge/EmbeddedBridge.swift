@@ -16,6 +16,8 @@ public enum EmbeddedAppleFlow: String, Sendable, CaseIterable {
     case localVoiceContinuityPackaging = "local_voice_continuity_packaging"
     case localQueuedActionPackaging = "local_queued_action_packaging"
     case localLinkingSettingsNormalization = "local_linking_settings_normalization"
+    case localAssistantEntryFallbackPackaging = "local_assistant_entry_fallback_packaging"
+    case localLinkingRequestPackaging = "local_linking_request_packaging"
 }
 
 public struct EmbeddedBridgeRuntimeStatus: Sendable {
@@ -32,6 +34,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     public let localVoiceContinuityPackagingSymbolAvailable: Bool
     public let localQueuedActionPackagingSymbolAvailable: Bool
     public let localLinkingSettingsNormalizationSymbolAvailable: Bool
+    public let localAssistantEntryFallbackPackagingSymbolAvailable: Bool
+    public let localLinkingRequestPackagingSymbolAvailable: Bool
 
     public init(
         resolvedSource: String?,
@@ -46,7 +50,9 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localVoiceQuickActionPackagingSymbolAvailable: Bool,
         localVoiceContinuityPackagingSymbolAvailable: Bool,
         localQueuedActionPackagingSymbolAvailable: Bool,
-        localLinkingSettingsNormalizationSymbolAvailable: Bool
+        localLinkingSettingsNormalizationSymbolAvailable: Bool,
+        localAssistantEntryFallbackPackagingSymbolAvailable: Bool,
+        localLinkingRequestPackagingSymbolAvailable: Bool
     ) {
         self.resolvedSource = resolvedSource
         self.attemptedPaths = attemptedPaths
@@ -61,6 +67,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         self.localVoiceContinuityPackagingSymbolAvailable = localVoiceContinuityPackagingSymbolAvailable
         self.localQueuedActionPackagingSymbolAvailable = localQueuedActionPackagingSymbolAvailable
         self.localLinkingSettingsNormalizationSymbolAvailable = localLinkingSettingsNormalizationSymbolAvailable
+        self.localAssistantEntryFallbackPackagingSymbolAvailable = localAssistantEntryFallbackPackagingSymbolAvailable
+        self.localLinkingRequestPackagingSymbolAvailable = localLinkingRequestPackagingSymbolAvailable
     }
 
     public static let unavailable = EmbeddedBridgeRuntimeStatus(
@@ -76,7 +84,9 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localVoiceQuickActionPackagingSymbolAvailable: false,
         localVoiceContinuityPackagingSymbolAvailable: false,
         localQueuedActionPackagingSymbolAvailable: false,
-        localLinkingSettingsNormalizationSymbolAvailable: false
+        localLinkingSettingsNormalizationSymbolAvailable: false,
+        localAssistantEntryFallbackPackagingSymbolAvailable: false,
+        localLinkingRequestPackagingSymbolAvailable: false
     )
 
     public var isBridgeLoaded: Bool {
@@ -94,6 +104,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             || localVoiceContinuityPackagingSymbolAvailable
             || localQueuedActionPackagingSymbolAvailable
             || localLinkingSettingsNormalizationSymbolAvailable
+            || localAssistantEntryFallbackPackagingSymbolAvailable
+            || localLinkingRequestPackagingSymbolAvailable
     }
 
     public var isOperational: Bool {
@@ -101,7 +113,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     }
 
     public var discoveredSymbolCount: Int {
-        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable]
+        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable, localAssistantEntryFallbackPackagingSymbolAvailable, localLinkingRequestPackagingSymbolAvailable]
             .filter(\.self)
             .count
     }
@@ -128,6 +140,10 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             localQueuedActionPackagingSymbolAvailable
         case .localLinkingSettingsNormalization:
             localLinkingSettingsNormalizationSymbolAvailable
+        case .localAssistantEntryFallbackPackaging:
+            localAssistantEntryFallbackPackagingSymbolAvailable
+        case .localLinkingRequestPackaging:
+            localLinkingRequestPackagingSymbolAvailable
         }
     }
 }
@@ -317,6 +333,35 @@ public protocol EmbeddedLinkingSettingsBridge: Sendable {
     ) -> [EmbeddedRemoteRouteSummary]
 }
 
+public struct EmbeddedAssistantEntryFallbackPacket: Sendable {
+    public let payload: String
+
+    public init(payload: String) {
+        self.payload = payload
+    }
+}
+
+public protocol EmbeddedAssistantEntryFallbackBridge: Sendable {
+    func prepareAssistantEntryFallback(
+        text: String,
+        conversationID: String?
+    ) -> EmbeddedAssistantEntryFallbackPacket
+}
+
+public struct EmbeddedLinkingRequestPacket: Sendable {
+    public let tokenCode: String?
+    public let targetBaseURL: String?
+
+    public init(tokenCode: String?, targetBaseURL: String?) {
+        self.tokenCode = tokenCode
+        self.targetBaseURL = targetBaseURL
+    }
+}
+
+public protocol EmbeddedLinkingRequestBridge: Sendable {
+    func prepareLinkingRequest(tokenCode: String?, targetBaseURL: String?) -> EmbeddedLinkingRequestPacket
+}
+
 private struct OfflineBridgeEnvelope: Decodable {
     let kind: String?
     let payload: String?
@@ -335,6 +380,8 @@ public protocol EmbeddedBridgeSurface: Sendable {
     var voiceContinuityBridge: any EmbeddedVoiceContinuityBridge { get }
     var queuedActionBridge: any EmbeddedQueuedActionBridge { get }
     var linkingSettingsBridge: any EmbeddedLinkingSettingsBridge { get }
+    var assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge { get }
+    var linkingRequestBridge: any EmbeddedLinkingRequestBridge { get }
 }
 
 public struct NoopEmbeddedNowBridge: EmbeddedNowBridge {
@@ -564,6 +611,40 @@ public struct NoopEmbeddedLinkingSettingsBridge: EmbeddedLinkingSettingsBridge {
     }
 }
 
+public struct NoopEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge {
+    public init() {}
+
+    public func prepareAssistantEntryFallback(
+        text: String,
+        conversationID: String?
+    ) -> EmbeddedAssistantEntryFallbackPacket {
+        let normalizedConversationID = conversationID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let payload = [
+            "queued_assistant_entry:",
+            normalizedConversationID.map { "requested_conversation_id: \($0)" },
+            "",
+            text.trimmingCharacters(in: .whitespacesAndNewlines)
+        ]
+            .compactMap { $0 }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: "\n")
+        return EmbeddedAssistantEntryFallbackPacket(payload: payload)
+    }
+}
+
+public struct NoopEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge {
+    public init() {}
+
+    public func prepareLinkingRequest(tokenCode: String?, targetBaseURL: String?) -> EmbeddedLinkingRequestPacket {
+        let normalizedToken = tokenCode?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedBaseURL = targetBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return EmbeddedLinkingRequestPacket(
+            tokenCode: normalizedToken?.isEmpty == true ? nil : normalizedToken,
+            targetBaseURL: normalizedBaseURL?.isEmpty == true ? nil : normalizedBaseURL
+        )
+    }
+}
+
 public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -577,6 +658,8 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let voiceContinuityBridge: any EmbeddedVoiceContinuityBridge
     public let queuedActionBridge: any EmbeddedQueuedActionBridge
     public let linkingSettingsBridge: any EmbeddedLinkingSettingsBridge
+    public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
+    public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
 
     public init(configuration: EmbeddedBridgeConfiguration = .daemonBackedDefault()) {
         self.configuration = configuration
@@ -591,6 +674,8 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
         self.voiceContinuityBridge = NoopEmbeddedVoiceContinuityBridge()
         self.queuedActionBridge = NoopEmbeddedQueuedActionBridge()
         self.linkingSettingsBridge = NoopEmbeddedLinkingSettingsBridge()
+        self.assistantEntryFallbackBridge = NoopEmbeddedAssistantEntryFallbackBridge()
+        self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
     }
 }
 
@@ -607,6 +692,8 @@ private typealias VelEmbeddedPrepareVoiceContinuityEntryFn = @convention(c) (Uns
 private typealias VelEmbeddedPackageQueuedActionFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedNormalizePairingTokenFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedCollectRemoteRoutesFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPrepareAssistantEntryFallbackFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPrepareLinkingRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedFreeBufferFn = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
 private struct VelEmbeddedRustBindings: @unchecked Sendable {
@@ -623,6 +710,8 @@ private struct VelEmbeddedRustBindings: @unchecked Sendable {
     let packageQueuedAction: VelEmbeddedPackageQueuedActionFn?
     let normalizePairingToken: VelEmbeddedNormalizePairingTokenFn?
     let collectRemoteRoutes: VelEmbeddedCollectRemoteRoutesFn?
+    let prepareAssistantEntryFallback: VelEmbeddedPrepareAssistantEntryFallbackFn?
+    let prepareLinkingRequest: VelEmbeddedPrepareLinkingRequestFn?
     let freeBuffer: VelEmbeddedFreeBufferFn
 }
 
@@ -640,6 +729,8 @@ private enum VelEmbeddedRustBridge {
         packageQueuedAction: "vel_embedded_package_queued_action",
         normalizePairingToken: "vel_embedded_normalize_pairing_token",
         collectRemoteRoutes: "vel_embedded_collect_remote_routes",
+        prepareAssistantEntryFallback: "vel_embedded_prepare_assistant_entry_fallback",
+        prepareLinkingRequest: "vel_embedded_prepare_linking_request",
         freeBuffer: "vel_embedded_free_buffer"
     )
 
@@ -666,7 +757,9 @@ private enum VelEmbeddedRustBridge {
             prepareVoiceContinuityEntry: VelEmbeddedPrepareVoiceContinuityEntryFn?,
             packageQueuedAction: VelEmbeddedPackageQueuedActionFn?,
             normalizePairingToken: VelEmbeddedNormalizePairingTokenFn?,
-            collectRemoteRoutes: VelEmbeddedCollectRemoteRoutesFn?
+            collectRemoteRoutes: VelEmbeddedCollectRemoteRoutesFn?,
+            prepareAssistantEntryFallback: VelEmbeddedPrepareAssistantEntryFallbackFn?,
+            prepareLinkingRequest: VelEmbeddedPrepareLinkingRequestFn?
         ) -> EmbeddedBridgeRuntimeStatus {
             EmbeddedBridgeRuntimeStatus(
                 resolvedSource: source,
@@ -681,7 +774,9 @@ private enum VelEmbeddedRustBridge {
                 localVoiceQuickActionPackagingSymbolAvailable: packageVoiceQuickAction != nil,
                 localVoiceContinuityPackagingSymbolAvailable: prepareVoiceDraft != nil && prepareVoiceContinuityEntry != nil,
                 localQueuedActionPackagingSymbolAvailable: packageQueuedAction != nil,
-                localLinkingSettingsNormalizationSymbolAvailable: normalizePairingToken != nil && collectRemoteRoutes != nil
+                localLinkingSettingsNormalizationSymbolAvailable: normalizePairingToken != nil && collectRemoteRoutes != nil,
+                localAssistantEntryFallbackPackagingSymbolAvailable: prepareAssistantEntryFallback != nil,
+                localLinkingRequestPackagingSymbolAvailable: prepareLinkingRequest != nil
             )
         }
 
@@ -738,6 +833,14 @@ private enum VelEmbeddedRustBridge {
                 candidate: symbolNames.collectRemoteRoutes,
                 from: handle
             )
+            let prepareAssistantEntryFallback: VelEmbeddedPrepareAssistantEntryFallbackFn? = lookup(
+                candidate: symbolNames.prepareAssistantEntryFallback,
+                from: handle
+            )
+            let prepareLinkingRequest: VelEmbeddedPrepareLinkingRequestFn? = lookup(
+                candidate: symbolNames.prepareLinkingRequest,
+                from: handle
+            )
 
             let status = makeStatus(
                 source: freeBuffer == nil ? nil : source,
@@ -753,7 +856,9 @@ private enum VelEmbeddedRustBridge {
                 prepareVoiceContinuityEntry: prepareVoiceContinuityEntry,
                 packageQueuedAction: packageQueuedAction,
                 normalizePairingToken: normalizePairingToken,
-                collectRemoteRoutes: collectRemoteRoutes
+                collectRemoteRoutes: collectRemoteRoutes,
+                prepareAssistantEntryFallback: prepareAssistantEntryFallback,
+                prepareLinkingRequest: prepareLinkingRequest
             )
 
             guard freeBuffer != nil else {
@@ -772,6 +877,8 @@ private enum VelEmbeddedRustBridge {
                 && packageQueuedAction == nil
                 && normalizePairingToken == nil
                 && collectRemoteRoutes == nil
+                && prepareAssistantEntryFallback == nil
+                && prepareLinkingRequest == nil
             {
                 return (nil, status)
             }
@@ -791,6 +898,8 @@ private enum VelEmbeddedRustBridge {
                     packageQueuedAction: packageQueuedAction,
                     normalizePairingToken: normalizePairingToken,
                     collectRemoteRoutes: collectRemoteRoutes,
+                    prepareAssistantEntryFallback: prepareAssistantEntryFallback,
+                    prepareLinkingRequest: prepareLinkingRequest,
                     freeBuffer: freeBuffer
                 ),
                 status
@@ -838,7 +947,9 @@ private enum VelEmbeddedRustBridge {
                 localVoiceQuickActionPackagingSymbolAvailable: false,
                 localVoiceContinuityPackagingSymbolAvailable: false,
                 localQueuedActionPackagingSymbolAvailable: false,
-                localLinkingSettingsNormalizationSymbolAvailable: false
+                localLinkingSettingsNormalizationSymbolAvailable: false,
+                localAssistantEntryFallbackPackagingSymbolAvailable: false,
+                localLinkingRequestPackagingSymbolAvailable: false
             )
         )
     }()
@@ -1009,6 +1120,28 @@ private enum VelEmbeddedRustBridge {
 
     static func invokeStringResultFunction(
         _ function: VelEmbeddedCollectRemoteRoutesFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPrepareAssistantEntryFallbackFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPrepareLinkingRequestFn?,
         freeBuffer: VelEmbeddedFreeBufferFn?,
         payload: String
     ) -> String? {
@@ -1220,6 +1353,43 @@ private enum VelEmbeddedRustBridge {
         }
     }
 
+    struct AssistantEntryFallbackInput: Encodable {
+        let text: String
+        let requestedConversationID: String?
+
+        enum CodingKeys: String, CodingKey {
+            case text
+            case requestedConversationID = "requestedConversationId"
+        }
+    }
+
+    struct AssistantEntryFallbackPacket: Decodable {
+        let payload: String
+        let ready: Bool
+    }
+
+    struct LinkingRequestInput: Encodable {
+        let tokenCode: String?
+        let targetBaseURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case tokenCode = "tokenCode"
+            case targetBaseURL = "targetBaseUrl"
+        }
+    }
+
+    struct LinkingRequestPacket: Decodable {
+        let tokenCode: String?
+        let targetBaseURL: String?
+        let ready: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case tokenCode = "tokenCode"
+            case targetBaseURL = "targetBaseUrl"
+            case ready
+        }
+    }
+
     static func decodeOfflineRequest(_ value: String) -> OfflineRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
@@ -1367,6 +1537,34 @@ private enum VelEmbeddedRustBridge {
     static func decodeRemoteRoutes(_ value: String) -> [RemoteRoutePacket]? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode([RemoteRoutePacket].self, from: data)
+    }
+
+    static func encodeAssistantEntryFallbackPayload(text: String, conversationID: String?) -> String {
+        let payload = AssistantEntryFallbackInput(text: text, requestedConversationID: conversationID)
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{\"text\":\"\"}"
+        }
+        return value
+    }
+
+    static func decodeAssistantEntryFallback(_ value: String) -> AssistantEntryFallbackPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(AssistantEntryFallbackPacket.self, from: data)
+    }
+
+    static func encodeLinkingRequestPayload(tokenCode: String?, targetBaseURL: String?) -> String {
+        let payload = LinkingRequestInput(tokenCode: tokenCode, targetBaseURL: targetBaseURL)
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return value
+    }
+
+    static func decodeLinkingRequest(_ value: String) -> LinkingRequestPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(LinkingRequestPacket.self, from: data)
     }
 }
 
@@ -1725,6 +1923,93 @@ public struct RustEmbeddedLinkingSettingsBridge: EmbeddedLinkingSettingsBridge, 
     }
 }
 
+public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge, @unchecked Sendable {
+    private let bindings: VelEmbeddedRustBindings
+
+    public init?(bindings: VelEmbeddedRustBindings) {
+        guard bindings.prepareAssistantEntryFallback != nil else { return nil }
+        self.bindings = bindings
+    }
+
+    public func prepareAssistantEntryFallback(
+        text: String,
+        conversationID: String?
+    ) -> EmbeddedAssistantEntryFallbackPacket {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareAssistantEntryFallback,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeAssistantEntryFallbackPayload(
+                text: text,
+                conversationID: conversationID
+            )
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeAssistantEntryFallback(output),
+        parsed.ready else {
+            return NoopEmbeddedAssistantEntryFallbackBridge().prepareAssistantEntryFallback(
+                text: text,
+                conversationID: conversationID
+            )
+        }
+
+        return EmbeddedAssistantEntryFallbackPacket(payload: parsed.payload)
+    }
+}
+
+public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @unchecked Sendable {
+    private let bindings: VelEmbeddedRustBindings
+
+    public init?(bindings: VelEmbeddedRustBindings) {
+        guard bindings.prepareLinkingRequest != nil else { return nil }
+        self.bindings = bindings
+    }
+
+    public func prepareLinkingRequest(tokenCode: String?, targetBaseURL: String?) -> EmbeddedLinkingRequestPacket {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareLinkingRequest,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeLinkingRequestPayload(
+                tokenCode: tokenCode,
+                targetBaseURL: targetBaseURL
+            )
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeLinkingRequest(output),
+        parsed.ready else {
+            return NoopEmbeddedLinkingRequestBridge().prepareLinkingRequest(
+                tokenCode: tokenCode,
+                targetBaseURL: targetBaseURL
+            )
+        }
+
+        return EmbeddedLinkingRequestPacket(
+            tokenCode: parsed.tokenCode,
+            targetBaseURL: parsed.targetBaseURL
+        )
+    }
+}
+
+public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge, @unchecked Sendable {
+    public init?(bindings: ()) { return nil }
+    public func prepareAssistantEntryFallback(
+        text: String,
+        conversationID: String?
+    ) -> EmbeddedAssistantEntryFallbackPacket {
+        NoopEmbeddedAssistantEntryFallbackBridge().prepareAssistantEntryFallback(
+            text: text,
+            conversationID: conversationID
+        )
+    }
+}
+
+public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @unchecked Sendable {
+    public init?(bindings: ()) { return nil }
+    public func prepareLinkingRequest(tokenCode: String?, targetBaseURL: String?) -> EmbeddedLinkingRequestPacket {
+        NoopEmbeddedLinkingRequestBridge().prepareLinkingRequest(
+            tokenCode: tokenCode,
+            targetBaseURL: targetBaseURL
+        )
+    }
+}
+
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -1738,6 +2023,8 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let voiceContinuityBridge: any EmbeddedVoiceContinuityBridge
     public let queuedActionBridge: any EmbeddedQueuedActionBridge
     public let linkingSettingsBridge: any EmbeddedLinkingSettingsBridge
+    public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
+    public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         guard let bindings = VelEmbeddedRustBridge.bindings else {
@@ -1807,6 +2094,18 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             self.linkingSettingsBridge = NoopEmbeddedLinkingSettingsBridge()
         }
 
+        if let rustAssistantEntryFallback = RustEmbeddedAssistantEntryFallbackBridge(bindings: bindings), configuration.permits(.localAssistantEntryFallbackPackaging) {
+            self.assistantEntryFallbackBridge = rustAssistantEntryFallback
+        } else {
+            self.assistantEntryFallbackBridge = NoopEmbeddedAssistantEntryFallbackBridge()
+        }
+
+        if let rustLinkingRequest = RustEmbeddedLinkingRequestBridge(bindings: bindings), configuration.permits(.localLinkingRequestPackaging) {
+            self.linkingRequestBridge = rustLinkingRequest
+        } else {
+            self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
+        }
+
         let isEmbedded = configuration.permits(.cachedNowHydration)
             || configuration.permits(.localQuickActionPreparation)
             || configuration.permits(.offlineRequestPackaging)
@@ -1817,6 +2116,8 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             || configuration.permits(.localVoiceContinuityPackaging)
             || configuration.permits(.localQueuedActionPackaging)
             || configuration.permits(.localLinkingSettingsNormalization)
+            || configuration.permits(.localAssistantEntryFallbackPackaging)
+            || configuration.permits(.localLinkingRequestPackaging)
 
         guard isEmbedded else { return nil }
     }
@@ -1970,6 +2271,8 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let voiceContinuityBridge: any EmbeddedVoiceContinuityBridge
     public let queuedActionBridge: any EmbeddedQueuedActionBridge
     public let linkingSettingsBridge: any EmbeddedLinkingSettingsBridge
+    public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
+    public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         self.configuration = configuration
@@ -1984,6 +2287,8 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
         self.voiceContinuityBridge = NoopEmbeddedVoiceContinuityBridge()
         self.queuedActionBridge = NoopEmbeddedQueuedActionBridge()
         self.linkingSettingsBridge = NoopEmbeddedLinkingSettingsBridge()
+        self.assistantEntryFallbackBridge = NoopEmbeddedAssistantEntryFallbackBridge()
+        self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
         return nil
     }
 }

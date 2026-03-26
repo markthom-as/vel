@@ -176,6 +176,35 @@ struct RemoteRouteOutput {
     base_url: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssistantEntryFallbackInput {
+    text: Option<String>,
+    requested_conversation_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AssistantEntryFallbackOutput {
+    payload: String,
+    ready: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LinkingRequestInput {
+    token_code: Option<String>,
+    target_base_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LinkingRequestOutput {
+    token_code: Option<String>,
+    target_base_url: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -607,6 +636,49 @@ pub extern "C" fn vel_embedded_collect_remote_routes(input_json: *const c_char) 
     }
 
     let json = serde_json::to_string(&routes).unwrap_or_else(|_| "[]".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_assistant_entry_fallback(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<AssistantEntryFallbackInput>(&raw).unwrap_or(AssistantEntryFallbackInput {
+        text: Some(raw.clone()),
+        requested_conversation_id: None,
+    });
+
+    let requested_conversation_id = normalized_optional_trimmed(decoded.requested_conversation_id);
+    let payload = [
+        "queued_assistant_entry:".to_string(),
+        requested_conversation_id.map(|value| format!("requested_conversation_id: {value}")).unwrap_or_default(),
+        String::new(),
+        trim_text(&decoded.text.unwrap_or_default()),
+    ]
+    .into_iter()
+    .filter(|value| !value.trim().is_empty())
+    .collect::<Vec<_>>()
+    .join("\n");
+
+    let output = AssistantEntryFallbackOutput { payload, ready: true };
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_linking_request(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<LinkingRequestInput>(&raw).unwrap_or(LinkingRequestInput {
+        token_code: None,
+        target_base_url: None,
+    });
+
+    let output = LinkingRequestOutput {
+        token_code: normalized_optional_trimmed(decoded.token_code),
+        target_base_url: normalized_optional_trimmed(decoded.target_base_url),
+        ready: true,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
     to_owned_c_string(&json)
 }
 
