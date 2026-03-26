@@ -2580,6 +2580,41 @@ private struct SettingsTab: View {
     private var embeddedBridgeSection: some View {
         let configuration = appEnvironment.embeddedBridge.configuration
         let runtimeStatus = appEnvironment.embeddedBridge.runtimeStatus
+        let bridgeGroups: [(title: String, flows: [(String, EmbeddedAppleFlow)])] = [
+            (
+                "Core packets",
+                [
+                    ("Cached now hydration", .cachedNowHydration),
+                    ("Local quick capture", .localQuickActionPreparation),
+                    ("Offline request packaging", .offlineRequestPackaging),
+                    ("Domain helpers", .deterministicDomainHelpers),
+                    ("Local queued action packaging", .localQueuedActionPackaging),
+                ]
+            ),
+            (
+                "Voice and thread packets",
+                [
+                    ("Local thread draft packaging", .localThreadDraftPackaging),
+                    ("Local voice capture packaging", .localVoiceCapturePackaging),
+                    ("Local voice quick action packaging", .localVoiceQuickActionPackaging),
+                    ("Local voice continuity packaging", .localVoiceContinuityPackaging),
+                    ("Local voice continuity summary packaging", .localVoiceContinuitySummaryPackaging),
+                    ("Local voice offline response packaging", .localVoiceOfflineResponsePackaging),
+                    ("Local voice cached query packaging", .localVoiceCachedQueryPackaging),
+                    ("Local assistant entry fallback packaging", .localAssistantEntryFallbackPackaging),
+                ]
+            ),
+            (
+                "Linking and shell packets",
+                [
+                    ("Local linking settings normalization", .localLinkingSettingsNormalization),
+                    ("Local linking request packaging", .localLinkingRequestPackaging),
+                    ("Local linking feedback packaging", .localLinkingFeedbackPackaging),
+                    ("Local app shell feedback packaging", .localAppShellFeedbackPackaging),
+                    ("Local capture metadata packaging", .localCaptureMetadataPackaging),
+                ]
+            ),
+        ]
 
         return Section("Embedded Rust bridge") {
             if appEnvironment.featureCapabilities.supportsEmbeddedRustBridge {
@@ -2626,43 +2661,18 @@ private struct SettingsTab: View {
                     .foregroundStyle(.yellow)
             }
 
-            BoolStatusRow(label: "Cached now hydration", value: configuration.permits(.cachedNowHydration))
-            BoolStatusRow(label: "Local quick capture", value: configuration.permits(.localQuickActionPreparation))
-            BoolStatusRow(label: "Offline request packaging", value: configuration.permits(.offlineRequestPackaging))
-            BoolStatusRow(label: "Domain helpers", value: configuration.permits(.deterministicDomainHelpers))
-            BoolStatusRow(label: "Local thread draft packaging", value: configuration.permits(.localThreadDraftPackaging))
-            BoolStatusRow(label: "Local voice capture packaging", value: configuration.permits(.localVoiceCapturePackaging))
-            BoolStatusRow(label: "Local voice quick action packaging", value: configuration.permits(.localVoiceQuickActionPackaging))
-            BoolStatusRow(label: "Local voice continuity packaging", value: configuration.permits(.localVoiceContinuityPackaging))
-            BoolStatusRow(label: "Local queued action packaging", value: configuration.permits(.localQueuedActionPackaging))
-            BoolStatusRow(label: "Local linking settings normalization", value: configuration.permits(.localLinkingSettingsNormalization))
-            BoolStatusRow(label: "Local assistant entry fallback packaging", value: configuration.permits(.localAssistantEntryFallbackPackaging))
-            BoolStatusRow(label: "Local linking request packaging", value: configuration.permits(.localLinkingRequestPackaging))
-            BoolStatusRow(label: "Local capture metadata packaging", value: configuration.permits(.localCaptureMetadataPackaging))
-            BoolStatusRow(label: "Local voice continuity summary packaging", value: configuration.permits(.localVoiceContinuitySummaryPackaging))
-            BoolStatusRow(label: "Local voice offline response packaging", value: configuration.permits(.localVoiceOfflineResponsePackaging))
-            BoolStatusRow(label: "Local voice cached query packaging", value: configuration.permits(.localVoiceCachedQueryPackaging))
-            BoolStatusRow(label: "Local linking feedback packaging", value: configuration.permits(.localLinkingFeedbackPackaging))
-            BoolStatusRow(label: "Local app shell feedback packaging", value: configuration.permits(.localAppShellFeedbackPackaging))
-
-            BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
-            BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
-            BoolStatusRow(label: "Offline packaging symbol loaded", value: runtimeStatus.symbolAvailable(for: .offlineRequestPackaging))
-            BoolStatusRow(label: "Domain helper symbol loaded", value: runtimeStatus.symbolAvailable(for: .deterministicDomainHelpers))
-            BoolStatusRow(label: "Thread draft symbol loaded", value: runtimeStatus.symbolAvailable(for: .localThreadDraftPackaging))
-            BoolStatusRow(label: "Voice capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCapturePackaging))
-            BoolStatusRow(label: "Voice quick action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceQuickActionPackaging))
-            BoolStatusRow(label: "Voice continuity symbols loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuityPackaging))
-            BoolStatusRow(label: "Queued action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQueuedActionPackaging))
-            BoolStatusRow(label: "Linking settings symbols loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingSettingsNormalization))
-            BoolStatusRow(label: "Assistant entry fallback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localAssistantEntryFallbackPackaging))
-            BoolStatusRow(label: "Linking request symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingRequestPackaging))
-            BoolStatusRow(label: "Capture metadata symbol loaded", value: runtimeStatus.symbolAvailable(for: .localCaptureMetadataPackaging))
-            BoolStatusRow(label: "Voice continuity summary symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuitySummaryPackaging))
-            BoolStatusRow(label: "Voice offline response symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceOfflineResponsePackaging))
-            BoolStatusRow(label: "Voice cached query symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCachedQueryPackaging))
-            BoolStatusRow(label: "Linking feedback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingFeedbackPackaging))
-            BoolStatusRow(label: "App shell feedback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localAppShellFeedbackPackaging))
+            ForEach(Array(bridgeGroups.enumerated()), id: \.offset) { _, group in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(group.title)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ForEach(Array(group.flows.enumerated()), id: \.offset) { _, item in
+                        BoolStatusRow(label: "\(item.0) permitted", value: configuration.permits(item.1))
+                        BoolStatusRow(label: "\(item.0) symbol loaded", value: runtimeStatus.symbolAvailable(for: item.1))
+                    }
+                }
+                .padding(.vertical, 2)
+            }
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")

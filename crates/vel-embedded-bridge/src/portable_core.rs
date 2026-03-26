@@ -21,6 +21,16 @@ pub fn normalize_payload(value: &str) -> String {
         .join(" ")
 }
 
+pub fn prepare_quick_capture_text(value: &str) -> String {
+    value
+        .lines()
+        .flat_map(|line| line.split_whitespace())
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_string()
+}
+
 pub fn trim_text(value: &str) -> String {
     value.trim().to_string()
 }
@@ -34,4 +44,19 @@ pub fn normalized_optional_trimmed(value: Option<String>) -> Option<String> {
             Some(trimmed)
         }
     })
+}
+
+pub fn normalize_pairing_token_input(value: &str) -> String {
+    let normalized: String = value
+        .to_uppercase()
+        .chars()
+        .filter(|character| character.is_ascii() && character.is_ascii_alphanumeric())
+        .take(6)
+        .collect();
+
+    if normalized.len() <= 3 {
+        return normalized;
+    }
+
+    format!("{}-{}", &normalized[..3], &normalized[3..])
 }

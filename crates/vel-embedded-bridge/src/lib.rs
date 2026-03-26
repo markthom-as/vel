@@ -6,7 +6,8 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 use portable_core::{
-    normalize_domain_hint, normalize_payload, normalized_optional_trimmed, trim_text,
+    normalize_domain_hint, normalize_pairing_token_input, normalize_payload,
+    normalized_optional_trimmed, prepare_quick_capture_text, trim_text,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -384,20 +385,28 @@ fn to_owned_c_string(value: &str) -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn vel_embedded_cached_now_summary(context_json: *const c_char) -> *mut c_char {
     let raw_context = read_input(context_json);
-    let payload = parse_cached_now_context(raw_context.as_deref())
-        .unwrap_or_else(|_| CachedNowContext {
+    let payload =
+        parse_cached_now_context(raw_context.as_deref()).unwrap_or_else(|_| CachedNowContext {
             mode: Some("unknown".to_string()),
             next_event_title: None,
             nudge_count: Some(0),
         });
 
     let mut lines = Vec::new();
-    lines.push(format!("Mode: {}", payload.mode.unwrap_or_else(|| "unknown".to_string())));
+    lines.push(format!(
+        "Mode: {}",
+        payload.mode.unwrap_or_else(|| "unknown".to_string())
+    ));
     lines.push(format!(
         "Next: {}",
-        payload.next_event_title.unwrap_or_else(|| "none".to_string())
+        payload
+            .next_event_title
+            .unwrap_or_else(|| "none".to_string())
     ));
-    lines.push(format!("Nudges: {}", payload.nudge_count.unwrap_or_default()));
+    lines.push(format!(
+        "Nudges: {}",
+        payload.nudge_count.unwrap_or_default()
+    ));
 
     let json = serde_json::to_string(&lines).unwrap_or_else(|_| "[]".to_string());
     to_owned_c_string(&json)
@@ -411,15 +420,8 @@ fn parse_cached_now_context(raw_json: Option<&str>) -> Result<CachedNowContext, 
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_quick_capture(text: *const c_char) -> *mut c_char {
     let raw_input = read_input(text).unwrap_or_default();
-
-    let trimmed = raw_input
-        .lines()
-        .flat_map(|line| line.split_whitespace())
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    let payload = trimmed.trim();
-    to_owned_c_string(payload)
+    let payload = prepare_quick_capture_text(&raw_input);
+    to_owned_c_string(&payload)
 }
 
 #[no_mangle]
@@ -437,14 +439,12 @@ pub extern "C" fn vel_embedded_package_offline_request(payload_json: *const c_ch
 
             (kind, payload, true, None)
         }
-        Err(error) => {
-            (
-                "unknown".to_string(),
-                normalize_payload(&raw_payload),
-                false,
-                Some(format!("invalid payload: {error}")),
-            )
-        }
+        Err(error) => (
+            "unknown".to_string(),
+            normalize_payload(&raw_payload),
+            false,
+            Some(format!("invalid payload: {error}")),
+        ),
     };
 
     let output = OfflineRequestOutput {
@@ -458,7 +458,9 @@ pub extern "C" fn vel_embedded_package_offline_request(payload_json: *const c_ch
     to_owned_c_string(&json)
 }
 
-fn parse_offline_request(raw_json: Option<&str>) -> Result<OfflineRequestInputDecoded, serde_json::Error> {
+fn parse_offline_request(
+    raw_json: Option<&str>,
+) -> Result<OfflineRequestInputDecoded, serde_json::Error> {
     let input = raw_json.unwrap_or("{}");
     let decoded: OfflineRequestInput = serde_json::from_str(input)?;
 
@@ -495,7 +497,9 @@ fn parse_domain_input(raw_json: &str) -> DomainHintInputDecoded {
         })
 }
 
-fn parse_thread_draft(raw_json: Option<&str>) -> Result<ThreadDraftInputDecoded, serde_json::Error> {
+fn parse_thread_draft(
+    raw_json: Option<&str>,
+) -> Result<ThreadDraftInputDecoded, serde_json::Error> {
     let input = raw_json.unwrap_or("{}");
     let decoded: ThreadDraftInput = serde_json::from_str(input)?;
 
@@ -503,14 +507,19 @@ fn parse_thread_draft(raw_json: Option<&str>) -> Result<ThreadDraftInputDecoded,
         text: decoded.text.unwrap_or_default(),
         requested_conversation_id: decoded.requested_conversation_id.and_then(|value| {
             let trimmed = value.trim().to_string();
-            if trimmed.is_empty() { None } else { Some(trimmed) }
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
         }),
     })
 }
 
-
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_voice_capture_payload(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
     let decoded = serde_json::from_str::<VoiceCaptureInput>(&raw).unwrap_or(VoiceCaptureInput {
         transcript: Some(raw.clone()),
@@ -518,13 +527,18 @@ pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const 
     });
 
     let transcript = decoded.transcript.unwrap_or_default().trim().to_string();
-    let intent_storage_token = decoded.intent_storage_token.unwrap_or_else(|| "capture".to_string());
+    let intent_storage_token = decoded
+        .intent_storage_token
+        .unwrap_or_else(|| "capture".to_string());
 
     let payload = [
         "voice_transcript:".to_string(),
         transcript,
         String::new(),
-        format!("intent_candidate: {}", normalize_payload(&intent_storage_token)),
+        format!(
+            "intent_candidate: {}",
+            normalize_payload(&intent_storage_token)
+        ),
         "client_surface: ios_voice".to_string(),
     ]
     .join("\n");
@@ -533,20 +547,29 @@ pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const 
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_package_voice_quick_action(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_package_voice_quick_action(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<VoiceQuickActionInput>(&raw).unwrap_or(VoiceQuickActionInput {
-        intent_storage_token: Some("capture_create".to_string()),
-        primary_text: Some(raw.clone()),
-        target_id: None,
-        minutes: None,
-    });
+    let decoded =
+        serde_json::from_str::<VoiceQuickActionInput>(&raw).unwrap_or(VoiceQuickActionInput {
+            intent_storage_token: Some("capture_create".to_string()),
+            primary_text: Some(raw.clone()),
+            target_id: None,
+            minutes: None,
+        });
 
-    let intent_storage_token = decoded.intent_storage_token.unwrap_or_else(|| "capture_create".to_string());
+    let intent_storage_token = decoded
+        .intent_storage_token
+        .unwrap_or_else(|| "capture_create".to_string());
     let primary_text = decoded.primary_text.unwrap_or_default();
     let target_id = decoded.target_id.and_then(|value| {
         let trimmed = value.trim().to_string();
-        if trimmed.is_empty() { None } else { Some(trimmed) }
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
     });
     let minutes = decoded.minutes.map(|value| value.max(1));
 
@@ -629,16 +652,19 @@ pub extern "C" fn vel_embedded_prepare_voice_draft(input_json: *const c_char) ->
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_voice_continuity_entry(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_voice_continuity_entry(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded =
-        serde_json::from_str::<VoiceContinuityEntryInput>(&raw).unwrap_or(VoiceContinuityEntryInput {
+    let decoded = serde_json::from_str::<VoiceContinuityEntryInput>(&raw).unwrap_or(
+        VoiceContinuityEntryInput {
             transcript: Some(raw.clone()),
             suggested_intent_storage_token: Some("capture".to_string()),
             committed_intent_storage_token: None,
             status: Some("pending_review".to_string()),
             thread_id: None,
-        });
+        },
+    );
 
     let thread_id = decoded.thread_id.and_then(|value| {
         let trimmed = value.trim().to_string();
@@ -666,7 +692,11 @@ pub extern "C" fn vel_embedded_prepare_voice_continuity_entry(input_json: *const
                 .unwrap_or_else(|| "capture".to_string()),
         ),
         committed_intent_storage_token,
-        status: trim_text(&decoded.status.unwrap_or_else(|| "pending_review".to_string())),
+        status: trim_text(
+            &decoded
+                .status
+                .unwrap_or_else(|| "pending_review".to_string()),
+        ),
         thread_id,
         ready: true,
     };
@@ -696,7 +726,11 @@ pub extern "C" fn vel_embedded_package_queued_action(input_json: *const c_char) 
     );
 
     let output = QueuedActionOutput {
-        queue_kind: if ready { kind } else { "capture.create".to_string() },
+        queue_kind: if ready {
+            kind
+        } else {
+            "capture.create".to_string()
+        },
         target_id,
         text,
         minutes,
@@ -710,18 +744,7 @@ pub extern "C" fn vel_embedded_package_queued_action(input_json: *const c_char) 
 #[no_mangle]
 pub extern "C" fn vel_embedded_normalize_pairing_token(value: *const c_char) -> *mut c_char {
     let raw = read_input(value).unwrap_or_default();
-    let normalized: String = raw
-        .to_uppercase()
-        .chars()
-        .filter(|character| character.is_ascii() && character.is_ascii_alphanumeric())
-        .take(6)
-        .collect();
-
-    let output = if normalized.len() <= 3 {
-        normalized
-    } else {
-        format!("{}-{}", &normalized[..3], &normalized[3..])
-    };
+    let output = normalize_pairing_token_input(&raw);
 
     to_owned_c_string(&output)
 }
@@ -768,17 +791,23 @@ pub extern "C" fn vel_embedded_collect_remote_routes(input_json: *const c_char) 
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_assistant_entry_fallback(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_assistant_entry_fallback(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<AssistantEntryFallbackInput>(&raw).unwrap_or(AssistantEntryFallbackInput {
-        text: Some(raw.clone()),
-        requested_conversation_id: None,
-    });
+    let decoded = serde_json::from_str::<AssistantEntryFallbackInput>(&raw).unwrap_or(
+        AssistantEntryFallbackInput {
+            text: Some(raw.clone()),
+            requested_conversation_id: None,
+        },
+    );
 
     let requested_conversation_id = normalized_optional_trimmed(decoded.requested_conversation_id);
     let payload = [
         "queued_assistant_entry:".to_string(),
-        requested_conversation_id.map(|value| format!("requested_conversation_id: {value}")).unwrap_or_default(),
+        requested_conversation_id
+            .map(|value| format!("requested_conversation_id: {value}"))
+            .unwrap_or_default(),
         String::new(),
         trim_text(&decoded.text.unwrap_or_default()),
     ]
@@ -787,7 +816,10 @@ pub extern "C" fn vel_embedded_prepare_assistant_entry_fallback(input_json: *con
     .collect::<Vec<_>>()
     .join("\n");
 
-    let output = AssistantEntryFallbackOutput { payload, ready: true };
+    let output = AssistantEntryFallbackOutput {
+        payload,
+        ready: true,
+    };
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
     to_owned_c_string(&json)
 }
@@ -795,10 +827,11 @@ pub extern "C" fn vel_embedded_prepare_assistant_entry_fallback(input_json: *con
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_linking_request(input_json: *const c_char) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<LinkingRequestInput>(&raw).unwrap_or(LinkingRequestInput {
-        token_code: None,
-        target_base_url: None,
-    });
+    let decoded =
+        serde_json::from_str::<LinkingRequestInput>(&raw).unwrap_or(LinkingRequestInput {
+            token_code: None,
+            target_base_url: None,
+        });
 
     let output = LinkingRequestOutput {
         token_code: normalized_optional_trimmed(decoded.token_code),
@@ -813,11 +846,12 @@ pub extern "C" fn vel_embedded_prepare_linking_request(input_json: *const c_char
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_capture_metadata(input_json: *const c_char) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<CaptureMetadataInput>(&raw).unwrap_or(CaptureMetadataInput {
-        text: Some(raw.clone()),
-        capture_type: Some("note".to_string()),
-        source_device: Some("apple".to_string()),
-    });
+    let decoded =
+        serde_json::from_str::<CaptureMetadataInput>(&raw).unwrap_or(CaptureMetadataInput {
+            text: Some(raw.clone()),
+            capture_type: Some("note".to_string()),
+            source_device: Some("apple".to_string()),
+        });
 
     let text = trim_text(&decoded.text.unwrap_or_default());
     let capture_type = trim_text(&decoded.capture_type.unwrap_or_else(|| "note".to_string()));
@@ -836,20 +870,27 @@ pub extern "C" fn vel_embedded_prepare_capture_metadata(input_json: *const c_cha
         .join("\n")
     };
 
-    let output = CaptureMetadataOutput { payload, ready: true };
+    let output = CaptureMetadataOutput {
+        payload,
+        ready: true,
+    };
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
     to_owned_c_string(&json)
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_pairing_token_issue_request(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_pairing_token_issue_request(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<PairingTokenIssueRequestInput>(&raw).unwrap_or(PairingTokenIssueRequestInput {
-        issued_by_node_id: Some(String::new()),
-        target_node_id: None,
-        target_node_display_name: None,
-        target_base_url: None,
-    });
+    let decoded = serde_json::from_str::<PairingTokenIssueRequestInput>(&raw).unwrap_or(
+        PairingTokenIssueRequestInput {
+            issued_by_node_id: Some(String::new()),
+            target_node_id: None,
+            target_node_display_name: None,
+            target_base_url: None,
+        },
+    );
 
     let output = PairingTokenIssueRequestOutput {
         issued_by_node_id: trim_text(&decoded.issued_by_node_id.unwrap_or_default()),
@@ -864,19 +905,23 @@ pub extern "C" fn vel_embedded_prepare_pairing_token_issue_request(input_json: *
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_pairing_token_redeem_request(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_pairing_token_redeem_request(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<PairingTokenRedeemRequestInput>(&raw).unwrap_or(PairingTokenRedeemRequestInput {
-        token_code: Some(String::new()),
-        node_id: Some(String::new()),
-        node_display_name: Some(String::new()),
-        transport_hint: None,
-        sync_base_url: None,
-        tailscale_base_url: None,
-        lan_base_url: None,
-        localhost_base_url: None,
-        public_base_url: None,
-    });
+    let decoded = serde_json::from_str::<PairingTokenRedeemRequestInput>(&raw).unwrap_or(
+        PairingTokenRedeemRequestInput {
+            token_code: Some(String::new()),
+            node_id: Some(String::new()),
+            node_display_name: Some(String::new()),
+            transport_hint: None,
+            sync_base_url: None,
+            tailscale_base_url: None,
+            lan_base_url: None,
+            localhost_base_url: None,
+            public_base_url: None,
+        },
+    );
 
     let output = PairingTokenRedeemRequestOutput {
         token_code: trim_text(&decoded.token_code.unwrap_or_default()),
@@ -896,15 +941,19 @@ pub extern "C" fn vel_embedded_prepare_pairing_token_redeem_request(input_json: 
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_voice_continuity_summary(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_voice_continuity_summary(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<VoiceContinuitySummaryInput>(&raw).unwrap_or(VoiceContinuitySummaryInput {
-        draft_exists: Some(false),
-        threaded_transcript: None,
-        pending_recovery_count: Some(0),
-        is_reachable: Some(false),
-        merged_transcript: None,
-    });
+    let decoded = serde_json::from_str::<VoiceContinuitySummaryInput>(&raw).unwrap_or(
+        VoiceContinuitySummaryInput {
+            draft_exists: Some(false),
+            threaded_transcript: None,
+            pending_recovery_count: Some(0),
+            is_reachable: Some(false),
+            merged_transcript: None,
+        },
+    );
 
     let output = if decoded.draft_exists.unwrap_or(false) {
         VoiceContinuitySummaryOutput {
@@ -952,16 +1001,20 @@ pub extern "C" fn vel_embedded_prepare_voice_continuity_summary(input_json: *con
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_voice_offline_response(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_voice_offline_response(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<VoiceOfflineResponseInput>(&raw).unwrap_or(VoiceOfflineResponseInput {
-        scenario: None,
-        primary_text: None,
-        matched_text: None,
-        options: None,
-        minutes: None,
-        is_reachable: Some(false),
-    });
+    let decoded = serde_json::from_str::<VoiceOfflineResponseInput>(&raw).unwrap_or(
+        VoiceOfflineResponseInput {
+            scenario: None,
+            primary_text: None,
+            matched_text: None,
+            options: None,
+            minutes: None,
+            is_reachable: Some(false),
+        },
+    );
 
     let scenario = trim_text(&decoded.scenario.unwrap_or_default());
     let primary_text = normalized_optional_trimmed(decoded.primary_text);
@@ -1085,20 +1138,24 @@ pub extern "C" fn vel_embedded_prepare_voice_offline_response(input_json: *const
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<VoiceCachedQueryResponseInput>(&raw).unwrap_or(VoiceCachedQueryResponseInput {
-        scenario: None,
-        next_title: None,
-        leave_by: None,
-        empty_message: None,
-        cached_now_summary: None,
-        first_reason: None,
-        next_commitment_text: None,
-        next_commitment_due_at: None,
-        behavior_headline: None,
-        behavior_reason: None,
-    });
+    let decoded = serde_json::from_str::<VoiceCachedQueryResponseInput>(&raw).unwrap_or(
+        VoiceCachedQueryResponseInput {
+            scenario: None,
+            next_title: None,
+            leave_by: None,
+            empty_message: None,
+            cached_now_summary: None,
+            first_reason: None,
+            next_commitment_text: None,
+            next_commitment_due_at: None,
+            behavior_headline: None,
+            behavior_reason: None,
+        },
+    );
 
     let scenario = trim_text(&decoded.scenario.unwrap_or_default());
     let next_title = normalized_optional_trimmed(decoded.next_title);
@@ -1119,7 +1176,7 @@ pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(input_json: *
         },
         "schedule_empty" => VoiceCachedQueryResponseOutput {
             summary: Some(
-                empty_message.unwrap_or_else(|| "No upcoming schedule is cached.".to_string())
+                empty_message.unwrap_or_else(|| "No upcoming schedule is cached.".to_string()),
             ),
             detail: cached_now_summary.or(first_reason),
             ready: true,
@@ -1168,10 +1225,11 @@ pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(input_json: *
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_linking_feedback(input_json: *const c_char) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<LinkingFeedbackInput>(&raw).unwrap_or(LinkingFeedbackInput {
-        scenario: None,
-        node_display_name: None,
-    });
+    let decoded =
+        serde_json::from_str::<LinkingFeedbackInput>(&raw).unwrap_or(LinkingFeedbackInput {
+            scenario: None,
+            node_display_name: None,
+        });
 
     let scenario = trim_text(&decoded.scenario.unwrap_or_default());
     let node_display_name = normalized_optional_trimmed(decoded.node_display_name);
@@ -1224,12 +1282,15 @@ pub extern "C" fn vel_embedded_prepare_linking_feedback(input_json: *const c_cha
 }
 
 #[no_mangle]
-pub extern "C" fn vel_embedded_prepare_app_shell_feedback(input_json: *const c_char) -> *mut c_char {
+pub extern "C" fn vel_embedded_prepare_app_shell_feedback(
+    input_json: *const c_char,
+) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
-    let decoded = serde_json::from_str::<AppShellFeedbackInput>(&raw).unwrap_or(AppShellFeedbackInput {
-        scenario: None,
-        detail: None,
-    });
+    let decoded =
+        serde_json::from_str::<AppShellFeedbackInput>(&raw).unwrap_or(AppShellFeedbackInput {
+            scenario: None,
+            detail: None,
+        });
 
     let scenario = trim_text(&decoded.scenario.unwrap_or_default());
     let detail = normalized_optional_trimmed(decoded.detail);
@@ -1243,7 +1304,10 @@ pub extern "C" fn vel_embedded_prepare_app_shell_feedback(input_json: *const c_c
             ready: true,
         },
         "no_reachable_endpoint" => AppShellFeedbackOutput {
-            message: Some("No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url.".to_string()),
+            message: Some(
+                "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url."
+                    .to_string(),
+            ),
             ready: true,
         },
         "refresh_signals_failed" => AppShellFeedbackOutput {
