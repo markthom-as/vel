@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "predev": "npm run build:embedded-bridge-wasm",
+    "dev": "VITE_VEL_EMBEDDED_BRIDGE_WASM_URL=/embedded-bridge/vel-embedded-bridge.js vite",
     "build": "tsc -b && vite build",
     "build:embedded-bridge-wasm": "bash scripts/build-embedded-bridge-wasm.sh",
     "lint": "eslint .",

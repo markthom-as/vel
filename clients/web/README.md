@@ -15,6 +15,12 @@ npm run gallery:web
 npm run dev
 ```
 
+`npm run dev` now builds the embedded Rust bridge artifact first and starts Vite with:
+
+```bash
+VITE_VEL_EMBEDDED_BRIDGE_WASM_URL=/embedded-bridge/vel-embedded-bridge.js
+```
+
 ## Build
 
 ```bash
@@ -38,7 +44,7 @@ That emits a browser-targeted module under:
 clients/web/public/embedded-bridge/
 ```
 
-To make the app install that runtime at startup, point Vite at the generated module:
+The default dev path already points Vite at the generated module. The equivalent manual form is:
 
 ```bash
 VITE_VEL_EMBEDDED_BRIDGE_WASM_URL=/embedded-bridge/vel-embedded-bridge.js npm run dev
