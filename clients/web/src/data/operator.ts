@@ -1,5 +1,11 @@
 import { canonicalPatchMutation, canonicalPostMutation, canonicalQuery } from './canonicalTransport';
 import {
+  buildLinkingRequestValue,
+  buildRemoteRoutesValue,
+  normalizePairingTokenValue,
+  type EmbeddedBridgeRoute,
+} from './embeddedBridgeAdapter';
+import {
   decodeApiResponse,
   decodeArray,
   decodeClusterBootstrapData,
@@ -107,6 +113,12 @@ export interface CoreSetupStatusData {
   missing: Array<'user_display_name' | 'node_display_name' | 'agent_profile' | 'llm_provider' | 'synced_provider'>;
   title: string;
   summary: string;
+}
+
+export interface EmbeddedLinkingRequestDraftData {
+  token_code: string | null;
+  target_base_url: string | null;
+  route_candidates: EmbeddedBridgeRoute[];
 }
 
 function decodeSyncResultData(value: unknown): SyncResultData {
@@ -566,6 +578,33 @@ export function issuePairingToken(payload: {
     payload,
     (value) => decodeApiResponse(value, decodePairingTokenData),
   );
+}
+
+export function buildEmbeddedPairingTokenPreview(rawInput: string): string {
+  return normalizePairingTokenValue(rawInput).tokenCode;
+}
+
+export function buildEmbeddedLinkingRequestDraft(input: {
+  token_code?: string | null;
+  target_base_url?: string | null;
+  sync_base_url?: string | null;
+  tailscale_base_url?: string | null;
+  lan_base_url?: string | null;
+  public_base_url?: string | null;
+}): EmbeddedLinkingRequestDraftData {
+  const linkingRequest = buildLinkingRequestValue(input.token_code, input.target_base_url);
+  const routeCandidates = buildRemoteRoutesValue(
+    input.sync_base_url,
+    input.tailscale_base_url,
+    input.lan_base_url,
+    input.public_base_url,
+  );
+
+  return {
+    token_code: linkingRequest.tokenCode,
+    target_base_url: linkingRequest.targetBaseUrl,
+    route_candidates: routeCandidates,
+  };
 }
 
 export function redeemPairingToken(payload: {
