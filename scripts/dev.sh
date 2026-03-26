@@ -179,14 +179,16 @@ fi
 
 ensure_openai_oauth_proxy
 
-# Default veld bind (vel-config); client must use same host:port via VITE_API_URL
+# Default veld bind (vel-config); Vite should proxy to the same host:port in dev.
 API_URL="${VITE_API_URL:-http://localhost:4130}"
 # Parse port for wait (e.g. 4130 from http://localhost:4130)
 PORT="${API_URL##*:}"
 PORT="${PORT%%/*}"
 
-echo "Starting veld (API at $API_URL)..."
-"$ROOT/scripts/dev-api.sh" &
+echo "Starting veld watcher (API at $API_URL)..."
+VEL_DEV_REQUIRE_INITIAL_HEALTH=1 \
+VEL_DEV_HEALTHCHECK_URL="http://127.0.0.1:$PORT/v1/health" \
+  node "$ROOT/scripts/dev-api-watch.mjs" &
 VELD_PID=$!
 
 echo "Waiting for veld on port $PORT..."
@@ -210,5 +212,5 @@ if ! curl -s -o /dev/null "http://127.0.0.1:$PORT/v1/health" 2>/dev/null; then
 fi
 echo "veld ready."
 
-echo "Starting web dev server (VITE_API_URL=$API_URL)..."
-cd clients/web && exec npm run dev
+echo "Starting web dev server (VELD_URL proxy target=$API_URL)..."
+cd clients/web && VELD_URL="$API_URL" exec npm run dev

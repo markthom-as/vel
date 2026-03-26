@@ -1,5 +1,5 @@
 # Vel — top-level build and dev
-# veld binds 127.0.0.1:4130 by default; web client uses VITE_API_URL (default http://localhost:4130).
+# veld binds 127.0.0.1:4130 by default; web dev proxy targets the same origin unless overridden.
 
 .PHONY: build build-api build-web clean dev dev-api dev-web dev-openai-oauth download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-build-watch-sim apple-run-ios-sim apple-run-watch-sim apple-run-all-sim apple-build apple-run apple-build-ios-device apple-install-ios-device apple-build-watch-device apple-install-watch-device apple-install-devices apple-list-devices apple-test install-web lint-web seed smoke test test-api test-web test-cli coverage-cli coverage-cli-collect coverage-cli-report coverage-cli-check verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
 
@@ -11,15 +11,16 @@ build-api:
 build-web: install-web
 	cd clients/web && npm run build
 
-# Run API only (migrations run on startup). Use in one terminal.
+# Run API only (migrations run on startup) with Rust source watching. Use in one terminal.
 dev-api:
-	@bash scripts/dev-api.sh
+	@node scripts/dev-api-watch.mjs
 
 # Run the localhost OpenAI OAuth proxy expected by the checked-in oauth-openai profile.
 dev-openai-oauth:
 	@bash scripts/openai-oauth.sh run --base-url http://127.0.0.1:8014/v1
 
-# Run web dev server only. Set VITE_API_URL if veld is not on localhost:4130. Use in another terminal.
+# Run web dev server only. Set VELD_URL to point the Vite proxy at a non-default veld origin.
+# Set VITE_API_URL only when you intentionally want the browser to call an explicit API base directly.
 dev-web:
 	cd clients/web && npm run dev
 
