@@ -7,7 +7,10 @@ import type {
   RoutineBlockData,
   WorkerPresenceData,
 } from '../../types';
-import { shortClientKindLabelValue } from '../../data/embeddedBridgeAdapter';
+import {
+  actionItemDedupeKeyValue,
+  shortClientKindLabelValue,
+} from '../../data/embeddedBridgeAdapter';
 import {
   systemTargetForCoreSetting,
   systemTargetForProvider,
@@ -73,14 +76,14 @@ export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTa
 export function dedupeActionItems(items: ActionItemData[]): ActionItemData[] {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const dedupeKey = [
+    const dedupeKey = actionItemDedupeKeyValue(
       item.kind,
-      item.title.trim().toLowerCase(),
-      item.summary.trim().toLowerCase(),
-      item.project_label?.trim().toLowerCase() ?? '',
-      item.thread_route?.thread_id ?? '',
-      item.thread_route?.label.trim().toLowerCase() ?? '',
-    ].join('::');
+      item.title,
+      item.summary,
+      item.project_label ?? null,
+      item.thread_route?.thread_id ?? null,
+      item.thread_route?.label ?? null,
+    ).key;
     if (seen.has(dedupeKey)) {
       return false;
     }

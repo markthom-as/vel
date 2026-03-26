@@ -189,7 +189,9 @@ pub fn normalize_task_display_packet(
     }
 }
 
-pub fn short_client_kind_label_packet(client_kind: Option<String>) -> PortableClientKindLabelPacket {
+pub fn short_client_kind_label_packet(
+    client_kind: Option<String>,
+) -> PortableClientKindLabelPacket {
     let Some(client_kind) = normalized_optional_trimmed(client_kind) else {
         return PortableClientKindLabelPacket { short_label: None };
     };
