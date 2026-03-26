@@ -8,6 +8,7 @@ import {
   normalizeDomainHintPacket,
   normalizePairingTokenPacket,
   normalizeSemanticLabelPacket,
+  normalizeTaskDisplayBatchPacket,
   normalizeTaskDisplayPacket,
   queuedActionPacket,
   shortClientKindLabelPacket,
@@ -83,6 +84,15 @@ export type EmbeddedBridgeActionItemDedupeKeyPacket = {
   key: string;
 };
 
+type EmbeddedBridgeTaskDisplayBatchPacket = {
+  items: EmbeddedBridgeTaskDisplayPacket[];
+};
+
+const semanticLabelCache = new Map<string, { normalized: string }>();
+const taskDisplayCache = new Map<string, EmbeddedBridgeTaskDisplayPacket>();
+const clientKindCache = new Map<string, EmbeddedBridgeClientKindPacket>();
+const actionItemDedupeKeyCache = new Map<string, EmbeddedBridgeActionItemDedupeKeyPacket>();
+
 function parsePacket<T>(kind: EmbeddedBridgePacketKind, payloadJson: string): T {
   const parsed = JSON.parse(payloadJson) as { kind?: string } & T;
   void kind;
@@ -107,8 +117,14 @@ export function normalizeDomainHintValue(input: string): { normalized: string } 
 
 export function normalizeSemanticLabelValue(input: string): { normalized: string } {
   ensureEmbeddedBridgeRuntime();
+  const cached = semanticLabelCache.get(input);
+  if (cached) {
+    return cached;
+  }
   const response = normalizeSemanticLabelPacket(input);
-  return parsePacket(response.kind, response.payloadJson);
+  const parsed = parsePacket<{ normalized: string }>(response.kind, response.payloadJson);
+  semanticLabelCache.set(input, parsed);
+  return parsed;
 }
 
 export function normalizeTaskDisplayValue(
@@ -116,16 +132,43 @@ export function normalizeTaskDisplayValue(
   project?: string | null,
 ): EmbeddedBridgeTaskDisplayPacket {
   ensureEmbeddedBridgeRuntime();
+  const cacheKey = JSON.stringify([tags ?? null, project ?? null]);
+  const cached = taskDisplayCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const response = normalizeTaskDisplayPacket(tags, project);
-  return parsePacket(response.kind, response.payloadJson);
+  const parsed = parsePacket<EmbeddedBridgeTaskDisplayPacket>(response.kind, response.payloadJson);
+  taskDisplayCache.set(cacheKey, parsed);
+  return parsed;
+}
+
+export function normalizeTaskDisplayBatchValue(
+  entries: Array<{ tags?: string[] | null; project?: string | null }>,
+): EmbeddedBridgeTaskDisplayPacket[] {
+  ensureEmbeddedBridgeRuntime();
+  const response = normalizeTaskDisplayBatchPacket(
+    JSON.stringify(entries.map((entry) => ({
+      tags: entry.tags ?? null,
+      project: entry.project ?? null,
+    }))),
+  );
+  return parsePacket<EmbeddedBridgeTaskDisplayBatchPacket>(response.kind, response.payloadJson).items;
 }
 
 export function shortClientKindLabelValue(
   clientKind?: string | null,
 ): EmbeddedBridgeClientKindPacket {
   ensureEmbeddedBridgeRuntime();
+  const cacheKey = clientKind ?? '__null__';
+  const cached = clientKindCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const response = shortClientKindLabelPacket(clientKind);
-  return parsePacket(response.kind, response.payloadJson);
+  const parsed = parsePacket<EmbeddedBridgeClientKindPacket>(response.kind, response.payloadJson);
+  clientKindCache.set(cacheKey, parsed);
+  return parsed;
 }
 
 export function actionItemDedupeKeyValue(
@@ -137,6 +180,18 @@ export function actionItemDedupeKeyValue(
   threadLabel?: string | null,
 ): EmbeddedBridgeActionItemDedupeKeyPacket {
   ensureEmbeddedBridgeRuntime();
+  const cacheKey = JSON.stringify([
+    kind,
+    title,
+    summary,
+    projectLabel ?? null,
+    threadId ?? null,
+    threadLabel ?? null,
+  ]);
+  const cached = actionItemDedupeKeyCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const response = actionItemDedupeKeyPacket(
     kind,
     title,
@@ -145,7 +200,12 @@ export function actionItemDedupeKeyValue(
     threadId,
     threadLabel,
   );
-  return parsePacket(response.kind, response.payloadJson);
+  const parsed = parsePacket<EmbeddedBridgeActionItemDedupeKeyPacket>(
+    response.kind,
+    response.payloadJson,
+  );
+  actionItemDedupeKeyCache.set(cacheKey, parsed);
+  return parsed;
 }
 
 export function buildQueuedActionValue(

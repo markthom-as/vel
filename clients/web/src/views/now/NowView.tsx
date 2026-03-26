@@ -1,6 +1,6 @@
 import type { DragEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { normalizeTaskDisplayValue } from '../../data/embeddedBridgeAdapter';
+import { normalizeTaskDisplayBatchValue } from '../../data/embeddedBridgeAdapter';
 import {
   contextQueryKeys,
   loadNow,
@@ -91,17 +91,15 @@ function eventWindowLabel(
   return end ? `${start}–${end}` : start;
 }
 
-function normalizeTaskTags(
-  tags: string[] | undefined,
-  project: string | null | undefined,
-): string[] {
-  return normalizeTaskDisplayValue(tags ?? null, project ?? null).tags;
-}
-
-function normalizeTaskProject(
-  project: string | null | undefined,
-): string | null {
-  return normalizeTaskDisplayValue(null, project ?? null).project;
+function normalizeTaskDisplayBatch(
+  tasks: Array<{ tags?: string[] | null; project?: string | null }>,
+): Array<{ tags: string[]; project: string | null }> {
+  return normalizeTaskDisplayBatchValue(
+    tasks.map((task) => ({
+      tags: task.tags ?? null,
+      project: task.project ?? null,
+    })),
+  );
 }
 
 function moveTaskBetweenSections(
@@ -204,18 +202,24 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
     const inboxItems = data.task_lane?.inbox ?? [];
     const laterItems = data.task_lane?.if_time_allows ?? [];
     const completedItems = data.task_lane?.completed ?? data.task_lane?.recent_completed ?? [];
+    const activeDisplay = normalizeTaskDisplayBatch(activeItems);
+    const nextDisplay = normalizeTaskDisplayBatch(nextItems);
+    const inboxDisplay = normalizeTaskDisplayBatch(inboxItems);
+    const laterDisplay = normalizeTaskDisplayBatch(laterItems);
+    const completedDisplay = normalizeTaskDisplayBatch(completedItems);
     if (laneEdited) {
       return;
     }
     setSectionTasks({
-      active: activeItems.map((task) => {
+      active: activeItems.map((task, index) => {
+        const display = activeDisplay[index] ?? { tags: [], project: task.project ?? null };
         return {
         id: task.id,
         text: task.text,
         title: task.title ?? task.text,
         description: task.description ?? null,
-        tags: normalizeTaskTags(task.tags, task.project ?? null),
-        project: normalizeTaskProject(task.project ?? null),
+        tags: display.tags,
+        project: display.project,
         dueLabel: task.due_label ?? null,
         isOverdue: task.is_overdue,
         deadlineLabel: task.deadline_label ?? null,
@@ -223,29 +227,31 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         threadId: task.primary_thread_id ?? null,
       };
       }),
-      next: nextItems.map((task) => {
+      next: nextItems.map((task, index) => {
+        const display = nextDisplay[index] ?? { tags: [], project: task.project ?? null };
         return {
         id: task.id,
         text: task.text,
         title: task.title ?? task.text,
         description: task.description ?? null,
-        tags: normalizeTaskTags(task.tags, task.project ?? null),
+        tags: display.tags,
         dueLabel: task.due_label ?? null,
         isOverdue: task.is_overdue,
         deadlineLabel: task.deadline_label ?? null,
         deadlinePassed: task.deadline_passed,
         threadId: task.primary_thread_id ?? null,
-        project: normalizeTaskProject(task.project ?? null),
+        project: display.project,
       };
       }),
-      later: laterItems.map((task) => {
+      later: laterItems.map((task, index) => {
+        const display = laterDisplay[index] ?? { tags: [], project: task.project ?? null };
         return {
         id: task.id,
         text: task.text,
         title: task.title ?? task.text,
         description: task.description ?? null,
-        tags: normalizeTaskTags(task.tags, task.project ?? null),
-        project: normalizeTaskProject(task.project ?? null),
+        tags: display.tags,
+        project: display.project,
         dueLabel: task.due_label ?? null,
         isOverdue: task.is_overdue,
         deadlineLabel: task.deadline_label ?? null,
@@ -253,14 +259,15 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         threadId: task.primary_thread_id ?? null,
       };
       }),
-      completed: completedItems.map((item) => {
+      completed: completedItems.map((item, index) => {
+        const display = completedDisplay[index] ?? { tags: [], project: item.project ?? null };
         return {
           id: item.id,
           text: item.text,
           title: item.title ?? item.text,
           description: item.description ?? null,
-          tags: normalizeTaskTags(item.tags, item.project ?? null),
-          project: normalizeTaskProject(item.project ?? null),
+          tags: display.tags,
+          project: display.project,
           dueLabel: item.due_label ?? null,
           isOverdue: item.is_overdue,
           deadlineLabel: item.deadline_label ?? null,
@@ -268,14 +275,15 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
           threadId: item.primary_thread_id ?? null,
         };
       }),
-      inbox: inboxItems.map((task) => {
+      inbox: inboxItems.map((task, index) => {
+        const display = inboxDisplay[index] ?? { tags: [], project: task.project ?? null };
         return {
           id: task.id,
           text: task.text,
           title: task.title ?? task.text,
           description: task.description ?? null,
-          tags: normalizeTaskTags(task.tags, task.project ?? null),
-          project: normalizeTaskProject(task.project ?? null),
+          tags: display.tags,
+          project: display.project,
           dueLabel: task.due_label ?? null,
           isOverdue: task.is_overdue,
           deadlineLabel: task.deadline_label ?? null,

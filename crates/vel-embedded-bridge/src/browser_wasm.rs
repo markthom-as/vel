@@ -7,6 +7,7 @@
 use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
     normalize_positive_minutes, normalize_semantic_label, normalize_task_display_packet,
+    normalize_task_display_batch_packet,
     normalized_optional_trimmed, prepare_app_shell_feedback_packet,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
     prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
@@ -95,6 +96,44 @@ impl BrowserWasmScaffold {
                     .collect::<Vec<_>>()
                     .join(","),
                 option_json(packet.project)
+            ),
+        }
+    }
+
+    pub fn normalize_task_display_batch_packet(entries_json: String) -> BrowserPacketResponse {
+        let entries = serde_json::from_str::<Vec<serde_json::Value>>(&entries_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|value| {
+                let tags = value
+                    .get("tags")
+                    .and_then(|tags| serde_json::from_value::<Vec<String>>(tags.clone()).ok());
+                let project = value
+                    .get("project")
+                    .and_then(|project| project.as_str())
+                    .map(|value| value.to_string());
+                (tags, project)
+            })
+            .collect::<Vec<_>>();
+        let packet = normalize_task_display_batch_packet(entries);
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!(
+                "{{\"items\":[{}]}}",
+                packet
+                    .items
+                    .into_iter()
+                    .map(|item| format!(
+                        "{{\"tags\":[{}],\"project\":{}}}",
+                        item.tags
+                            .into_iter()
+                            .map(|tag| string_json(&tag))
+                            .collect::<Vec<_>>()
+                            .join(","),
+                        option_json(item.project)
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(",")
             ),
         }
     }
@@ -443,6 +482,12 @@ pub fn vel_embedded_normalize_task_display_packet(
     project: Option<String>,
 ) -> String {
     BrowserWasmScaffold::normalize_task_display_packet(tags_json, project).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedNormalizeTaskDisplayBatchPacket)]
+pub fn vel_embedded_normalize_task_display_batch_packet(entries_json: String) -> String {
+    BrowserWasmScaffold::normalize_task_display_batch_packet(entries_json).payload_json
 }
 
 #[cfg(feature = "browser-wasm")]

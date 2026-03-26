@@ -146,6 +146,11 @@ pub struct PortableTaskDisplayNormalizationPacket {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableTaskDisplayBatchPacket {
+    pub items: Vec<PortableTaskDisplayNormalizationPacket>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PortableClientKindLabelPacket {
     pub short_label: Option<String>,
 }
@@ -186,6 +191,17 @@ pub fn normalize_task_display_packet(
     PortableTaskDisplayNormalizationPacket {
         tags: normalized_tags,
         project,
+    }
+}
+
+pub fn normalize_task_display_batch_packet(
+    entries: Vec<(Option<Vec<String>>, Option<String>)>,
+) -> PortableTaskDisplayBatchPacket {
+    PortableTaskDisplayBatchPacket {
+        items: entries
+            .into_iter()
+            .map(|(tags, project)| normalize_task_display_packet(tags, project))
+            .collect(),
     }
 }
 

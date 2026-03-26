@@ -27,6 +27,7 @@ export interface EmbeddedBridgePacketRuntime {
     tags?: string[] | null,
     project?: string | null,
   ): EmbeddedBridgePacketResponse;
+  normalizeTaskDisplayBatchPacket(entriesJson: string): EmbeddedBridgePacketResponse;
   shortClientKindLabelPacket(clientKind?: string | null): EmbeddedBridgePacketResponse;
   actionItemDedupeKeyPacket(
     kind: string,
@@ -144,6 +145,10 @@ export function normalizeTaskDisplayPacket(
   project?: string | null,
 ): EmbeddedBridgePacketResponse {
   return getEmbeddedBridgePacketRuntime().normalizeTaskDisplayPacket(tags, project);
+}
+
+export function normalizeTaskDisplayBatchPacket(entriesJson: string): EmbeddedBridgePacketResponse {
+  return getEmbeddedBridgePacketRuntime().normalizeTaskDisplayBatchPacket(entriesJson);
 }
 
 export function shortClientKindLabelPacket(
