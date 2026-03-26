@@ -5,7 +5,10 @@ use tracing::warn;
 use vel_api_types::{
     ApiResponse, LinkScopeData, LinkTargetSuggestionData, LinkedNodeData, LinkingPromptData,
 };
-use vel_core::{LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord};
+use vel_core::{
+    trusted_node_endpoint_inventory_from_urls, LinkScope, LinkStatus, LinkedNodeRecord,
+    PairingTokenRecord, TrustedNodeReachability,
+};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -291,11 +294,19 @@ async fn redeem_pairing_token_via_prompt(
             linked_at: now,
             last_seen_at: Some(now),
             transport_hint: Some(prompt.issuer_sync_transport),
-            sync_base_url: Some(prompt.issuer_sync_base_url),
-            tailscale_base_url: prompt.issuer_tailscale_base_url,
-            lan_base_url: prompt.issuer_lan_base_url,
-            localhost_base_url: prompt.issuer_localhost_base_url,
-            public_base_url: prompt.issuer_public_base_url,
+            sync_base_url: Some(prompt.issuer_sync_base_url.clone()),
+            tailscale_base_url: prompt.issuer_tailscale_base_url.clone(),
+            lan_base_url: prompt.issuer_lan_base_url.clone(),
+            localhost_base_url: prompt.issuer_localhost_base_url.clone(),
+            public_base_url: prompt.issuer_public_base_url.clone(),
+            endpoint_inventory: trusted_node_endpoint_inventory_from_urls(
+                Some(prompt.issuer_sync_base_url.as_str()),
+                prompt.issuer_tailscale_base_url.as_deref(),
+                prompt.issuer_lan_base_url.as_deref(),
+                prompt.issuer_localhost_base_url.as_deref(),
+                prompt.issuer_public_base_url.as_deref(),
+            ),
+            reachability: TrustedNodeReachability::Unknown,
         },
     );
     clear_linking_prompt(state, node_id).await?;
@@ -384,6 +395,14 @@ fn build_suggested_targets(
         &bootstrap.sync_base_url,
         &bootstrap.sync_transport,
         true,
+        token_code,
+    );
+    push_suggested_target(
+        &mut targets,
+        "Configured",
+        &bootstrap.configured_base_url,
+        "configured",
+        bootstrap.sync_transport == "configured",
         token_code,
     );
 
@@ -504,6 +523,27 @@ fn linked_node_from_request(
     localhost_base_url: Option<&str>,
     public_base_url: Option<&str>,
 ) -> LinkedNodeRecord {
+    let sync_base_url = sync_base_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+    let tailscale_base_url = tailscale_base_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+    let lan_base_url = lan_base_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+    let localhost_base_url = localhost_base_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+    let public_base_url = public_base_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+
     LinkedNodeRecord {
         node_id: node_id.to_string(),
         node_display_name: node_display_name.to_string(),
@@ -515,56 +555,31 @@ fn linked_node_from_request(
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(ToString::to_string),
-        sync_base_url: sync_base_url
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string),
-        tailscale_base_url: tailscale_base_url
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string),
-        lan_base_url: lan_base_url
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string),
-        localhost_base_url: localhost_base_url
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string),
-        public_base_url: public_base_url
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string),
+        sync_base_url: sync_base_url.clone(),
+        tailscale_base_url: tailscale_base_url.clone(),
+        lan_base_url: lan_base_url.clone(),
+        localhost_base_url: localhost_base_url.clone(),
+        public_base_url: public_base_url.clone(),
+        endpoint_inventory: trusted_node_endpoint_inventory_from_urls(
+            sync_base_url.as_deref(),
+            tailscale_base_url.as_deref(),
+            lan_base_url.as_deref(),
+            localhost_base_url.as_deref(),
+            public_base_url.as_deref(),
+        ),
+        reachability: TrustedNodeReachability::Unknown,
     }
 }
 
 fn merge_linked_node(
     existing: Option<&LinkedNodeRecord>,
-    mut incoming: LinkedNodeRecord,
+    incoming: LinkedNodeRecord,
 ) -> LinkedNodeRecord {
     let Some(existing) = existing else {
         return incoming;
     };
 
-    incoming.transport_hint = incoming
-        .transport_hint
-        .or_else(|| existing.transport_hint.clone());
-    incoming.sync_base_url = incoming
-        .sync_base_url
-        .or_else(|| existing.sync_base_url.clone());
-    incoming.tailscale_base_url = incoming
-        .tailscale_base_url
-        .or_else(|| existing.tailscale_base_url.clone());
-    incoming.lan_base_url = incoming
-        .lan_base_url
-        .or_else(|| existing.lan_base_url.clone());
-    incoming.localhost_base_url = incoming
-        .localhost_base_url
-        .or_else(|| existing.localhost_base_url.clone());
-    incoming.public_base_url = incoming
-        .public_base_url
-        .or_else(|| existing.public_base_url.clone());
-    incoming
+    incoming.merge_trust_state_from(existing)
 }
 
 async fn issuer_display_name(
@@ -921,6 +936,7 @@ mod tests {
         let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let mut config = AppConfig::default();
+        config.base_url = "http://vel-desktop.example:4130".to_string();
         config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
         config.lan_base_url = Some("http://192.168.1.50:4130".to_string());
         let (broadcast_tx, _) = broadcast::channel(8);
@@ -941,6 +957,10 @@ mod tests {
         assert!(targets
             .iter()
             .any(|target| target.transport_hint == "lan" && !target.recommended));
+        assert!(targets
+            .iter()
+            .any(|target| target.transport_hint == "configured"
+                && target.base_url == "http://vel-desktop.example:4130"));
         assert!(targets[0]
             .redeem_command_hint
             .contains("node link redeem VEL-PAIR-123"));
@@ -1024,6 +1044,8 @@ mod tests {
                 lan_base_url: None,
                 localhost_base_url: None,
                 public_base_url: None,
+                endpoint_inventory: Vec::new(),
+                reachability: TrustedNodeReachability::Unknown,
             })
             .await
             .unwrap();

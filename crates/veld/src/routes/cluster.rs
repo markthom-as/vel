@@ -15,6 +15,7 @@ fn cluster_bootstrap_to_api(
         node_display_name: data.node_display_name,
         active_authority_node_id: data.active_authority_node_id,
         active_authority_epoch: data.active_authority_epoch,
+        configured_base_url: data.configured_base_url,
         sync_base_url: data.sync_base_url,
         sync_transport: data.sync_transport,
         tailscale_base_url: data.tailscale_base_url,

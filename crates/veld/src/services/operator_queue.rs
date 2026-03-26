@@ -1249,6 +1249,8 @@ mod tests {
                 lan_base_url: None,
                 localhost_base_url: None,
                 public_base_url: None,
+                endpoint_inventory: Vec::new(),
+                reachability: vel_core::TrustedNodeReachability::Unknown,
             })
             .await
             .unwrap();

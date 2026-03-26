@@ -851,6 +851,7 @@ export interface ClusterBootstrapData {
   node_display_name: string;
   active_authority_node_id: string;
   active_authority_epoch: number;
+  configured_base_url: string;
   sync_base_url: string;
   sync_transport: string;
   tailscale_base_url: string | null;
@@ -5536,6 +5537,10 @@ export function decodeClusterBootstrapData(value: unknown): ClusterBootstrapData
     active_authority_epoch: expectNumber(
       record.active_authority_epoch,
       'cluster bootstrap.active_authority_epoch',
+    ),
+    configured_base_url: expectString(
+      record.configured_base_url,
+      'cluster bootstrap.configured_base_url',
     ),
     sync_base_url: expectString(record.sync_base_url, 'cluster bootstrap.sync_base_url'),
     sync_transport: expectString(record.sync_transport, 'cluster bootstrap.sync_transport'),

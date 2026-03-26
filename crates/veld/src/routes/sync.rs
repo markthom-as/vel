@@ -149,6 +149,7 @@ fn sync_bootstrap_cluster_to_api(
         node_display_name: cluster.node_display_name,
         active_authority_node_id: cluster.active_authority_node_id,
         active_authority_epoch: cluster.active_authority_epoch,
+        configured_base_url: cluster.configured_base_url,
         sync_base_url: cluster.sync_base_url,
         sync_transport: cluster.sync_transport,
         tailscale_base_url: cluster.tailscale_base_url,

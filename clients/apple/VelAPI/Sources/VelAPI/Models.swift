@@ -900,6 +900,7 @@ public struct ClusterBootstrapData: Codable, Sendable {
     public let node_display_name: String
     public let active_authority_node_id: String
     public let active_authority_epoch: Int
+    public let configured_base_url: String
     public let sync_base_url: String
     public let sync_transport: String
     public let tailscale_base_url: String?
@@ -917,6 +918,7 @@ public struct ClusterBootstrapData: Codable, Sendable {
         case node_display_name
         case active_authority_node_id
         case active_authority_epoch
+        case configured_base_url
         case sync_base_url
         case sync_transport
         case tailscale_base_url
@@ -936,6 +938,7 @@ public struct ClusterBootstrapData: Codable, Sendable {
         node_display_name = try container.decode(String.self, forKey: .node_display_name)
         active_authority_node_id = try container.decode(String.self, forKey: .active_authority_node_id)
         active_authority_epoch = try container.decode(Int.self, forKey: .active_authority_epoch)
+        configured_base_url = try container.decode(String.self, forKey: .configured_base_url)
         sync_base_url = try container.decode(String.self, forKey: .sync_base_url)
         sync_transport = try container.decode(String.self, forKey: .sync_transport)
         tailscale_base_url = try container.decodeIfPresent(String.self, forKey: .tailscale_base_url)

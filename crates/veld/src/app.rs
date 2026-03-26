@@ -1860,6 +1860,8 @@ mod tests {
                 lan_base_url: None,
                 localhost_base_url: None,
                 public_base_url: None,
+                endpoint_inventory: Vec::new(),
+                reachability: vel_core::TrustedNodeReachability::Unknown,
             })
             .await
             .unwrap();
@@ -1988,6 +1990,8 @@ mod tests {
                 lan_base_url: None,
                 localhost_base_url: None,
                 public_base_url: None,
+                endpoint_inventory: Vec::new(),
+                reachability: vel_core::TrustedNodeReachability::Unknown,
             })
             .await
             .unwrap();
@@ -12582,7 +12586,7 @@ END:VCALENDAR
             .unwrap_or(false));
         assert_eq!(
             issue_json["data"]["suggested_targets"][0]["transport_hint"],
-            "localhost"
+            "tailscale"
         );
 
         let redeem = app

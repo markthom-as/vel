@@ -1,6 +1,9 @@
 use sqlx::{Row, SqlitePool};
 use time::OffsetDateTime;
-use vel_core::{LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord};
+use vel_core::{
+    LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord, TrustedNodeEndpointKind,
+    TrustedNodeEndpointRecord, TrustedNodeReachability,
+};
 
 use crate::{db::StorageError, mapping::timestamp_to_datetime};
 
@@ -216,6 +219,15 @@ fn map_linked_node_row(row: &sqlx::sqlite::SqliteRow) -> Result<LinkedNodeRecord
     let scopes_json: String = row.try_get("scopes_json")?;
     let scopes: LinkScope = serde_json::from_str(&scopes_json)?;
     let status: String = row.try_get("status")?;
+    let last_seen_at = row
+        .try_get::<Option<i64>, _>("last_seen_at")?
+        .map(timestamp_to_datetime)
+        .transpose()?;
+    let sync_base_url: Option<String> = row.try_get("sync_base_url")?;
+    let tailscale_base_url: Option<String> = row.try_get("tailscale_base_url")?;
+    let lan_base_url: Option<String> = row.try_get("lan_base_url")?;
+    let localhost_base_url: Option<String> = row.try_get("localhost_base_url")?;
+    let public_base_url: Option<String> = row.try_get("public_base_url")?;
 
     Ok(LinkedNodeRecord {
         node_id: row.try_get("node_id")?,
@@ -225,17 +237,59 @@ fn map_linked_node_row(row: &sqlx::sqlite::SqliteRow) -> Result<LinkedNodeRecord
             .map_err(|error: vel_core::VelCoreError| StorageError::Validation(error.to_string()))?,
         scopes,
         linked_at: timestamp_to_datetime(row.try_get("linked_at")?)?,
-        last_seen_at: row
-            .try_get::<Option<i64>, _>("last_seen_at")?
-            .map(timestamp_to_datetime)
-            .transpose()?,
+        last_seen_at,
         transport_hint: row.try_get("transport_hint")?,
-        sync_base_url: row.try_get("sync_base_url")?,
-        tailscale_base_url: row.try_get("tailscale_base_url")?,
-        lan_base_url: row.try_get("lan_base_url")?,
-        localhost_base_url: row.try_get("localhost_base_url")?,
-        public_base_url: row.try_get("public_base_url")?,
+        sync_base_url: sync_base_url.clone(),
+        tailscale_base_url: tailscale_base_url.clone(),
+        lan_base_url: lan_base_url.clone(),
+        localhost_base_url: localhost_base_url.clone(),
+        public_base_url: public_base_url.clone(),
+        endpoint_inventory: build_endpoint_inventory(
+            sync_base_url,
+            tailscale_base_url,
+            lan_base_url,
+            localhost_base_url,
+            public_base_url,
+            last_seen_at,
+        ),
+        reachability: TrustedNodeReachability::Unknown,
     })
+}
+
+fn build_endpoint_inventory(
+    sync_base_url: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
+    localhost_base_url: Option<String>,
+    public_base_url: Option<String>,
+    last_seen_at: Option<OffsetDateTime>,
+) -> Vec<TrustedNodeEndpointRecord> {
+    let mut endpoints = Vec::new();
+    let mut push_endpoint = |kind: TrustedNodeEndpointKind, base_url: Option<String>| {
+        let Some(base_url) = base_url.map(|value| value.trim().to_string()) else {
+            return;
+        };
+        if base_url.is_empty()
+            || endpoints
+                .iter()
+                .any(|record: &TrustedNodeEndpointRecord| record.base_url == base_url)
+        {
+            return;
+        }
+        endpoints.push(TrustedNodeEndpointRecord {
+            kind,
+            base_url,
+            last_seen_at,
+            advertised: true,
+        });
+    };
+
+    push_endpoint(TrustedNodeEndpointKind::Sync, sync_base_url);
+    push_endpoint(TrustedNodeEndpointKind::Tailscale, tailscale_base_url);
+    push_endpoint(TrustedNodeEndpointKind::Lan, lan_base_url);
+    push_endpoint(TrustedNodeEndpointKind::Localhost, localhost_base_url);
+    push_endpoint(TrustedNodeEndpointKind::Public, public_base_url);
+    endpoints
 }
 
 #[cfg(test)]
@@ -304,6 +358,8 @@ mod tests {
             lan_base_url: Some("http://192.168.1.55:4130".to_string()),
             localhost_base_url: None,
             public_base_url: None,
+            endpoint_inventory: Vec::new(),
+            reachability: TrustedNodeReachability::Unknown,
         };
 
         upsert_linked_node(&pool, &record).await.unwrap();

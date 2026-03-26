@@ -144,7 +144,11 @@ pub use integration::{
     IntegrationProvider, IntegrationSourceRef,
 };
 pub use intervention::{Intervention, InterventionState};
-pub use linking::{LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord};
+pub use linking::{
+    LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord, TrustBootstrapArtifactRecord,
+    TrustedNodeEndpointKind, TrustedNodeEndpointRecord, TrustedNodeReachability,
+    trusted_node_endpoint_inventory_from_urls,
+};
 pub use loops::LoopKind;
 pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,

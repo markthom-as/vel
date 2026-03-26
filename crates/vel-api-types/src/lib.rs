@@ -390,6 +390,7 @@ pub struct ClusterBootstrapData {
     pub node_display_name: String,
     pub active_authority_node_id: String,
     pub active_authority_epoch: i64,
+    pub configured_base_url: String,
     pub sync_base_url: String,
     pub sync_transport: String,
     pub tailscale_base_url: Option<String>,
@@ -3946,6 +3947,72 @@ pub struct LinkTargetSuggestionData {
     pub redeem_command_hint: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrustedNodeEndpointKindData {
+    Sync,
+    Tailscale,
+    Lan,
+    Localhost,
+    Public,
+    Relay,
+    Introducer,
+}
+
+impl From<vel_core::TrustedNodeEndpointKind> for TrustedNodeEndpointKindData {
+    fn from(value: vel_core::TrustedNodeEndpointKind) -> Self {
+        match value {
+            vel_core::TrustedNodeEndpointKind::Sync => Self::Sync,
+            vel_core::TrustedNodeEndpointKind::Tailscale => Self::Tailscale,
+            vel_core::TrustedNodeEndpointKind::Lan => Self::Lan,
+            vel_core::TrustedNodeEndpointKind::Localhost => Self::Localhost,
+            vel_core::TrustedNodeEndpointKind::Public => Self::Public,
+            vel_core::TrustedNodeEndpointKind::Relay => Self::Relay,
+            vel_core::TrustedNodeEndpointKind::Introducer => Self::Introducer,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustedNodeEndpointData {
+    pub kind: TrustedNodeEndpointKindData,
+    pub base_url: String,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub last_seen_at: Option<OffsetDateTime>,
+    pub advertised: bool,
+}
+
+impl From<vel_core::TrustedNodeEndpointRecord> for TrustedNodeEndpointData {
+    fn from(value: vel_core::TrustedNodeEndpointRecord) -> Self {
+        Self {
+            kind: value.kind.into(),
+            base_url: value.base_url,
+            last_seen_at: value.last_seen_at,
+            advertised: value.advertised,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrustedNodeReachabilityData {
+    Unknown,
+    Reachable,
+    Unreachable,
+    Stale,
+}
+
+impl From<vel_core::TrustedNodeReachability> for TrustedNodeReachabilityData {
+    fn from(value: vel_core::TrustedNodeReachability) -> Self {
+        match value {
+            vel_core::TrustedNodeReachability::Unknown => Self::Unknown,
+            vel_core::TrustedNodeReachability::Reachable => Self::Reachable,
+            vel_core::TrustedNodeReachability::Unreachable => Self::Unreachable,
+            vel_core::TrustedNodeReachability::Stale => Self::Stale,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkingPromptData {
     pub target_node_id: String,
@@ -4001,6 +4068,9 @@ pub struct LinkedNodeData {
     pub lan_base_url: Option<String>,
     pub localhost_base_url: Option<String>,
     pub public_base_url: Option<String>,
+    #[serde(default)]
+    pub endpoint_inventory: Vec<TrustedNodeEndpointData>,
+    pub reachability: TrustedNodeReachabilityData,
 }
 
 impl From<vel_core::LinkedNodeRecord> for LinkedNodeData {
@@ -4018,6 +4088,12 @@ impl From<vel_core::LinkedNodeRecord> for LinkedNodeData {
             lan_base_url: value.lan_base_url,
             localhost_base_url: value.localhost_base_url,
             public_base_url: value.public_base_url,
+            endpoint_inventory: value
+                .endpoint_inventory
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            reachability: value.reachability.into(),
         }
     }
 }
@@ -5965,10 +6041,19 @@ mod linking_datetime_contract_tests {
             lan_base_url: Some("http://192.168.1.20:4130".to_string()),
             localhost_base_url: None,
             public_base_url: None,
+            endpoint_inventory: vec![TrustedNodeEndpointData {
+                kind: TrustedNodeEndpointKindData::Tailscale,
+                base_url: "http://node-remote.tailnet.ts.net:4130".to_string(),
+                last_seen_at: Some(expires_at),
+                advertised: true,
+            }],
+            reachability: TrustedNodeReachabilityData::Reachable,
         })
         .unwrap();
         assert!(linked["linked_at"].is_string());
         assert!(linked["last_seen_at"].is_string());
+        assert_eq!(linked["endpoint_inventory"][0]["kind"], "tailscale");
+        assert_eq!(linked["reachability"], "reachable");
     }
 }
 
