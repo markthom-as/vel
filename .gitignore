@@ -9,5 +9,12 @@ var/
 .vscode/
 clients/apple/VelAPI/.build/
 
+# GSD runtime state
+.gsd/activity/
+.gsd/runtime/
+.gsd/auto.lock
+.gsd/gsd.db
+.gsd/completed-units.json
+
 # Downloaded model weights (see scripts/download-chat-model.sh)
 configs/models/weights/
