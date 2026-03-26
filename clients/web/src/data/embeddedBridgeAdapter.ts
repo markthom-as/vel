@@ -2,7 +2,6 @@ import {
   appShellFeedbackPacket,
   assistantEntryFallbackPacket,
   collectRemoteRoutesPacket,
-  EmbeddedBridgePacketKind,
   linkingFeedbackPacket,
   linkingRequestPacket,
   normalizeDomainHintPacket,
@@ -14,8 +13,9 @@ import {
   voiceOfflineResponsePacket,
   voiceQuickActionPacket,
 } from './embeddedBridgePackets';
+import type { EmbeddedBridgePacketKind } from './embeddedBridgePackets';
 
-export const EMBEDDED_BRIDGE_WEB_MODE = 'scaffold_only' as const;
+export const EMBEDDED_BRIDGE_WEB_MODE = 'rust_required' as const;
 
 export type EmbeddedBridgeWebMode = typeof EMBEDDED_BRIDGE_WEB_MODE;
 

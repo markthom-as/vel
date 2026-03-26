@@ -24,7 +24,7 @@ related_files:
   - clients/web/src/data/embeddedBridgePackets.example.ts
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - docs/cognitive-agent-architecture/apple/apple-rust-integration-path.md
-summary: Defines the future extraction path from the current Apple-native embedded bridge into a cross-surface portable packet core with a browser/WASM adapter.
+summary: Defines the Rust-first browser packet path from the current Apple-native embedded bridge into a cross-surface portable packet core with a browser/WASM adapter.
 ---
 
 # Purpose
@@ -36,6 +36,7 @@ Current truth:
 - Apple embedded mode is a native iPhone-first FFI path.
 - Browser surfaces remain daemon-backed and browser-local for shell concerns such as STT/TTS.
 - `vel-embedded-bridge` now contains a growing set of deterministic packet and normalization helpers that are good candidates for cross-surface reuse.
+- Web packet shaping is no longer allowed to remain duplicated in TypeScript once a Rust packet family exists.
 
 # Current Separation
 
@@ -44,7 +45,7 @@ Today `vel-embedded-bridge` mixes two concerns:
 1. portable deterministic transform logic
 2. native FFI entrypoints for Apple embedding
 
-That is acceptable for Phase 37 iPhone work, but it is the wrong long-term shape for browser/WASM reuse.
+That is acceptable for Phase 37 iPhone work, but it is the wrong long-term shape for browser/WASM reuse. The repository now treats Rust as the canonical packet authority for browser adoption too.
 
 # Canonical Future Shape
 
@@ -130,17 +131,17 @@ Current truth of that scaffold:
   - voice continuity summary packet shaping
   - voice offline response packet shaping
   - voice cached query packet shaping
-- `embeddedBridgePackets.ts` mirrors that packet vocabulary on the web side as a non-live adapter scaffold inside the browser data layer.
+- `embeddedBridgePackets.ts` is now a Rust-runtime boundary only. It no longer owns duplicate packet shaping logic in TypeScript.
 - `embeddedBridgeAdapter.ts` is the next seam up: it parses packet JSON into typed browser-facing values so future callers do not depend directly on raw packet JSON strings.
 - `embeddedBridgePackets.example.ts` is a checked-in usage reference for future browser callers so the scaffold has a concrete packet-consumption example.
-- those helpers are still scaffold-only and are not yet wired into the shipped web client as a live runtime path.
+- until the WASM runtime is installed, browser packet calls fail closed instead of silently using a duplicated TypeScript implementation.
 
 # Next Implementation Sequence
 
 1. continue moving deterministic helpers from `lib.rs` into `portable_core.rs`
 2. add a browser-oriented export layer that returns JS-friendly typed packets
 3. keep Apple native FFI as a thin adapter over the same portable core
-4. add web-side adapter code only for flows that clearly benefit from local reuse
+4. install the browser/WASM runtime into `embeddedBridgePackets.ts` so the web adapter can call Rust directly
 5. avoid widening browser-local logic into authority-runtime policy
 
 # Acceptance Criteria
