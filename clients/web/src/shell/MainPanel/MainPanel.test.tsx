@@ -174,6 +174,26 @@ describe('MainPanel', () => {
     expect(screen.getByText('System view')).toBeInTheDocument()
   })
 
+  it('keeps shell chrome inside the main frame while bootstrap data is loading', () => {
+    const view = render(
+      <MainPanel
+        conversationId={null}
+        mainView="now"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges
+        shellBootLoading
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    expect(screen.getByText('Loading your current state…')).toBeInTheDocument()
+    expect(screen.getByText('Bringing Vel online before rendering live nudges and shell chrome.')).toBeInTheDocument()
+    expect(view.container).not.toHaveTextContent('Now view')
+    expect(view.container).not.toHaveTextContent(/Composer /)
+  })
+
   it('opens the thread when a command-launched morning session returns as inline daily-loop output', async () => {
     const onOpenThread = vi.fn()
 

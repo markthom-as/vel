@@ -72,4 +72,20 @@ describe('AppShell', () => {
     expect(getByTestId('app-shell-workspace-tablet')).toBeInTheDocument()
     unmount()
   })
+
+  it('expands the loading workspace to the full frame below the navbar', () => {
+    const { getByTestId, queryByTestId, unmount } = render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        fullFrameMain
+      />,
+    )
+
+    expect(getByTestId('app-shell-workspace-full-frame')).toBeInTheDocument()
+    expect(getByTestId('app-shell-main').className).toContain('flex-1')
+    expect(getByTestId('app-shell-main').className).toContain('overflow-hidden')
+    expect(queryByTestId('app-shell-nudges')).not.toBeInTheDocument()
+    unmount()
+  })
 })
