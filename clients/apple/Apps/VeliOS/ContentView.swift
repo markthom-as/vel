@@ -3177,6 +3177,11 @@ private struct SettingsTab: View {
             Text(scopeSummary(prompt.scopes))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            ForEach(routeSummaries(prompt: prompt, store: store), id: \.baseURL) { route in
+                Text("\(route.label): \(route.baseURL)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             TextField(
                 "ABC-123",
                 text: Binding(
@@ -3208,6 +3213,11 @@ private struct SettingsTab: View {
             Text(scopeSummary(pairingToken.scopes))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            ForEach(routeSummaries(pairingToken: pairingToken), id: \.baseURL) { route in
+                Text("\(route.label): \(route.baseURL)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -3688,6 +3698,30 @@ private func scopeSummary(_ scopes: LinkScopeData) -> String {
     if scopes.write_safe_actions { labels.append("write_safe_actions") }
     if scopes.execute_repo_tasks { labels.append("execute_repo_tasks") }
     return labels.isEmpty ? "No scopes selected" : labels.joined(separator: ", ")
+}
+
+@MainActor
+private func routeSummaries(prompt: LinkingPromptData, store: VelClientStore) -> [RouteSummary] {
+    if let artifact = prompt.bootstrap_artifact, !artifact.endpoints.isEmpty {
+        return artifact.endpoints.map { endpoint in
+            RouteSummary(label: endpoint.kind, baseURL: endpoint.base_url)
+        }
+    }
+    return store.collectRemoteRoutes(
+        syncBaseURL: prompt.issuer_sync_base_url,
+        tailscaleBaseURL: prompt.issuer_tailscale_base_url,
+        lanBaseURL: prompt.issuer_lan_base_url,
+        publicBaseURL: prompt.issuer_public_base_url
+    ).map { RouteSummary(label: $0.label, baseURL: $0.baseURL) }
+}
+
+private func routeSummaries(pairingToken: PairingTokenData) -> [RouteSummary] {
+    guard let artifact = pairingToken.bootstrap_artifact else {
+        return []
+    }
+    return artifact.endpoints.map { endpoint in
+        RouteSummary(label: endpoint.kind, baseURL: endpoint.base_url)
+    }
 }
 
 private struct ContextValueRow: View {

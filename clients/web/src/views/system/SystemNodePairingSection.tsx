@@ -100,6 +100,15 @@ function routeSummary(node: {
   return routes.length > 0 ? routes.join(' | ') : 'No route advertised';
 }
 
+function bootstrapArtifactRouteSummary(artifact: {
+  endpoints: Array<{ kind: string; base_url: string }>;
+} | null | undefined): string | null {
+  const routes = artifact?.endpoints
+    ?.map((endpoint) => `${endpoint.kind}: ${endpoint.base_url}`)
+    .filter((value): value is string => Boolean(value));
+  return routes && routes.length > 0 ? routes.join(' | ') : null;
+}
+
 function preferredTransport(
   worker: WorkerPresenceData | null | undefined,
   bootstrap: ClusterBootstrapData | null | undefined,
@@ -510,13 +519,19 @@ export function NodePairingDetail({
             >
               <SystemDocumentStatsGrid className="gap-x-6">
                 <SystemDocumentMetaRow label="Prompt scope" value={scopeSummary(incomingPrompt.scopes)} />
-                <SystemDocumentMetaRow label="Issuer route" value={routeSummary({
-                  sync_base_url: incomingPrompt.issuer_sync_base_url,
-                  tailscale_base_url: incomingPrompt.issuer_tailscale_base_url,
-                  lan_base_url: incomingPrompt.issuer_lan_base_url,
-                  localhost_base_url: incomingPrompt.issuer_localhost_base_url,
-                  public_base_url: incomingPrompt.issuer_public_base_url,
-                })} />
+                <SystemDocumentMetaRow
+                  label="Issuer route"
+                  value={
+                    bootstrapArtifactRouteSummary(incomingPrompt.bootstrap_artifact)
+                    ?? routeSummary({
+                      sync_base_url: incomingPrompt.issuer_sync_base_url,
+                      tailscale_base_url: incomingPrompt.issuer_tailscale_base_url,
+                      lan_base_url: incomingPrompt.issuer_lan_base_url,
+                      localhost_base_url: incomingPrompt.issuer_localhost_base_url,
+                      public_base_url: incomingPrompt.issuer_public_base_url,
+                    })
+                  }
+                />
                 <SystemDocumentMetaRow label="Prompt expires" value={formatTimestamp(incomingPrompt.expires_at)} />
               </SystemDocumentStatsGrid>
             </SystemDocumentItem>
