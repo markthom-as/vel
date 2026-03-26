@@ -34,10 +34,39 @@ pub async fn get_active_session(
         .map(|record| record.session))
 }
 
+fn slash_command_name(text: &str) -> Option<&str> {
+    let token = text.split_whitespace().next().unwrap_or_default().trim();
+    if !token.starts_with('/') {
+        return None;
+    }
+    let command = &token[1..];
+    if command.is_empty() || command.contains('/') {
+        return None;
+    }
+    if command.chars().enumerate().all(|(idx, ch)| {
+        if idx == 0 {
+            ch.is_ascii_alphabetic()
+        } else {
+            ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
+        }
+    }) {
+        Some(command)
+    } else {
+        None
+    }
+}
+
 pub fn assistant_requested_phase(text: &str) -> Option<DailyLoopPhase> {
     let normalized = text.trim().to_ascii_lowercase();
     if normalized.is_empty() {
         return None;
+    }
+    if let Some(command) = slash_command_name(&normalized) {
+        match command {
+            "standup" => return Some(DailyLoopPhase::Standup),
+            "morning" => return Some(DailyLoopPhase::MorningOverview),
+            _ => {}
+        }
     }
     if normalized.contains("standup") {
         return Some(DailyLoopPhase::Standup);
@@ -63,7 +92,28 @@ pub fn assistant_requested_phase(text: &str) -> Option<DailyLoopPhase> {
 
 pub fn assistant_prefers_resume(text: &str) -> bool {
     let normalized = text.to_ascii_lowercase();
-    normalized.contains("resume") || normalized.contains("continue")
+    normalized.contains("resume")
+        || normalized.contains("continue")
+        || matches!(
+            slash_command_name(&normalized),
+            Some("checkin" | "check-in" | "check_in")
+        )
+}
+
+async fn assistant_requested_check_in_phase(
+    storage: &Storage,
+) -> Result<Option<DailyLoopPhase>, AppError> {
+    let timezone = crate::services::timezone::resolve_timezone(storage).await?;
+    let session_date =
+        crate::services::timezone::current_day_date_string(&timezone, OffsetDateTime::now_utc())?;
+
+    for phase in [DailyLoopPhase::Standup, DailyLoopPhase::MorningOverview] {
+        if get_active_session(storage, &session_date, phase).await?.is_some() {
+            return Ok(Some(phase));
+        }
+    }
+
+    Ok(None)
 }
 
 pub async fn start_or_resume_assistant_session(
@@ -72,7 +122,16 @@ pub async fn start_or_resume_assistant_session(
     transcript: &str,
     surface: vel_core::DailyLoopSurface,
 ) -> Result<Option<DailyLoopSession>, AppError> {
-    let Some(phase) = assistant_requested_phase(transcript) else {
+    let phase = if matches!(
+        slash_command_name(&transcript.to_ascii_lowercase()),
+        Some("checkin" | "check-in" | "check_in")
+    ) {
+        assistant_requested_check_in_phase(storage).await?
+    } else {
+        assistant_requested_phase(transcript)
+    };
+
+    let Some(phase) = phase else {
         return Ok(None);
     };
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;

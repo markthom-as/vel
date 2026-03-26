@@ -621,6 +621,71 @@ describe('MessageComposer', () => {
     })
   })
 
+  it('treats slash-style vel commands as command intent and sends them through the assistant seam', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'threads',
+        entry_intent: 'command',
+        user_message: {
+          id: 'msg_cmd_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: '/morning' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_cmd_1' },
+    })
+
+    const onCommand = vi.fn().mockReturnValue({ handled: false })
+    const { container } = render(
+      <MessageComposer conversationId="conv_1" onSent={onSent} floating onCommand={onCommand} />,
+    )
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), { target: { value: '/morning' } })
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(onCommand).toHaveBeenCalledWith('/morning')
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: '/morning',
+          conversation_id: 'conv_1',
+          intent: 'command',
+        },
+        expect.any(Function),
+      )
+    })
+    await waitFor(() => {
+      expect(onSent).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ entry_intent: 'command' }),
+        expect.objectContaining({
+          text: '/morning',
+          conversationId: 'conv_1',
+          intent: 'command',
+        }),
+      )
+    })
+  })
+
   it('allows clearing the recorded voice draft chip before send', async () => {
     vi.mocked(speech.useSpeechRecognition).mockImplementation((options = {}) => ({
       isSupported: true,

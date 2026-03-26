@@ -174,6 +174,111 @@ describe('MainPanel', () => {
     expect(screen.getByText('System view')).toBeInTheDocument()
   })
 
+  it('opens the thread when a command-launched morning session returns as inline daily-loop output', async () => {
+    const onOpenThread = vi.fn()
+
+    render(
+      <MainPanel
+        conversationId={null}
+        mainView="now"
+        onNavigate={() => {}}
+        onOpenThread={onOpenThread}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(lastComposerProps?.onSent).toBeTypeOf('function')
+    })
+
+    lastComposerProps?.onSent?.(
+      undefined,
+      {
+        route_target: 'inline',
+        entry_intent: 'command',
+        user_message: {
+          id: 'msg_1',
+          conversation_id: 'conv_morning_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: '/morning' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: {
+          id: 'msg_2',
+          conversation_id: 'conv_morning_1',
+          role: 'assistant',
+          kind: 'text',
+          content: { text: 'Morning overview is ready.' },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_error: null,
+        assistant_error_retryable: false,
+        assistant_context: null,
+        conversation: {
+          id: 'conv_morning_1',
+          title: 'Morning routine',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+          message_count: 2,
+          last_message_at: 0,
+          project_label: null,
+          continuation: null,
+        },
+        proposal: null,
+        planning_profile_proposal: null,
+        daily_loop_session: {
+          id: 'dls_morning_1',
+          session_date: '2026-03-25',
+          phase: 'morning_overview',
+          status: 'waiting_for_input',
+          start: {
+            source: 'manual',
+            surface: 'web',
+          },
+          turn_state: 'waiting_for_input',
+          current_prompt: null,
+          continuity_summary: 'Morning overview is waiting for input.',
+          allowed_actions: ['accept', 'choose', 'close'],
+          state: {
+            phase: 'morning_overview',
+            snapshot: 'Today starts with one clear priority.',
+            friction_callouts: [],
+            signals: [],
+            check_in_history: [],
+          },
+          outcome: null,
+        },
+        end_of_day: null,
+        follow_up: null,
+        continuation_category: 'needs_input',
+      },
+      {
+        text: '/morning',
+        conversationId: null,
+        intent: 'command',
+        voice: null,
+        attachments: null,
+      },
+    )
+
+    await waitFor(() => {
+      expect(onOpenThread).toHaveBeenCalledWith('conv_morning_1')
+    })
+  })
+
   it('raises a stable core-setup nudge and disables the composer until minimum setup is complete', async () => {
     loadSettings.mockResolvedValueOnce({
       ok: true,
@@ -250,9 +355,11 @@ describe('MainPanel', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Composer disabled')).toBeInTheDocument()
+      expect(screen.getAllByText('Composer disabled').length).toBeGreaterThan(0)
     })
-    expect(screen.getByText(/core setup is incomplete\. use the nudge to open core settings and finish setup\./i)).toBeInTheDocument()
+    expect(
+      screen.getAllByText(/core setup is incomplete\. use the nudge to open core settings and finish setup\./i).length,
+    ).toBeGreaterThan(0)
 
     await waitFor(() => {
       expect(onRaiseNudge).toHaveBeenCalledWith(

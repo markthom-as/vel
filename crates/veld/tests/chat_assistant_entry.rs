@@ -1204,9 +1204,11 @@ async fn morning_assistant_entry_starts_shared_daily_loop_inline() {
     let timezone = veld::services::timezone::resolve_timezone(&storage)
         .await
         .unwrap();
-    let session_date =
-        veld::services::timezone::current_day_date_string(&timezone, time::OffsetDateTime::now_utc())
-            .unwrap();
+    let session_date = veld::services::timezone::current_day_date_string(
+        &timezone,
+        time::OffsetDateTime::now_utc(),
+    )
+    .unwrap();
     let record = storage
         .get_active_daily_session_for_date(&session_date, DailyLoopPhase::MorningOverview)
         .await
@@ -1214,6 +1216,42 @@ async fn morning_assistant_entry_starts_shared_daily_loop_inline() {
         .expect("active morning session");
     assert_eq!(record.session.phase, DailyLoopPhase::MorningOverview);
     assert_eq!(record.session.start.surface, DailyLoopSurface::Web);
+}
+
+#[tokio::test]
+async fn slash_morning_assistant_entry_starts_shared_daily_loop_inline() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    storage
+        .set_setting("timezone", &serde_json::json!("UTC"))
+        .await
+        .unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage.clone(), None, None));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"text":"/morning"}"#.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["route_target"], "inline");
+    assert_eq!(
+        json["data"]["daily_loop_session"]["phase"],
+        "morning_overview"
+    );
 }
 
 #[tokio::test]
@@ -1228,9 +1266,11 @@ async fn standup_assistant_entry_resumes_existing_shared_session() {
     let timezone = veld::services::timezone::resolve_timezone(&storage)
         .await
         .unwrap();
-    let session_date =
-        veld::services::timezone::current_day_date_string(&timezone, time::OffsetDateTime::now_utc())
-            .unwrap();
+    let session_date = veld::services::timezone::current_day_date_string(
+        &timezone,
+        time::OffsetDateTime::now_utc(),
+    )
+    .unwrap();
     let existing = veld::services::daily_loop::start_session(
         &storage,
         &AppConfig::default(),
@@ -1270,6 +1310,117 @@ async fn standup_assistant_entry_resumes_existing_shared_session() {
     assert_eq!(
         json["data"]["daily_loop_session"]["id"],
         existing.id.to_string()
+    );
+}
+
+#[tokio::test]
+async fn slash_standup_assistant_entry_starts_shared_daily_loop_inline() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    storage
+        .set_setting("timezone", &serde_json::json!("UTC"))
+        .await
+        .unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage, None, None));
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"text":"/standup"}"#.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["route_target"], "inline");
+    assert_eq!(json["data"]["daily_loop_session"]["phase"], "standup");
+}
+
+#[tokio::test]
+async fn slash_checkin_assistant_entry_prefers_active_standup_session() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    storage
+        .set_setting("timezone", &serde_json::json!("UTC"))
+        .await
+        .unwrap();
+
+    let timezone = veld::services::timezone::resolve_timezone(&storage)
+        .await
+        .unwrap();
+    let session_date = veld::services::timezone::current_day_date_string(
+        &timezone,
+        time::OffsetDateTime::now_utc(),
+    )
+    .unwrap();
+
+    let morning = veld::services::daily_loop::start_session(
+        &storage,
+        &AppConfig::default(),
+        DailyLoopStartRequest {
+            session_date: session_date.clone(),
+            phase: DailyLoopPhase::MorningOverview,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Web,
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    let standup = veld::services::daily_loop::start_session(
+        &storage,
+        &AppConfig::default(),
+        DailyLoopStartRequest {
+            session_date,
+            phase: DailyLoopPhase::Standup,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Web,
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage, None, None));
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"text":"/checkin"}"#.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["route_target"], "inline");
+    assert_eq!(json["data"]["daily_loop_session"]["phase"], "standup");
+    assert_eq!(
+        json["data"]["daily_loop_session"]["id"],
+        standup.id.to_string()
+    );
+    assert_ne!(
+        json["data"]["daily_loop_session"]["id"],
+        morning.id.to_string()
     );
 }
 

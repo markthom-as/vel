@@ -30,6 +30,17 @@ function assistantReplyText(response: AssistantEntryResponse): string | null {
   return typeof text === 'string' && text.trim() ? text.trim() : null;
 }
 
+function shouldOpenThreadForDailyLoopSession(
+  response: AssistantEntryResponse,
+  submitted?: SubmittedAssistantEntryPayload | null,
+): boolean {
+  return Boolean(
+    response.daily_loop_session
+      && submitted?.intent === 'command'
+      && response.conversation?.id,
+  );
+}
+
 const CORE_SETUP_CHECKLIST_ITEMS = [
   { id: 'user_display_name', label: 'Your name' },
   { id: 'node_display_name', label: 'Node name' },
@@ -251,6 +262,12 @@ export function MainPanel({
       setAssistantErrorRetryable(Boolean(response.assistant_error_retryable));
       setReclassifyingIntent(false);
       speakAssistantReply(response);
+
+      if (shouldOpenThreadForDailyLoopSession(response, submitted)) {
+        setPendingAssistantPayload(null);
+        onOpenThread(response.conversation.id);
+        return;
+      }
 
       if (response.route_target === 'threads') {
         setPendingAssistantPayload(null);

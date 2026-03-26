@@ -55,6 +55,21 @@ function inferImplicitIntent(text: string): NowDockedInputIntentData | null {
   return hasUrlOrPath ? 'url' : null;
 }
 
+function inferSlashCommandIntent(text: string): NowDockedInputIntentData | null {
+  const [firstToken = ''] = text.trim().split(/\s+/, 1);
+  if (!firstToken.startsWith('/')) {
+    return null;
+  }
+  const commandToken = firstToken.slice(1);
+  if (!commandToken || commandToken.includes('/')) {
+    return null;
+  }
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(commandToken)) {
+    return null;
+  }
+  return 'command';
+}
+
 function formatVoiceClock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(s / 60);
@@ -326,21 +341,22 @@ export function MessageComposer({
   const send = useCallback(async () => {
     const trimmed = mergedMessage.trim();
     if (!trimmed || sending) return;
+    const slashCommandIntent = inferSlashCommandIntent(trimmed);
     if (trimmed.startsWith('/') && onCommand) {
       const commandResult = onCommand(trimmed);
-      if (!commandResult) {
+      if (!commandResult && !slashCommandIntent) {
         setCommandMessage('Unknown command. Type /help for available commands.');
         setCommandMessageError(true);
         return;
       }
-      if (commandResult.message) {
+      if (commandResult?.message) {
         setCommandMessage(commandResult.message);
         setCommandMessageError(Boolean(commandResult.error));
       } else {
         setCommandMessage(null);
         setCommandMessageError(false);
       }
-      if (commandResult.handled) {
+      if (commandResult?.handled) {
         setError(null);
         setText('');
         setQueuedAttachments([]);
@@ -349,14 +365,14 @@ export function MessageComposer({
         setPendingVoice(null);
         return;
       }
-      if (commandResult.error) {
+      if (!slashCommandIntent && commandResult?.error) {
         setError(commandResult.message ?? 'Unknown command. Type /help for available commands.');
-      } else if (!commandResult.message) {
-        setError('Unknown command. Type /help for available commands.');
-      } else {
-        setError(null);
+        return;
       }
-      return;
+      if (!slashCommandIntent && !commandResult?.message) {
+        setError('Unknown command. Type /help for available commands.');
+        return;
+      }
     }
     if (disabled) {
       setError(disabledReason ?? 'Cannot send message right now.');
@@ -370,7 +386,7 @@ export function MessageComposer({
     setCommandMessage(null);
     setCommandMessageError(false);
     setSending(true);
-    const intent = selectedIntent ?? inferImplicitIntent(trimmed);
+    const intent = slashCommandIntent ?? selectedIntent ?? inferImplicitIntent(trimmed);
     const clientMessageId = onOptimisticSend?.(trimmed);
     const submittedPayload: SubmittedAssistantEntryPayload = {
       text: trimmed,
@@ -736,6 +752,8 @@ export function MessageComposer({
       <input
         ref={fileInputRef}
         type="file"
+        id="composer-file-upload"
+        name="composer-file-upload"
         className="hidden"
         multiple
         onChange={(event) => {
@@ -746,6 +764,8 @@ export function MessageComposer({
       <input
         ref={imageInputRef}
         type="file"
+        id="composer-image-upload"
+        name="composer-image-upload"
         className="hidden"
         multiple
         accept="image/*"
@@ -895,6 +915,9 @@ export function MessageComposer({
             ) : null}
             <textarea
               ref={textareaRef}
+              id="floating-message-composer-input"
+              name="floating-message-composer-input"
+              aria-label="Message composer"
               value={text}
               onChange={(e) => {
                 setText(e.target.value);
@@ -958,6 +981,9 @@ export function MessageComposer({
             <div className={cn('flex min-w-0 flex-1 flex-col gap-1 transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
               <div className={cn('relative', compactTui ? 'w-full' : 'w-full')}>
                 <textarea
+                  id={compactTui ? 'compact-tui-message-composer-input' : 'message-composer-input'}
+                  name={compactTui ? 'compact-tui-message-composer-input' : 'message-composer-input'}
+                  aria-label="Message composer"
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value);
