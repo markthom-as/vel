@@ -1,15 +1,23 @@
+import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { installEmbeddedBridgePacketRuntime } from '../../data/embeddedBridgePackets'
 import { clearQueryCache } from '../../data/query'
 import { SystemView } from './SystemView'
 
 const loadAgentInspect = vi.fn()
 const disconnectGoogleCalendar = vi.fn()
 const disconnectTodoist = vi.fn()
+const issuePairingToken = vi.fn()
+const loadClusterBootstrap = vi.fn()
+const loadClusterWorkers = vi.fn()
 const loadIntegrationConnections = vi.fn()
 const loadIntegrations = vi.fn()
+const loadLinkingStatus = vi.fn()
 const loadLlmProfileHealth = vi.fn()
 const loadSettings = vi.fn()
+const redeemPairingToken = vi.fn()
+const revokeLinkedNode = vi.fn()
 const runLlmProfileHandshake = vi.fn()
 const startGoogleCalendarAuth = vi.fn()
 const syncSource = vi.fn()
@@ -17,6 +25,43 @@ const updateGoogleCalendarIntegration = vi.fn()
 const updateSettings = vi.fn()
 const updateTodoistIntegration = vi.fn()
 const updateWebSettings = vi.fn()
+
+function normalizeTokenCode(value: string) {
+  const normalized = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 6)
+  if (normalized.length <= 3) {
+    return normalized
+  }
+  return `${normalized.slice(0, 3)}-${normalized.slice(3)}`
+}
+
+function normalizeSemanticLabel(value: string | null | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function collectRemoteRoutes(
+  syncBaseUrl?: string | null,
+  tailscaleBaseUrl?: string | null,
+  lanBaseUrl?: string | null,
+  publicBaseUrl?: string | null,
+) {
+  const entries = [
+    syncBaseUrl ? { label: 'sync', baseUrl: syncBaseUrl.trim() } : null,
+    tailscaleBaseUrl ? { label: 'tailscale', baseUrl: tailscaleBaseUrl.trim() } : null,
+    lanBaseUrl ? { label: 'lan', baseUrl: lanBaseUrl.trim() } : null,
+    publicBaseUrl ? { label: 'public', baseUrl: publicBaseUrl.trim() } : null,
+  ].filter((value): value is { label: string; baseUrl: string } => Boolean(value && value.baseUrl))
+
+  return entries.filter(
+    (entry, index) => entries.findIndex((candidate) => candidate.baseUrl === entry.baseUrl) === index,
+  )
+}
 
 function buildSettings(overrides: Record<string, unknown> = {}) {
   return {
@@ -116,6 +161,176 @@ function buildIntegrations(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function buildLinkingPrompt(overrides: Record<string, unknown> = {}) {
+  return {
+    target_node_id: 'node_local',
+    target_node_display_name: 'Vel Desktop',
+    issued_by_node_id: 'node_remote_prompt',
+    issued_by_node_display_name: 'Road Mac',
+    issued_at: '2026-03-26T17:00:00Z',
+    expires_at: '2026-03-26T17:15:00Z',
+    scopes: {
+      read_context: true,
+      write_safe_actions: false,
+      execute_repo_tasks: false,
+    },
+    issuer_sync_base_url: 'http://road-mac.tailnet.ts.net:4130',
+    issuer_sync_transport: 'tailscale',
+    issuer_tailscale_base_url: 'http://road-mac.tailnet.ts.net:4130',
+    issuer_lan_base_url: null,
+    issuer_localhost_base_url: null,
+    issuer_public_base_url: null,
+    ...overrides,
+  }
+}
+
+function buildClusterBootstrap(overrides: Record<string, unknown> = {}) {
+  return {
+    node_id: 'node_local',
+    node_display_name: 'Vel Desktop',
+    active_authority_node_id: 'node_local',
+    active_authority_epoch: 1,
+    sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+    sync_transport: 'tailscale',
+    tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+    lan_base_url: 'http://192.168.1.40:4130',
+    localhost_base_url: 'http://127.0.0.1:4130',
+    capabilities: ['read_context'],
+    linked_nodes: [],
+    projects: [],
+    action_items: [],
+    ...overrides,
+  }
+}
+
+function buildWorker(overrides: Record<string, unknown> = {}) {
+  return {
+    worker_id: 'worker_local',
+    node_id: 'node_local',
+    node_display_name: 'Vel Desktop',
+    client_kind: 'vel_macos',
+    client_version: '0.5.2',
+    protocol_version: '1',
+    build_id: 'build_local',
+    worker_classes: ['operator'],
+    capabilities: ['read_context'],
+    status: 'healthy',
+    queue_depth: 0,
+    reachability: 'direct',
+    latency_class: 'low',
+    compute_class: 'desktop',
+    power_class: 'wall',
+    recent_failure_rate: 0,
+    tailscale_preferred: true,
+    last_heartbeat_at: 1710000000,
+    started_at: 1710000000,
+    sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+    sync_transport: 'tailscale',
+    tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+    preferred_tailnet_endpoint: 'vel-desktop.tailnet.ts.net',
+    tailscale_reachable: true,
+    lan_base_url: 'http://192.168.1.40:4130',
+    localhost_base_url: 'http://127.0.0.1:4130',
+    ping_ms: 18,
+    sync_status: 'ok',
+    last_upstream_sync_at: 1710000000,
+    last_downstream_sync_at: 1710000000,
+    last_sync_error: null,
+    incoming_linking_prompt: null,
+    capacity: {
+      max_concurrency: 4,
+      current_load: 1,
+      available_concurrency: 3,
+    },
+    ...overrides,
+  }
+}
+
+function buildClusterWorkers(overrides: Record<string, unknown> = {}) {
+  return {
+    active_authority_node_id: 'node_local',
+    active_authority_epoch: 1,
+    generated_at: 1710000000,
+    workers: [
+      buildWorker({ incoming_linking_prompt: buildLinkingPrompt() }),
+      buildWorker({
+        worker_id: 'worker_pocket',
+        node_id: 'node_pocket',
+        node_display_name: 'Pocket Mac',
+        client_kind: 'vel_ios',
+        build_id: 'build_pocket',
+        sync_base_url: 'http://pocket-mac.tailnet.ts.net:4130',
+        tailscale_base_url: 'http://pocket-mac.tailnet.ts.net:4130',
+        lan_base_url: null,
+        localhost_base_url: null,
+        preferred_tailnet_endpoint: 'pocket-mac.tailnet.ts.net',
+        incoming_linking_prompt: null,
+      }),
+      buildWorker({
+        worker_id: 'worker_desk',
+        node_id: 'node_desk',
+        node_display_name: 'Desk Mac',
+        client_kind: 'vel_macos',
+        build_id: 'build_desk',
+        sync_base_url: 'http://desk-mac.tailnet.ts.net:4130',
+        tailscale_base_url: 'http://desk-mac.tailnet.ts.net:4130',
+        lan_base_url: 'http://192.168.1.50:4130',
+        localhost_base_url: null,
+        preferred_tailnet_endpoint: 'desk-mac.tailnet.ts.net',
+        incoming_linking_prompt: null,
+      }),
+    ],
+    ...overrides,
+  }
+}
+
+function buildLinkedNode(overrides: Record<string, unknown> = {}) {
+  return {
+    node_id: 'node_desk',
+    node_display_name: 'Desk Mac',
+    status: 'linked',
+    scopes: {
+      read_context: true,
+      write_safe_actions: true,
+      execute_repo_tasks: false,
+    },
+    linked_at: '2026-03-26T16:50:00Z',
+    last_seen_at: '2026-03-26T16:58:00Z',
+    transport_hint: 'tailscale',
+    sync_base_url: 'http://desk-mac.tailnet.ts.net:4130',
+    tailscale_base_url: 'http://desk-mac.tailnet.ts.net:4130',
+    lan_base_url: 'http://192.168.1.50:4130',
+    localhost_base_url: null,
+    public_base_url: null,
+    ...overrides,
+  }
+}
+
+function buildPairingToken(overrides: Record<string, unknown> = {}) {
+  return {
+    token_id: 'pair_123',
+    token_code: 'VEL-PAIR-123',
+    issued_at: '2026-03-26T17:00:00Z',
+    expires_at: '2026-03-26T17:15:00Z',
+    issued_by_node_id: 'node_local',
+    scopes: {
+      read_context: true,
+      write_safe_actions: false,
+      execute_repo_tasks: false,
+    },
+    suggested_targets: [
+      {
+        label: 'Recommended',
+        base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        transport_hint: 'tailscale',
+        recommended: true,
+        redeem_command_hint: 'vel --base-url http://vel-desktop.tailnet.ts.net:4130 node link redeem VEL-PAIR-123 --node-id <node_id> --node-display-name <name> --transport-hint tailscale',
+      },
+    ],
+    ...overrides,
+  }
+}
+
 vi.mock('../../data/agent-grounding', () => ({
   loadAgentInspect: (...args: unknown[]) => loadAgentInspect(...args),
 }))
@@ -126,15 +341,24 @@ vi.mock('../../data/operator', async (importOriginal) => {
     ...actual,
     disconnectGoogleCalendar: (...args: unknown[]) => disconnectGoogleCalendar(...args),
     disconnectTodoist: (...args: unknown[]) => disconnectTodoist(...args),
+    issuePairingToken: (...args: unknown[]) => issuePairingToken(...args),
+    loadClusterBootstrap: (...args: unknown[]) => loadClusterBootstrap(...args),
+    loadClusterWorkers: (...args: unknown[]) => loadClusterWorkers(...args),
     loadIntegrationConnections: (...args: unknown[]) => loadIntegrationConnections(...args),
     loadIntegrations: (...args: unknown[]) => loadIntegrations(...args),
+    loadLinkingStatus: (...args: unknown[]) => loadLinkingStatus(...args),
     loadLlmProfileHealth: (...args: unknown[]) => loadLlmProfileHealth(...args),
     loadSettings: (...args: unknown[]) => loadSettings(...args),
+    redeemPairingToken: (...args: unknown[]) => redeemPairingToken(...args),
+    revokeLinkedNode: (...args: unknown[]) => revokeLinkedNode(...args),
     runLlmProfileHandshake: (...args: unknown[]) => runLlmProfileHandshake(...args),
     operatorQueryKeys: {
       agentInspect: () => ['agent', 'inspect'],
+      clusterBootstrap: () => ['cluster', 'bootstrap'],
+      clusterWorkers: () => ['cluster', 'workers'],
       integrations: () => ['integrations'],
       integrationConnections: () => ['integrations', 'connections', 'all', 'all'],
+      linkingStatus: () => ['linking', 'status'],
       settings: () => ['settings'],
     },
     startGoogleCalendarAuth: (...args: unknown[]) => startGoogleCalendarAuth(...args),
@@ -150,13 +374,149 @@ describe('SystemView', () => {
   beforeEach(() => {
     clearQueryCache()
     vi.unstubAllGlobals()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    installEmbeddedBridgePacketRuntime({
+      normalizePairingTokenPacket: (input: string) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({ tokenCode: normalizeTokenCode(input) }),
+      }),
+      normalizeDomainHintPacket: (input: string) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({ normalized: normalizeSemanticLabel(input) }),
+      }),
+      normalizeSemanticLabelPacket: (input: string) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({ normalized: normalizeSemanticLabel(input) }),
+      }),
+      normalizeTaskDisplayPacket: (tags?: string[] | null, project?: string | null) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({ tags: tags ?? [], project: project ?? null }),
+      }),
+      normalizeTaskDisplayBatchPacket: (entriesJson: string) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({
+          items: (JSON.parse(entriesJson) as Array<{ tags?: string[] | null; project?: string | null }>)
+            .map((entry) => ({ tags: entry.tags ?? [], project: entry.project ?? null })),
+        }),
+      }),
+      shortClientKindLabelPacket: (clientKind?: string | null) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({ shortLabel: clientKind ?? null }),
+      }),
+      actionItemDedupeKeyPacket: (kind: string, title: string, summary: string) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({ key: `${kind}:${title}:${summary}` }),
+      }),
+      actionItemDedupeBatchPacket: (entriesJson: string) => ({
+        kind: 'deterministic_domain_helpers',
+        payloadJson: JSON.stringify({
+          keys: (JSON.parse(entriesJson) as Array<{ kind: string; title: string; summary: string }>)
+            .map((entry) => `${entry.kind}:${entry.title}:${entry.summary}`),
+        }),
+      }),
+      queuedActionPacket: (kind: string, targetId?: string | null, text?: string | null, minutes?: number | null) => ({
+        kind: 'queued_action_packaging',
+        payloadJson: JSON.stringify({
+          queueKind: kind,
+          targetId: targetId ?? null,
+          text: text ?? null,
+          minutes: minutes ?? null,
+          ready: Boolean(kind),
+        }),
+      }),
+      voiceQuickActionPacket: (_intentStorageToken: string, primaryText: string, targetId?: string | null, minutes?: number | null) => ({
+        kind: 'voice_quick_action_packaging',
+        payloadJson: JSON.stringify({
+          queueKind: primaryText,
+          targetId: targetId ?? null,
+          text: primaryText,
+          minutes: minutes ?? null,
+          ready: true,
+        }),
+      }),
+      assistantEntryFallbackPacket: (text: string, requestedConversationId?: string | null) => ({
+        kind: 'assistant_entry_fallback_packaging',
+        payloadJson: JSON.stringify({
+          payload: text,
+          requestedConversationId: requestedConversationId ?? null,
+        }),
+      }),
+      captureMetadataPacket: (text: string, captureType: string, sourceDevice: string) => ({
+        kind: 'capture_metadata_packaging',
+        payloadJson: JSON.stringify({ payload: `${captureType}:${sourceDevice}:${text}` }),
+      }),
+      threadDraftPacket: (text: string, requestedConversationId?: string | null) => ({
+        kind: 'thread_draft_packaging',
+        payloadJson: JSON.stringify({
+          payload: text,
+          requestedConversationId: requestedConversationId ?? null,
+        }),
+      }),
+      voiceCapturePacket: (transcript: string, intentStorageToken: string) => ({
+        kind: 'voice_capture_packaging',
+        payloadJson: JSON.stringify({ payload: `${intentStorageToken}:${transcript}` }),
+      }),
+      linkingRequestPacket: (tokenCode?: string | null, targetBaseUrl?: string | null) => ({
+        kind: 'linking_request_packaging',
+        payloadJson: JSON.stringify({
+          tokenCode: tokenCode ? normalizeTokenCode(tokenCode) : null,
+          targetBaseUrl: targetBaseUrl?.trim() || null,
+        }),
+      }),
+      linkingFeedbackPacket: (scenario: string, nodeDisplayName?: string | null) => ({
+        kind: 'linking_feedback_packaging',
+        payloadJson: JSON.stringify({ message: `${scenario}:${nodeDisplayName ?? ''}` }),
+      }),
+      appShellFeedbackPacket: (scenario: string, detail?: string | null) => ({
+        kind: 'app_shell_feedback_packaging',
+        payloadJson: JSON.stringify({ message: `${scenario}:${detail ?? ''}` }),
+      }),
+      collectRemoteRoutesPacket: (
+        syncBaseUrl?: string | null,
+        tailscaleBaseUrl?: string | null,
+        lanBaseUrl?: string | null,
+        publicBaseUrl?: string | null,
+      ) => ({
+        kind: 'linking_settings_normalization',
+        payloadJson: JSON.stringify(
+          collectRemoteRoutes(syncBaseUrl, tailscaleBaseUrl, lanBaseUrl, publicBaseUrl),
+        ),
+      }),
+      voiceContinuitySummaryPacket: () => ({
+        kind: 'voice_continuity_summary_packaging',
+        payloadJson: JSON.stringify({ headline: null, detail: null, ready: false }),
+      }),
+      voiceOfflineResponsePacket: () => ({
+        kind: 'voice_offline_response_packaging',
+        payloadJson: JSON.stringify({
+          summary: null,
+          detail: null,
+          historyStatus: 'unavailable',
+          errorPrefix: '',
+          ready: false,
+        }),
+      }),
+      voiceCachedQueryResponsePacket: () => ({
+        kind: 'voice_cached_query_packaging',
+        payloadJson: JSON.stringify({ summary: null, detail: null, ready: false }),
+      }),
+    })
     loadAgentInspect.mockReset()
     disconnectGoogleCalendar.mockReset()
     disconnectTodoist.mockReset()
+    issuePairingToken.mockReset()
+    loadClusterBootstrap.mockReset()
+    loadClusterWorkers.mockReset()
     loadIntegrationConnections.mockReset()
     loadIntegrations.mockReset()
+    loadLinkingStatus.mockReset()
     loadLlmProfileHealth.mockReset()
     loadSettings.mockReset()
+    redeemPairingToken.mockReset()
+    revokeLinkedNode.mockReset()
     runLlmProfileHandshake.mockReset()
     startGoogleCalendarAuth.mockReset()
     syncSource.mockReset()
@@ -248,6 +608,21 @@ describe('SystemView', () => {
       data: buildSettings(),
       meta: { request_id: 'req_settings' },
     })
+    loadClusterBootstrap.mockResolvedValue({
+      ok: true,
+      data: buildClusterBootstrap(),
+      meta: { request_id: 'req_cluster_bootstrap' },
+    })
+    loadClusterWorkers.mockResolvedValue({
+      ok: true,
+      data: buildClusterWorkers(),
+      meta: { request_id: 'req_cluster_workers' },
+    })
+    loadLinkingStatus.mockResolvedValue({
+      ok: true,
+      data: [buildLinkedNode()],
+      meta: { request_id: 'req_linking_status' },
+    })
     loadLlmProfileHealth.mockResolvedValue({
       ok: true,
       data: {
@@ -274,6 +649,29 @@ describe('SystemView', () => {
     updateSettings.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_settings_patch' } })
     updateTodoistIntegration.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_todoist_patch' } })
     updateWebSettings.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_web_settings' } })
+    issuePairingToken.mockResolvedValue({
+      ok: true,
+      data: buildPairingToken(),
+      meta: { request_id: 'req_pair_issue' },
+    })
+    redeemPairingToken.mockResolvedValue({
+      ok: true,
+      data: buildLinkedNode({
+        node_id: 'node_remote_prompt',
+        node_display_name: 'Road Mac',
+        scopes: {
+          read_context: true,
+          write_safe_actions: false,
+          execute_repo_tasks: false,
+        },
+      }),
+      meta: { request_id: 'req_pair_redeem' },
+    })
+    revokeLinkedNode.mockResolvedValue({
+      ok: true,
+      data: buildLinkedNode({ status: 'revoked', last_seen_at: null }),
+      meta: { request_id: 'req_pair_revoke' },
+    })
   })
 
   it('renders the compact system rail and scroll document without the rejected helper panels', async () => {
@@ -295,6 +693,63 @@ describe('SystemView', () => {
     expect(screen.getByText('Avery')).toBeInTheDocument()
     expect(screen.queryByText('Design review')).not.toBeInTheDocument()
     expect(screen.queryByText(/No grounded upcoming events are available right now\./i)).not.toBeInTheDocument()
+  })
+
+  it('adds node pairing controls to the domain group and runs issue redeem revoke flows', async () => {
+    render(<SystemView target={{ section: 'core', subsection: 'pairing' }} />)
+
+    await waitFor(() => {
+      expect(loadClusterBootstrap).toHaveBeenCalled()
+      expect(loadClusterWorkers).toHaveBeenCalled()
+      expect(loadLinkingStatus).toHaveBeenCalled()
+    })
+
+    expect(screen.getByRole('button', { name: 'Node pairing. Issue, redeem, and inspect node trust links for companion devices.' })).toBeInTheDocument()
+    expect(screen.getByText(/This node already has a prompt waiting/i)).toBeInTheDocument()
+    expect(screen.getByText('Desk Mac')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Issue token for Pocket Mac' }))
+
+    await waitFor(() => {
+      expect(issuePairingToken).toHaveBeenCalledWith({
+        issued_by_node_id: 'node_local',
+        ttl_seconds: 900,
+        scopes: {
+          read_context: true,
+          write_safe_actions: false,
+          execute_repo_tasks: false,
+        },
+        target_node_id: 'node_pocket',
+        target_node_display_name: 'Pocket Mac',
+        target_base_url: 'http://pocket-mac.tailnet.ts.net:4130',
+      })
+    })
+
+    expect(await screen.findByText('VEL-PAIR-123')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Pairing token'), {
+      target: { value: 'vel123' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Redeem token' })[1])
+
+    await waitFor(() => {
+      expect(redeemPairingToken).toHaveBeenCalledWith({
+        token_code: 'VEL-123',
+        node_id: 'node_local',
+        node_display_name: 'Vel Desktop',
+        transport_hint: 'tailscale',
+        sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        lan_base_url: 'http://192.168.1.40:4130',
+        localhost_base_url: 'http://127.0.0.1:4130',
+      })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke Desk Mac' }))
+
+    await waitFor(() => {
+      expect(revokeLinkedNode).toHaveBeenCalledWith('node_desk')
+    })
   })
 
   it('hides writeback-specific blockers outside developer mode and keeps recovery scoped to real issues', async () => {

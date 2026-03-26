@@ -16,6 +16,7 @@ Use `System` when you need:
 ## What belongs here
 
 - top-level `Core settings` for required setup and host identity,
+- node pairing issue, redeem, and linked-device trust inspection for companion clients,
 - integration connection status and configuration,
 - `LLM routing` controls for handshake and localhost OpenAI OAuth proxy launch,
 - sync health and recovery affordances,

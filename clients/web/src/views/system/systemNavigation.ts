@@ -7,6 +7,7 @@ export type SystemSectionKey = 'core' | 'overview' | 'operations' | 'integration
 
 export type SystemSubsectionKey =
   | 'core_settings'
+  | 'pairing'
   | 'trust'
   | 'horizon'
   | 'activity'
@@ -56,6 +57,7 @@ export const SYSTEM_SECTION_ORDER: Array<{
     label: 'Core',
     items: [
       { key: 'core_settings', label: 'Core settings', description: 'Required identity and setup needed before Vel can operate normally.' },
+      { key: 'pairing', label: 'Node pairing', description: 'Issue, redeem, and inspect node trust links for companion devices.' },
     ],
   },
   {
@@ -154,6 +156,7 @@ export const SYSTEM_GROUP_ORDER: Array<{
 
 const GROUP_BY_SUBSECTION: Record<SystemSubsectionKey, SystemGroupKey> = {
   core_settings: 'domain',
+  pairing: 'domain',
   trust: 'domain',
   horizon: 'domain',
   projects: 'domain',
@@ -191,10 +194,11 @@ export function resolveSystemTarget(
   }
 
   if (target?.subsection === 'providers') {
+    const targetAnchor = target && 'anchor' in target ? target.anchor : undefined;
     return {
       section: 'integrations',
       subsection:
-        target.anchor === SYSTEM_PROVIDER_ANCHORS.llmRouting
+        targetAnchor === SYSTEM_PROVIDER_ANCHORS.llmRouting
           ? 'models'
           : 'calendar',
     };
