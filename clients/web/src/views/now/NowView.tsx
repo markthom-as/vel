@@ -1,5 +1,6 @@
 import type { DragEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { normalizeTaskDisplayValue } from '../../data/embeddedBridgeAdapter';
 import {
   contextQueryKeys,
   loadNow,
@@ -94,24 +95,13 @@ function normalizeTaskTags(
   tags: string[] | undefined,
   project: string | null | undefined,
 ): string[] {
-  const projectKey = project?.trim().toLowerCase() ?? null;
-  return (tags ?? []).filter((tag, index, all) => {
-    const normalized = tag.trim().toLowerCase();
-    if (projectKey && normalized === projectKey) {
-      return false;
-    }
-    return all.findIndex((item) => item.trim().toLowerCase() === normalized) === index;
-  });
+  return normalizeTaskDisplayValue(tags ?? null, project ?? null).tags;
 }
 
 function normalizeTaskProject(
   project: string | null | undefined,
 ): string | null {
-  const trimmed = project?.trim() ?? null;
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
+  return normalizeTaskDisplayValue(null, project ?? null).project;
 }
 
 function moveTaskBetweenSections(

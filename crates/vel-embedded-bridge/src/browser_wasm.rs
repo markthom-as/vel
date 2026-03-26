@@ -6,10 +6,11 @@
 
 use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
-    normalize_positive_minutes, normalize_semantic_label, normalized_optional_trimmed,
-    prepare_app_shell_feedback_packet, prepare_assistant_entry_fallback_payload,
-    prepare_capture_metadata_payload, prepare_linking_feedback_packet,
-    prepare_linking_request_packet, prepare_queued_action_packet, prepare_thread_draft_packet,
+    normalize_positive_minutes, normalize_semantic_label, normalize_task_display_packet,
+    normalized_optional_trimmed, prepare_app_shell_feedback_packet,
+    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_linking_feedback_packet, prepare_linking_request_packet,
+    prepare_queued_action_packet, prepare_thread_draft_packet,
     prepare_voice_cached_query_response_packet, prepare_voice_capture_payload,
     prepare_voice_continuity_summary_packet, prepare_voice_offline_response_packet,
     prepare_voice_quick_action_packet, trim_text,
@@ -74,6 +75,27 @@ impl BrowserWasmScaffold {
         BrowserPacketResponse {
             kind: "deterministic_domain_helpers",
             payload_json: format!("{{\"normalized\":\"{}\"}}", normalize_semantic_label(input)),
+        }
+    }
+
+    pub fn normalize_task_display_packet(
+        tags_json: Option<String>,
+        project: Option<String>,
+    ) -> BrowserPacketResponse {
+        let tags = tags_json.and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok());
+        let packet = normalize_task_display_packet(tags, project);
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!(
+                "{{\"tags\":[{}],\"project\":{}}}",
+                packet
+                    .tags
+                    .into_iter()
+                    .map(|tag| string_json(&tag))
+                    .collect::<Vec<_>>()
+                    .join(","),
+                option_json(packet.project)
+            ),
         }
     }
 
@@ -404,6 +426,15 @@ pub fn vel_embedded_normalize_domain_hint_packet(input: String) -> String {
 #[wasm_bindgen(js_name = velEmbeddedNormalizeSemanticLabelPacket)]
 pub fn vel_embedded_normalize_semantic_label_packet(input: String) -> String {
     BrowserWasmScaffold::normalize_semantic_label_packet(&input).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedNormalizeTaskDisplayPacket)]
+pub fn vel_embedded_normalize_task_display_packet(
+    tags_json: Option<String>,
+    project: Option<String>,
+) -> String {
+    BrowserWasmScaffold::normalize_task_display_packet(tags_json, project).payload_json
 }
 
 #[cfg(feature = "browser-wasm")]

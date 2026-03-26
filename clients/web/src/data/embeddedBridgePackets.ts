@@ -23,6 +23,10 @@ export interface EmbeddedBridgePacketRuntime {
   normalizePairingTokenPacket(input: string): EmbeddedBridgePacketResponse;
   normalizeDomainHintPacket(input: string): EmbeddedBridgePacketResponse;
   normalizeSemanticLabelPacket(input: string): EmbeddedBridgePacketResponse;
+  normalizeTaskDisplayPacket(
+    tags?: string[] | null,
+    project?: string | null,
+  ): EmbeddedBridgePacketResponse;
   queuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -124,6 +128,13 @@ export function normalizeDomainHintPacket(input: string): EmbeddedBridgePacketRe
 
 export function normalizeSemanticLabelPacket(input: string): EmbeddedBridgePacketResponse {
   return getEmbeddedBridgePacketRuntime().normalizeSemanticLabelPacket(input);
+}
+
+export function normalizeTaskDisplayPacket(
+  tags?: string[] | null,
+  project?: string | null,
+): EmbeddedBridgePacketResponse {
+  return getEmbeddedBridgePacketRuntime().normalizeTaskDisplayPacket(tags, project);
 }
 
 export function queuedActionPacket(

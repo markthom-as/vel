@@ -139,8 +139,46 @@ pub struct PortableVoiceCachedQueryResponsePacket {
     pub ready: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableTaskDisplayNormalizationPacket {
+    pub tags: Vec<String>,
+    pub project: Option<String>,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
+}
+
+pub fn normalize_task_display_packet(
+    tags: Option<Vec<String>>,
+    project: Option<String>,
+) -> PortableTaskDisplayNormalizationPacket {
+    let project = normalized_optional_trimmed(project);
+    let project_key = project.as_ref().map(|value| value.to_lowercase());
+    let mut normalized_tags: Vec<String> = Vec::new();
+
+    for tag in tags.unwrap_or_default() {
+        let trimmed = trim_text(&tag);
+        if trimmed.is_empty() {
+            continue;
+        }
+        let normalized = trimmed.to_lowercase();
+        if project_key.as_ref().is_some_and(|project_key| project_key == &normalized) {
+            continue;
+        }
+        if normalized_tags
+            .iter()
+            .any(|existing| existing.to_lowercase() == normalized)
+        {
+            continue;
+        }
+        normalized_tags.push(trimmed);
+    }
+
+    PortableTaskDisplayNormalizationPacket {
+        tags: normalized_tags,
+        project,
+    }
 }
 
 pub fn prepare_voice_quick_action_packet(

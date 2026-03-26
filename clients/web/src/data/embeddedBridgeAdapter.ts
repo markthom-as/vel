@@ -7,6 +7,7 @@ import {
   normalizeDomainHintPacket,
   normalizePairingTokenPacket,
   normalizeSemanticLabelPacket,
+  normalizeTaskDisplayPacket,
   queuedActionPacket,
   threadDraftPacket,
   voiceCachedQueryResponsePacket,
@@ -67,6 +68,11 @@ export type EmbeddedBridgePayloadPacket = {
   payload: string;
 };
 
+export type EmbeddedBridgeTaskDisplayPacket = {
+  tags: string[];
+  project: string | null;
+};
+
 function parsePacket<T>(kind: EmbeddedBridgePacketKind, payloadJson: string): T {
   const parsed = JSON.parse(payloadJson) as { kind?: string } & T;
   void kind;
@@ -92,6 +98,15 @@ export function normalizeDomainHintValue(input: string): { normalized: string } 
 export function normalizeSemanticLabelValue(input: string): { normalized: string } {
   ensureEmbeddedBridgeRuntime();
   const response = normalizeSemanticLabelPacket(input);
+  return parsePacket(response.kind, response.payloadJson);
+}
+
+export function normalizeTaskDisplayValue(
+  tags?: string[] | null,
+  project?: string | null,
+): EmbeddedBridgeTaskDisplayPacket {
+  ensureEmbeddedBridgeRuntime();
+  const response = normalizeTaskDisplayPacket(tags, project);
   return parsePacket(response.kind, response.payloadJson);
 }
 
