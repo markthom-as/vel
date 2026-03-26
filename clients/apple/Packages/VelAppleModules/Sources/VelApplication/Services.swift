@@ -131,7 +131,7 @@ public struct VelAppEnvironment {
                 : []
         )
 
-        let embeddedBridge = VelEmbeddedRustBridgeSurface(configuration: embeddedConfiguration)
+        let embeddedBridge: any EmbeddedBridgeSurface = VelEmbeddedRustBridgeSurface(configuration: embeddedConfiguration)
             ?? NoopEmbeddedBridgeSurface(configuration: embeddedConfiguration)
 
         return VelAppEnvironment(
