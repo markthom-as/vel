@@ -1,4 +1,5 @@
 import { canonicalPatchMutation, canonicalPostMutation, canonicalQuery } from './canonicalTransport';
+import { normalizeTaskDisplayBatchValue } from './embeddedBridgeAdapter';
 import {
   decodeApiResponse,
   decodeArray,
@@ -26,6 +27,7 @@ import {
   type DailyLoopTurnActionData,
   type DriftExplainData,
   type NowData,
+  type NowTaskData,
   type SyncBootstrapData,
 } from '../types';
 
@@ -40,6 +42,62 @@ export const contextQueryKeys = {
     ['daily-loop', 'active', sessionDate, phase] as const,
 };
 
+function normalizeNowTasks(tasks: NowTaskData[]): NowTaskData[] {
+  const normalizedDisplay = normalizeTaskDisplayBatchValue(
+    tasks.map((task) => ({
+      tags: task.tags ?? null,
+      project: task.project ?? null,
+    })),
+  );
+
+  return tasks.map((task, index) => {
+    const display = normalizedDisplay[index] ?? { tags: task.tags ?? [], project: task.project ?? null };
+    return {
+      ...task,
+      tags: display.tags,
+      project: display.project,
+    };
+  });
+}
+
+function normalizeNowDataPayload(data: NowData): NowData {
+  const taskLane = data.task_lane;
+  if (!taskLane) {
+    return data;
+  }
+
+  const normalizedActive = taskLane.active ? normalizeNowTasks([taskLane.active])[0] ?? taskLane.active : null;
+  const normalizedActiveItems = normalizeNowTasks(taskLane.active_items ?? []);
+  const normalizedNextUp = normalizeNowTasks(taskLane.next_up ?? []);
+  const normalizedPending = normalizeNowTasks(taskLane.pending ?? []);
+  const normalizedInbox = normalizeNowTasks(taskLane.inbox ?? []);
+  const normalizedLater = normalizeNowTasks(taskLane.if_time_allows ?? []);
+  const normalizedCompleted = normalizeNowTasks(taskLane.completed ?? []);
+  const normalizedRecentCompleted = normalizeNowTasks(taskLane.recent_completed ?? []);
+  const normalizedNextUpItems = (data.next_up_items ?? []).map((item) => ({
+    ...item,
+    task: item.task
+      ? (normalizeNowTasks([item.task])[0] ?? item.task)
+      : item.task,
+  }));
+
+  return {
+    ...data,
+    task_lane: {
+      ...taskLane,
+      active: normalizedActive,
+      active_items: normalizedActiveItems,
+      next_up: normalizedNextUp,
+      pending: normalizedPending,
+      inbox: normalizedInbox,
+      if_time_allows: normalizedLater,
+      completed: normalizedCompleted,
+      recent_completed: normalizedRecentCompleted,
+    },
+    next_up_items: normalizedNextUpItems,
+  };
+}
+
 export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | null>> {
   return canonicalQuery<CurrentContextData | null>(
     '/v1/context/current',
@@ -51,7 +109,7 @@ export function loadNow(): Promise<ApiResponse<NowData>> {
   // Phase 05 decode path includes Now review_snapshot plus ranked action_items.
   return canonicalQuery<NowData>(
     '/v1/now',
-    (value) => decodeApiResponse(value, decodeNowData),
+    (value) => decodeApiResponse(value, (data) => normalizeNowDataPayload(decodeNowData(data))),
   );
 }
 
