@@ -58,28 +58,53 @@ pub async fn update_now_task_lane(
         _ => return Err(AppError::bad_request("invalid lane")),
     };
 
-    let (_, mut context) = state
-        .storage
-        .get_current_context()
-        .await?
-        .unwrap_or((0, CurrentContextV1::default()));
-
     let commitment = state
         .storage
         .get_commitment_by_id(commitment_id)
         .await?
         .ok_or_else(|| AppError::not_found("commitment not found"))?;
 
-    remove_commitment_from_all_lanes(&mut context, commitment_id);
-
     if lane == "completed" {
         if commitment.status != CommitmentStatus::Done {
+            if commitment.source_type == "todoist" {
+                services::writeback::todoist_complete_task(
+                    &state.storage,
+                    &state.config,
+                    "vel-local",
+                    commitment_id,
+                )
+                .await?;
+            } else {
+                state
+                    .storage
+                    .update_commitment(
+                        commitment_id,
+                        None,
+                        Some(CommitmentStatus::Done),
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
+                    .await?;
+            }
+        }
+    } else if commitment.status == CommitmentStatus::Done {
+        if commitment.source_type == "todoist" {
+            services::writeback::todoist_reopen_task(
+                &state.storage,
+                &state.config,
+                "vel-local",
+                commitment_id,
+            )
+            .await?;
+        } else {
             state
                 .storage
                 .update_commitment(
                     commitment_id,
                     None,
-                    Some(CommitmentStatus::Done),
+                    Some(CommitmentStatus::Open),
                     None,
                     None,
                     None,
