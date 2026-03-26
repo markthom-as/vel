@@ -245,7 +245,7 @@ final class VelClientStore: ObservableObject {
         }
         let queueText = packageOfflineRequestPayload(
             kind: "capture.create",
-            payload: queuedCaptureText(
+            payload: embeddedBridge.captureMetadataBridge.prepareQueuedCaptureText(
                 text: preparedText,
                 type: type,
                 source: source
@@ -295,7 +295,7 @@ final class VelClientStore: ObservableObject {
             offlineStore.enqueueCaptureCreate(
                 text: packageOfflineRequestPayload(
                     kind: "assistant_entry",
-                    payload: queuedCaptureText(
+                    payload: embeddedBridge.captureMetadataBridge.prepareQueuedCaptureText(
                         text: fallbackText,
                         type: "assistant_entry",
                         source: "apple_ios_chat"
@@ -354,21 +354,24 @@ final class VelClientStore: ObservableObject {
         guard let bootstrap = clusterBootstrap else {
             throw VelClientError.apiError("Cluster bootstrap must load before issuing a pairing token.")
         }
+        let packet = embeddedBridge.linkingRequestBridge.preparePairingTokenIssueRequest(
+            issuedByNodeID: bootstrap.node_id,
+            targetNodeID: targetWorker?.node_id,
+            targetNodeDisplayName: targetWorker?.node_display_name,
+            targetBaseURL: preferredRemoteBaseURL(
+                syncBaseURL: targetWorker?.sync_base_url,
+                tailscaleBaseURL: targetWorker?.tailscale_base_url,
+                lanBaseURL: targetWorker?.lan_base_url,
+                publicBaseURL: nil
+            )
+        )
         let request = PairingTokenIssueRequestData(
-            issued_by_node_id: bootstrap.node_id,
+            issued_by_node_id: packet.issuedByNodeID,
             ttl_seconds: nil,
             scopes: scopes,
-            target_node_id: targetWorker?.node_id,
-            target_node_display_name: targetWorker?.node_display_name,
-            target_base_url: embeddedBridge.linkingRequestBridge.prepareLinkingRequest(
-                tokenCode: nil,
-                targetBaseURL: preferredRemoteBaseURL(
-                    syncBaseURL: targetWorker?.sync_base_url,
-                    tailscaleBaseURL: targetWorker?.tailscale_base_url,
-                    lanBaseURL: targetWorker?.lan_base_url,
-                    publicBaseURL: nil
-                )
-            ).targetBaseURL
+            target_node_id: packet.targetNodeID,
+            target_node_display_name: packet.targetNodeDisplayName,
+            target_base_url: packet.targetBaseURL
         )
         let token = try await client.issuePairingToken(request)
         await refresh()
@@ -382,21 +385,29 @@ final class VelClientStore: ObservableObject {
         guard let bootstrap = clusterBootstrap else {
             throw VelClientError.apiError("Cluster bootstrap must load before redeeming a pairing token.")
         }
+        let packet = embeddedBridge.linkingRequestBridge.preparePairingTokenRedeemRequest(
+            tokenCode: tokenCode,
+            nodeID: bootstrap.node_id,
+            nodeDisplayName: bootstrap.node_display_name,
+            transportHint: bootstrap.sync_transport,
+            syncBaseURL: bootstrap.sync_base_url,
+            tailscaleBaseURL: bootstrap.tailscale_base_url,
+            lanBaseURL: bootstrap.lan_base_url,
+            localhostBaseURL: bootstrap.localhost_base_url,
+            publicBaseURL: nil
+        )
         let linkedNode = try await client.redeemPairingToken(
             PairingTokenRedeemRequestData(
-                token_code: embeddedBridge.linkingRequestBridge.prepareLinkingRequest(
-                    tokenCode: tokenCode,
-                    targetBaseURL: nil
-                ).tokenCode ?? tokenCode,
-                node_id: bootstrap.node_id,
-                node_display_name: bootstrap.node_display_name,
-                transport_hint: bootstrap.sync_transport,
+                token_code: packet.tokenCode,
+                node_id: packet.nodeID,
+                node_display_name: packet.nodeDisplayName,
+                transport_hint: packet.transportHint,
                 requested_scopes: requestedScopes,
-                sync_base_url: bootstrap.sync_base_url,
-                tailscale_base_url: bootstrap.tailscale_base_url,
-                lan_base_url: bootstrap.lan_base_url,
-                localhost_base_url: bootstrap.localhost_base_url,
-                public_base_url: nil
+                sync_base_url: packet.syncBaseURL,
+                tailscale_base_url: packet.tailscaleBaseURL,
+                lan_base_url: packet.lanBaseURL,
+                localhost_base_url: packet.localhostBaseURL,
+                public_base_url: packet.publicBaseURL
             )
         )
         let updatedLinkedNodes = [linkedNode] + linkedNodes.filter { $0.node_id != linkedNode.node_id }
@@ -528,22 +539,6 @@ final class VelClientStore: ObservableObject {
     private func parseOfflineRequestPacket(from value: String) -> OfflineRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
-    }
-
-    private func queuedCaptureText(text: String, type: String, source: String) -> String {
-        let cleanType = type.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleanType != "note" || cleanSource != "apple" else {
-            return text
-        }
-
-        return [
-            "queued_capture_metadata:",
-            "requested_capture_type: \(cleanType)",
-            "requested_source_device: \(cleanSource)",
-            "",
-            text
-        ].joined(separator: "\n")
     }
 
     private func preferredRemoteBaseURL(

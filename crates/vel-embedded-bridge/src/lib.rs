@@ -205,6 +205,69 @@ struct LinkingRequestOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CaptureMetadataInput {
+    text: Option<String>,
+    capture_type: Option<String>,
+    source_device: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CaptureMetadataOutput {
+    payload: String,
+    ready: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PairingTokenIssueRequestInput {
+    issued_by_node_id: Option<String>,
+    target_node_id: Option<String>,
+    target_node_display_name: Option<String>,
+    target_base_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PairingTokenIssueRequestOutput {
+    issued_by_node_id: String,
+    target_node_id: Option<String>,
+    target_node_display_name: Option<String>,
+    target_base_url: Option<String>,
+    ready: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PairingTokenRedeemRequestInput {
+    token_code: Option<String>,
+    node_id: Option<String>,
+    node_display_name: Option<String>,
+    transport_hint: Option<String>,
+    sync_base_url: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
+    localhost_base_url: Option<String>,
+    public_base_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PairingTokenRedeemRequestOutput {
+    token_code: String,
+    node_id: String,
+    node_display_name: String,
+    transport_hint: Option<String>,
+    sync_base_url: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
+    localhost_base_url: Option<String>,
+    public_base_url: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -675,6 +738,91 @@ pub extern "C" fn vel_embedded_prepare_linking_request(input_json: *const c_char
     let output = LinkingRequestOutput {
         token_code: normalized_optional_trimmed(decoded.token_code),
         target_base_url: normalized_optional_trimmed(decoded.target_base_url),
+        ready: true,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_capture_metadata(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<CaptureMetadataInput>(&raw).unwrap_or(CaptureMetadataInput {
+        text: Some(raw.clone()),
+        capture_type: Some("note".to_string()),
+        source_device: Some("apple".to_string()),
+    });
+
+    let text = trim_text(&decoded.text.unwrap_or_default());
+    let capture_type = trim_text(&decoded.capture_type.unwrap_or_else(|| "note".to_string()));
+    let source_device = trim_text(&decoded.source_device.unwrap_or_else(|| "apple".to_string()));
+
+    let payload = if capture_type == "note" && source_device == "apple" {
+        text
+    } else {
+        [
+            "queued_capture_metadata:".to_string(),
+            format!("requested_capture_type: {capture_type}"),
+            format!("requested_source_device: {source_device}"),
+            String::new(),
+            text,
+        ]
+        .join("\n")
+    };
+
+    let output = CaptureMetadataOutput { payload, ready: true };
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_pairing_token_issue_request(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<PairingTokenIssueRequestInput>(&raw).unwrap_or(PairingTokenIssueRequestInput {
+        issued_by_node_id: Some(String::new()),
+        target_node_id: None,
+        target_node_display_name: None,
+        target_base_url: None,
+    });
+
+    let output = PairingTokenIssueRequestOutput {
+        issued_by_node_id: trim_text(&decoded.issued_by_node_id.unwrap_or_default()),
+        target_node_id: normalized_optional_trimmed(decoded.target_node_id),
+        target_node_display_name: normalized_optional_trimmed(decoded.target_node_display_name),
+        target_base_url: normalized_optional_trimmed(decoded.target_base_url),
+        ready: true,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_pairing_token_redeem_request(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<PairingTokenRedeemRequestInput>(&raw).unwrap_or(PairingTokenRedeemRequestInput {
+        token_code: Some(String::new()),
+        node_id: Some(String::new()),
+        node_display_name: Some(String::new()),
+        transport_hint: None,
+        sync_base_url: None,
+        tailscale_base_url: None,
+        lan_base_url: None,
+        localhost_base_url: None,
+        public_base_url: None,
+    });
+
+    let output = PairingTokenRedeemRequestOutput {
+        token_code: trim_text(&decoded.token_code.unwrap_or_default()),
+        node_id: trim_text(&decoded.node_id.unwrap_or_default()),
+        node_display_name: trim_text(&decoded.node_display_name.unwrap_or_default()),
+        transport_hint: normalized_optional_trimmed(decoded.transport_hint),
+        sync_base_url: normalized_optional_trimmed(decoded.sync_base_url),
+        tailscale_base_url: normalized_optional_trimmed(decoded.tailscale_base_url),
+        lan_base_url: normalized_optional_trimmed(decoded.lan_base_url),
+        localhost_base_url: normalized_optional_trimmed(decoded.localhost_base_url),
+        public_base_url: normalized_optional_trimmed(decoded.public_base_url),
         ready: true,
     };
 

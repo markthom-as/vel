@@ -120,7 +120,8 @@ public struct VelAppEnvironment {
                     .localQueuedActionPackaging,
                     .localLinkingSettingsNormalization,
                     .localAssistantEntryFallbackPackaging,
-                    .localLinkingRequestPackaging
+                    .localLinkingRequestPackaging,
+                    .localCaptureMetadataPackaging
                 ]
                 : []
         )

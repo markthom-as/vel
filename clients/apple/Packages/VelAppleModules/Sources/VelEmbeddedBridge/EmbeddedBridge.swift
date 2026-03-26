@@ -18,6 +18,7 @@ public enum EmbeddedAppleFlow: String, Sendable, CaseIterable {
     case localLinkingSettingsNormalization = "local_linking_settings_normalization"
     case localAssistantEntryFallbackPackaging = "local_assistant_entry_fallback_packaging"
     case localLinkingRequestPackaging = "local_linking_request_packaging"
+    case localCaptureMetadataPackaging = "local_capture_metadata_packaging"
 }
 
 public struct EmbeddedBridgeRuntimeStatus: Sendable {
@@ -36,6 +37,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     public let localLinkingSettingsNormalizationSymbolAvailable: Bool
     public let localAssistantEntryFallbackPackagingSymbolAvailable: Bool
     public let localLinkingRequestPackagingSymbolAvailable: Bool
+    public let localCaptureMetadataPackagingSymbolAvailable: Bool
 
     public init(
         resolvedSource: String?,
@@ -52,7 +54,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localQueuedActionPackagingSymbolAvailable: Bool,
         localLinkingSettingsNormalizationSymbolAvailable: Bool,
         localAssistantEntryFallbackPackagingSymbolAvailable: Bool,
-        localLinkingRequestPackagingSymbolAvailable: Bool
+        localLinkingRequestPackagingSymbolAvailable: Bool,
+        localCaptureMetadataPackagingSymbolAvailable: Bool
     ) {
         self.resolvedSource = resolvedSource
         self.attemptedPaths = attemptedPaths
@@ -69,6 +72,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         self.localLinkingSettingsNormalizationSymbolAvailable = localLinkingSettingsNormalizationSymbolAvailable
         self.localAssistantEntryFallbackPackagingSymbolAvailable = localAssistantEntryFallbackPackagingSymbolAvailable
         self.localLinkingRequestPackagingSymbolAvailable = localLinkingRequestPackagingSymbolAvailable
+        self.localCaptureMetadataPackagingSymbolAvailable = localCaptureMetadataPackagingSymbolAvailable
     }
 
     public static let unavailable = EmbeddedBridgeRuntimeStatus(
@@ -86,7 +90,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localQueuedActionPackagingSymbolAvailable: false,
         localLinkingSettingsNormalizationSymbolAvailable: false,
         localAssistantEntryFallbackPackagingSymbolAvailable: false,
-        localLinkingRequestPackagingSymbolAvailable: false
+        localLinkingRequestPackagingSymbolAvailable: false,
+        localCaptureMetadataPackagingSymbolAvailable: false
     )
 
     public var isBridgeLoaded: Bool {
@@ -106,6 +111,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             || localLinkingSettingsNormalizationSymbolAvailable
             || localAssistantEntryFallbackPackagingSymbolAvailable
             || localLinkingRequestPackagingSymbolAvailable
+            || localCaptureMetadataPackagingSymbolAvailable
     }
 
     public var isOperational: Bool {
@@ -113,7 +119,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     }
 
     public var discoveredSymbolCount: Int {
-        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable, localAssistantEntryFallbackPackagingSymbolAvailable, localLinkingRequestPackagingSymbolAvailable]
+        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable, localAssistantEntryFallbackPackagingSymbolAvailable, localLinkingRequestPackagingSymbolAvailable, localCaptureMetadataPackagingSymbolAvailable]
             .filter(\.self)
             .count
     }
@@ -144,6 +150,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             localAssistantEntryFallbackPackagingSymbolAvailable
         case .localLinkingRequestPackaging:
             localLinkingRequestPackagingSymbolAvailable
+        case .localCaptureMetadataPackaging:
+            localCaptureMetadataPackagingSymbolAvailable
         }
     }
 }
@@ -360,6 +368,75 @@ public struct EmbeddedLinkingRequestPacket: Sendable {
 
 public protocol EmbeddedLinkingRequestBridge: Sendable {
     func prepareLinkingRequest(tokenCode: String?, targetBaseURL: String?) -> EmbeddedLinkingRequestPacket
+    func preparePairingTokenIssueRequest(
+        issuedByNodeID: String,
+        targetNodeID: String?,
+        targetNodeDisplayName: String?,
+        targetBaseURL: String?
+    ) -> EmbeddedPairingTokenIssueRequestPacket
+    func preparePairingTokenRedeemRequest(
+        tokenCode: String,
+        nodeID: String,
+        nodeDisplayName: String,
+        transportHint: String?,
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        localhostBaseURL: String?,
+        publicBaseURL: String?
+    ) -> EmbeddedPairingTokenRedeemRequestPacket
+}
+
+public struct EmbeddedPairingTokenIssueRequestPacket: Sendable {
+    public let issuedByNodeID: String
+    public let targetNodeID: String?
+    public let targetNodeDisplayName: String?
+    public let targetBaseURL: String?
+
+    public init(issuedByNodeID: String, targetNodeID: String?, targetNodeDisplayName: String?, targetBaseURL: String?) {
+        self.issuedByNodeID = issuedByNodeID
+        self.targetNodeID = targetNodeID
+        self.targetNodeDisplayName = targetNodeDisplayName
+        self.targetBaseURL = targetBaseURL
+    }
+}
+
+public struct EmbeddedPairingTokenRedeemRequestPacket: Sendable {
+    public let tokenCode: String
+    public let nodeID: String
+    public let nodeDisplayName: String
+    public let transportHint: String?
+    public let syncBaseURL: String?
+    public let tailscaleBaseURL: String?
+    public let lanBaseURL: String?
+    public let localhostBaseURL: String?
+    public let publicBaseURL: String?
+
+    public init(
+        tokenCode: String,
+        nodeID: String,
+        nodeDisplayName: String,
+        transportHint: String?,
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        localhostBaseURL: String?,
+        publicBaseURL: String?
+    ) {
+        self.tokenCode = tokenCode
+        self.nodeID = nodeID
+        self.nodeDisplayName = nodeDisplayName
+        self.transportHint = transportHint
+        self.syncBaseURL = syncBaseURL
+        self.tailscaleBaseURL = tailscaleBaseURL
+        self.lanBaseURL = lanBaseURL
+        self.localhostBaseURL = localhostBaseURL
+        self.publicBaseURL = publicBaseURL
+    }
+}
+
+public protocol EmbeddedCaptureMetadataBridge: Sendable {
+    func prepareQueuedCaptureText(text: String, type: String, source: String) -> String
 }
 
 private struct OfflineBridgeEnvelope: Decodable {
@@ -382,6 +459,7 @@ public protocol EmbeddedBridgeSurface: Sendable {
     var linkingSettingsBridge: any EmbeddedLinkingSettingsBridge { get }
     var assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge { get }
     var linkingRequestBridge: any EmbeddedLinkingRequestBridge { get }
+    var captureMetadataBridge: any EmbeddedCaptureMetadataBridge { get }
 }
 
 public struct NoopEmbeddedNowBridge: EmbeddedNowBridge {
@@ -643,6 +721,64 @@ public struct NoopEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge {
             targetBaseURL: normalizedBaseURL?.isEmpty == true ? nil : normalizedBaseURL
         )
     }
+
+    public func preparePairingTokenIssueRequest(
+        issuedByNodeID: String,
+        targetNodeID: String?,
+        targetNodeDisplayName: String?,
+        targetBaseURL: String?
+    ) -> EmbeddedPairingTokenIssueRequestPacket {
+        EmbeddedPairingTokenIssueRequestPacket(
+            issuedByNodeID: issuedByNodeID.trimmingCharacters(in: .whitespacesAndNewlines),
+            targetNodeID: targetNodeID?.trimmingCharacters(in: .whitespacesAndNewlines),
+            targetNodeDisplayName: targetNodeDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+            targetBaseURL: targetBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+
+    public func preparePairingTokenRedeemRequest(
+        tokenCode: String,
+        nodeID: String,
+        nodeDisplayName: String,
+        transportHint: String?,
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        localhostBaseURL: String?,
+        publicBaseURL: String?
+    ) -> EmbeddedPairingTokenRedeemRequestPacket {
+        EmbeddedPairingTokenRedeemRequestPacket(
+            tokenCode: tokenCode.trimmingCharacters(in: .whitespacesAndNewlines),
+            nodeID: nodeID.trimmingCharacters(in: .whitespacesAndNewlines),
+            nodeDisplayName: nodeDisplayName.trimmingCharacters(in: .whitespacesAndNewlines),
+            transportHint: transportHint?.trimmingCharacters(in: .whitespacesAndNewlines),
+            syncBaseURL: syncBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            tailscaleBaseURL: tailscaleBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            lanBaseURL: lanBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            localhostBaseURL: localhostBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            publicBaseURL: publicBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+}
+
+public struct NoopEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge {
+    public init() {}
+
+    public func prepareQueuedCaptureText(text: String, type: String, source: String) -> String {
+        let cleanType = type.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanType != "note" || cleanSource != "apple" else {
+            return text
+        }
+
+        return [
+            "queued_capture_metadata:",
+            "requested_capture_type: \(cleanType)",
+            "requested_source_device: \(cleanSource)",
+            "",
+            text
+        ].joined(separator: "\n")
+    }
 }
 
 public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
@@ -660,6 +796,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let linkingSettingsBridge: any EmbeddedLinkingSettingsBridge
     public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
     public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
+    public let captureMetadataBridge: any EmbeddedCaptureMetadataBridge
 
     public init(configuration: EmbeddedBridgeConfiguration = .daemonBackedDefault()) {
         self.configuration = configuration
@@ -676,6 +813,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
         self.linkingSettingsBridge = NoopEmbeddedLinkingSettingsBridge()
         self.assistantEntryFallbackBridge = NoopEmbeddedAssistantEntryFallbackBridge()
         self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
+        self.captureMetadataBridge = NoopEmbeddedCaptureMetadataBridge()
     }
 }
 
@@ -1985,6 +2123,113 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
             targetBaseURL: parsed.targetBaseURL
         )
     }
+
+    public func preparePairingTokenIssueRequest(
+        issuedByNodeID: String,
+        targetNodeID: String?,
+        targetNodeDisplayName: String?,
+        targetBaseURL: String?
+    ) -> EmbeddedPairingTokenIssueRequestPacket {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareLinkingRequest,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeLinkingRequestPayload(
+                tokenCode: targetNodeID ?? targetNodeDisplayName,
+                targetBaseURL: targetBaseURL
+            )
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeLinkingRequest(output),
+        parsed.ready else {
+            return NoopEmbeddedLinkingRequestBridge().preparePairingTokenIssueRequest(
+                issuedByNodeID: issuedByNodeID,
+                targetNodeID: targetNodeID,
+                targetNodeDisplayName: targetNodeDisplayName,
+                targetBaseURL: targetBaseURL
+            )
+        }
+
+        return EmbeddedPairingTokenIssueRequestPacket(
+            issuedByNodeID: issuedByNodeID.trimmingCharacters(in: .whitespacesAndNewlines),
+            targetNodeID: targetNodeID?.trimmingCharacters(in: .whitespacesAndNewlines),
+            targetNodeDisplayName: targetNodeDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+            targetBaseURL: parsed.targetBaseURL
+        )
+    }
+
+    public func preparePairingTokenRedeemRequest(
+        tokenCode: String,
+        nodeID: String,
+        nodeDisplayName: String,
+        transportHint: String?,
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        localhostBaseURL: String?,
+        publicBaseURL: String?
+    ) -> EmbeddedPairingTokenRedeemRequestPacket {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareLinkingRequest,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeLinkingRequestPayload(
+                tokenCode: tokenCode,
+                targetBaseURL: syncBaseURL
+            )
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeLinkingRequest(output),
+        parsed.ready else {
+            return NoopEmbeddedLinkingRequestBridge().preparePairingTokenRedeemRequest(
+                tokenCode: tokenCode,
+                nodeID: nodeID,
+                nodeDisplayName: nodeDisplayName,
+                transportHint: transportHint,
+                syncBaseURL: syncBaseURL,
+                tailscaleBaseURL: tailscaleBaseURL,
+                lanBaseURL: lanBaseURL,
+                localhostBaseURL: localhostBaseURL,
+                publicBaseURL: publicBaseURL
+            )
+        }
+
+        return EmbeddedPairingTokenRedeemRequestPacket(
+            tokenCode: parsed.tokenCode ?? tokenCode,
+            nodeID: nodeID.trimmingCharacters(in: .whitespacesAndNewlines),
+            nodeDisplayName: nodeDisplayName.trimmingCharacters(in: .whitespacesAndNewlines),
+            transportHint: transportHint?.trimmingCharacters(in: .whitespacesAndNewlines),
+            syncBaseURL: parsed.targetBaseURL ?? syncBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            tailscaleBaseURL: tailscaleBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            lanBaseURL: lanBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            localhostBaseURL: localhostBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+            publicBaseURL: publicBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+}
+
+public struct RustEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge, @unchecked Sendable {
+    private let bindings: VelEmbeddedRustBindings
+
+    public init?(bindings: VelEmbeddedRustBindings) {
+        guard bindings.prepareAssistantEntryFallback != nil else { return nil }
+        self.bindings = bindings
+    }
+
+    public func prepareQueuedCaptureText(text: String, type: String, source: String) -> String {
+        let payload = [
+            text.trimmingCharacters(in: .whitespacesAndNewlines),
+            type.trimmingCharacters(in: .whitespacesAndNewlines),
+            source.trimmingCharacters(in: .whitespacesAndNewlines)
+        ].joined(separator: "\n")
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareAssistantEntryFallback,
+            freeBuffer: bindings.freeBuffer,
+            payload: payload
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeAssistantEntryFallback(output),
+        parsed.ready else {
+            return NoopEmbeddedCaptureMetadataBridge().prepareQueuedCaptureText(text: text, type: type, source: source)
+        }
+
+        return parsed.payload
+    }
 }
 
 public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge, @unchecked Sendable {
@@ -2008,6 +2253,49 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
             targetBaseURL: targetBaseURL
         )
     }
+    public func preparePairingTokenIssueRequest(
+        issuedByNodeID: String,
+        targetNodeID: String?,
+        targetNodeDisplayName: String?,
+        targetBaseURL: String?
+    ) -> EmbeddedPairingTokenIssueRequestPacket {
+        NoopEmbeddedLinkingRequestBridge().preparePairingTokenIssueRequest(
+            issuedByNodeID: issuedByNodeID,
+            targetNodeID: targetNodeID,
+            targetNodeDisplayName: targetNodeDisplayName,
+            targetBaseURL: targetBaseURL
+        )
+    }
+    public func preparePairingTokenRedeemRequest(
+        tokenCode: String,
+        nodeID: String,
+        nodeDisplayName: String,
+        transportHint: String?,
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        localhostBaseURL: String?,
+        publicBaseURL: String?
+    ) -> EmbeddedPairingTokenRedeemRequestPacket {
+        NoopEmbeddedLinkingRequestBridge().preparePairingTokenRedeemRequest(
+            tokenCode: tokenCode,
+            nodeID: nodeID,
+            nodeDisplayName: nodeDisplayName,
+            transportHint: transportHint,
+            syncBaseURL: syncBaseURL,
+            tailscaleBaseURL: tailscaleBaseURL,
+            lanBaseURL: lanBaseURL,
+            localhostBaseURL: localhostBaseURL,
+            publicBaseURL: publicBaseURL
+        )
+    }
+}
+
+public struct RustEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge, @unchecked Sendable {
+    public init?(bindings: ()) { return nil }
+    public func prepareQueuedCaptureText(text: String, type: String, source: String) -> String {
+        NoopEmbeddedCaptureMetadataBridge().prepareQueuedCaptureText(text: text, type: type, source: source)
+    }
 }
 
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
@@ -2025,6 +2313,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let linkingSettingsBridge: any EmbeddedLinkingSettingsBridge
     public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
     public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
+    public let captureMetadataBridge: any EmbeddedCaptureMetadataBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         guard let bindings = VelEmbeddedRustBridge.bindings else {
@@ -2106,6 +2395,12 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
         }
 
+        if let rustCaptureMetadata = RustEmbeddedCaptureMetadataBridge(bindings: bindings), configuration.permits(.localCaptureMetadataPackaging) {
+            self.captureMetadataBridge = rustCaptureMetadata
+        } else {
+            self.captureMetadataBridge = NoopEmbeddedCaptureMetadataBridge()
+        }
+
         let isEmbedded = configuration.permits(.cachedNowHydration)
             || configuration.permits(.localQuickActionPreparation)
             || configuration.permits(.offlineRequestPackaging)
@@ -2118,6 +2413,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             || configuration.permits(.localLinkingSettingsNormalization)
             || configuration.permits(.localAssistantEntryFallbackPackaging)
             || configuration.permits(.localLinkingRequestPackaging)
+            || configuration.permits(.localCaptureMetadataPackaging)
 
         guard isEmbedded else { return nil }
     }
@@ -2273,6 +2569,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let linkingSettingsBridge: any EmbeddedLinkingSettingsBridge
     public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
     public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
+    public let captureMetadataBridge: any EmbeddedCaptureMetadataBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         self.configuration = configuration
@@ -2289,6 +2586,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
         self.linkingSettingsBridge = NoopEmbeddedLinkingSettingsBridge()
         self.assistantEntryFallbackBridge = NoopEmbeddedAssistantEntryFallbackBridge()
         self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
+        self.captureMetadataBridge = NoopEmbeddedCaptureMetadataBridge()
         return nil
     }
 }
