@@ -2598,9 +2598,9 @@ private struct SettingsTab: View {
             Text("Target: \(configuration.target.rawValue)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            Text("Runtime status: \(runtimeStatus.isOperational ? "operational" : "not operational")")
+            Text("Runtime status: \(runtimeStatus.isOperational(for: configuration) ? "operational" : "not operational")")
                 .font(.caption2)
-                .foregroundStyle(runtimeStatus.isOperational ? .green : .secondary)
+                .foregroundStyle(runtimeStatus.isOperational(for: configuration) ? .green : .secondary)
             Text("Library in build: \(configuration.isBridgeAvailableInBuild ? "yes" : "no")")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -2617,6 +2617,13 @@ private struct SettingsTab: View {
                 Text("Lookup attempts: \(runtimeStatus.attemptedPaths.count)")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+            }
+            if !runtimeStatus.missingApprovedFlows(for: configuration).isEmpty {
+                Text(
+                    "Missing approved flows: \(runtimeStatus.missingApprovedFlows(for: configuration).map(\\.rawValue).joined(separator: \", \"))"
+                )
+                    .font(.caption2)
+                    .foregroundStyle(.yellow)
             }
 
             BoolStatusRow(label: "Cached now hydration", value: configuration.permits(.cachedNowHydration))

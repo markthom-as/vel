@@ -118,6 +118,17 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         isBridgeLoaded && hasUsableSymbols
     }
 
+    public func isOperational(for configuration: EmbeddedBridgeConfiguration) -> Bool {
+        guard isBridgeLoaded else { return false }
+        return configuration.approvedFlows.allSatisfy { symbolAvailable(for: $0) }
+    }
+
+    public func missingApprovedFlows(for configuration: EmbeddedBridgeConfiguration) -> [EmbeddedAppleFlow] {
+        configuration.approvedFlows
+            .filter { !symbolAvailable(for: $0) }
+            .sorted { $0.rawValue < $1.rawValue }
+    }
+
     public var discoveredSymbolCount: Int {
         [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable, localAssistantEntryFallbackPackagingSymbolAvailable, localLinkingRequestPackagingSymbolAvailable, localCaptureMetadataPackagingSymbolAvailable]
             .filter(\.self)
