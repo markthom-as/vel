@@ -68,6 +68,11 @@ Plan: Not started
 - proving duplex behavior without widening to wake-word/diarization scope
 - converting `docs/VELOCITY-DRIFT-CLEANUP.md` into a queued post-`0.5.7` cleanup packet without mixing it into active voice scope
 
+### Pending Todos
+
+- 9 pending todos
+- latest: `Add NAS backup export job` (`.planning/todos/pending/2026-03-26-add-nas-backup-export-job.md`)
+
 ### Next Step
 
 Start Phase 101 planning and implementation for duplex architecture lock, then advance sequentially through Phases 102-105 with explicit validation evidence.
