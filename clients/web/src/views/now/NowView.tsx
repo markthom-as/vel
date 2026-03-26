@@ -1,6 +1,9 @@
 import type { DragEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { normalizeTaskDisplayBatchValue } from '../../data/embeddedBridgeAdapter';
+import {
+  normalizeTaskDisplayBatchValue,
+  normalizeTaskDisplayValue,
+} from '../../data/embeddedBridgeAdapter';
 import {
   contextQueryKeys,
   loadNow,
@@ -847,8 +850,14 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
                           text: item.task?.text ?? item.title,
                           title: item.task?.title ?? item.title,
                           description: item.task?.description ?? null,
-                          tags: normalizeTaskTags(item.task?.tags, item.task?.project ?? null),
-                          project: normalizeTaskProject(item.task?.project ?? null),
+                          tags: normalizeTaskDisplayValue(
+                            item.task?.tags,
+                            item.task?.project ?? null,
+                          ).tags,
+                          project: normalizeTaskDisplayValue(
+                            null,
+                            item.task?.project ?? null,
+                          ).project,
                           dueLabel: item.task?.due_label ?? null,
                           isOverdue: item.task?.is_overdue ?? false,
                           deadlineLabel: item.task?.deadline_label ?? null,
