@@ -63,6 +63,12 @@ Product principles:
 ### 5. Documentation and Contracts
 
 - Docs must clearly distinguish implemented behavior from planned behavior.
+- Place docs by role:
+  - `.planning/` for active milestone work, execution packets, validation, and queued follow-on work
+  - `docs/tickets/` for bounded implementation targets
+  - `docs/future/` for future-only specs that are explicitly not shipped-behavior authority
+  - `docs/notes/` for working notes, interview logs, and exploratory material that are not authority by themselves
+  - `docs/cognitive-agent-architecture/` for accepted or active design-contract material; `status: draft` there is not proof of shipped behavior
 - When changing a wire contract, update the Rust DTOs and the affected client boundary code in the same change.
 - New schema-bearing or config-bearing surfaces should ship with four things together once the boundary is stable: owner documentation, a checked-in template or example, a machine-readable schema or manifest, and verification that the checked-in artifact still parses.
 - Integration and connector work should use the canonical family, provider, source-mode, and capability vocabulary instead of inventing per-provider terminology ad hoc.
@@ -70,6 +76,25 @@ Product principles:
 - When adding a new module, contract, endpoint, table, security boundary, or message-flow seam, document it close to the code and in the relevant ticket or doc entrypoint.
 - If you encounter stale authority pointers while already touching the affected area, repair them instead of adding another shadow document.
 - Record reusable lessons. If a task reveals a better prompt pattern, verification trick, or architectural guardrail, capture it in repo docs instead of leaving it in chat history only.
+- Before creating a new doc, decide whether it is authority, active planning, future spec, or working note, and place it accordingly.
+
+### 5.1 Language-Specific Agent Guidance
+
+- For Rust work:
+  - keep domain semantics in `vel-core`, storage logic in `vel-storage`, DTOs in `vel-api-types`, and application logic in `veld` services
+  - keep route handlers thin and avoid returning transport DTOs from services
+  - prefer typed structs/enums over new JSON blobs and keep serialization at boundaries
+  - add focused crate, repository, service, or integration tests for changed behavior
+- For JavaScript and TypeScript work:
+  - keep client surfaces as shells over Rust-owned truth rather than inventing UI-only authority
+  - preserve the existing `core/`, `shell/`, and `views/` boundaries and reuse shared primitives or view-model seams when logic repeats
+  - verify interaction-heavy changes directly in the browser rather than relying on reasoning only
+- For WASM and sandboxed runtime work:
+  - keep manifests, allowlists, writable roots, and host-call boundaries explicit
+  - never allow guests to widen filesystem or network scope after launch
+  - treat WASM execution as a supervised runtime boundary, not a privileged bypass around backend policy
+
+See `docs/cognitive-agent-architecture/agents/language-specific-agentic-coding-guidance.md` for the full Rust, JS/TS, and WASM-specific guidance.
 
 ### 6. Agentic Runtime Guidance
 

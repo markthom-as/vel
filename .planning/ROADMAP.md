@@ -84,10 +84,6 @@ Milestone `0.5.3` delivered:
 
 ## Current Milestone State
 
-`0.5.5` is now closed.
-
-`0.5.6` is now closed.
-
 `0.5.7` is now in progress as the active architecture milestone.
 
 ## Latest Closed Milestone
@@ -111,23 +107,6 @@ Milestone `0.5.7` exists to add truthful duplex voice interaction while preservi
 - native Apple shell for session policy, interruptions, route changes, permissions, and voice-processing I/O
 - portable Rust core for buffering, resampling, VAD, STT/TTS/LLM orchestration, turn state, and policy
 - explicit validation and real-device proof before closeout
-
-Packet:
-
-- [v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md)
-
-## Closed Prior Milestone
-
-`0.5.6` is now closed and archived as the single-node MVP and polished web UI line.
-
-Packet:
-
-- [v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md)
-- [v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
-- [v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
 
 Packet:
 

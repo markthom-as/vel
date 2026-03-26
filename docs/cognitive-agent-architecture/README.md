@@ -6,6 +6,17 @@ coordinate agents, and operate across devices.
 
 These documents are intended to be **agent-ready** and **implementation-guiding**.
 
+## Status Semantics
+
+Most docs in this pack use frontmatter status values such as `complete` or `draft`.
+
+Interpret them this way:
+
+- `status: complete`: accepted contract or architecture guidance for the documented boundary
+- `status: draft`: active design-contract material that may guide current or future implementation, but is not by itself proof that the behavior has shipped
+
+For explicitly future-only concepts that are not yet part of an accepted contract or active planning packet, prefer `docs/future/` with an explicit non-authority note instead of adding another ambiguous architecture leaf.
+
 ## Scope
 
 This pack covers:
@@ -24,6 +35,8 @@ This pack covers:
 The product spec pack defines **what the user experiences**.
 
 This pack defines **how Vel internally behaves and evolves**.
+
+Shipped-behavior authority still starts with `docs/MASTER_PLAN.md`, user docs, API docs, and the relevant active `.planning` packet when work is in flight.
 
 If implementation is ambiguous, preserve:
 
@@ -46,8 +59,9 @@ Start here:
 8. [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md)
 9. [`agents/orchestrator.md`](agents/orchestrator.md)
 10. [`agents/tool-access.md`](agents/tool-access.md)
-11. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
-12. [`implementation/roadmap.md`](implementation/roadmap.md)
+11. [`agents/language-specific-agentic-coding-guidance.md`](agents/language-specific-agentic-coding-guidance.md)
+12. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
+13. [`implementation/roadmap.md`](implementation/roadmap.md)
 
 ## Sub-Pack Entry Points
 
@@ -55,6 +69,7 @@ Start here:
 - [`architecture/cross-cutting-trait-audit.md`](architecture/cross-cutting-trait-audit.md) for subsystem-level trait coverage and gap classification
 - [`architecture/canonical-schemas-and-contracts.md`](architecture/canonical-schemas-and-contracts.md) for schema ownership, config contracts, manifests, and templates
 - [`agents/orchestrator.md`](agents/orchestrator.md) for orchestration and supervision
+- [`agents/language-specific-agentic-coding-guidance.md`](agents/language-specific-agentic-coding-guidance.md) for Rust, JS/TS, and WASM-specific coding expectations
 - [`cognition/context-model.md`](cognition/context-model.md) for cognition-state shape and interpretation
 - [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md) for bounded repo visibility, self-modeling, and supervised code changes
 - [`integrations/canonical-data-sources-and-connectors.md`](integrations/canonical-data-sources-and-connectors.md) for integration families, source modes, and connector contracts

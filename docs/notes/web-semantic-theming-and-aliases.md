@@ -1,5 +1,7 @@
 # Web semantic theming and alias system
 
+Working note only. This file records a parked future design direction and is not shipped-behavior authority by itself.
+
 ## Why this is parked
 
 The web client currently spreads semantic UI decisions across:

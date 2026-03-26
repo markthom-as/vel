@@ -28,13 +28,15 @@ These are the current authoritative entrypoints:
 These files drive ongoing implementation work:
 
 - `.planning/ROADMAP.md`: top-level roadmap entrypoint and active milestone pointer
-- `.planning/milestones/v0.5-core-rewrite/ROADMAP.md`: active `0.5` backend rewrite packet
+- `.planning/milestones/<active-milestone>/ROADMAP.md`: active milestone packet; use the path linked from `.planning/ROADMAP.md`
 - `.planning/PROJECT.md`: active product definition and accepted planning decisions
 - `.planning/BACKLOG.md`: non-phase future work that is worth preserving but not yet committed
 - `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows
-- `.planning/phases/05-*` through `.planning/phases/09-*`: active phase-planning directories
+- `.planning/phases/101-*` through `.planning/phases/105-*`: current active phase-planning directories for milestone `0.5.7`
+- `.planning/phases/*`: historical and queued phase packets across prior milestones and follow-on cleanup work
 - `docs/future/*.md`: future-facing product and architecture specs that are explicitly not shipped-behavior authority
-- [future/cli-coverage-detection-and-implementation-plan.md](future/cli-coverage-detection-and-implementation-plan.md): future-facing plan for automated `vel-cli` coverage detection and phased command/client coverage closure
+- [future/cli-coverage-detection-and-implementation-plan.md](future/cli-coverage-detection-and-implementation-plan.md): implemented `vel-cli` coverage baseline plus remaining ratchet plan for thresholds and deeper command/client coverage
+- [notes/README.md](notes/README.md): working-note guidance for interview logs, parked ideas, and in-progress design material that is not authority by itself
 - [tickets/README.md](tickets/README.md): queue index and phase navigation
 - [tickets/architecture-first-parallel-queue.md](tickets/architecture-first-parallel-queue.md): documentation/contracts-first execution order and parallel work waves
 - `docs/tickets/phase-1/*.md`
@@ -43,7 +45,7 @@ These files drive ongoing implementation work:
 - `docs/tickets/phase-4/*.md`
 - `docs/tickets/phase-5/*.md`
 
-Phase 1 and Phase 3 are complete historical implementation lanes. Phase 2 and Phase 4 also remain historical, but some unfinished original-scope work from those lanes was explicitly re-scoped into later milestone planning. Active implementation planning now runs through the `0.5` packet.
+Phase 1 and Phase 3 are complete historical implementation lanes. Phase 2 and Phase 4 also remain historical, but some unfinished original-scope work from those lanes was explicitly re-scoped into later milestone planning. Active implementation planning now runs through `.planning`, with the current milestone and packet linked from `.planning/ROADMAP.md`.
 
 Use the ticket closest to the boundary you are changing when touching historical architecture surfaces, and use the active phase planning files for future product work.
 
@@ -55,6 +57,19 @@ These docs can still be useful, but they are subordinate to the authority chain 
 - config templates, schemas, manifests, and examples under `config/` and `configs/models/`
 - user-facing troubleshooting and setup guides under `docs/user/`
 - API detail docs under `docs/api/`
+- working notes under `docs/notes/`
+
+## Future And Draft Placement Rules
+
+Use these placement rules to avoid planning drift:
+
+- `docs/future/`: future-facing product or architecture specs that are explicitly not shipped-behavior authority
+- `.planning/`: active milestone packets, execution plans, validation, verification, queued cleanup, and roadmap state
+- `docs/tickets/`: bounded implementation targets closest to the seam being changed
+- `docs/notes/`: working notes, interviews, parked design fragments, and exploratory material that may inform later authoritative docs but are not authority by themselves
+- `docs/cognitive-agent-architecture/` with `status: draft`: active design-contract material that may guide implementation, but does not by itself prove the feature is shipped
+
+If a future concept is not yet part of an active milestone or accepted contract, prefer `docs/future/` over creating another ambiguous architecture leaf or note.
 
 ## Minimum Reading Order
 
