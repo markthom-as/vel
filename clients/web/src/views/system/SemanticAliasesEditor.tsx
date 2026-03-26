@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../core/Button';
 import { cn } from '../../core/cn';
+import { normalizeSemanticLabelValue } from '../../data/embeddedBridgeAdapter';
 import {
   normalizeSemanticAliasOverrides,
   semanticAliasFamilyLabels,
@@ -93,7 +94,7 @@ export function SemanticAliasesEditor({
     for (const family of semanticAliasFamilyOrder) {
       const seen = new Set<string>();
       for (const row of draft[family]) {
-        const normalizedKey = row.key.trim().toLowerCase().replace(/\s+/g, '_');
+        const normalizedKey = normalizeSemanticLabelValue(row.key).normalized;
         if (normalizedKey.length === 0) {
           continue;
         }
