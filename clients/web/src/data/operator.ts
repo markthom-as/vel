@@ -452,24 +452,24 @@ export function buildSettingsOnboardingGuide({
   const sourcesStep: OperatorOnboardingStepData = configuredLocalSources > 0
     ? {
       id: 'local-sources',
-      title: 'Confirm local source paths',
+      title: 'Configure sources',
       status: 'done',
-      detail: `${configuredLocalSources} local source${configuredLocalSources === 1 ? '' : 's'} already have saved paths. Use the integration cards to validate sync freshness or swap paths when the host changes.`,
+      detail: `${configuredLocalSources} source${configuredLocalSources === 1 ? '' : 's'} already have saved paths. Use the integration cards to validate sync freshness, swap paths when the host changes, or trigger a refresh.`,
       supportPath: 'docs/user/integrations/local-sources.md',
     }
     : discoverableLocalSources > 0
       ? {
         id: 'local-sources',
-        title: 'Confirm local source paths',
+        title: 'Configure sources',
         status: 'ready',
-        detail: 'Suggested or host-discovered paths are available in Integrations. Pick the real source path first, then run Sync now and evaluate.',
+        detail: 'Suggested or host-discovered source paths are available in Integrations. Pick the real source path first, then run Sync now and evaluate.',
         supportPath: 'docs/user/integrations/local-sources.md',
       }
       : {
         id: 'local-sources',
-        title: 'Confirm local source paths',
+        title: 'Configure sources',
         status: 'attention',
-        detail: 'No local source path is configured yet. Use Integrations to choose a path manually before expecting notes, activity, messaging, or reminders to refresh.',
+        detail: 'No source path is configured yet. Use Integrations to choose paths manually before expecting notes, activity, messaging, or reminders to refresh.',
         supportPath: 'docs/user/setup.md',
       };
 
@@ -489,7 +489,7 @@ export function buildSettingsOnboardingGuide({
       supportPath: 'docs/user/integrations/apple-macos.md',
     };
 
-  const steps = [daemonStep, linkingStep, sourcesStep, appleStep];
+  const steps = [daemonStep, linkingStep, appleStep, sourcesStep];
   const nextStep = steps.find((step) => step.status !== 'done') ?? steps[steps.length - 1];
 
   return {

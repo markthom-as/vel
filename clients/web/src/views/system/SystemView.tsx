@@ -272,6 +272,7 @@ export function SystemView({ target }: SystemViewProps) {
     data: clusterBootstrap = null,
     loading: clusterBootstrapLoading,
     error: clusterBootstrapError,
+    refetch: refetchClusterBootstrap,
   } = useQuery<ClusterBootstrapData | null>(
     clusterBootstrapKey,
     async () => {
@@ -287,6 +288,7 @@ export function SystemView({ target }: SystemViewProps) {
     data: clusterWorkers = null,
     loading: clusterWorkersLoading,
     error: clusterWorkersError,
+    refetch: refetchClusterWorkers,
   } = useQuery<ClusterWorkersData | null>(
     clusterWorkersKey,
     async () => {
@@ -302,6 +304,7 @@ export function SystemView({ target }: SystemViewProps) {
     data: linkedNodes = [],
     loading: linkingStatusLoading,
     error: linkingStatusError,
+    refetch: refetchLinkingStatus,
   } = useQuery<LinkedNodeData[]>(
     linkingStatusKey,
     async () => {
@@ -323,6 +326,28 @@ export function SystemView({ target }: SystemViewProps) {
       google_calendar: optimisticGoogleCalendar,
     };
   }, [integrations, optimisticGoogleCalendar]);
+
+  useEffect(() => {
+    if (!pairingQueryEnabled) {
+      return;
+    }
+    const hasLinkedNode = linkedNodes.some((node) => node.status === 'linked');
+    if (hasLinkedNode) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void refetchClusterBootstrap().catch(() => undefined);
+      void refetchClusterWorkers().catch(() => undefined);
+      void refetchLinkingStatus().catch(() => undefined);
+    }, 4000);
+    return () => window.clearInterval(interval);
+  }, [
+    linkedNodes,
+    pairingQueryEnabled,
+    refetchClusterBootstrap,
+    refetchClusterWorkers,
+    refetchLinkingStatus,
+  ]);
 
   useEffect(() => {
     if (!optimisticGoogleCalendar || !integrations) {

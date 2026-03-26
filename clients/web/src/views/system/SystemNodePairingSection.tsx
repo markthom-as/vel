@@ -54,6 +54,21 @@ function formatTimestamp(value: string | null | undefined): string {
   }
 }
 
+function focusPairingAnchor(anchor: string) {
+  const node = document.getElementById(anchor);
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+  node.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  const focusTarget =
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLButtonElement
+      ? node
+      : node.querySelector<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])');
+  focusTarget?.focus({ preventScroll: true });
+}
+
 function linkedNodeTone(status: LinkedNodeData['status']) {
   switch (status) {
     case 'linked':
@@ -243,6 +258,10 @@ export function NodePairingDetail({
     ? parsedTtlMinutes
     : 15;
   const incomingPrompt = localWorker?.incoming_linking_prompt ?? null;
+  const connectAlternativeLabel = incomingPrompt ? 'Redeem a node token instead' : 'Connect to a node instead';
+  const connectAlternativeDetail = incomingPrompt
+    ? 'A prompt is already waiting on this node. Jump straight to token redemption.'
+    : 'Open the node-linking flow first and keep scanning for companion devices while onboarding is still incomplete.';
 
   function toggleScope(scopeKey: ScopeKey) {
     setScopeDraft((current) => ({
@@ -343,6 +362,22 @@ export function NodePairingDetail({
     <div className="space-y-6">
       <div className="space-y-3">
         <SystemDocumentSectionLabel>Pairing guide</SystemDocumentSectionLabel>
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-[18px] border border-[var(--vel-color-border)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+          <div className="min-w-0 space-y-1">
+            <p className="text-[13px] font-medium leading-5 text-[var(--vel-color-text)]">
+              {connectAlternativeLabel}
+            </p>
+            <p className="text-[12px] leading-5 text-[var(--vel-color-muted)]">
+              {connectAlternativeDetail}
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => focusPairingAnchor(systemChildAnchor('pairing', incomingPrompt ? 'redeem' : 'issue'))}
+          >
+            {connectAlternativeLabel}
+          </Button>
+        </div>
         <p
           id={systemChildAnchor('pairing', 'guide')}
           className="scroll-mt-24 text-[13px] leading-6 text-[var(--vel-color-text)]"
@@ -439,7 +474,7 @@ export function NodePairingDetail({
 
           {discoveredCompanions.length === 0 ? (
             <PanelEmptyRow>
-              No unlinked companion node is visible yet. Open Vel on the other device or use the generic token path.
+              No unlinked companion node is visible yet. Keep Vel open on the other device. This screen keeps refreshing discovery and broadcasting for nearby nodes while onboarding is still in progress.
             </PanelEmptyRow>
           ) : (
             <SystemDocumentList>

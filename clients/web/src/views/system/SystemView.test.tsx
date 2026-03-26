@@ -746,7 +746,9 @@ describe('SystemView', () => {
       expect(loadLinkingStatus).toHaveBeenCalled()
     })
 
-    expect(screen.getByRole('button', { name: 'Node pairing. Issue, redeem, and inspect node trust links for companion devices.' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Node pairing. Issue, redeem, and inspect node trust links for companion devices.' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Redeem a node token instead' })).toBeInTheDocument()
+    expect(screen.getByText('Configure sources')).toBeInTheDocument()
     expect(screen.getByText(/This node already has a prompt waiting/i)).toBeInTheDocument()
     expect(screen.getByText('Desk Mac')).toBeInTheDocument()
 
@@ -792,6 +794,30 @@ describe('SystemView', () => {
     await waitFor(() => {
       expect(revokeLinkedNode).toHaveBeenCalledWith('node_desk')
     })
+  })
+
+  it('starts a discovery refresh loop while pairing onboarding is still unresolved', async () => {
+    loadLinkingStatus.mockResolvedValueOnce({
+      ok: true,
+      data: [],
+      meta: { request_id: 'req_linking_status_empty' },
+    })
+    const setIntervalSpy = vi.spyOn(window, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
+
+    const { unmount } = render(<SystemView target={{ section: 'core', subsection: 'pairing' }} />)
+
+    await waitFor(() => {
+      expect(loadClusterWorkers).toHaveBeenCalledTimes(1)
+      expect(loadLinkingStatus).toHaveBeenCalledTimes(1)
+    })
+
+    expect(setIntervalSpy).toHaveBeenCalled()
+    expect(setIntervalSpy).toHaveBeenLastCalledWith(expect.any(Function), 4000)
+
+    unmount()
+
+    expect(clearIntervalSpy).toHaveBeenCalled()
   })
 
   it('hides writeback-specific blockers outside developer mode and keeps recovery scoped to real issues', async () => {
