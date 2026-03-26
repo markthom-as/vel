@@ -43,6 +43,8 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - shipped releases use semver, starting from the current `0.3.0` baseline
 - `0.5.0-beta` is the latest completed backend rewrite line
 - in-flight planning slices use `<major>.<minor>.<phase>.<plan>` identifiers such as `0.5.57.1`, while the existing phase numbers remain the canonical directory and history keys
+- `0.5.7` was deferred with its historical `101` through `105` packet archived intact
+- milestones opened after `0.5.7` reset phase numbering to `01` at milestone start so GSD phase discovery stays milestone-local and validator-compatible
 
 **Milestone priorities achieved:**
 - canonical object kernel is now the backend system of record
@@ -88,20 +90,23 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Current Active Milestone
 
-The active milestone is `v0.5.7` — hybrid duplex voice runtime.
+The active milestone is `v0.5.8` — GSD migration and phase reset.
 
-This line locks the duplex ownership split and proof obligations for:
+This line exists to make planning workflow state trustworthy before reopening larger feature work:
 
 Primary goals:
-- lock native shell / Rust engine duplex boundaries
-- support duplex thread call mode with barge-in, interruption, recovery, and single-active-turn truth
-- prove desktop/harness and iOS native paths with validation evidence before closeout
-- keep validation evidence explicit for structural, behavioral, temporal, and adverse-case behavior
+- determine whether `GSD 2` can replace the current local `get-shit-done` install without breaking active Codex workflows
+- preserve or restore the repo’s practical GSD commands, state updates, and cleanup paths during any migration
+- keep milestone-local phase numbering starting at `01` so active scope stays separate from archived history
+- leave deferred duplex voice work visible as future scope instead of pretending it shipped
 
 Immediate planning packet:
-- [v0.5.7 roadmap](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
-- [v0.5.7 requirements](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md)
-- [v0.5.7 architecture packet](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md)
+- [v0.5.8 roadmap](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md)
+- [v0.5.8 requirements](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md)
+- [v0.5.8 next steps](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md)
+
+Deferred follow-on note:
+- `0.5.7` closed as deferred planning work and now points to [hybrid-duplex-voice-runtime-spec.md](/home/jove/code/vel/docs/future/hybrid-duplex-voice-runtime-spec.md)
 
 ## Requirements
 
@@ -146,7 +151,7 @@ Immediate planning packet:
 
 ### Active
 
-- `v0.5.7` hybrid duplex voice runtime
+- `v0.5.8` GSD migration and phase reset
 
 ### Out of Scope
 
@@ -232,4 +237,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-25 after activating `v0.5.7` as the hybrid duplex voice runtime milestone*
+*Last updated: 2026-03-26 after deferring `v0.5.7` and opening `v0.5.8` as the GSD migration and phase-reset milestone*

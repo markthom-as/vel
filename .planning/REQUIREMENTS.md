@@ -4,9 +4,11 @@
 
 `0.5.5` is closed.
 
-`0.5.6` is now closed and archived.
+`0.5.6` is closed and archived.
 
-`0.5.7` is now active as the hybrid duplex voice runtime line.
+`0.5.7` is deferred as future duplex voice work.
+
+`0.5.8` is now active as the GSD migration and phase-reset line.
 
 ## Closed `0.5.5` Requirement Buckets
 
@@ -28,25 +30,33 @@
 | POLISH-56-01 | Navbar, composer, nudges, `Now`, `Threads`, and `System` reach accepted polished-web-ui quality. |
 | VERIFY-56-01 | Desktop-Chrome manual QA, focused execution-backed checks, and an honest deferred list close the line. |
 
-## Active `0.5.7` Requirement Buckets
+## Deferred `0.5.7` Requirement Buckets
 
 | ID | Requirement |
 |----|-------------|
-| ARCH-57-01 | Native Apple audio/session ownership and portable Rust engine ownership are explicitly separated and documented before implementation broadens. |
-| CORE-57-01 | The Rust speech engine owns frame flow, resampling, VAD/turn detection, STT/TTS/LLM orchestration, cancellation, and conversation state. |
-| ADAPTER-57-01 | Platform adapters feed typed PCM and device events into Rust while keeping privileged session/route/permission policy native. |
-| CALL-57-01 | Duplex thread call mode supports speak, respond, barge-in, and recovery without shadow state or fake reset behavior. |
-| VERIFY-57-01 | Formal structural/behavioral/temporal/adversarial validation plus manual real-device proof close the line honestly. |
+| ARCH-57-01 | Native Apple audio/session ownership and portable Rust engine ownership remain future work and did not ship in `0.5.7`. |
+| CORE-57-01 | The Rust speech engine seam remains future work and did not ship in `0.5.7`. |
+| ADAPTER-57-01 | Platform adapters for typed PCM and device events remain future work and did not ship in `0.5.7`. |
+| CALL-57-01 | Duplex thread call mode behavior remains future work and did not ship in `0.5.7`. |
+| VERIFY-57-01 | Formal validation and real-device proof remain future work and did not ship in `0.5.7`. |
+
+## Active `0.5.8` Requirement Buckets
+
+| ID | Requirement |
+|----|-------------|
+| AUDIT-58-01 | Current `get-shit-done` v1 dependencies, assumptions, and risks are inventoried before cutover. |
+| MIGRATE-58-01 | The chosen migration, compatibility, or explicit defer path is implemented honestly. |
+| STATE-58-01 | Active planning state remains milestone-local and no archived packet is treated as live work. |
+| VERIFY-58-01 | Direct workflow checks prove the repo is not left in a speculative planning-tool state. |
 
 ## Governing Packet
 
-- `.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md`
-- `.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md`
-- `.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md`
-- `.planning/milestones/v0.5.6-MILESTONE-AUDIT.md`
+- `.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md`
+- `.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md`
+- `.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md`
 - `.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md`
 - `.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md`
-- `.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md`
+- `docs/future/hybrid-duplex-voice-runtime-spec.md`
 
 ## Non-Negotiable Constraints
 
@@ -56,13 +66,11 @@
 - provider identity remains recognizable but subdued
 - critical actions never hide on hover
 - color never stands alone as the only state signal
-- this milestone stays single-node and local-first
-- `TODO.md` bullets prefixed with `!` are explicitly ignored for this milestone
-- future work after this line should come from new feedback rather than pre-expanding the roadmap
-- duplex voice follow-on work must preserve the hybrid ownership split: native session shell, Rust speech engine
+- active planning state must stay milestone-local under `.planning/phases/`
+- future duplex voice work must preserve the hybrid ownership split: native session shell, Rust speech engine
 - no future voice milestone may normalize Rust ownership of privileged Apple session-policy machinery
 
 ## Next Step
 
-- begin Phase 101 planning for `0.5.7` by locking architecture and ownership boundaries before implementation broadens
-- execute Phases 102-105 with explicit validation evidence and real-device proof gates
+- begin Phase `01` planning for `0.5.8` by auditing the current local GSD install and repo-specific workflow assumptions
+- decide whether this repo should migrate to `GSD 2`, add a compatibility bridge, or defer with explicit rationale

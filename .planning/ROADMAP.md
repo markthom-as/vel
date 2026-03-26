@@ -16,6 +16,8 @@ Archived phase buckets for closed later lines now live under [milestones/README.
 - `0.5.4`: [v0.5.4-phases](/home/jove/code/vel/.planning/milestones/v0.5.4-phases)
 - `0.5.4` carry-forward history: [v0.5.4-carry-forward-phases](/home/jove/code/vel/.planning/milestones/v0.5.4-carry-forward-phases)
 - `0.5.5`: [v0.5.5-phases](/home/jove/code/vel/.planning/milestones/v0.5.5-phases)
+- `0.5.6`: [v0.5.6-phases](/home/jove/code/vel/.planning/milestones/v0.5.6-phases)
+- `0.5.7` deferred packet: [v0.5.7-phases](/home/jove/code/vel/.planning/milestones/v0.5.7-phases)
 
 ## Previously Closed Milestones
 
@@ -92,141 +94,119 @@ Milestone `0.5.3` delivered:
 
 ## Current Milestone State
 
-`0.5.7` is now in progress as the active architecture milestone.
+`0.5.7` is now deferred.
 
-## v0.5.7 Hybrid Duplex Voice Runtime
+`0.5.8` is now the active planning-tooling milestone.
 
-`0.5.7` is active as the hybrid duplex voice runtime line.
+## Deferred Milestone: v0.5.7 Hybrid Duplex Voice Runtime
 
-Milestone `0.5.7` exists to add truthful duplex voice interaction while preserving the ownership split:
+`0.5.7` did not ship duplex voice implementation. It closed as a deferred planning packet so the repo would stop implying unfinished voice work was active or partially delivered.
 
-- native Apple shell for session policy, interruptions, route changes, permissions, and voice-processing I/O
-- portable Rust core for buffering, resampling, VAD, STT/TTS/LLM orchestration, turn state, and policy
-- explicit validation and real-device proof before closeout
+Completed honestly in `0.5.7`:
 
-### Active Packet
+- assembled the milestone-level duplex architecture and validation packet
+- authored the planned execution packet `101` through `105`
+- archived that packet under [v0.5.7-phases](/home/jove/code/vel/.planning/milestones/v0.5.7-phases)
+- carried the unfinished duplex line into [hybrid-duplex-voice-runtime-spec.md](/home/jove/code/vel/docs/future/hybrid-duplex-voice-runtime-spec.md)
+
+Deferred packet:
 
 - [v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
 - [v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/11-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/11-VERIFICATION.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/13-NEXT-STEPS.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/13-NEXT-STEPS.md)
+- [v0.5.7-phases](/home/jove/code/vel/.planning/milestones/v0.5.7-phases)
+- [hybrid-duplex-voice-runtime-spec.md](/home/jove/code/vel/docs/future/hybrid-duplex-voice-runtime-spec.md)
+
+## Active Milestone: v0.5.8 GSD Migration and Phase Reset
+
+`0.5.8` is active as the planning-tooling stabilization line.
+
+Milestone `0.5.8` exists to make the repo’s GSD workflow truthful before larger feature work resumes:
+
+- inventory the repo’s current dependency on the local `get-shit-done` install
+- evaluate whether `GSD 2` is safe to adopt
+- implement an honest migration, compatibility bridge, or explicit defer path
+- keep active milestone discovery milestone-local with `01`-based phases
+
+### Active Packet
+
+- [v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md)
+- [v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md)
+- [v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md)
 
 ### Scope Guardrails
 
-The active `0.5.7` line should remain bounded by:
+The active `0.5.8` line should remain bounded by:
 
-- no all-Rust ownership of privileged Apple audio/session behavior
-- no "everything native" erosion of the Rust product core
-- no wake-word or diarization widening in this line
-- no speculative distributed-inference or multi-agent voice widening
-- no pretending the desktop proving path is equivalent to iOS-native proof
+- no reopening duplex voice implementation in this milestone
+- no renumbering archived milestone history to satisfy tooling heuristics
+- no speculative `GSD 2` cutover without compatibility evidence
+- no widening into unrelated product or UI execution work
 
 ### Requirement Buckets
 
 | ID | Description |
 |----|-------------|
-| ARCH-57-01 | The hybrid native-audio / Rust-engine boundary is explicit, documented, and enforced. |
-| CORE-57-01 | The Rust speech engine owns buffering, resampling, VAD/turn detection, orchestration, and conversation state. |
-| ADAPTER-57-01 | Platform adapters keep privileged session concerns native while feeding typed PCM and device events into Rust. |
-| CALL-57-01 | Duplex thread call mode supports streaming listen/respond, interruption, and recovery without shadow state. |
-| VERIFY-57-01 | Formal validation, execution-backed verification, and manual real-device proof close the line honestly. |
+| AUDIT-58-01 | The repo’s current `get-shit-done` v1 dependency is inventoried with concrete migration constraints. |
+| MIGRATE-58-01 | The chosen GSD path is implemented honestly as migration, compatibility bridge, or explicit defer. |
+| STATE-58-01 | Active planning state remains milestone-local under `.planning/phases/` with reset-numbered phases. |
+| VERIFY-58-01 | Common planning workflows are exercised directly after the change. |
 
 ### Phases
 
-- [ ] **Phase 101: Duplex architecture lock and contract packet** - lock the ownership and validation contract before implementation broadens.
-- [ ] **Phase 102: Portable Rust speech engine spine** - build the Rust-owned engine seam for buffers, VAD, orchestration, and cancellation.
-- [ ] **Phase 103: Proving adapter and duplex thread loop** - prove the engine end to end before iOS-specific quality claims.
-- [ ] **Phase 104: iOS native voice-processing bridge** - add the Apple-quality path without moving logic out of Rust.
-- [ ] **Phase 105: Duplex validation, proof, and closeout** - execute the full validation matrix and close honestly.
+- [ ] **Phase 01: GSD 2 readiness and compatibility audit** - prove what the repo depends on before any cutover.
+- [ ] **Phase 02: GSD 2 migration cutover and Codex integration** - implement the chosen migration or compatibility path.
+- [ ] **Phase 03: GSD 2 verification and closeout** - verify the planning workflow behaves predictably after the change.
 
 ### Progress
 
-**Planned execution order:** 101 -> 102 -> 103 -> 104 -> 105
+**Planned execution order:** 01 -> 02 -> 03
 
 | Phase | Requirements | Status |
 |-------|--------------|--------|
-| 101. Duplex architecture lock and contract packet | ARCH-57-01, VERIFY-57-01 | Planned |
-| 102. Portable Rust speech engine spine | CORE-57-01 | Planned |
-| 103. Proving adapter and duplex thread loop | ADAPTER-57-01, CALL-57-01, VERIFY-57-01 | Planned |
-| 104. iOS native voice-processing bridge | ADAPTER-57-01, CALL-57-01, VERIFY-57-01 | Planned |
-| 105. Duplex validation, proof, and closeout | VERIFY-57-01 | Planned |
+| 01. GSD 2 readiness and compatibility audit | AUDIT-58-01, STATE-58-01 | Planned |
+| 02. GSD 2 migration cutover and Codex integration | MIGRATE-58-01, STATE-58-01 | Planned |
+| 03. GSD 2 verification and closeout | VERIFY-58-01 | Planned |
 
 ### Phase Details
 
-### Phase 101: Duplex architecture lock and contract packet
+### Phase 01: GSD 2 readiness and compatibility audit
 
-**Goal:** lock the ownership and validation contract before implementation broadens.
-**Requirements:** ARCH-57-01, VERIFY-57-01
-**Depends on:** `0.5.6` closeout
+**Goal:** prove what the repo currently depends on before any toolchain cutover.
+**Requirements:** AUDIT-58-01, STATE-58-01
+**Depends on:** deferred `0.5.7` closeout
 **Success Criteria:**
-1. The ownership matrix makes native-shell and Rust-engine responsibilities explicit enough to block future ambiguity.
-2. Callback-safe threading rules and banned operations are written as hard constraints before implementation broadens.
-3. Typed adapter events, turn-state semantics, and interrupt/cancel behavior are locked in milestone docs and phase artifacts.
-4. Desktop/harness proof and real-device iOS proof obligations are defined before implementation claims begin.
+1. Current `get-shit-done` entrypoints, local install paths, and repo-specific assumptions are enumerated concretely.
+2. `GSD 2` compatibility gaps and migration blockers are documented with enough specificity to drive an honest cutover decision.
+3. Rollback needs and fallback options are identified before any migration claims are made.
 
-### Phase 102: Portable Rust speech engine spine
+### Phase 02: GSD 2 migration cutover and Codex integration
 
-**Goal:** build the Rust-owned engine seam for buffers, VAD, orchestration, and cancellation.
-**Requirements:** CORE-57-01
-**Depends on:** Phase 101
+**Goal:** implement the chosen migration or compatibility path without leaving workflow expectations ambiguous.
+**Requirements:** MIGRATE-58-01, STATE-58-01
+**Depends on:** Phase 01
 **Success Criteria:**
-1. Ring-buffered audio ingress and egress exist with fixed frame contracts and callback-safe boundaries.
-2. Rust owns resampling, normalization, VAD or turn detection, and segment lifecycle logic.
-3. STT, TTS, and conversation-model adapters are swappable behind engine-owned traits.
-4. Cancellation and flush behavior are first-class tested engine paths.
+1. The selected migration, bridge, or explicit defer mechanism is implemented.
+2. Repo-local docs and workflow entrypoints match the actual toolchain behavior.
+3. `.planning/phases/` remains cleanly limited to the active milestone packet.
 
-### Phase 103: Proving adapter and duplex thread loop
+### Phase 03: GSD 2 verification and closeout
 
-**Goal:** prove the engine end to end before iOS-specific quality claims.
-**Requirements:** ADAPTER-57-01, CALL-57-01, VERIFY-57-01
-**Depends on:** Phase 102
+**Goal:** verify that the planning workflow behaves predictably after the chosen change.
+**Requirements:** VERIFY-58-01
+**Depends on:** Phase 02
 **Success Criteria:**
-1. A proving adapter or harness can drive PCM into the engine and play synthesized output back out.
-2. Thread call mode reuses truthful thread state instead of introducing a separate voice-only shadow path.
-3. Barge-in, interruption, and single-active-turn behavior work in execution-backed tests.
-4. Traces and metrics exist for turn transitions, latency, cancellation, and underruns.
+1. Common workflows such as roadmap analysis, health checks, progress routing, and cleanup are exercised directly.
+2. Residual migration debt is recorded explicitly instead of being hidden under optimistic milestone language.
+3. Closeout language matches what was actually verified.
 
-### Phase 104: iOS native voice-processing bridge
+### Queued Cleanup Packets
 
-**Goal:** add the Apple-quality path without moving logic out of Rust.
-**Requirements:** ADAPTER-57-01, CALL-57-01, VERIFY-57-01
-**Depends on:** Phase 103
-**Success Criteria:**
-1. Native Swift or Obj-C code owns `AVAudioSession` policy, route changes, interruptions, permissions, and voice-processing setup.
-2. Apple-native voice-processing feeds typed PCM and device events into the existing Rust engine without widening Rust authority.
-3. Playback and interruption behavior recover without corrupting engine-owned turn state.
-4. Real-device iOS duplex proof exists for interruption and route-change scenarios.
+Queued cleanup and backlog buckets remain outside active scope:
 
-### Phase 105: Duplex validation, proof, and closeout
-
-**Goal:** execute the full validation matrix and close honestly.
-**Requirements:** VERIFY-57-01
-**Depends on:** Phase 104
-**Success Criteria:**
-1. Structural, boundary, behavioral, temporal, adversarial, platform, and operational validation are executed rather than merely documented.
-2. Latency, glitch, cancellation, and long-session behavior are measured and recorded.
-3. Desktop or harness proof and at least one real iOS-device proof path are captured with execution-backed evidence.
-4. Any remaining work is deferred explicitly with rationale instead of being hidden in optimistic milestone language.
-
-### Queued Cleanup After The Duplex Milestone
-
-`docs/VELOCITY-DRIFT-CLEANUP.md` remains the seed audit for the next cleanup packet after duplex voice closes. These are intentionally queued after `0.5.7`, not part of the active duplex execution line:
-
-- queued packet bucket: [post-v0.5.7-velocity-drift-cleanup-phases](/home/jove/code/vel/.planning/milestones/post-v0.5.7-velocity-drift-cleanup-phases)
-- seed audit: [docs/VELOCITY-DRIFT-CLEANUP.md](/home/jove/code/vel/docs/VELOCITY-DRIFT-CLEANUP.md)
-
-- cleanup packet draft `106`: simplify traits, policy dead code, and suppression triage
-- cleanup packet draft `107`: time migration and orphaned storage cleanup
-- cleanup packet draft `108`: error boundary standardization and crate fate decisions
-- cleanup packet draft `109`: module splits and DTO reorganization
-
-### Backlog Seeds
-
-- backlog seed bucket: [post-v0.5.7-cluster-mesh-seed](/home/jove/code/vel/.planning/milestones/post-v0.5.7-cluster-mesh-seed)
-- future spec: [multi-transport-cluster-mesh-routing-and-capability-sync-spec.md](/home/jove/code/vel/docs/future/multi-transport-cluster-mesh-routing-and-capability-sync-spec.md)
-- backlog seed `999.1`: multi-transport cluster mesh, routing, and capability sync remains future-only and should not widen the active duplex milestone
+- [post-v0.5.7-velocity-drift-cleanup-phases](/home/jove/code/vel/.planning/milestones/post-v0.5.7-velocity-drift-cleanup-phases)
+- [post-v0.5.7-cluster-mesh-seed](/home/jove/code/vel/.planning/milestones/post-v0.5.7-cluster-mesh-seed)
+- [docs/VELOCITY-DRIFT-CLEANUP.md](/home/jove/code/vel/docs/VELOCITY-DRIFT-CLEANUP.md)
+- [multi-transport-cluster-mesh-routing-and-capability-sync-spec.md](/home/jove/code/vel/docs/future/multi-transport-cluster-mesh-routing-and-capability-sync-spec.md)
 
 ## v0.5.6 Single-Node MVP and Polished Web UI (Closed)
 

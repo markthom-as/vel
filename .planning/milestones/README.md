@@ -6,6 +6,8 @@ This directory contains milestone-scoped planning packets and archived phase buc
 
 - Keep only the active milestone's live phase directories under `.planning/phases/`.
 - Move completed milestone phase packets and explicitly queued future packets into milestone-scoped directories here.
+- Do not renumber archived milestone packets retroactively.
+- For milestones opened after `0.5.7`, reset phase numbering to `01` at milestone creation so `.planning/phases/` stays milestone-local and GSD-friendly.
 
 ## Archived Phase Buckets
 
@@ -18,6 +20,7 @@ This directory contains milestone-scoped planning packets and archived phase buc
 - [v0.5.4-carry-forward-phases](/home/jove/code/vel/.planning/milestones/v0.5.4-carry-forward-phases) stores historical carry-forward packets `90` through `92`.
 - [v0.5.5-phases](/home/jove/code/vel/.planning/milestones/v0.5.5-phases) stores archived phase packets `93` through `96`.
 - [v0.5.6-phases](/home/jove/code/vel/.planning/milestones/v0.5.6-phases) stores archived phase packets `97` through `100`.
+- [v0.5.7-phases](/home/jove/code/vel/.planning/milestones/v0.5.7-phases) stores deferred archived phase packets `101` through `105`.
 
 ## Queued Future Buckets
 
