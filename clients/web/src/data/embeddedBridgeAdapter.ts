@@ -6,6 +6,7 @@ import {
   linkingRequestPacket,
   normalizeDomainHintPacket,
   normalizePairingTokenPacket,
+  normalizeSemanticLabelPacket,
   queuedActionPacket,
   threadDraftPacket,
   voiceCachedQueryResponsePacket,
@@ -85,6 +86,12 @@ export function normalizePairingTokenValue(input: string): { tokenCode: string }
 export function normalizeDomainHintValue(input: string): { normalized: string } {
   ensureEmbeddedBridgeRuntime();
   const response = normalizeDomainHintPacket(input);
+  return parsePacket(response.kind, response.payloadJson);
+}
+
+export function normalizeSemanticLabelValue(input: string): { normalized: string } {
+  ensureEmbeddedBridgeRuntime();
+  const response = normalizeSemanticLabelPacket(input);
   return parsePacket(response.kind, response.payloadJson);
 }
 

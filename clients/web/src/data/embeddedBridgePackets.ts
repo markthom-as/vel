@@ -22,6 +22,7 @@ export type EmbeddedBridgePacketResponse = {
 export interface EmbeddedBridgePacketRuntime {
   normalizePairingTokenPacket(input: string): EmbeddedBridgePacketResponse;
   normalizeDomainHintPacket(input: string): EmbeddedBridgePacketResponse;
+  normalizeSemanticLabelPacket(input: string): EmbeddedBridgePacketResponse;
   queuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -119,6 +120,10 @@ export function normalizePairingTokenPacket(input: string): EmbeddedBridgePacket
 
 export function normalizeDomainHintPacket(input: string): EmbeddedBridgePacketResponse {
   return getEmbeddedBridgePacketRuntime().normalizeDomainHintPacket(input);
+}
+
+export function normalizeSemanticLabelPacket(input: string): EmbeddedBridgePacketResponse {
+  return getEmbeddedBridgePacketRuntime().normalizeSemanticLabelPacket(input);
 }
 
 export function queuedActionPacket(

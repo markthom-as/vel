@@ -1,4 +1,5 @@
 import type { IntegrationConnectionData } from '../../types';
+import { normalizeSemanticLabelValue } from '../../data/embeddedBridgeAdapter';
 import { PanelEmptyRow } from '../../core/PanelChrome';
 import {
   SystemDocumentField,
@@ -13,11 +14,11 @@ import {
   resolveProviderSemantic,
   resolveProviderStatusSemantic,
 } from '../../core/Theme/semanticRegistry';
-import { systemChildAnchor } from './systemNavigation';
+import { systemChildAnchor, type SystemSubsectionKey } from './systemNavigation';
 import { formatMaybeTimestamp, ProviderGlyph } from './SystemSupportSections';
 
 function normalizeSemanticLabel(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+  return normalizeSemanticLabelValue(value ?? '').normalized;
 }
 
 export function resolveConnectionTitle(connection: IntegrationConnectionData): string {
@@ -36,8 +37,14 @@ export function resolveConnectionTitle(connection: IntegrationConnectionData): s
 }
 
 export function IntegrationsAccountsDetail({
+  subsectionKey = 'accounts',
+  summaryTitle = 'Connected accounts',
+  summarySubtitle = 'Operator-facing view of account bindings and setting references across providers.',
   connections,
 }: {
+  subsectionKey?: SystemSubsectionKey;
+  summaryTitle?: string;
+  summarySubtitle?: string;
   connections: IntegrationConnectionData[];
 }) {
   const providerCount = new Set(connections.map((connection) => connection.provider_key)).size;
@@ -47,9 +54,9 @@ export function IntegrationsAccountsDetail({
   return (
     <SystemDocumentList>
       <SystemDocumentItem
-        id={systemChildAnchor('accounts', 'account-summary')}
-        title="Connected accounts"
-        subtitle="Operator-facing view of account bindings and setting references across providers."
+        id={systemChildAnchor(subsectionKey, 'account-summary')}
+        title={summaryTitle}
+        subtitle={summarySubtitle}
         trailing={<SystemDocumentStatusChip tone="neutral">{`${connections.length} accounts`}</SystemDocumentStatusChip>}
       >
         <SystemDocumentStatsGrid className="gap-x-6">
@@ -67,7 +74,7 @@ export function IntegrationsAccountsDetail({
         return (
           <SystemDocumentItem
             key={connection.id}
-            id={systemChildAnchor('accounts', connection.id)}
+            id={systemChildAnchor(subsectionKey, connection.id)}
             leading={<ProviderGlyph provider={connection.provider_key} />}
             title={resolveConnectionTitle(connection)}
             subtitle={`${providerSemantic.label} · ${connection.family}`}

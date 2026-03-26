@@ -6,12 +6,13 @@
 
 use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
-    normalize_positive_minutes, normalized_optional_trimmed, prepare_app_shell_feedback_packet,
-    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
-    prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
-    prepare_thread_draft_packet, prepare_voice_cached_query_response_packet,
-    prepare_voice_capture_payload, prepare_voice_continuity_summary_packet,
-    prepare_voice_offline_response_packet, prepare_voice_quick_action_packet, trim_text,
+    normalize_positive_minutes, normalize_semantic_label, normalized_optional_trimmed,
+    prepare_app_shell_feedback_packet, prepare_assistant_entry_fallback_payload,
+    prepare_capture_metadata_payload, prepare_linking_feedback_packet,
+    prepare_linking_request_packet, prepare_queued_action_packet, prepare_thread_draft_packet,
+    prepare_voice_cached_query_response_packet, prepare_voice_capture_payload,
+    prepare_voice_continuity_summary_packet, prepare_voice_offline_response_packet,
+    prepare_voice_quick_action_packet, trim_text,
 };
 #[cfg(feature = "browser-wasm")]
 use wasm_bindgen::prelude::*;
@@ -66,6 +67,13 @@ impl BrowserWasmScaffold {
                 "{{\"normalized\":\"{}\"}}",
                 normalize_domain_hint(input.to_string())
             ),
+        }
+    }
+
+    pub fn normalize_semantic_label_packet(input: &str) -> BrowserPacketResponse {
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!("{{\"normalized\":\"{}\"}}", normalize_semantic_label(input)),
         }
     }
 
@@ -393,6 +401,12 @@ pub fn vel_embedded_normalize_domain_hint_packet(input: String) -> String {
 }
 
 #[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedNormalizeSemanticLabelPacket)]
+pub fn vel_embedded_normalize_semantic_label_packet(input: String) -> String {
+    BrowserWasmScaffold::normalize_semantic_label_packet(&input).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
 #[wasm_bindgen(js_name = velEmbeddedQueuedActionPacket)]
 pub fn vel_embedded_queued_action_packet(
     kind: String,
@@ -426,7 +440,8 @@ pub fn vel_embedded_assistant_entry_fallback_packet(
     text: String,
     requested_conversation_id: Option<String>,
 ) -> String {
-    BrowserWasmScaffold::assistant_entry_fallback_packet(text, requested_conversation_id).payload_json
+    BrowserWasmScaffold::assistant_entry_fallback_packet(text, requested_conversation_id)
+        .payload_json
 }
 
 #[cfg(feature = "browser-wasm")]
@@ -477,10 +492,7 @@ pub fn vel_embedded_linking_feedback_packet(
 
 #[cfg(feature = "browser-wasm")]
 #[wasm_bindgen(js_name = velEmbeddedAppShellFeedbackPacket)]
-pub fn vel_embedded_app_shell_feedback_packet(
-    scenario: String,
-    detail: Option<String>,
-) -> String {
+pub fn vel_embedded_app_shell_feedback_packet(scenario: String, detail: Option<String>) -> String {
     BrowserWasmScaffold::app_shell_feedback_packet(scenario, detail).payload_json
 }
 

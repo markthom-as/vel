@@ -1,9 +1,11 @@
 import type { AgentInspectData, IntegrationConnectionData } from '../../types';
+import { normalizeSemanticLabelValue } from '../../data/embeddedBridgeAdapter';
 import { resolveProviderSemantic } from '../../core/Theme/semanticRegistry';
 import type { IntegrationProviderSummary } from './SystemProvidersSection';
 import { resolveConnectionTitle } from './SystemAccountsSection';
 import {
   groupForSystemSubsection as groupForSubsection,
+  SYSTEM_DOCUMENTATION_ANCHOR,
   SYSTEM_GROUP_ORDER,
   SYSTEM_SECTION_ORDER,
   systemChildAnchor,
@@ -15,6 +17,43 @@ export type SystemSidebarChild = {
   id: string;
   label: string;
 };
+
+function normalizeIntegrationKey(value: string): string {
+  return normalizeSemanticLabelValue(value).normalized;
+}
+
+function sourceLabelsForPrimitive({
+  connections,
+  families,
+  providerKeys,
+}: {
+  connections: IntegrationConnectionData[];
+  families: string[];
+  providerKeys: string[];
+}) {
+  const familySet = new Set(families.map(normalizeIntegrationKey));
+  const providerSet = new Set(providerKeys.map(normalizeIntegrationKey));
+  const labels = new Map<string, string>();
+
+  connections.forEach((connection) => {
+    const normalizedFamily = normalizeIntegrationKey(connection.family);
+    const normalizedProvider = normalizeIntegrationKey(connection.provider_key);
+    if (!familySet.has(normalizedFamily) && !providerSet.has(normalizedProvider)) {
+      return;
+    }
+    if (!labels.has(normalizedProvider)) {
+      labels.set(normalizedProvider, resolveProviderSemantic(connection.provider_key).label);
+    }
+  });
+
+  if (labels.size === 0) {
+    providerKeys.forEach((providerKey) => {
+      labels.set(providerKey, resolveProviderSemantic(providerKey).label);
+    });
+  }
+
+  return Array.from(labels.entries()).map(([key, label]) => ({ id: key, label }));
+}
 
 export function visibleSectionOrder(developerMode: boolean) {
   return developerMode ? SYSTEM_SECTION_ORDER : SYSTEM_SECTION_ORDER.filter((section) => section.key !== 'control');
@@ -56,12 +95,67 @@ export function buildSystemSubsectionChildren({
   return {
     core_settings: [
       ...(!coreSetupReady ? [{ id: systemChildAnchor('core_settings', 'required-setup'), label: 'Required setup' }] : []),
-      { id: systemChildAnchor('core_settings', 'identity'), label: 'Identity' },
-      { id: systemChildAnchor('core_settings', 'agent-profile'), label: 'Agent profile' },
-      { id: systemChildAnchor('core_settings', 'runtime'), label: 'Runtime identity' },
-      { id: systemChildAnchor('core_settings', 'optional-context'), label: 'Optional context' },
+      { id: systemChildAnchor('core_settings', 'user-info'), label: 'User info' },
+      { id: systemChildAnchor('core_settings', 'node-client'), label: 'Node / client' },
+      { id: systemChildAnchor('core_settings', 'about-agent'), label: 'About agent' },
       ...(developerMode ? [{ id: systemChildAnchor('core_settings', 'developer-controls'), label: 'Developer controls' }] : []),
     ],
+    calendar: sourceLabelsForPrimitive({
+      connections,
+      families: ['calendar'],
+      providerKeys: ['google_calendar'],
+    }).map((source) => ({
+      id: systemChildAnchor('calendar', source.id),
+      label: source.label,
+    })),
+    tasks: sourceLabelsForPrimitive({
+      connections,
+      families: ['tasks', 'todoist'],
+      providerKeys: ['todoist'],
+    }).map((source) => ({
+      id: systemChildAnchor('tasks', source.id),
+      label: source.label,
+    })),
+    messages: sourceLabelsForPrimitive({
+      connections,
+      families: ['messages', 'messaging'],
+      providerKeys: ['messaging'],
+    }).map((source) => ({
+      id: systemChildAnchor('messages', source.id),
+      label: source.label,
+    })),
+    notes: sourceLabelsForPrimitive({
+      connections,
+      families: ['notes'],
+      providerKeys: ['notes'],
+    }).map((source) => ({
+      id: systemChildAnchor('notes', source.id),
+      label: source.label,
+    })),
+    reminders: sourceLabelsForPrimitive({
+      connections,
+      families: ['reminders'],
+      providerKeys: ['reminders'],
+    }).map((source) => ({
+      id: systemChildAnchor('reminders', source.id),
+      label: source.label,
+    })),
+    transcripts: sourceLabelsForPrimitive({
+      connections,
+      families: ['transcripts'],
+      providerKeys: ['transcripts'],
+    }).map((source) => ({
+      id: systemChildAnchor('transcripts', source.id),
+      label: source.label,
+    })),
+    git: sourceLabelsForPrimitive({
+      connections,
+      families: ['git'],
+      providerKeys: ['git'],
+    }).map((source) => ({
+      id: systemChildAnchor('git', source.id),
+      label: source.label,
+    })),
     trust: [
       { id: systemChildAnchor('trust', 'current-mode'), label: 'Current mode' },
       { id: systemChildAnchor('trust', 'persisted-kinds'), label: 'Persisted kinds' },
@@ -134,6 +228,9 @@ export function buildSystemSubsectionChildren({
       { id: systemChildAnchor('accessibility', 'strong-focus-states'), label: 'Strong focus states' },
       { id: systemChildAnchor('accessibility', 'docked-action-bar'), label: 'Docked action bar' },
       { id: systemChildAnchor('accessibility', 'accessibility-law'), label: 'Accessibility law' },
+    ],
+    documentation: [
+      { id: SYSTEM_DOCUMENTATION_ANCHOR, label: 'System documentation' },
     ],
   };
 }

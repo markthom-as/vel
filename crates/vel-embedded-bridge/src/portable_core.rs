@@ -12,6 +12,15 @@ pub fn normalize_domain_hint(value: String) -> String {
         .join(" ")
 }
 
+pub fn normalize_semantic_label(value: &str) -> String {
+    value
+        .trim()
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
 pub fn normalize_payload(value: &str) -> String {
     value
         .trim()

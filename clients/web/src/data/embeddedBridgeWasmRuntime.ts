@@ -10,6 +10,7 @@ export interface EmbeddedBridgeWasmModule {
   velEmbeddedBrowserStatus?: () => string;
   velEmbeddedNormalizePairingTokenPacket(input: string): string;
   velEmbeddedNormalizeDomainHintPacket(input: string): string;
+  velEmbeddedNormalizeSemanticLabelPacket(input: string): string;
   velEmbeddedQueuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -102,6 +103,9 @@ export function createEmbeddedBridgePacketRuntimeFromWasm(
     },
     normalizeDomainHintPacket(input) {
       return response('deterministic_domain_helpers', wasm.velEmbeddedNormalizeDomainHintPacket(input));
+    },
+    normalizeSemanticLabelPacket(input) {
+      return response('deterministic_domain_helpers', wasm.velEmbeddedNormalizeSemanticLabelPacket(input));
     },
     queuedActionPacket(kind, targetId, text, minutes) {
       return response('queued_action_packaging', wasm.velEmbeddedQueuedActionPacket(kind, targetId, text, minutes));
