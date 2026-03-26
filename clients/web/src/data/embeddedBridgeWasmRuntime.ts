@@ -270,11 +270,20 @@ export async function bootstrapEmbeddedBridgePacketRuntime(): Promise<EmbeddedBr
     return null;
   }
 
-  const imported = await import(/* @vite-ignore */ wasmModuleUrl);
-  const candidate = (imported.default ?? imported) as Partial<EmbeddedBridgeWasmModule>;
+  const browserModuleUrl =
+    typeof window === 'undefined'
+      ? wasmModuleUrl
+      : new URL(wasmModuleUrl, window.location.origin).href;
+
+  const imported = await import(/* @vite-ignore */ browserModuleUrl);
+  if (typeof imported.default === 'function') {
+    await imported.default();
+  }
+
+  const candidate = imported as Partial<EmbeddedBridgeWasmModule>;
   if (typeof candidate.velEmbeddedNormalizePairingTokenPacket !== 'function') {
     throw new Error(
-      `Embedded bridge WASM module at ${wasmModuleUrl} did not expose the expected packet runtime exports.`,
+      `Embedded bridge WASM module at ${browserModuleUrl} did not expose the expected packet runtime exports.`,
     );
   }
 
