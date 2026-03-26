@@ -832,6 +832,9 @@ private typealias VelEmbeddedNormalizePairingTokenFn = @convention(c) (UnsafePoi
 private typealias VelEmbeddedCollectRemoteRoutesFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedPrepareAssistantEntryFallbackFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedPrepareLinkingRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPrepareCaptureMetadataFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPreparePairingTokenIssueRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPreparePairingTokenRedeemRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedFreeBufferFn = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
 private struct VelEmbeddedRustBindings: @unchecked Sendable {
@@ -850,6 +853,9 @@ private struct VelEmbeddedRustBindings: @unchecked Sendable {
     let collectRemoteRoutes: VelEmbeddedCollectRemoteRoutesFn?
     let prepareAssistantEntryFallback: VelEmbeddedPrepareAssistantEntryFallbackFn?
     let prepareLinkingRequest: VelEmbeddedPrepareLinkingRequestFn?
+    let prepareCaptureMetadata: VelEmbeddedPrepareCaptureMetadataFn?
+    let preparePairingTokenIssueRequest: VelEmbeddedPreparePairingTokenIssueRequestFn?
+    let preparePairingTokenRedeemRequest: VelEmbeddedPreparePairingTokenRedeemRequestFn?
     let freeBuffer: VelEmbeddedFreeBufferFn
 }
 
@@ -869,6 +875,9 @@ private enum VelEmbeddedRustBridge {
         collectRemoteRoutes: "vel_embedded_collect_remote_routes",
         prepareAssistantEntryFallback: "vel_embedded_prepare_assistant_entry_fallback",
         prepareLinkingRequest: "vel_embedded_prepare_linking_request",
+        prepareCaptureMetadata: "vel_embedded_prepare_capture_metadata",
+        preparePairingTokenIssueRequest: "vel_embedded_prepare_pairing_token_issue_request",
+        preparePairingTokenRedeemRequest: "vel_embedded_prepare_pairing_token_redeem_request",
         freeBuffer: "vel_embedded_free_buffer"
     )
 
@@ -897,7 +906,10 @@ private enum VelEmbeddedRustBridge {
             normalizePairingToken: VelEmbeddedNormalizePairingTokenFn?,
             collectRemoteRoutes: VelEmbeddedCollectRemoteRoutesFn?,
             prepareAssistantEntryFallback: VelEmbeddedPrepareAssistantEntryFallbackFn?,
-            prepareLinkingRequest: VelEmbeddedPrepareLinkingRequestFn?
+            prepareLinkingRequest: VelEmbeddedPrepareLinkingRequestFn?,
+            prepareCaptureMetadata: VelEmbeddedPrepareCaptureMetadataFn?,
+            preparePairingTokenIssueRequest: VelEmbeddedPreparePairingTokenIssueRequestFn?,
+            preparePairingTokenRedeemRequest: VelEmbeddedPreparePairingTokenRedeemRequestFn?
         ) -> EmbeddedBridgeRuntimeStatus {
             EmbeddedBridgeRuntimeStatus(
                 resolvedSource: source,
@@ -914,7 +926,8 @@ private enum VelEmbeddedRustBridge {
                 localQueuedActionPackagingSymbolAvailable: packageQueuedAction != nil,
                 localLinkingSettingsNormalizationSymbolAvailable: normalizePairingToken != nil && collectRemoteRoutes != nil,
                 localAssistantEntryFallbackPackagingSymbolAvailable: prepareAssistantEntryFallback != nil,
-                localLinkingRequestPackagingSymbolAvailable: prepareLinkingRequest != nil
+                localLinkingRequestPackagingSymbolAvailable: prepareLinkingRequest != nil && preparePairingTokenIssueRequest != nil && preparePairingTokenRedeemRequest != nil,
+                localCaptureMetadataPackagingSymbolAvailable: prepareCaptureMetadata != nil
             )
         }
 
@@ -979,6 +992,18 @@ private enum VelEmbeddedRustBridge {
                 candidate: symbolNames.prepareLinkingRequest,
                 from: handle
             )
+            let prepareCaptureMetadata: VelEmbeddedPrepareCaptureMetadataFn? = lookup(
+                candidate: symbolNames.prepareCaptureMetadata,
+                from: handle
+            )
+            let preparePairingTokenIssueRequest: VelEmbeddedPreparePairingTokenIssueRequestFn? = lookup(
+                candidate: symbolNames.preparePairingTokenIssueRequest,
+                from: handle
+            )
+            let preparePairingTokenRedeemRequest: VelEmbeddedPreparePairingTokenRedeemRequestFn? = lookup(
+                candidate: symbolNames.preparePairingTokenRedeemRequest,
+                from: handle
+            )
 
             let status = makeStatus(
                 source: freeBuffer == nil ? nil : source,
@@ -996,7 +1021,10 @@ private enum VelEmbeddedRustBridge {
                 normalizePairingToken: normalizePairingToken,
                 collectRemoteRoutes: collectRemoteRoutes,
                 prepareAssistantEntryFallback: prepareAssistantEntryFallback,
-                prepareLinkingRequest: prepareLinkingRequest
+                prepareLinkingRequest: prepareLinkingRequest,
+                prepareCaptureMetadata: prepareCaptureMetadata,
+                preparePairingTokenIssueRequest: preparePairingTokenIssueRequest,
+                preparePairingTokenRedeemRequest: preparePairingTokenRedeemRequest
             )
 
             guard freeBuffer != nil else {
@@ -1017,6 +1045,9 @@ private enum VelEmbeddedRustBridge {
                 && collectRemoteRoutes == nil
                 && prepareAssistantEntryFallback == nil
                 && prepareLinkingRequest == nil
+                && prepareCaptureMetadata == nil
+                && preparePairingTokenIssueRequest == nil
+                && preparePairingTokenRedeemRequest == nil
             {
                 return (nil, status)
             }
@@ -1038,6 +1069,9 @@ private enum VelEmbeddedRustBridge {
                     collectRemoteRoutes: collectRemoteRoutes,
                     prepareAssistantEntryFallback: prepareAssistantEntryFallback,
                     prepareLinkingRequest: prepareLinkingRequest,
+                    prepareCaptureMetadata: prepareCaptureMetadata,
+                    preparePairingTokenIssueRequest: preparePairingTokenIssueRequest,
+                    preparePairingTokenRedeemRequest: preparePairingTokenRedeemRequest,
                     freeBuffer: freeBuffer
                 ),
                 status
@@ -1087,7 +1121,8 @@ private enum VelEmbeddedRustBridge {
                 localQueuedActionPackagingSymbolAvailable: false,
                 localLinkingSettingsNormalizationSymbolAvailable: false,
                 localAssistantEntryFallbackPackagingSymbolAvailable: false,
-                localLinkingRequestPackagingSymbolAvailable: false
+                localLinkingRequestPackagingSymbolAvailable: false,
+                localCaptureMetadataPackagingSymbolAvailable: false
             )
         )
     }()
@@ -1280,6 +1315,39 @@ private enum VelEmbeddedRustBridge {
 
     static func invokeStringResultFunction(
         _ function: VelEmbeddedPrepareLinkingRequestFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPrepareCaptureMetadataFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPreparePairingTokenIssueRequestFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPreparePairingTokenRedeemRequestFn?,
         freeBuffer: VelEmbeddedFreeBufferFn?,
         payload: String
     ) -> String? {
@@ -1528,6 +1596,103 @@ private enum VelEmbeddedRustBridge {
         }
     }
 
+    struct CaptureMetadataInput: Encodable {
+        let text: String
+        let captureType: String
+        let sourceDevice: String
+
+        enum CodingKeys: String, CodingKey {
+            case text
+            case captureType = "captureType"
+            case sourceDevice = "sourceDevice"
+        }
+    }
+
+    struct CaptureMetadataPacket: Decodable {
+        let payload: String
+        let ready: Bool
+    }
+
+    struct PairingTokenIssueRequestInput: Encodable {
+        let issuedByNodeID: String
+        let targetNodeID: String?
+        let targetNodeDisplayName: String?
+        let targetBaseURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case issuedByNodeID = "issuedByNodeId"
+            case targetNodeID = "targetNodeId"
+            case targetNodeDisplayName = "targetNodeDisplayName"
+            case targetBaseURL = "targetBaseUrl"
+        }
+    }
+
+    struct PairingTokenIssueRequestPacket: Decodable {
+        let issuedByNodeID: String
+        let targetNodeID: String?
+        let targetNodeDisplayName: String?
+        let targetBaseURL: String?
+        let ready: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case issuedByNodeID = "issuedByNodeId"
+            case targetNodeID = "targetNodeId"
+            case targetNodeDisplayName = "targetNodeDisplayName"
+            case targetBaseURL = "targetBaseUrl"
+            case ready
+        }
+    }
+
+    struct PairingTokenRedeemRequestInput: Encodable {
+        let tokenCode: String
+        let nodeID: String
+        let nodeDisplayName: String
+        let transportHint: String?
+        let syncBaseURL: String?
+        let tailscaleBaseURL: String?
+        let lanBaseURL: String?
+        let localhostBaseURL: String?
+        let publicBaseURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case tokenCode = "tokenCode"
+            case nodeID = "nodeId"
+            case nodeDisplayName = "nodeDisplayName"
+            case transportHint = "transportHint"
+            case syncBaseURL = "syncBaseUrl"
+            case tailscaleBaseURL = "tailscaleBaseUrl"
+            case lanBaseURL = "lanBaseUrl"
+            case localhostBaseURL = "localhostBaseUrl"
+            case publicBaseURL = "publicBaseUrl"
+        }
+    }
+
+    struct PairingTokenRedeemRequestPacket: Decodable {
+        let tokenCode: String
+        let nodeID: String
+        let nodeDisplayName: String
+        let transportHint: String?
+        let syncBaseURL: String?
+        let tailscaleBaseURL: String?
+        let lanBaseURL: String?
+        let localhostBaseURL: String?
+        let publicBaseURL: String?
+        let ready: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case tokenCode = "tokenCode"
+            case nodeID = "nodeId"
+            case nodeDisplayName = "nodeDisplayName"
+            case transportHint = "transportHint"
+            case syncBaseURL = "syncBaseUrl"
+            case tailscaleBaseURL = "tailscaleBaseUrl"
+            case lanBaseURL = "lanBaseUrl"
+            case localhostBaseURL = "localhostBaseUrl"
+            case publicBaseURL = "publicBaseUrl"
+            case ready
+        }
+    }
+
     static func decodeOfflineRequest(_ value: String) -> OfflineRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
@@ -1703,6 +1868,78 @@ private enum VelEmbeddedRustBridge {
     static func decodeLinkingRequest(_ value: String) -> LinkingRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(LinkingRequestPacket.self, from: data)
+    }
+
+    static func encodeCaptureMetadataPayload(text: String, type: String, source: String) -> String {
+        let payload = CaptureMetadataInput(text: text, captureType: type, sourceDevice: source)
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{\"text\":\"\"}"
+        }
+        return value
+    }
+
+    static func decodeCaptureMetadata(_ value: String) -> CaptureMetadataPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(CaptureMetadataPacket.self, from: data)
+    }
+
+    static func encodePairingTokenIssueRequestPayload(
+        issuedByNodeID: String,
+        targetNodeID: String?,
+        targetNodeDisplayName: String?,
+        targetBaseURL: String?
+    ) -> String {
+        let payload = PairingTokenIssueRequestInput(
+            issuedByNodeID: issuedByNodeID,
+            targetNodeID: targetNodeID,
+            targetNodeDisplayName: targetNodeDisplayName,
+            targetBaseURL: targetBaseURL
+        )
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return value
+    }
+
+    static func decodePairingTokenIssueRequest(_ value: String) -> PairingTokenIssueRequestPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(PairingTokenIssueRequestPacket.self, from: data)
+    }
+
+    static func encodePairingTokenRedeemRequestPayload(
+        tokenCode: String,
+        nodeID: String,
+        nodeDisplayName: String,
+        transportHint: String?,
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        localhostBaseURL: String?,
+        publicBaseURL: String?
+    ) -> String {
+        let payload = PairingTokenRedeemRequestInput(
+            tokenCode: tokenCode,
+            nodeID: nodeID,
+            nodeDisplayName: nodeDisplayName,
+            transportHint: transportHint,
+            syncBaseURL: syncBaseURL,
+            tailscaleBaseURL: tailscaleBaseURL,
+            lanBaseURL: lanBaseURL,
+            localhostBaseURL: localhostBaseURL,
+            publicBaseURL: publicBaseURL
+        )
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return value
+    }
+
+    static func decodePairingTokenRedeemRequest(_ value: String) -> PairingTokenRedeemRequestPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(PairingTokenRedeemRequestPacket.self, from: data)
     }
 }
 
@@ -2131,14 +2368,16 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
         targetBaseURL: String?
     ) -> EmbeddedPairingTokenIssueRequestPacket {
         guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
-            bindings.prepareLinkingRequest,
+            bindings.preparePairingTokenIssueRequest,
             freeBuffer: bindings.freeBuffer,
-            payload: VelEmbeddedRustBridge.encodeLinkingRequestPayload(
-                tokenCode: targetNodeID ?? targetNodeDisplayName,
+            payload: VelEmbeddedRustBridge.encodePairingTokenIssueRequestPayload(
+                issuedByNodeID: issuedByNodeID,
+                targetNodeID: targetNodeID,
+                targetNodeDisplayName: targetNodeDisplayName,
                 targetBaseURL: targetBaseURL
             )
         ),
-        let parsed = VelEmbeddedRustBridge.decodeLinkingRequest(output),
+        let parsed = VelEmbeddedRustBridge.decodePairingTokenIssueRequest(output),
         parsed.ready else {
             return NoopEmbeddedLinkingRequestBridge().preparePairingTokenIssueRequest(
                 issuedByNodeID: issuedByNodeID,
@@ -2149,9 +2388,9 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
         }
 
         return EmbeddedPairingTokenIssueRequestPacket(
-            issuedByNodeID: issuedByNodeID.trimmingCharacters(in: .whitespacesAndNewlines),
-            targetNodeID: targetNodeID?.trimmingCharacters(in: .whitespacesAndNewlines),
-            targetNodeDisplayName: targetNodeDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+            issuedByNodeID: parsed.issuedByNodeID,
+            targetNodeID: parsed.targetNodeID,
+            targetNodeDisplayName: parsed.targetNodeDisplayName,
             targetBaseURL: parsed.targetBaseURL
         )
     }
@@ -2168,14 +2407,21 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
         publicBaseURL: String?
     ) -> EmbeddedPairingTokenRedeemRequestPacket {
         guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
-            bindings.prepareLinkingRequest,
+            bindings.preparePairingTokenRedeemRequest,
             freeBuffer: bindings.freeBuffer,
-            payload: VelEmbeddedRustBridge.encodeLinkingRequestPayload(
+            payload: VelEmbeddedRustBridge.encodePairingTokenRedeemRequestPayload(
                 tokenCode: tokenCode,
-                targetBaseURL: syncBaseURL
+                nodeID: nodeID,
+                nodeDisplayName: nodeDisplayName,
+                transportHint: transportHint,
+                syncBaseURL: syncBaseURL,
+                tailscaleBaseURL: tailscaleBaseURL,
+                lanBaseURL: lanBaseURL,
+                localhostBaseURL: localhostBaseURL,
+                publicBaseURL: publicBaseURL
             )
         ),
-        let parsed = VelEmbeddedRustBridge.decodeLinkingRequest(output),
+        let parsed = VelEmbeddedRustBridge.decodePairingTokenRedeemRequest(output),
         parsed.ready else {
             return NoopEmbeddedLinkingRequestBridge().preparePairingTokenRedeemRequest(
                 tokenCode: tokenCode,
@@ -2191,15 +2437,15 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
         }
 
         return EmbeddedPairingTokenRedeemRequestPacket(
-            tokenCode: parsed.tokenCode ?? tokenCode,
-            nodeID: nodeID.trimmingCharacters(in: .whitespacesAndNewlines),
-            nodeDisplayName: nodeDisplayName.trimmingCharacters(in: .whitespacesAndNewlines),
-            transportHint: transportHint?.trimmingCharacters(in: .whitespacesAndNewlines),
-            syncBaseURL: parsed.targetBaseURL ?? syncBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-            tailscaleBaseURL: tailscaleBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-            lanBaseURL: lanBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-            localhostBaseURL: localhostBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-            publicBaseURL: publicBaseURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+            tokenCode: parsed.tokenCode,
+            nodeID: parsed.nodeID,
+            nodeDisplayName: parsed.nodeDisplayName,
+            transportHint: parsed.transportHint,
+            syncBaseURL: parsed.syncBaseURL,
+            tailscaleBaseURL: parsed.tailscaleBaseURL,
+            lanBaseURL: parsed.lanBaseURL,
+            localhostBaseURL: parsed.localhostBaseURL,
+            publicBaseURL: parsed.publicBaseURL
         )
     }
 }
@@ -2208,22 +2454,17 @@ public struct RustEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge, 
     private let bindings: VelEmbeddedRustBindings
 
     public init?(bindings: VelEmbeddedRustBindings) {
-        guard bindings.prepareAssistantEntryFallback != nil else { return nil }
+        guard bindings.prepareCaptureMetadata != nil else { return nil }
         self.bindings = bindings
     }
 
     public func prepareQueuedCaptureText(text: String, type: String, source: String) -> String {
-        let payload = [
-            text.trimmingCharacters(in: .whitespacesAndNewlines),
-            type.trimmingCharacters(in: .whitespacesAndNewlines),
-            source.trimmingCharacters(in: .whitespacesAndNewlines)
-        ].joined(separator: "\n")
         guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
-            bindings.prepareAssistantEntryFallback,
+            bindings.prepareCaptureMetadata,
             freeBuffer: bindings.freeBuffer,
-            payload: payload
+            payload: VelEmbeddedRustBridge.encodeCaptureMetadataPayload(text: text, type: type, source: source)
         ),
-        let parsed = VelEmbeddedRustBridge.decodeAssistantEntryFallback(output),
+        let parsed = VelEmbeddedRustBridge.decodeCaptureMetadata(output),
         parsed.ready else {
             return NoopEmbeddedCaptureMetadataBridge().prepareQueuedCaptureText(text: text, type: type, source: source)
         }
