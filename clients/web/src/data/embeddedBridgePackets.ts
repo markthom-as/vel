@@ -2,6 +2,8 @@ export type EmbeddedBridgePacketKind =
   | 'deterministic_domain_helpers'
   | 'linking_settings_normalization'
   | 'linking_request_packaging'
+  | 'linking_feedback_packaging'
+  | 'app_shell_feedback_packaging'
   | 'queued_action_packaging'
   | 'thread_draft_packaging'
   | 'voice_capture_packaging'
@@ -239,6 +241,84 @@ export function linkingRequestPacket(
       tokenCode: normalizeOptionalTrimmed(tokenCode),
       targetBaseUrl: normalizeOptionalTrimmed(targetBaseUrl),
     }),
+  };
+}
+
+export function linkingFeedbackPacket(
+  scenario: string,
+  nodeDisplayName?: string | null,
+): EmbeddedBridgePacketResponse {
+  let message: string | null = null;
+
+  switch (scenario) {
+    case 'issue_without_target':
+      message = 'Pair nodes code created.';
+      break;
+    case 'issue_with_target':
+      message = `Pair nodes code created. ${nodeDisplayName?.trim() || 'Remote client'} has been prompted to enter it on that client.`;
+      break;
+    case 'redeem_empty_token':
+      message = 'Enter the pairing token shown on the issuing node.';
+      break;
+    case 'redeem_success':
+      message = `Linked as ${nodeDisplayName?.trim() || 'linked node'}. The link has been saved locally and the issuing client has been notified.`;
+      break;
+    case 'renegotiate_success':
+      message = `Pair nodes code created for ${nodeDisplayName?.trim() || 'linked node'}. That client has been prompted to approve the new access.`;
+      break;
+    case 'unpair_success':
+      message = `Unpaired ${nodeDisplayName?.trim() || 'linked node'}.`;
+      break;
+  }
+
+  return {
+    kind: 'linking_feedback_packaging',
+    payloadJson: JSON.stringify({ message }),
+  };
+}
+
+export function appShellFeedbackPacket(
+  scenario: string,
+  detail?: string | null,
+): EmbeddedBridgePacketResponse {
+  const cleanDetail = normalizeOptionalTrimmed(detail);
+  let message: string | null = null;
+
+  switch (scenario) {
+    case 'offline_cache_in_use':
+      message = cleanDetail ? `Offline cache in use. ${cleanDetail}` : 'Offline cache in use.';
+      break;
+    case 'no_reachable_endpoint':
+      message = 'No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url.';
+      break;
+    case 'refresh_signals_failed':
+      message = cleanDetail
+        ? `Could not refresh activity feed. ${cleanDetail}`
+        : 'Could not refresh activity feed.';
+      break;
+    case 'queued_nudge_done':
+      message = 'Queued nudge completion for sync.';
+      break;
+    case 'queued_nudge_snooze':
+      message = 'Queued nudge snooze for sync.';
+      break;
+    case 'queued_commitment_done':
+      message = 'Queued commitment completion for sync.';
+      break;
+    case 'queued_commitment_create':
+      message = 'Queued commitment for sync.';
+      break;
+    case 'queued_capture_create':
+      message = 'Queued capture for sync.';
+      break;
+    case 'assistant_entry_queued':
+      message = 'Assistant message queued for sync.';
+      break;
+  }
+
+  return {
+    kind: 'app_shell_feedback_packaging',
+    payloadJson: JSON.stringify({ message }),
   };
 }
 

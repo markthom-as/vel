@@ -97,6 +97,16 @@ pub struct PortableLinkingRequestPacket {
     pub target_base_url: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableLinkingFeedbackPacket {
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableAppShellFeedbackPacket {
+    pub message: String,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
 }
@@ -263,6 +273,63 @@ pub fn prepare_linking_request_packet(
         token_code: normalized_optional_trimmed(token_code),
         target_base_url: normalized_optional_trimmed(target_base_url),
     }
+}
+
+pub fn prepare_linking_feedback_packet(
+    scenario: &str,
+    node_display_name: Option<String>,
+) -> Option<PortableLinkingFeedbackPacket> {
+    let message = match scenario {
+        "issue_without_target" => "Pair nodes code created.".to_string(),
+        "issue_with_target" => format!(
+            "Pair nodes code created. {} has been prompted to enter it on that client.",
+            node_display_name.unwrap_or_else(|| "Remote client".to_string())
+        ),
+        "redeem_empty_token" => "Enter the pairing token shown on the issuing node.".to_string(),
+        "redeem_success" => format!(
+            "Linked as {}. The link has been saved locally and the issuing client has been notified.",
+            node_display_name.unwrap_or_else(|| "linked node".to_string())
+        ),
+        "renegotiate_success" => format!(
+            "Pair nodes code created for {}. That client has been prompted to approve the new access.",
+            node_display_name.unwrap_or_else(|| "linked node".to_string())
+        ),
+        "unpair_success" => format!(
+            "Unpaired {}.",
+            node_display_name.unwrap_or_else(|| "linked node".to_string())
+        ),
+        _ => return None,
+    };
+
+    Some(PortableLinkingFeedbackPacket { message })
+}
+
+pub fn prepare_app_shell_feedback_packet(
+    scenario: &str,
+    detail: Option<String>,
+) -> Option<PortableAppShellFeedbackPacket> {
+    let message = match scenario {
+        "offline_cache_in_use" => match normalized_optional_trimmed(detail) {
+            Some(value) => format!("Offline cache in use. {value}"),
+            None => "Offline cache in use.".to_string(),
+        },
+        "no_reachable_endpoint" => {
+            "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url.".to_string()
+        }
+        "refresh_signals_failed" => match normalized_optional_trimmed(detail) {
+            Some(value) => format!("Could not refresh activity feed. {value}"),
+            None => "Could not refresh activity feed.".to_string(),
+        },
+        "queued_nudge_done" => "Queued nudge completion for sync.".to_string(),
+        "queued_nudge_snooze" => "Queued nudge snooze for sync.".to_string(),
+        "queued_commitment_done" => "Queued commitment completion for sync.".to_string(),
+        "queued_commitment_create" => "Queued commitment for sync.".to_string(),
+        "queued_capture_create" => "Queued capture for sync.".to_string(),
+        "assistant_entry_queued" => "Assistant message queued for sync.".to_string(),
+        _ => return None,
+    };
+
+    Some(PortableAppShellFeedbackPacket { message })
 }
 
 pub fn collect_remote_routes(

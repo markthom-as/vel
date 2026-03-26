@@ -7,7 +7,8 @@
 use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
     normalized_optional_trimmed, normalize_positive_minutes,
-    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_app_shell_feedback_packet, prepare_assistant_entry_fallback_payload,
+    prepare_capture_metadata_payload, prepare_linking_feedback_packet,
     prepare_linking_request_packet, prepare_queued_action_packet,
     prepare_thread_draft_packet, prepare_voice_capture_payload,
     prepare_voice_quick_action_packet, trim_text,
@@ -186,6 +187,32 @@ impl BrowserWasmScaffold {
                 option_json(packet.token_code),
                 option_json(packet.target_base_url)
             ),
+        }
+    }
+
+    pub fn linking_feedback_packet(
+        scenario: String,
+        node_display_name: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_linking_feedback_packet(&scenario, node_display_name)
+            .unwrap_or_else(|| panic!("unsupported linking feedback scenario"));
+
+        BrowserPacketResponse {
+            kind: "linking_feedback_packaging",
+            payload_json: format!("{{\"message\":{}}}", string_json(&packet.message)),
+        }
+    }
+
+    pub fn app_shell_feedback_packet(
+        scenario: String,
+        detail: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_app_shell_feedback_packet(&scenario, detail)
+            .unwrap_or_else(|| panic!("unsupported app shell feedback scenario"));
+
+        BrowserPacketResponse {
+            kind: "app_shell_feedback_packaging",
+            payload_json: format!("{{\"message\":{}}}", string_json(&packet.message)),
         }
     }
 

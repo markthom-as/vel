@@ -123,6 +123,8 @@ Current truth of that scaffold:
   - assistant-entry fallback packet shaping
   - capture-metadata packet shaping
   - linking-request packet shaping
+  - linking-feedback packet shaping
+  - app-shell feedback packet shaping
 - `embeddedBridgePackets.ts` mirrors that packet vocabulary on the web side as a non-live adapter scaffold inside the browser data layer.
 - those helpers are still scaffold-only and are not yet wired into the shipped web client as a live runtime path.
 

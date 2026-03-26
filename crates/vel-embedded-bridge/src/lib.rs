@@ -8,7 +8,8 @@ use std::os::raw::c_char;
 use portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
     normalize_payload, normalized_optional_trimmed, normalize_positive_minutes,
-    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_app_shell_feedback_packet, prepare_assistant_entry_fallback_payload,
+    prepare_capture_metadata_payload, prepare_linking_feedback_packet,
     prepare_linking_request_packet, prepare_queued_action_packet, prepare_quick_capture_text,
     prepare_thread_draft_packet, prepare_voice_capture_payload,
     prepare_voice_quick_action_packet, trim_text,
@@ -1139,46 +1140,15 @@ pub extern "C" fn vel_embedded_prepare_linking_feedback(input_json: *const c_cha
         });
 
     let scenario = trim_text(&decoded.scenario.unwrap_or_default());
-    let node_display_name = normalized_optional_trimmed(decoded.node_display_name);
-
-    let output = match scenario.as_str() {
-        "issue_without_target" => LinkingFeedbackOutput {
-            message: Some("Pair nodes code created.".to_string()),
+    let output = match prepare_linking_feedback_packet(
+        &scenario,
+        normalized_optional_trimmed(decoded.node_display_name),
+    ) {
+        Some(packet) => LinkingFeedbackOutput {
+            message: Some(packet.message),
             ready: true,
         },
-        "issue_with_target" => LinkingFeedbackOutput {
-            message: Some(format!(
-                "Pair nodes code created. {} has been prompted to enter it on that client.",
-                node_display_name.unwrap_or_else(|| "Remote client".to_string())
-            )),
-            ready: true,
-        },
-        "redeem_empty_token" => LinkingFeedbackOutput {
-            message: Some("Enter the pairing token shown on the issuing node.".to_string()),
-            ready: true,
-        },
-        "redeem_success" => LinkingFeedbackOutput {
-            message: Some(format!(
-                "Linked as {}. The link has been saved locally and the issuing client has been notified.",
-                node_display_name.unwrap_or_else(|| "linked node".to_string())
-            )),
-            ready: true,
-        },
-        "renegotiate_success" => LinkingFeedbackOutput {
-            message: Some(format!(
-                "Pair nodes code created for {}. That client has been prompted to approve the new access.",
-                node_display_name.unwrap_or_else(|| "linked node".to_string())
-            )),
-            ready: true,
-        },
-        "unpair_success" => LinkingFeedbackOutput {
-            message: Some(format!(
-                "Unpaired {}.",
-                node_display_name.unwrap_or_else(|| "linked node".to_string())
-            )),
-            ready: true,
-        },
-        _ => LinkingFeedbackOutput {
+        None => LinkingFeedbackOutput {
             message: None,
             ready: false,
         },
@@ -1200,55 +1170,15 @@ pub extern "C" fn vel_embedded_prepare_app_shell_feedback(
         });
 
     let scenario = trim_text(&decoded.scenario.unwrap_or_default());
-    let detail = normalized_optional_trimmed(decoded.detail);
-
-    let output = match scenario.as_str() {
-        "offline_cache_in_use" => AppShellFeedbackOutput {
-            message: Some(match detail {
-                Some(value) => format!("Offline cache in use. {value}"),
-                None => "Offline cache in use.".to_string(),
-            }),
+    let output = match prepare_app_shell_feedback_packet(
+        &scenario,
+        normalized_optional_trimmed(decoded.detail),
+    ) {
+        Some(packet) => AppShellFeedbackOutput {
+            message: Some(packet.message),
             ready: true,
         },
-        "no_reachable_endpoint" => AppShellFeedbackOutput {
-            message: Some(
-                "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url."
-                    .to_string(),
-            ),
-            ready: true,
-        },
-        "refresh_signals_failed" => AppShellFeedbackOutput {
-            message: Some(match detail {
-                Some(value) => format!("Could not refresh activity feed. {value}"),
-                None => "Could not refresh activity feed.".to_string(),
-            }),
-            ready: true,
-        },
-        "queued_nudge_done" => AppShellFeedbackOutput {
-            message: Some("Queued nudge completion for sync.".to_string()),
-            ready: true,
-        },
-        "queued_nudge_snooze" => AppShellFeedbackOutput {
-            message: Some("Queued nudge snooze for sync.".to_string()),
-            ready: true,
-        },
-        "queued_commitment_done" => AppShellFeedbackOutput {
-            message: Some("Queued commitment completion for sync.".to_string()),
-            ready: true,
-        },
-        "queued_commitment_create" => AppShellFeedbackOutput {
-            message: Some("Queued commitment for sync.".to_string()),
-            ready: true,
-        },
-        "queued_capture_create" => AppShellFeedbackOutput {
-            message: Some("Queued capture for sync.".to_string()),
-            ready: true,
-        },
-        "assistant_entry_queued" => AppShellFeedbackOutput {
-            message: Some("Assistant message queued for sync.".to_string()),
-            ready: true,
-        },
-        _ => AppShellFeedbackOutput {
+        None => AppShellFeedbackOutput {
             message: None,
             ready: false,
         },
