@@ -111,8 +111,14 @@ The current repository scaffold for this future path is:
 Current truth of that scaffold:
 
 - `portable_core.rs` is the extraction point for pure reusable helpers.
-- `browser_wasm.rs` is a non-executable placeholder that records intended browser packet families.
-- no browser/WASM exports are wired today.
+- `browser_wasm.rs` now exposes scaffold-level browser packet helpers for a first low-risk set:
+  - pairing-token normalization
+  - domain-hint normalization
+  - queued-action packet shaping
+  - voice quick-action packet shaping
+  - assistant-entry fallback packet shaping
+  - capture-metadata packet shaping
+- those helpers are still scaffold-only and are not yet wired into the shipped web client as a live runtime path.
 
 # Next Implementation Sequence
 

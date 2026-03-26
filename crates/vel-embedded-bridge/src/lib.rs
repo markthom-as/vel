@@ -7,7 +7,10 @@ use std::os::raw::c_char;
 
 use portable_core::{
     normalize_domain_hint, normalize_pairing_token_input, normalize_payload,
-    normalized_optional_trimmed, prepare_quick_capture_text, trim_text,
+    normalized_optional_trimmed, normalize_positive_minutes,
+    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_queued_action_packet, prepare_quick_capture_text,
+    prepare_voice_quick_action_packet, trim_text,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -563,67 +566,21 @@ pub extern "C" fn vel_embedded_package_voice_quick_action(
         .intent_storage_token
         .unwrap_or_else(|| "capture_create".to_string());
     let primary_text = decoded.primary_text.unwrap_or_default();
-    let target_id = decoded.target_id.and_then(|value| {
-        let trimmed = value.trim().to_string();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
-    });
-    let minutes = decoded.minutes.map(|value| value.max(1));
+    let output = prepare_voice_quick_action_packet(
+        &intent_storage_token,
+        &primary_text,
+        normalized_optional_trimmed(decoded.target_id),
+        normalize_positive_minutes(decoded.minutes),
+    );
 
-    let output = if intent_storage_token == "capture_create" {
-        VoiceQuickActionOutput {
-            queue_kind: "capture.create".to_string(),
-            target_id: None,
-            text: Some(normalize_payload(&primary_text)),
-            minutes: None,
-            ready: true,
-        }
-    } else if intent_storage_token == "commitment_create" {
-        VoiceQuickActionOutput {
-            queue_kind: "commitment.create".to_string(),
-            target_id: None,
-            text: Some(normalize_payload(&primary_text)),
-            minutes: None,
-            ready: true,
-        }
-    } else if intent_storage_token == "commitment_done" {
-        VoiceQuickActionOutput {
-            queue_kind: "commitment.done".to_string(),
-            target_id,
-            text: None,
-            minutes: None,
-            ready: true,
-        }
-    } else if intent_storage_token == "nudge_done" {
-        VoiceQuickActionOutput {
-            queue_kind: "nudge.done".to_string(),
-            target_id,
-            text: None,
-            minutes: None,
-            ready: true,
-        }
-    } else if intent_storage_token.starts_with("nudge_snooze_") {
-        VoiceQuickActionOutput {
-            queue_kind: "nudge.snooze".to_string(),
-            target_id,
-            text: None,
-            minutes,
-            ready: true,
-        }
-    } else {
-        VoiceQuickActionOutput {
-            queue_kind: "capture.create".to_string(),
-            target_id: None,
-            text: Some(normalize_payload(&primary_text)),
-            minutes: None,
-            ready: false,
-        }
-    };
-
-    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    let json = serde_json::to_string(&VoiceQuickActionOutput {
+        queue_kind: output.queue_kind,
+        target_id: output.target_id,
+        text: output.text,
+        minutes: output.minutes,
+        ready: output.ready,
+    })
+    .unwrap_or_else(|_| "{\"ready\":false}".to_string());
     to_owned_c_string(&json)
 }
 
@@ -715,29 +672,21 @@ pub extern "C" fn vel_embedded_package_queued_action(input_json: *const c_char) 
         minutes: None,
     });
 
-    let kind = trim_text(&decoded.kind.unwrap_or_else(|| "capture.create".to_string()));
-    let target_id = normalized_optional_trimmed(decoded.target_id);
-    let text = normalized_optional_trimmed(decoded.text);
-    let minutes = decoded.minutes.map(|value| value.max(1));
-
-    let ready = matches!(
-        kind.as_str(),
-        "capture.create" | "commitment.create" | "commitment.done" | "nudge.done" | "nudge.snooze"
+    let output = prepare_queued_action_packet(
+        trim_text(&decoded.kind.unwrap_or_else(|| "capture.create".to_string())),
+        normalized_optional_trimmed(decoded.target_id),
+        normalized_optional_trimmed(decoded.text),
+        normalize_positive_minutes(decoded.minutes),
     );
 
-    let output = QueuedActionOutput {
-        queue_kind: if ready {
-            kind
-        } else {
-            "capture.create".to_string()
-        },
-        target_id,
-        text,
-        minutes,
-        ready,
-    };
-
-    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    let json = serde_json::to_string(&QueuedActionOutput {
+        queue_kind: output.queue_kind,
+        target_id: output.target_id,
+        text: output.text,
+        minutes: output.minutes,
+        ready: output.ready,
+    })
+    .unwrap_or_else(|_| "{\"ready\":false}".to_string());
     to_owned_c_string(&json)
 }
 
@@ -802,19 +751,10 @@ pub extern "C" fn vel_embedded_prepare_assistant_entry_fallback(
         },
     );
 
-    let requested_conversation_id = normalized_optional_trimmed(decoded.requested_conversation_id);
-    let payload = [
-        "queued_assistant_entry:".to_string(),
-        requested_conversation_id
-            .map(|value| format!("requested_conversation_id: {value}"))
-            .unwrap_or_default(),
-        String::new(),
-        trim_text(&decoded.text.unwrap_or_default()),
-    ]
-    .into_iter()
-    .filter(|value| !value.trim().is_empty())
-    .collect::<Vec<_>>()
-    .join("\n");
+    let payload = prepare_assistant_entry_fallback_payload(
+        &decoded.text.unwrap_or_default(),
+        normalized_optional_trimmed(decoded.requested_conversation_id),
+    );
 
     let output = AssistantEntryFallbackOutput {
         payload,
@@ -853,22 +793,11 @@ pub extern "C" fn vel_embedded_prepare_capture_metadata(input_json: *const c_cha
             source_device: Some("apple".to_string()),
         });
 
-    let text = trim_text(&decoded.text.unwrap_or_default());
-    let capture_type = trim_text(&decoded.capture_type.unwrap_or_else(|| "note".to_string()));
-    let source_device = trim_text(&decoded.source_device.unwrap_or_else(|| "apple".to_string()));
-
-    let payload = if capture_type == "note" && source_device == "apple" {
-        text
-    } else {
-        [
-            "queued_capture_metadata:".to_string(),
-            format!("requested_capture_type: {capture_type}"),
-            format!("requested_source_device: {source_device}"),
-            String::new(),
-            text,
-        ]
-        .join("\n")
-    };
+    let payload = prepare_capture_metadata_payload(
+        &decoded.text.unwrap_or_default(),
+        &decoded.capture_type.unwrap_or_else(|| "note".to_string()),
+        &decoded.source_device.unwrap_or_else(|| "apple".to_string()),
+    );
 
     let output = CaptureMetadataOutput {
         payload,

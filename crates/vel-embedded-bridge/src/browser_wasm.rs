@@ -4,6 +4,19 @@
 //! seam where portable packet-shaping logic from `portable_core` can be exposed
 //! to browser code without the native Apple FFI loader path.
 
+use crate::portable_core::{
+    normalize_domain_hint, normalize_pairing_token_input, normalized_optional_trimmed,
+    normalize_positive_minutes, prepare_assistant_entry_fallback_payload,
+    prepare_capture_metadata_payload, prepare_queued_action_packet,
+    prepare_voice_quick_action_packet, trim_text,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserPacketResponse {
+    pub kind: &'static str,
+    pub payload_json: String,
+}
+
 pub struct BrowserWasmScaffold;
 
 impl BrowserWasmScaffold {
@@ -29,4 +42,120 @@ impl BrowserWasmScaffold {
             "linking_feedback_packaging",
         ]
     }
+
+    pub fn normalize_pairing_token_packet(input: &str) -> BrowserPacketResponse {
+        BrowserPacketResponse {
+            kind: "linking_settings_normalization",
+            payload_json: format!(
+                "{{\"tokenCode\":\"{}\"}}",
+                normalize_pairing_token_input(input)
+            ),
+        }
+    }
+
+    pub fn normalize_domain_hint_packet(input: &str) -> BrowserPacketResponse {
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!(
+                "{{\"normalized\":\"{}\"}}",
+                normalize_domain_hint(input.to_string())
+            ),
+        }
+    }
+
+    pub fn queued_action_packet(
+        kind: String,
+        target_id: Option<String>,
+        text: Option<String>,
+        minutes: Option<i64>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_queued_action_packet(
+            trim_text(&kind),
+            normalized_optional_trimmed(target_id),
+            normalized_optional_trimmed(text),
+            normalize_positive_minutes(minutes),
+        );
+
+        BrowserPacketResponse {
+            kind: "queued_action_packaging",
+            payload_json: format!(
+                "{{\"queueKind\":\"{}\",\"targetId\":{},\"text\":{},\"minutes\":{},\"ready\":{}}}",
+                packet.queue_kind,
+                option_json(packet.target_id),
+                option_json(packet.text),
+                option_number_json(packet.minutes),
+                bool_json(packet.ready)
+            ),
+        }
+    }
+
+    pub fn voice_quick_action_packet(
+        intent_storage_token: String,
+        primary_text: String,
+        target_id: Option<String>,
+        minutes: Option<i64>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_voice_quick_action_packet(
+            &trim_text(&intent_storage_token),
+            &primary_text,
+            normalized_optional_trimmed(target_id),
+            normalize_positive_minutes(minutes),
+        );
+
+        BrowserPacketResponse {
+            kind: "voice_quick_action_packaging",
+            payload_json: format!(
+                "{{\"queueKind\":\"{}\",\"targetId\":{},\"text\":{},\"minutes\":{},\"ready\":{}}}",
+                packet.queue_kind,
+                option_json(packet.target_id),
+                option_json(packet.text),
+                option_number_json(packet.minutes),
+                bool_json(packet.ready)
+            ),
+        }
+    }
+
+    pub fn assistant_entry_fallback_packet(
+        text: String,
+        requested_conversation_id: Option<String>,
+    ) -> BrowserPacketResponse {
+        let payload = prepare_assistant_entry_fallback_payload(
+            &text,
+            normalized_optional_trimmed(requested_conversation_id),
+        );
+
+        BrowserPacketResponse {
+            kind: "assistant_entry_fallback_packaging",
+            payload_json: format!("{{\"payload\":{}}}", string_json(&payload)),
+        }
+    }
+
+    pub fn capture_metadata_packet(
+        text: String,
+        capture_type: String,
+        source_device: String,
+    ) -> BrowserPacketResponse {
+        let payload = prepare_capture_metadata_payload(&text, &capture_type, &source_device);
+
+        BrowserPacketResponse {
+            kind: "capture_metadata_packaging",
+            payload_json: format!("{{\"payload\":{}}}", string_json(&payload)),
+        }
+    }
+}
+
+fn string_json(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('\"', "\\\"").replace('\n', "\\n"))
+}
+
+fn option_json(value: Option<String>) -> String {
+    value.map(|value| string_json(&value)).unwrap_or_else(|| "null".to_string())
+}
+
+fn option_number_json(value: Option<i64>) -> String {
+    value.map(|value| value.to_string()).unwrap_or_else(|| "null".to_string())
+}
+
+fn bool_json(value: bool) -> &'static str {
+    if value { "true" } else { "false" }
 }
