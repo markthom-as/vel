@@ -17,6 +17,7 @@ const webRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(webRoot, '..', '..');
 const pollIntervalMs = parsePollInterval(process.env.VEL_DEV_RUST_POLL_INTERVAL_MS);
 const buildScript = path.join(webRoot, 'scripts/build-embedded-bridge-wasm.sh');
+const fallbackBridgeModule = path.join(webRoot, 'scripts', 'embedded-bridge-dev-fallback.js');
 const bridgeOutDir = path.join(webRoot, 'public', 'embedded-bridge');
 const sourceSignatureFile = path.join(bridgeOutDir, '.source-signature');
 const outputJsFile = path.join(bridgeOutDir, 'vel-embedded-bridge.js');
@@ -125,7 +126,12 @@ async function runBridgeBuild(reason) {
     throw new Error(`build terminated by signal ${signal}`);
   }
   if (code !== 0) {
-    throw new Error(`build exited with code ${code}`);
+    const fallbackInstalled = await installFallbackBridgeArtifact();
+    if (!fallbackInstalled) {
+      throw new Error(`build exited with code ${code}`);
+    }
+    console.warn('Embedded bridge WASM build failed; using dev JS fallback runtime.');
+    return;
   }
 
   await fs.mkdir(bridgeOutDir, { recursive: true });
@@ -176,6 +182,20 @@ async function bridgeBuildIsFresh() {
       && wasmStats.isFile()
     );
   } catch {
+    return false;
+  }
+}
+
+async function installFallbackBridgeArtifact() {
+  try {
+    const fallbackSource = await fs.readFile(fallbackBridgeModule, 'utf8');
+    await fs.mkdir(bridgeOutDir, { recursive: true });
+    await fs.writeFile(outputJsFile, fallbackSource, 'utf8');
+    await fs.writeFile(outputWasmFile, '', 'utf8');
+    await fs.writeFile(sourceSignatureFile, currentSignature, 'utf8');
+    return true;
+  } catch (error) {
+    console.error(`Failed to install embedded bridge dev fallback: ${error.message}`);
     return false;
   }
 }

@@ -62,6 +62,8 @@ pub async fn issue_pairing_token(
     )
     .await?;
     let mut data = PairingTokenData::from(token.clone());
+    data.bootstrap_artifact =
+        Some(services::linking::pairing_token_bootstrap_artifact(&state, &token).await?.into());
     if !targeted_issue {
         data.suggested_targets =
             services::linking::suggested_targets(&state, &token.token_code).await?;

@@ -3936,6 +3936,8 @@ pub struct PairingTokenData {
     pub scopes: LinkScopeData,
     #[serde(default)]
     pub suggested_targets: Vec<LinkTargetSuggestionData>,
+    #[serde(default)]
+    pub bootstrap_artifact: Option<TrustBootstrapArtifactData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4014,6 +4016,37 @@ impl From<vel_core::TrustedNodeReachability> for TrustedNodeReachabilityData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustBootstrapArtifactData {
+    pub artifact_id: String,
+    pub trusted_node_id: String,
+    pub trusted_node_display_name: String,
+    pub scopes: LinkScopeData,
+    #[serde(default)]
+    pub preferred_transport_hint: Option<String>,
+    #[serde(default)]
+    pub endpoints: Vec<TrustedNodeEndpointData>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub issued_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub expires_at: Option<OffsetDateTime>,
+}
+
+impl From<vel_core::TrustBootstrapArtifactRecord> for TrustBootstrapArtifactData {
+    fn from(value: vel_core::TrustBootstrapArtifactRecord) -> Self {
+        Self {
+            artifact_id: value.artifact_id,
+            trusted_node_id: value.trusted_node_id,
+            trusted_node_display_name: value.trusted_node_display_name,
+            scopes: value.scopes.into(),
+            preferred_transport_hint: value.preferred_transport_hint,
+            endpoints: value.endpoints.into_iter().map(Into::into).collect(),
+            issued_at: value.issued_at,
+            expires_at: value.expires_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkingPromptData {
     pub target_node_id: String,
     pub target_node_display_name: Option<String>,
@@ -4036,6 +4069,8 @@ pub struct LinkingPromptData {
     pub issuer_localhost_base_url: Option<String>,
     #[serde(default)]
     pub issuer_public_base_url: Option<String>,
+    #[serde(default)]
+    pub bootstrap_artifact: Option<TrustBootstrapArtifactData>,
 }
 
 impl From<vel_core::PairingTokenRecord> for PairingTokenData {
@@ -4048,6 +4083,7 @@ impl From<vel_core::PairingTokenRecord> for PairingTokenData {
             issued_by_node_id: value.issued_by_node_id,
             scopes: value.scopes.into(),
             suggested_targets: Vec::new(),
+            bootstrap_artifact: None,
         }
     }
 }
@@ -5996,10 +6032,30 @@ mod linking_datetime_contract_tests {
                 execute_repo_tasks: false,
             },
             suggested_targets: Vec::new(),
+            bootstrap_artifact: Some(TrustBootstrapArtifactData {
+                artifact_id: "artifact_123".to_string(),
+                trusted_node_id: "vel-node".to_string(),
+                trusted_node_display_name: "Vel Node".to_string(),
+                scopes: LinkScopeData {
+                    read_context: true,
+                    write_safe_actions: false,
+                    execute_repo_tasks: false,
+                },
+                preferred_transport_hint: Some("tailscale".to_string()),
+                endpoints: vec![TrustedNodeEndpointData {
+                    kind: TrustedNodeEndpointKindData::Tailscale,
+                    base_url: "http://vel-node.tailnet.ts.net:4130".to_string(),
+                    last_seen_at: Some(expires_at),
+                    advertised: true,
+                }],
+                issued_at,
+                expires_at: Some(expires_at),
+            }),
         })
         .unwrap();
         assert!(token["issued_at"].is_string());
         assert!(token["expires_at"].is_string());
+        assert_eq!(token["bootstrap_artifact"]["preferred_transport_hint"], "tailscale");
 
         let prompt = serde_json::to_value(LinkingPromptData {
             target_node_id: "node_remote".to_string(),
@@ -6019,10 +6075,30 @@ mod linking_datetime_contract_tests {
             issuer_lan_base_url: Some("http://192.168.1.10:4130".to_string()),
             issuer_localhost_base_url: Some("http://127.0.0.1:4130".to_string()),
             issuer_public_base_url: None,
+            bootstrap_artifact: Some(TrustBootstrapArtifactData {
+                artifact_id: "artifact_123".to_string(),
+                trusted_node_id: "vel-node".to_string(),
+                trusted_node_display_name: "Local".to_string(),
+                scopes: LinkScopeData {
+                    read_context: true,
+                    write_safe_actions: false,
+                    execute_repo_tasks: false,
+                },
+                preferred_transport_hint: Some("tailscale".to_string()),
+                endpoints: vec![TrustedNodeEndpointData {
+                    kind: TrustedNodeEndpointKindData::Tailscale,
+                    base_url: "http://vel-node.tailnet.ts.net:4130".to_string(),
+                    last_seen_at: Some(expires_at),
+                    advertised: true,
+                }],
+                issued_at,
+                expires_at: Some(expires_at),
+            }),
         })
         .unwrap();
         assert!(prompt["issued_at"].is_string());
         assert!(prompt["expires_at"].is_string());
+        assert_eq!(prompt["bootstrap_artifact"]["trusted_node_id"], "vel-node");
 
         let linked = serde_json::to_value(LinkedNodeData {
             node_id: "node_remote".to_string(),

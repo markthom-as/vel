@@ -1699,6 +1699,27 @@ describe('transport decoders', () => {
           write_safe_actions: false,
           execute_repo_tasks: false,
         },
+        bootstrap_artifact: {
+          artifact_id: 'artifact_1',
+          trusted_node_id: 'vel-desktop',
+          trusted_node_display_name: 'Vel Desktop',
+          scopes: {
+            read_context: true,
+            write_safe_actions: false,
+            execute_repo_tasks: false,
+          },
+          preferred_transport_hint: 'tailscale',
+          endpoints: [
+            {
+              kind: 'tailscale',
+              base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+              last_seen_at: null,
+              advertised: true,
+            },
+          ],
+          issued_at: '2026-03-16T18:20:00Z',
+          expires_at: '2026-03-16T18:35:00Z',
+        },
         suggested_targets: [
           {
             label: 'Tailscale',
@@ -1720,6 +1741,27 @@ describe('transport decoders', () => {
         read_context: true,
         write_safe_actions: false,
         execute_repo_tasks: false,
+      },
+      bootstrap_artifact: {
+        artifact_id: 'artifact_1',
+        trusted_node_id: 'vel-desktop',
+        trusted_node_display_name: 'Vel Desktop',
+        scopes: {
+          read_context: true,
+          write_safe_actions: false,
+          execute_repo_tasks: false,
+        },
+        preferred_transport_hint: 'tailscale',
+        endpoints: [
+          {
+            kind: 'tailscale',
+            base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            last_seen_at: null,
+            advertised: true,
+          },
+        ],
+        issued_at: '2026-03-16T18:20:00Z',
+        expires_at: '2026-03-16T18:35:00Z',
       },
       suggested_targets: [
         {
@@ -2948,6 +2990,7 @@ describe('transport decoders', () => {
           node_display_name: 'Vel Desktop',
           active_authority_node_id: 'vel-desktop',
           active_authority_epoch: 1,
+          configured_base_url: 'http://127.0.0.1:4130',
           sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
           sync_transport: 'tailscale',
           tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
@@ -2997,6 +3040,7 @@ describe('transport decoders', () => {
         node_display_name: 'Vel Desktop',
         active_authority_node_id: 'vel-desktop',
         active_authority_epoch: 1,
+        configured_base_url: 'http://127.0.0.1:4130',
         sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
         sync_transport: 'tailscale',
         tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
@@ -3098,6 +3142,27 @@ describe('transport decoders', () => {
             issuer_lan_base_url: 'http://192.168.1.50:4130',
             issuer_localhost_base_url: 'http://127.0.0.1:4130',
             issuer_public_base_url: null,
+            bootstrap_artifact: {
+              artifact_id: 'artifact_prompt',
+              trusted_node_id: 'vel-desktop',
+              trusted_node_display_name: 'Vel Desktop',
+              scopes: {
+                read_context: true,
+                write_safe_actions: false,
+                execute_repo_tasks: false,
+              },
+              preferred_transport_hint: 'tailscale',
+              endpoints: [
+                {
+                  kind: 'tailscale',
+                  base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+                  last_seen_at: null,
+                  advertised: true,
+                },
+              ],
+              issued_at: '2026-03-16T18:20:00Z',
+              expires_at: '2026-03-16T18:35:00Z',
+            },
           },
           capacity: {
             max_concurrency: 2,
@@ -3163,6 +3228,27 @@ describe('transport decoders', () => {
             issuer_lan_base_url: 'http://192.168.1.50:4130',
             issuer_localhost_base_url: 'http://127.0.0.1:4130',
             issuer_public_base_url: null,
+            bootstrap_artifact: {
+              artifact_id: 'artifact_prompt',
+              trusted_node_id: 'vel-desktop',
+              trusted_node_display_name: 'Vel Desktop',
+              scopes: {
+                read_context: true,
+                write_safe_actions: false,
+                execute_repo_tasks: false,
+              },
+              preferred_transport_hint: 'tailscale',
+              endpoints: [
+                {
+                  kind: 'tailscale',
+                  base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+                  last_seen_at: null,
+                  advertised: true,
+                },
+              ],
+              issued_at: '2026-03-16T18:20:00Z',
+              expires_at: '2026-03-16T18:35:00Z',
+            },
           },
           capacity: {
             max_concurrency: 2,

@@ -4,10 +4,11 @@ use time::{Duration, OffsetDateTime};
 use tracing::warn;
 use vel_api_types::{
     ApiResponse, LinkScopeData, LinkTargetSuggestionData, LinkedNodeData, LinkingPromptData,
+    TrustBootstrapArtifactData,
 };
 use vel_core::{
     trusted_node_endpoint_inventory_from_urls, LinkScope, LinkStatus, LinkedNodeRecord,
-    PairingTokenRecord, TrustedNodeReachability,
+    PairingTokenRecord, TrustBootstrapArtifactRecord, TrustedNodeReachability,
 };
 
 use crate::{errors::AppError, state::AppState};
@@ -65,6 +66,7 @@ pub async fn issue_pairing_token(
     };
 
     let issued = state.storage.issue_pairing_token(&record).await?;
+    let bootstrap_artifact = local_trust_bootstrap_artifact(state, &issued, &local_bootstrap).await?;
     if let Some(target_node_id) = request
         .target_node_id
         .as_deref()
@@ -90,6 +92,7 @@ pub async fn issue_pairing_token(
             issuer_lan_base_url: local_bootstrap.lan_base_url.clone(),
             issuer_localhost_base_url: local_bootstrap.localhost_base_url.clone(),
             issuer_public_base_url: None,
+            bootstrap_artifact: Some(bootstrap_artifact.clone().into()),
         };
         save_linking_prompt(state, target_node_id, prompt.clone()).await?;
         if let Some(target_base_url) = request
@@ -272,7 +275,7 @@ async fn redeem_pairing_token_via_prompt(
         .json()
         .await
         .map_err(|error| AppError::internal(format!("decode pairing redeem response: {error}")))?;
-    let linked = payload
+    payload
         .data
         .ok_or_else(|| AppError::internal("issuer pairing response omitted data"))?;
     let now = OffsetDateTime::now_utc();
@@ -282,32 +285,14 @@ async fn redeem_pairing_token_via_prompt(
         .await?
         .into_iter()
         .find(|record| record.node_id == prompt.issued_by_node_id);
+    let artifact = prompt
+        .bootstrap_artifact
+        .clone()
+        .map(trust_bootstrap_artifact_from_data)
+        .unwrap_or_else(|| legacy_prompt_bootstrap_artifact(&prompt));
     let local_record = merge_linked_node(
         existing.as_ref(),
-        LinkedNodeRecord {
-            node_id: prompt.issued_by_node_id,
-            node_display_name: prompt
-                .issued_by_node_display_name
-                .unwrap_or(linked.node_display_name),
-            status: LinkStatus::Linked,
-            scopes: scope_from_data(linked.scopes),
-            linked_at: now,
-            last_seen_at: Some(now),
-            transport_hint: Some(prompt.issuer_sync_transport),
-            sync_base_url: Some(prompt.issuer_sync_base_url.clone()),
-            tailscale_base_url: prompt.issuer_tailscale_base_url.clone(),
-            lan_base_url: prompt.issuer_lan_base_url.clone(),
-            localhost_base_url: prompt.issuer_localhost_base_url.clone(),
-            public_base_url: prompt.issuer_public_base_url.clone(),
-            endpoint_inventory: trusted_node_endpoint_inventory_from_urls(
-                Some(prompt.issuer_sync_base_url.as_str()),
-                prompt.issuer_tailscale_base_url.as_deref(),
-                prompt.issuer_lan_base_url.as_deref(),
-                prompt.issuer_localhost_base_url.as_deref(),
-                prompt.issuer_public_base_url.as_deref(),
-            ),
-            reachability: TrustedNodeReachability::Unknown,
-        },
+        artifact.to_linked_node_record(now),
     );
     clear_linking_prompt(state, node_id).await?;
     state.storage.upsert_linked_node(&local_record).await?;
@@ -316,6 +301,14 @@ async fn redeem_pairing_token_via_prompt(
 
 pub async fn list_linked_nodes(state: &AppState) -> Result<Vec<LinkedNodeRecord>, AppError> {
     Ok(state.storage.list_linked_nodes().await?)
+}
+
+pub async fn pairing_token_bootstrap_artifact(
+    state: &AppState,
+    token: &PairingTokenRecord,
+) -> Result<TrustBootstrapArtifactRecord, AppError> {
+    let local_bootstrap = crate::services::client_sync::effective_cluster_bootstrap(state).await?;
+    local_trust_bootstrap_artifact(state, token, &local_bootstrap).await
 }
 
 pub async fn revoke_linked_node(
@@ -569,6 +562,95 @@ fn linked_node_from_request(
         ),
         reachability: TrustedNodeReachability::Unknown,
     }
+}
+
+async fn local_trust_bootstrap_artifact(
+    state: &AppState,
+    token: &PairingTokenRecord,
+    local_bootstrap: &crate::services::client_sync::ClusterBootstrap,
+) -> Result<TrustBootstrapArtifactRecord, AppError> {
+    Ok(TrustBootstrapArtifactRecord::from_advertised_routes(
+        format!("tba_{}", uuid::Uuid::new_v4().simple()),
+        token.issued_by_node_id.clone(),
+        issuer_display_name(state, &token.issued_by_node_id)
+            .await?
+            .unwrap_or_else(|| local_bootstrap.node_display_name.clone()),
+        token.scopes,
+        Some(local_bootstrap.sync_transport.clone()),
+        token.issued_at,
+        Some(token.expires_at),
+        Some(local_bootstrap.sync_base_url.as_str()),
+        local_bootstrap.tailscale_base_url.as_deref(),
+        local_bootstrap.lan_base_url.as_deref(),
+        local_bootstrap.localhost_base_url.as_deref(),
+        None,
+    ))
+}
+
+fn trust_bootstrap_artifact_from_data(
+    artifact: TrustBootstrapArtifactData,
+) -> TrustBootstrapArtifactRecord {
+    TrustBootstrapArtifactRecord {
+        artifact_id: artifact.artifact_id,
+        trusted_node_id: artifact.trusted_node_id,
+        trusted_node_display_name: artifact.trusted_node_display_name,
+        scopes: scope_from_data(artifact.scopes),
+        preferred_transport_hint: artifact.preferred_transport_hint,
+        endpoints: artifact
+            .endpoints
+            .into_iter()
+            .map(|endpoint| vel_core::TrustedNodeEndpointRecord {
+                kind: match endpoint.kind {
+                    vel_api_types::TrustedNodeEndpointKindData::Sync => {
+                        vel_core::TrustedNodeEndpointKind::Sync
+                    }
+                    vel_api_types::TrustedNodeEndpointKindData::Tailscale => {
+                        vel_core::TrustedNodeEndpointKind::Tailscale
+                    }
+                    vel_api_types::TrustedNodeEndpointKindData::Lan => {
+                        vel_core::TrustedNodeEndpointKind::Lan
+                    }
+                    vel_api_types::TrustedNodeEndpointKindData::Localhost => {
+                        vel_core::TrustedNodeEndpointKind::Localhost
+                    }
+                    vel_api_types::TrustedNodeEndpointKindData::Public => {
+                        vel_core::TrustedNodeEndpointKind::Public
+                    }
+                    vel_api_types::TrustedNodeEndpointKindData::Relay => {
+                        vel_core::TrustedNodeEndpointKind::Relay
+                    }
+                    vel_api_types::TrustedNodeEndpointKindData::Introducer => {
+                        vel_core::TrustedNodeEndpointKind::Introducer
+                    }
+                },
+                base_url: endpoint.base_url,
+                last_seen_at: endpoint.last_seen_at,
+                advertised: endpoint.advertised,
+            })
+            .collect(),
+        issued_at: artifact.issued_at,
+        expires_at: artifact.expires_at,
+    }
+}
+
+fn legacy_prompt_bootstrap_artifact(prompt: &LinkingPromptData) -> TrustBootstrapArtifactRecord {
+    TrustBootstrapArtifactRecord::from_advertised_routes(
+        format!("prompt_{}", prompt.issued_by_node_id),
+        prompt.issued_by_node_id.clone(),
+        prompt
+            .issued_by_node_display_name
+            .clone()
+            .unwrap_or_else(|| prompt.issued_by_node_id.clone()),
+        scope_from_data(prompt.scopes),
+        Some(prompt.issuer_sync_transport.clone()),
+        prompt.issued_at,
+        Some(prompt.expires_at),
+        Some(prompt.issuer_sync_base_url.as_str()),
+        prompt.issuer_tailscale_base_url.as_deref(),
+        prompt.issuer_lan_base_url.as_deref(),
+        prompt.issuer_localhost_base_url.as_deref(),
+        prompt.issuer_public_base_url.as_deref(),
+    )
 }
 
 fn merge_linked_node(
@@ -1006,6 +1088,33 @@ mod tests {
                 issuer_lan_base_url: Some("http://192.168.1.60:4130".to_string()),
                 issuer_localhost_base_url: None,
                 issuer_public_base_url: None,
+                bootstrap_artifact: Some(TrustBootstrapArtifactData {
+                    artifact_id: "artifact_remote".to_string(),
+                    trusted_node_id: "node_remote".to_string(),
+                    trusted_node_display_name: "Remote Mac".to_string(),
+                    scopes: LinkScopeData {
+                        read_context: true,
+                        write_safe_actions: false,
+                        execute_repo_tasks: false,
+                    },
+                    preferred_transport_hint: Some("tailscale".to_string()),
+                    endpoints: vec![
+                        vel_api_types::TrustedNodeEndpointData {
+                            kind: vel_api_types::TrustedNodeEndpointKindData::Tailscale,
+                            base_url: "http://remote.tailnet.ts.net:4130".to_string(),
+                            last_seen_at: None,
+                            advertised: true,
+                        },
+                        vel_api_types::TrustedNodeEndpointData {
+                            kind: vel_api_types::TrustedNodeEndpointKindData::Lan,
+                            base_url: "http://192.168.1.60:4130".to_string(),
+                            last_seen_at: None,
+                            advertised: true,
+                        },
+                    ],
+                    issued_at: OffsetDateTime::now_utc(),
+                    expires_at: Some(OffsetDateTime::now_utc() + Duration::seconds(300)),
+                }),
             },
         )
         .await
@@ -1016,6 +1125,13 @@ mod tests {
         assert_eq!(
             prompts[&local_node_id].issuer_sync_base_url,
             "http://remote.tailnet.ts.net:4130"
+        );
+        assert_eq!(
+            prompts[&local_node_id]
+                .bootstrap_artifact
+                .as_ref()
+                .map(|artifact| artifact.trusted_node_id.as_str()),
+            Some("node_remote")
         );
     }
 
@@ -1251,6 +1367,7 @@ mod tests {
                 issuer_lan_base_url: None,
                 issuer_localhost_base_url: None,
                 issuer_public_base_url: None,
+                bootstrap_artifact: None,
             },
         )
         .await

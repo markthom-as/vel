@@ -180,6 +180,27 @@ function buildLinkingPrompt(overrides: Record<string, unknown> = {}) {
     issuer_lan_base_url: null,
     issuer_localhost_base_url: null,
     issuer_public_base_url: null,
+    bootstrap_artifact: {
+      artifact_id: 'artifact_prompt',
+      trusted_node_id: 'node_remote_prompt',
+      trusted_node_display_name: 'Road Mac',
+      scopes: {
+        read_context: true,
+        write_safe_actions: false,
+        execute_repo_tasks: false,
+      },
+      preferred_transport_hint: 'tailscale',
+      endpoints: [
+        {
+          kind: 'tailscale',
+          base_url: 'http://road-mac.tailnet.ts.net:4130',
+          last_seen_at: null,
+          advertised: true,
+        },
+      ],
+      issued_at: '2026-03-26T17:00:00Z',
+      expires_at: '2026-03-26T17:15:00Z',
+    },
     ...overrides,
   }
 }
@@ -317,6 +338,27 @@ function buildPairingToken(overrides: Record<string, unknown> = {}) {
       read_context: true,
       write_safe_actions: false,
       execute_repo_tasks: false,
+    },
+    bootstrap_artifact: {
+      artifact_id: 'artifact_token',
+      trusted_node_id: 'node_local',
+      trusted_node_display_name: 'Vel Desktop',
+      scopes: {
+        read_context: true,
+        write_safe_actions: false,
+        execute_repo_tasks: false,
+      },
+      preferred_transport_hint: 'tailscale',
+      endpoints: [
+        {
+          kind: 'tailscale',
+          base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+          last_seen_at: null,
+          advertised: true,
+        },
+      ],
+      issued_at: '2026-03-26T17:00:00Z',
+      expires_at: '2026-03-26T17:15:00Z',
     },
     suggested_targets: [
       {

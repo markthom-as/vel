@@ -1300,6 +1300,7 @@ export interface PairingTokenData {
   issued_by_node_id: string;
   scopes: LinkScopeData;
   suggested_targets: LinkTargetSuggestionData[];
+  bootstrap_artifact: TrustBootstrapArtifactData | null;
 }
 
 export interface LinkTargetSuggestionData {
@@ -1308,6 +1309,24 @@ export interface LinkTargetSuggestionData {
   transport_hint: string;
   recommended: boolean;
   redeem_command_hint: string;
+}
+
+export interface TrustedNodeEndpointData {
+  kind: string;
+  base_url: string;
+  last_seen_at: Rfc3339Timestamp | null;
+  advertised: boolean;
+}
+
+export interface TrustBootstrapArtifactData {
+  artifact_id: string;
+  trusted_node_id: string;
+  trusted_node_display_name: string;
+  scopes: LinkScopeData;
+  preferred_transport_hint: string | null;
+  endpoints: TrustedNodeEndpointData[];
+  issued_at: Rfc3339Timestamp;
+  expires_at: Rfc3339Timestamp | null;
 }
 
 export interface LinkingPromptData {
@@ -1324,6 +1343,7 @@ export interface LinkingPromptData {
   issuer_lan_base_url: string | null;
   issuer_localhost_base_url: string | null;
   issuer_public_base_url: string | null;
+  bootstrap_artifact: TrustBootstrapArtifactData | null;
 }
 
 export interface LinkedNodeData {
@@ -3922,6 +3942,10 @@ export function decodePairingTokenData(value: unknown): PairingTokenData {
       record.suggested_targets ?? [],
       decodeLinkTargetSuggestionData,
     ),
+    bootstrap_artifact:
+      record.bootstrap_artifact === undefined || record.bootstrap_artifact === null
+        ? null
+        : decodeTrustBootstrapArtifactData(record.bootstrap_artifact),
   };
 }
 
@@ -3936,6 +3960,54 @@ export function decodeLinkTargetSuggestionData(value: unknown): LinkTargetSugges
       record.redeem_command_hint,
       'link target suggestion.redeem_command_hint',
     ),
+  };
+}
+
+export function decodeTrustedNodeEndpointData(value: unknown): TrustedNodeEndpointData {
+  const record = expectRecord(value, 'trusted node endpoint');
+  return {
+    kind: expectString(record.kind, 'trusted node endpoint.kind'),
+    base_url: expectString(record.base_url, 'trusted node endpoint.base_url'),
+    last_seen_at:
+      record.last_seen_at === undefined
+        ? null
+        : expectNullableRfc3339Timestamp(
+            record.last_seen_at,
+            'trusted node endpoint.last_seen_at',
+          ),
+    advertised: expectBoolean(record.advertised, 'trusted node endpoint.advertised'),
+  };
+}
+
+export function decodeTrustBootstrapArtifactData(value: unknown): TrustBootstrapArtifactData {
+  const record = expectRecord(value, 'trust bootstrap artifact');
+  return {
+    artifact_id: expectString(record.artifact_id, 'trust bootstrap artifact.artifact_id'),
+    trusted_node_id: expectString(
+      record.trusted_node_id,
+      'trust bootstrap artifact.trusted_node_id',
+    ),
+    trusted_node_display_name: expectString(
+      record.trusted_node_display_name,
+      'trust bootstrap artifact.trusted_node_display_name',
+    ),
+    scopes: decodeLinkScopeData(record.scopes),
+    preferred_transport_hint:
+      record.preferred_transport_hint === undefined
+        ? null
+        : expectNullableString(
+            record.preferred_transport_hint,
+            'trust bootstrap artifact.preferred_transport_hint',
+          ),
+    endpoints: decodeArray(record.endpoints ?? [], decodeTrustedNodeEndpointData),
+    issued_at: expectRfc3339Timestamp(record.issued_at, 'trust bootstrap artifact.issued_at'),
+    expires_at:
+      record.expires_at === undefined
+        ? null
+        : expectNullableRfc3339Timestamp(
+            record.expires_at,
+            'trust bootstrap artifact.expires_at',
+          ),
   };
 }
 
@@ -3988,6 +4060,10 @@ export function decodeLinkingPromptData(value: unknown): LinkingPromptData {
             record.issuer_public_base_url,
             'linking prompt.issuer_public_base_url',
           ),
+    bootstrap_artifact:
+      record.bootstrap_artifact === undefined || record.bootstrap_artifact === null
+        ? null
+        : decodeTrustBootstrapArtifactData(record.bootstrap_artifact),
   };
 }
 

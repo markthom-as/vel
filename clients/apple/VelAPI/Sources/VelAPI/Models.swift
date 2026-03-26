@@ -1158,6 +1158,7 @@ public struct PairingTokenData: Codable, Sendable {
     public let issued_by_node_id: String
     public let scopes: LinkScopeData
     public let suggested_targets: [LinkTargetSuggestionData]
+    public let bootstrap_artifact: TrustBootstrapArtifactData?
 }
 
 public struct LinkingPromptData: Codable, Sendable {
@@ -1174,6 +1175,25 @@ public struct LinkingPromptData: Codable, Sendable {
     public let issuer_lan_base_url: String?
     public let issuer_localhost_base_url: String?
     public let issuer_public_base_url: String?
+    public let bootstrap_artifact: TrustBootstrapArtifactData?
+}
+
+public struct TrustedNodeEndpointData: Codable, Sendable {
+    public let kind: String
+    public let base_url: String
+    public let last_seen_at: String?
+    public let advertised: Bool
+}
+
+public struct TrustBootstrapArtifactData: Codable, Sendable {
+    public let artifact_id: String
+    public let trusted_node_id: String
+    public let trusted_node_display_name: String
+    public let scopes: LinkScopeData
+    public let preferred_transport_hint: String?
+    public let endpoints: [TrustedNodeEndpointData]
+    public let issued_at: String
+    public let expires_at: String?
 }
 
 public struct WorkerCapacityData: Codable, Sendable {

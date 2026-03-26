@@ -12,13 +12,25 @@ routing_file="$models_dir/routing.toml"
 extract_toml_string() {
   local file="$1"
   local key="$2"
-  sed -nE "s|^[[:space:]]*$key[[:space:]]*=[[:space:]]*\"([^\"]*)\"[[:space:]]*$|\\1|p" "$file" | head -n1
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^[[:space:]]*$key[[:space:]]*=[[:space:]]*\"([^\"]*)\"[[:space:]]*$ ]]; then
+      printf '%s\n' "${BASH_REMATCH[1]}"
+      return 0
+    fi
+  done < "$file"
 }
 
 extract_toml_bool() {
   local file="$1"
   local key="$2"
-  sed -nE "s#^[[:space:]]*$key[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$#\\1#p" "$file" | head -n1
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^[[:space:]]*$key[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$ ]]; then
+      printf '%s\n' "${BASH_REMATCH[1]}"
+      return 0
+    fi
+  done < "$file"
 }
 
 profile_file_for_id() {
