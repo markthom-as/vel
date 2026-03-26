@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadAgentInspect } from '../../data/agent-grounding';
 import {
   buildCoreSetupStatus,
   buildEmbeddedLinkingRequestDraft,
+  issuePairingToken,
+  loadClusterBootstrap,
+  loadClusterWorkers,
   disconnectGoogleCalendar,
   disconnectTodoist,
   loadIntegrationConnections,
   loadIntegrations,
+  loadLinkingStatus,
+  redeemPairingToken,
+  revokeLinkedNode,
   loadSettings,
   operatorQueryKeys,
   startGoogleCalendarAuth,
@@ -20,9 +26,12 @@ import { contextQueryKeys } from '../../data/context';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import type {
   AgentInspectData,
+  ClusterBootstrapData,
+  ClusterWorkersData,
   IntegrationCalendarData,
   IntegrationConnectionData,
   IntegrationsData,
+  LinkedNodeData,
   SettingsData,
 } from '../../types';
 import { SettingsIcon } from '../../core/Icons';
@@ -41,7 +50,6 @@ import {
   llmRoutingProfiles,
   providerSummaries,
   type IntegrationActionId,
-  type IntegrationProviderSummary,
 } from './SystemProvidersSection';
 import {
   defaultSubsectionForSystemSection as defaultSubsection,
@@ -189,8 +197,19 @@ export function SystemView({ target }: SystemViewProps) {
   const inspectKey = useMemo(() => operatorQueryKeys.agentInspect(), []);
   const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
   const connectionsKey = useMemo(() => operatorQueryKeys.integrationConnections(), []);
+  const clusterBootstrapKey = useMemo(() => operatorQueryKeys.clusterBootstrap(), []);
+  const clusterWorkersKey = useMemo(() => operatorQueryKeys.clusterWorkers(), []);
+  const linkingStatusKey = useMemo(() => operatorQueryKeys.linkingStatus(), []);
   const settingsKey = useMemo(() => operatorQueryKeys.settings(), []);
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
+  const initialTarget = resolveSystemTarget(target);
+  const [activeSection, setActiveSection] = useState<SystemSectionKey>(initialTarget.section);
+  const [activeSubsection, setActiveSubsection] = useState<SystemSubsectionKey>(initialTarget.subsection);
+  const [pendingAction, setPendingAction] = useState<IntegrationActionId | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [sidebarFilter, setSidebarFilter] = useState('');
+  const [activeChildAnchor, setActiveChildAnchor] = useState<string | null>(target?.anchor ?? null);
+  const [optimisticGoogleCalendar, setOptimisticGoogleCalendar] = useState<IntegrationsData['google_calendar'] | null>(null);
 
   const {
     data: inspect,
@@ -248,15 +267,52 @@ export function SystemView({ target }: SystemViewProps) {
       return response.data;
     },
   );
-
-  const initialTarget = resolveSystemTarget(target);
-  const [activeSection, setActiveSection] = useState<SystemSectionKey>(initialTarget.section);
-  const [activeSubsection, setActiveSubsection] = useState<SystemSubsectionKey>(initialTarget.subsection);
-  const [pendingAction, setPendingAction] = useState<IntegrationActionId | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [sidebarFilter, setSidebarFilter] = useState('');
-  const [activeChildAnchor, setActiveChildAnchor] = useState<string | null>(target?.anchor ?? null);
-  const [optimisticGoogleCalendar, setOptimisticGoogleCalendar] = useState<IntegrationsData['google_calendar'] | null>(null);
+  const pairingQueryEnabled = activeSubsection === 'pairing';
+  const {
+    data: clusterBootstrap = null,
+    loading: clusterBootstrapLoading,
+    error: clusterBootstrapError,
+  } = useQuery<ClusterBootstrapData | null>(
+    clusterBootstrapKey,
+    async () => {
+      const response = await loadClusterBootstrap();
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to load cluster bootstrap');
+      }
+      return response.data;
+    },
+    { enabled: pairingQueryEnabled },
+  );
+  const {
+    data: clusterWorkers = null,
+    loading: clusterWorkersLoading,
+    error: clusterWorkersError,
+  } = useQuery<ClusterWorkersData | null>(
+    clusterWorkersKey,
+    async () => {
+      const response = await loadClusterWorkers();
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to load cluster workers');
+      }
+      return response.data;
+    },
+    { enabled: pairingQueryEnabled },
+  );
+  const {
+    data: linkedNodes = [],
+    loading: linkingStatusLoading,
+    error: linkingStatusError,
+  } = useQuery<LinkedNodeData[]>(
+    linkingStatusKey,
+    async () => {
+      const response = await loadLinkingStatus();
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to load linking status');
+      }
+      return response.data;
+    },
+    { enabled: pairingQueryEnabled },
+  );
 
   const renderedIntegrations = useMemo(() => {
     if (!integrations || !optimisticGoogleCalendar) {
@@ -396,6 +452,9 @@ export function SystemView({ target }: SystemViewProps) {
     providers,
     integrations: renderedIntegrations,
     connections,
+    clusterBootstrap,
+    clusterWorkers,
+    linkedNodes,
     projects,
     capabilityGroups,
     settings: settings ?? null,
@@ -517,6 +576,37 @@ export function SystemView({ target }: SystemViewProps) {
         window.open(response.data.auth_url, '_blank', 'noopener,noreferrer');
       }
       setActionMessage('Google Calendar auth opened in a new window.');
+    },
+    pairingLoading: clusterBootstrapLoading || clusterWorkersLoading || linkingStatusLoading,
+    pairingError: clusterBootstrapError ?? clusterWorkersError ?? linkingStatusError,
+    onIssuePairingToken: async (payload) => {
+      const response = await issuePairingToken(payload);
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to issue pairing token');
+      }
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
+      return response.data;
+    },
+    onRedeemPairingToken: async (payload) => {
+      const response = await redeemPairingToken(payload);
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to redeem pairing token');
+      }
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
+      return response.data;
+    },
+    onRevokeLinkedNode: async (nodeId) => {
+      const response = await revokeLinkedNode(nodeId);
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to revoke linked node');
+      }
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
+      return response.data;
     },
     onJumpToTarget: jumpToTarget,
   });
