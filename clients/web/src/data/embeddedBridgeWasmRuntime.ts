@@ -244,3 +244,29 @@ export function maybeInstallEmbeddedBridgePacketRuntimeFromGlobal(): EmbeddedBri
     return installEmbeddedBridgePacketRuntimeFromWasm(wasm);
   }
 }
+
+export async function bootstrapEmbeddedBridgePacketRuntime(): Promise<EmbeddedBridgePacketRuntime | null> {
+  const existing = maybeInstallEmbeddedBridgePacketRuntimeFromGlobal();
+  if (existing) {
+    return existing;
+  }
+
+  const wasmModuleUrl = (import.meta.env.VITE_VEL_EMBEDDED_BRIDGE_WASM_URL ?? '').trim();
+  if (wasmModuleUrl.length === 0) {
+    return null;
+  }
+
+  const imported = await import(/* @vite-ignore */ wasmModuleUrl);
+  const candidate = (imported.default ?? imported) as Partial<EmbeddedBridgeWasmModule>;
+  if (typeof candidate.velEmbeddedNormalizePairingTokenPacket !== 'function') {
+    throw new Error(
+      `Embedded bridge WASM module at ${wasmModuleUrl} did not expose the expected packet runtime exports.`,
+    );
+  }
+
+  const wasm = candidate as EmbeddedBridgeWasmModule;
+  if (typeof window !== 'undefined') {
+    window.__VEL_EMBEDDED_BRIDGE_WASM__ = wasm;
+  }
+  return installEmbeddedBridgePacketRuntimeFromWasm(wasm);
+}

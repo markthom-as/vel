@@ -135,6 +135,7 @@ Current truth of that scaffold:
 - `embeddedBridgePackets.ts` is now a Rust-runtime boundary only. It no longer owns duplicate packet shaping logic in TypeScript.
 - `embeddedBridgeAdapter.ts` is the next seam up: it parses packet JSON into typed browser-facing values so future callers do not depend directly on raw packet JSON strings.
 - `embeddedBridgeWasmRuntime.ts` is the installer seam that adapts JS/WASM exports into the packet runtime interface used by web data code.
+- `main.tsx` now attempts startup installation from `VITE_VEL_EMBEDDED_BRIDGE_WASM_URL` and also supports a preloaded `window.__VEL_EMBEDDED_BRIDGE_WASM__`.
 - `embeddedBridgePackets.example.ts` is a checked-in usage reference for future browser callers so the scaffold has a concrete packet-consumption example.
 - until the WASM runtime is installed, browser packet calls fail closed instead of silently using a duplicated TypeScript implementation.
 
@@ -142,8 +143,8 @@ Current truth of that scaffold:
 
 1. continue moving deterministic helpers from `lib.rs` into `portable_core.rs`
 2. build the actual browser-targeted artifact for `browser_wasm`
-3. keep Apple native FFI as a thin adapter over the same portable core
-4. install the browser/WASM runtime into app startup so web data code calls Rust directly
+3. point `VITE_VEL_EMBEDDED_BRIDGE_WASM_URL` at that generated module or preload it onto `window`
+4. keep Apple native FFI as a thin adapter over the same portable core
 5. avoid widening browser-local logic into authority-runtime policy
 
 # Acceptance Criteria

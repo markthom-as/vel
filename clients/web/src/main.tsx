@@ -6,6 +6,9 @@ import '@fontsource-variable/space-grotesk/wght.css'
 import '@fontsource-variable/outfit/wght.css'
 import './index.css'
 import App from './App.tsx'
+import { bootstrapEmbeddedBridgePacketRuntime } from './data/embeddedBridgeWasmRuntime'
+
+void bootstrapEmbeddedBridgePacketRuntime()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
