@@ -268,6 +268,24 @@ struct PairingTokenRedeemRequestOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceContinuitySummaryInput {
+    draft_exists: Option<bool>,
+    threaded_transcript: Option<String>,
+    pending_recovery_count: Option<i64>,
+    is_reachable: Option<bool>,
+    merged_transcript: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceContinuitySummaryOutput {
+    headline: Option<String>,
+    detail: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -824,6 +842,62 @@ pub extern "C" fn vel_embedded_prepare_pairing_token_redeem_request(input_json: 
         localhost_base_url: normalized_optional_trimmed(decoded.localhost_base_url),
         public_base_url: normalized_optional_trimmed(decoded.public_base_url),
         ready: true,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_voice_continuity_summary(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<VoiceContinuitySummaryInput>(&raw).unwrap_or(VoiceContinuitySummaryInput {
+        draft_exists: Some(false),
+        threaded_transcript: None,
+        pending_recovery_count: Some(0),
+        is_reachable: Some(false),
+        merged_transcript: None,
+    });
+
+    let output = if decoded.draft_exists.unwrap_or(false) {
+        VoiceContinuitySummaryOutput {
+            headline: Some("Voice draft ready to resume.".to_string()),
+            detail: Some("Your latest local transcript is still on device and can be resumed without reopening a separate thread.".to_string()),
+            ready: true,
+        }
+    } else if let Some(threaded) = normalized_optional_trimmed(decoded.threaded_transcript) {
+        VoiceContinuitySummaryOutput {
+            headline: Some("Voice follow-up saved in Threads.".to_string()),
+            detail: Some(threaded),
+            ready: true,
+        }
+    } else if decoded.pending_recovery_count.unwrap_or(0) > 0 {
+        let count = decoded.pending_recovery_count.unwrap_or(0);
+        let detail = if decoded.is_reachable.unwrap_or(false) {
+            "Local voice recovery is waiting on canonical replay.".to_string()
+        } else {
+            format!(
+                "Reconnect to merge {count} local voice entr{} back into canonical state.",
+                if count == 1 { "y" } else { "ies" }
+            )
+        };
+        VoiceContinuitySummaryOutput {
+            headline: Some("Voice recovery pending.".to_string()),
+            detail: Some(detail),
+            ready: true,
+        }
+    } else if let Some(merged) = normalized_optional_trimmed(decoded.merged_transcript) {
+        VoiceContinuitySummaryOutput {
+            headline: Some("Local voice recovery merged.".to_string()),
+            detail: Some(merged),
+            ready: true,
+        }
+    } else {
+        VoiceContinuitySummaryOutput {
+            headline: None,
+            detail: None,
+            ready: false,
+        }
     };
 
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());

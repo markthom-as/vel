@@ -121,7 +121,8 @@ public struct VelAppEnvironment {
                     .localLinkingSettingsNormalization,
                     .localAssistantEntryFallbackPackaging,
                     .localLinkingRequestPackaging,
-                    .localCaptureMetadataPackaging
+                    .localCaptureMetadataPackaging,
+                    .localVoiceContinuitySummaryPackaging
                 ]
                 : []
         )

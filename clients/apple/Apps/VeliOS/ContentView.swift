@@ -2639,6 +2639,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local assistant entry fallback packaging", value: configuration.permits(.localAssistantEntryFallbackPackaging))
             BoolStatusRow(label: "Local linking request packaging", value: configuration.permits(.localLinkingRequestPackaging))
             BoolStatusRow(label: "Local capture metadata packaging", value: configuration.permits(.localCaptureMetadataPackaging))
+            BoolStatusRow(label: "Local voice continuity summary packaging", value: configuration.permits(.localVoiceContinuitySummaryPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2653,6 +2654,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Assistant entry fallback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localAssistantEntryFallbackPackaging))
             BoolStatusRow(label: "Linking request symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingRequestPackaging))
             BoolStatusRow(label: "Capture metadata symbol loaded", value: runtimeStatus.symbolAvailable(for: .localCaptureMetadataPackaging))
+            BoolStatusRow(label: "Voice continuity summary symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuitySummaryPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -5005,39 +5007,23 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     }
 
     func continuitySummary(using store: VelClientStore) -> VoiceContinuitySummary? {
-        if offlineStore.cachedVoiceDraft() != nil {
-            return VoiceContinuitySummary(
-                headline: "Voice draft ready to resume.",
-                detail: "Your latest local transcript is still on device and can be resumed without reopening a separate thread."
-            )
-        }
-
-        if let threaded = history.first(where: { $0.threadID != nil }) {
-            return VoiceContinuitySummary(
-                headline: "Voice follow-up saved in Threads.",
-                detail: threaded.transcript
-            )
-        }
-
+        let threadedTranscript = history.first(where: { $0.threadID != nil })?.transcript
         let pendingRecovery = history.filter { $0.mergedAt == nil && ($0.status == "queued" || $0.status == "capture_only") }
-        if !pendingRecovery.isEmpty {
-            let detail = store.isReachable
-                ? "Local voice recovery is waiting on canonical replay."
-                : "Reconnect to merge \(pendingRecovery.count) local voice entr\(pendingRecovery.count == 1 ? "y" : "ies") back into canonical state."
-            return VoiceContinuitySummary(
-                headline: "Voice recovery pending.",
-                detail: detail
-            )
+        let mergedTranscript = history.first(where: { $0.mergedAt != nil })?.transcript
+        guard let packet = appEnvironment.embeddedBridge.voiceContinuitySummaryBridge.prepareVoiceContinuitySummary(
+            draftExists: offlineStore.cachedVoiceDraft() != nil,
+            threadedTranscript: threadedTranscript,
+            pendingRecoveryCount: pendingRecovery.count,
+            isReachable: store.isReachable,
+            mergedTranscript: mergedTranscript
+        ) else {
+            return nil
         }
 
-        if let merged = history.first(where: { $0.mergedAt != nil }) {
-            return VoiceContinuitySummary(
-                headline: "Local voice recovery merged.",
-                detail: merged.transcript
-            )
-        }
-
-        return nil
+        return VoiceContinuitySummary(
+            headline: packet.headline,
+            detail: packet.detail
+        )
     }
 
     private func restoreDraft() {
