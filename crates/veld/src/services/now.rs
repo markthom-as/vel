@@ -6,9 +6,9 @@ use time::OffsetDateTime;
 use vel_config::{AppConfig, NowCountDisplayMode, NowTitleMode};
 use vel_core::{
     normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
-    ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal, ReflowCard,
-    ReflowSeverity, ReviewSnapshot, WritebackOperationKind, WritebackOperationRecord,
-    WritebackStatus,
+    ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal,
+    ReflowCard, ReflowSeverity, ReviewSnapshot, WritebackOperationKind, WritebackOperationRecord,
+    WritebackStatus, AppleBehaviorSummary,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -503,6 +503,8 @@ async fn get_now_internal(
     let check_in = crate::services::check_in::get_current_check_in(storage, &timezone).await?;
     let apple_behavior_summary =
         crate::services::apple_behavior::get_summary(storage, config).await?;
+    let recent_watch_signals =
+        crate::services::apple_behavior::recent_watch_signal_summaries(storage).await?;
     let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
     let mesh_summary = if let Some(state) = state {
         Some(build_mesh_summary(state, action_queue.pending_writebacks.len() as u32).await?)
@@ -526,6 +528,7 @@ async fn get_now_internal(
             mesh_summary,
             planning_profile_summary,
             commitment_scheduling_summary,
+            apple_behavior_summary.as_ref(),
         ));
     };
 
@@ -659,7 +662,7 @@ async fn get_now_internal(
     let trust_readiness = build_trust_readiness(storage, &freshness, &action_queue).await?;
     let people = storage.list_people().await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
-    let attention_reasons = context.attention_reasons.clone();
+    let attention_reasons = merge_attention_reasons(&context.attention_reasons, &recent_watch_signals);
     let reasons = build_reasons_typed(&context, &attention_reasons);
     let day_plan =
         crate::services::day_plan::derive_current_day_plan(storage, &context, now_ts).await?;
@@ -858,6 +861,24 @@ fn build_reasons_typed(context: &CurrentContextV1, attention_reasons: &[String])
         reasons.push("Medication task is still pending".to_string());
     }
     reasons.extend(attention_reasons.iter().cloned());
+    reasons.truncate(8);
+    reasons
+}
+
+fn merge_attention_reasons(
+    context_attention_reasons: &[String],
+    recent_watch_signals: &[crate::services::apple_behavior::RecentWatchSignalSummary],
+) -> Vec<String> {
+    let mut reasons = context_attention_reasons.to_vec();
+    for signal in recent_watch_signals {
+        let mut reason = format!("{} was reported from watch input.", signal.label);
+        if let Some(note) = signal.note.as_deref() {
+            reason.push_str(&format!(" Note: {note}."));
+        }
+        if !reasons.iter().any(|existing| existing == &reason) {
+            reasons.push(reason);
+        }
+    }
     reasons.truncate(8);
     reasons
 }
@@ -1074,6 +1095,7 @@ fn empty_now(
     planning_profile_summary: crate::services::planning_profile::PlanningProfileProposalSummary,
     commitment_scheduling_summary:
         crate::services::commitment_scheduling::CommitmentSchedulingProposalSummary,
+    apple_behavior_summary: Option<&AppleBehaviorSummary>,
 ) -> NowOutput {
     let freshness = NowFreshnessOutput {
         overall_status: "stale".to_string(),
@@ -1174,7 +1196,11 @@ fn empty_now(
         },
         sources: NowSourcesOutput {
             git_activity: None,
-            health: None,
+            health: apple_behavior_summary.map(|summary| NowSourceActivityOutput {
+                label: "Apple behavior".to_string(),
+                timestamp: summary.generated_at,
+                summary: crate::services::apple_behavior::summary_to_source_activity(summary),
+            }),
             mood: None,
             pain: None,
             note_document: None,

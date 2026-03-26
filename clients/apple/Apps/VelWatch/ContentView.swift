@@ -2,6 +2,9 @@ import AVFoundation
 #if canImport(Speech)
 import Speech
 #endif
+#if canImport(WatchKit)
+import WatchKit
+#endif
 import SwiftUI
 import VelApplePlatform
 import VelApplication
@@ -11,11 +14,15 @@ struct ContentView: View {
     @EnvironmentObject var store: VelWatchStore
     @StateObject private var voiceModel = WatchVoiceCaptureModel()
     @State private var threadText = ""
+    @State private var captureText = ""
+    @State private var signalNote = ""
 
     var body: some View {
         List {
-            sectionNow
+            sectionSnapshot
             sectionNudges
+            sectionSignals
+            sectionCapture
             sectionThreadAppend
             sectionVoice
         }
@@ -31,41 +38,49 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var sectionNow: some View {
-        Section("Now") {
-            Text(store.message)
-                .font(.headline)
+    private var sectionSnapshot: some View {
+        Section("Right now") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(store.compactStatusLine)
+                    .font(.headline)
 
-            if let transport = store.transport {
-                Text("Source: \(transport)")
+                if let scheduleSummary = store.scheduleSummary {
+                    Label(scheduleSummary, systemImage: "calendar")
+                        .font(.caption)
+                }
+
+                if let scheduleDetail = store.scheduleDetail {
+                    Text(scheduleDetail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let mode = store.mode {
+                    Text("Mode: \(mode)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let driftSummary = store.driftSummary {
+                    Label(driftSummary, systemImage: "waveform.path.ecg")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                if let scheduleProposalStatus = store.scheduleProposalStatus {
+                    Text(scheduleProposalStatus)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if store.pendingActionCount > 0 {
+                    Label("\(store.pendingActionCount) queued", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption2)
+                        .foregroundStyle(.yellow)
+                }
+
+                Text(store.transportSummary)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let mode = store.mode {
-                Text("Mode: \(mode)")
-                    .font(.caption2)
-            }
-
-            if let scheduleSummary = store.scheduleSummary {
-                Text(scheduleSummary)
-                    .font(.caption)
-            }
-
-            if let scheduleDetail = store.scheduleDetail {
-                Text(scheduleDetail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let actionTitle = store.topActionTitle {
-                Text("Top action: \(actionTitle)")
-                    .font(.caption)
-            }
-
-            if let nextCommitmentText = store.nextCommitmentText {
-                Text("Next: \(nextCommitmentText)")
-                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -91,9 +106,11 @@ struct ContentView: View {
                         .font(.caption)
                     HStack {
                         Button("Done") {
+                            playHaptic(.success)
                             Task { await store.markTopNudgeDone() }
                         }
                         Button("Snooze 10m") {
+                            playHaptic(.directionDown)
                             Task { await store.snoozeTopNudge(minutes: 10) }
                         }
                     }
@@ -104,8 +121,56 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private var sectionSignals: some View {
+        Section("Signals") {
+            Text("Send a quick event upstream without opening a longer flow.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            ForEach(WatchSignalKind.allCases) { kind in
+                Button(kind.title) {
+                    playHaptic(.click)
+                    Task { await store.emitSignal(kind, note: signalNote) }
+                }
+                .buttonStyle(.bordered)
+            }
+
+            TextField("Optional note", text: $signalNote)
+                .textInputAutocapitalization(.sentences)
+
+            statusFootnote(store.lastActionStatus)
+        }
+    }
+
+    @ViewBuilder
+    private var sectionCapture: some View {
+        Section("Quick capture") {
+            TextField("Note, task, feeling", text: $captureText)
+                .textInputAutocapitalization(.sentences)
+
+            Button("Save note") {
+                submitCapture(asTask: false)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Button("Add task") {
+                submitCapture(asTask: true)
+            }
+            .buttonStyle(.bordered)
+            .disabled(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Text("For anything longer, hand off to iPhone or Mac.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            statusFootnote(store.lastActionStatus)
+        }
+    }
+
+    @ViewBuilder
     private var sectionThreadAppend: some View {
-        Section("Append to active thread") {
+        Section("Follow through") {
             if let threadID = store.activeThreadID {
                 Text("Current thread: \(threadID)")
                     .font(.caption2)
@@ -130,18 +195,29 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .disabled(threadText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
+            Button("Escalate to phone") {
+                submitEscalation()
+            }
+            .buttonStyle(.bordered)
+            .disabled(threadText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Text(store.handoffSummary)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
             statusFootnote(store.lastActionStatus)
         }
     }
 
     @ViewBuilder
     private var sectionVoice: some View {
-        Section("Voice quick append") {
+        Section("Voice") {
             PermissionRow(label: "Microphone", state: voiceModel.microphonePermission)
             PermissionRow(label: "Speech recognition", state: voiceModel.speechPermission)
 
             HStack {
                 Button(voiceModel.isRecording ? "Stop" : "Start capture") {
+                    playHaptic(voiceModel.isRecording ? .stop : .start)
                     Task { await voiceModel.toggleRecording() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -173,8 +249,15 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
 
                 Button("Append transcript") {
+                    playHaptic(.click)
                     submitThreadText(from: voiceModel.transcript)
                     voiceModel.clearTranscript()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Save as note") {
+                    playHaptic(.click)
+                    submitVoiceCapture()
                 }
                 .buttonStyle(.bordered)
             }
@@ -210,6 +293,47 @@ struct ContentView: View {
         Task {
             await store.submitThreadText(trimmed)
         }
+    }
+
+    private func submitCapture(asTask: Bool) {
+        let trimmed = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        playHaptic(asTask ? .success : .click)
+        Task {
+            if asTask {
+                await store.createCommitment(text: trimmed)
+            } else {
+                await store.createCapture(text: trimmed)
+            }
+            await MainActor.run { captureText = "" }
+        }
+    }
+
+    private func submitVoiceCapture() {
+        let trimmed = voiceModel.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        Task {
+            await store.createCapture(text: trimmed, type: "watch_voice_note", source: "apple_watch_voice")
+            await MainActor.run {
+                voiceModel.clearTranscript()
+            }
+        }
+    }
+
+    private func submitEscalation() {
+        let trimmed = threadText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        playHaptic(.notification)
+        Task {
+            await store.queueEscalationRequest(trimmed)
+            await MainActor.run { threadText = "" }
+        }
+    }
+
+    private func playHaptic(_ type: WKHapticType) {
+        #if canImport(WatchKit)
+        WKInterfaceDevice.current().play(type)
+        #endif
     }
 }
 

@@ -1,6 +1,11 @@
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
+#elseif canImport(Darwin)
+import Darwin
+#if canImport(OSLog)
+import OSLog
+#endif
 #endif
 
 /// HTTP client for the Vel daemon (veld) API. Apple shells stay thin over the same backend-owned core as web and CLI.
@@ -28,6 +33,10 @@ public final class VelClient {
 
     public func clusterBootstrap() async throws -> ClusterBootstrapData {
         try await get("/v1/cluster/bootstrap")
+    }
+
+    public func discoveryBootstrap() async throws -> ClusterBootstrapData {
+        try await get("/v1/discovery/bootstrap")
     }
 
     public func clusterWorkers() async throws -> ClusterWorkersData {
@@ -299,6 +308,21 @@ public final class VelClient {
         return try await post("/api/assistant/entry", body: body)
     }
 
+    public func conversations(
+        archived: Bool = false,
+        limit: Int = 100
+    ) async throws -> [ConversationData] {
+        try await get("/api/conversations?archived=\(archived ? "true" : "false")&limit=\(limit)")
+    }
+
+    public func conversationMessages(
+        conversationID: String,
+        limit: Int = 200
+    ) async throws -> [MessageData] {
+        let encodedID = conversationID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? conversationID
+        return try await get("/api/conversations/\(encodedID)/messages?limit=\(limit)")
+    }
+
     // MARK: - Local source sync
 
     public func syncLocalSource(_ source: VelLocalSourceKind) async throws -> SyncResultData {
@@ -375,6 +399,10 @@ public final class VelClient {
             "/v1/daily-loop/check-ins/\(checkInEventID)/skip",
             body: request
         )
+    }
+
+    public func createWatchSignal(_ request: WatchSignalCreateRequestData) async throws -> CaptureData {
+        try await post("/v1/journal/watch-signal", body: request)
     }
 
     // MARK: - Private
@@ -493,6 +521,14 @@ public struct VelClientConfiguration: Sendable {
 }
 
 public enum VelEndpointResolver {
+    private static let discoveredBaseURLsKey = "vel_discovered_base_urls"
+    private static let discoveryProtocolVersion = "vel_lan_discovery_v1"
+    private static let discoveryBroadcastPort = 4131
+    private static let discoveryResponseTimeoutSeconds = 0.25
+    #if canImport(OSLog)
+    private static let logger = Logger(subsystem: "vel.apple", category: "endpoint-resolver")
+    #endif
+
     public static func candidateBaseURLs(
         explicitBaseURL: URL? = nil,
         userDefaults: UserDefaults = .standard
@@ -511,13 +547,482 @@ public enum VelEndpointResolver {
         }
 
         append(userDefaults.string(forKey: "vel_tailscale_url"))
+        append(userDefaults.string(forKey: "tailscale_base_url"))
         append(userDefaults.string(forKey: "vel_base_url"))
+        append(userDefaults.string(forKey: "base_url"))
         append(userDefaults.string(forKey: "vel_lan_base_url"))
-        append("http://127.0.0.1:4130")
-        append("http://localhost:4130")
+        append(userDefaults.string(forKey: "lan_base_url"))
+        for url in discoveredBaseURLs(userDefaults: userDefaults) {
+            if !candidates.contains(url) {
+                candidates.append(url)
+            }
+        }
+        if shouldIncludeLoopbackFallbacks() {
+            append("http://127.0.0.1:4130")
+            append("http://localhost:4130")
+        }
+
+        log("candidate URLs: \(candidates.map(\.absoluteString).joined(separator: ", "))")
 
         return candidates
     }
+
+    public static func discoveredBaseURLs(
+        userDefaults: UserDefaults = .standard
+    ) -> [URL] {
+        let values = userDefaults.stringArray(forKey: discoveredBaseURLsKey) ?? []
+        var urls: [URL] = []
+        for value in values {
+            guard let url = URL(string: value), !urls.contains(url) else { continue }
+            urls.append(url)
+        }
+        return urls
+    }
+
+    public static func saveDiscoveredBaseURLs(
+        _ urls: [URL],
+        userDefaults: UserDefaults = .standard
+    ) {
+        let existing = discoveredBaseURLs(userDefaults: userDefaults)
+        let merged = (urls + existing).reduce(into: [URL]()) { partial, url in
+            guard !isLoopbackURL(url), !partial.contains(url) else { return }
+            partial.append(url)
+        }
+        userDefaults.set(
+            merged.prefix(12).map(\.absoluteString),
+            forKey: discoveredBaseURLsKey
+        )
+    }
+
+    public static func discoverLANBaseURLs(
+        session: URLSession = .shared,
+        userDefaults: UserDefaults = .standard
+    ) async -> [URL] {
+        var discovered: [URL] = []
+        log("starting LAN discovery")
+        let udpDiscovered = await discoverLANBaseURLsViaUDP()
+        for url in udpDiscovered where !discovered.contains(url) {
+            discovered.append(url)
+        }
+        if udpDiscovered.isEmpty {
+            log("UDP discovery returned no routes")
+        } else {
+            log("UDP discovery routes: \(udpDiscovered.map(\.absoluteString).joined(separator: ", "))")
+        }
+
+        if discovered.isEmpty {
+            let candidates = localDiscoveryProbeBaseURLs(userDefaults: userDefaults)
+            log("HTTP discovery probe candidates: \(candidates.prefix(16).map(\.absoluteString).joined(separator: ", "))\(candidates.count > 16 ? " ..." : "")")
+            await withTaskGroup(of: [URL].self) { group in
+                for candidate in candidates {
+                    group.addTask {
+                        await probeDiscoveryBootstrap(at: candidate, session: session)
+                    }
+                }
+
+                for await result in group {
+                    for url in result where !discovered.contains(url) {
+                        discovered.append(url)
+                    }
+                }
+            }
+        }
+
+        saveDiscoveredBaseURLs(discovered, userDefaults: userDefaults)
+        log("final discovered routes: \(discovered.map(\.absoluteString).joined(separator: ", "))")
+        return discovered
+    }
+
+    private static func discoverLANBaseURLsViaUDP() async -> [URL] {
+        #if canImport(Darwin)
+        return await Task.detached(priority: .utility) {
+            performUDPBroadcastDiscovery()
+        }.value
+        #else
+        return []
+        #endif
+    }
+
+    private static func probeDiscoveryBootstrap(
+        at candidate: URL,
+        session: URLSession
+    ) async -> [URL] {
+        let endpoint = candidate.appending(path: "/v1/discovery/bootstrap")
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 0.2
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                return []
+            }
+            let payload = try JSONDecoder().decode(DiscoveryBootstrapEnvelope.self, from: data)
+            guard let cluster = payload.data else { return [] }
+            let routes = bootstrapReachableBaseURLs(cluster: cluster)
+            if !routes.isEmpty {
+                log("HTTP discovery hit \(endpoint.absoluteString) -> \(routes.map(\.absoluteString).joined(separator: ", "))")
+            }
+            return routes
+        } catch {
+            return []
+        }
+    }
+
+    private static func bootstrapReachableBaseURLs(cluster: ClusterBootstrapData) -> [URL] {
+        let values = [
+            cluster.sync_base_url,
+            cluster.tailscale_base_url,
+            cluster.lan_base_url,
+            cluster.configured_base_url,
+        ]
+
+        var urls: [URL] = []
+        for value in values {
+            guard
+                let value,
+                let url = URL(string: value),
+                !isLoopbackURL(url),
+                !urls.contains(url)
+            else { continue }
+            urls.append(url)
+        }
+        return urls
+    }
+
+    private static func isLoopbackURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "localhost" || host == "127.0.0.1" || host == "::1"
+    }
+
+    private static func localDiscoveryProbeBaseURLs(
+        userDefaults: UserDefaults
+    ) -> [URL] {
+        let ports = discoveryProbePorts(userDefaults: userDefaults)
+        let hostURLs = localIPv4ProbeHosts().flatMap { host in
+            ports.compactMap { port in
+                URL(string: "http://\(host):\(port)")
+            }
+        }
+
+        var unique: [URL] = []
+        for url in hostURLs where !unique.contains(url) {
+            unique.append(url)
+        }
+        return unique
+    }
+
+    private static func discoveryProbePorts(
+        userDefaults: UserDefaults
+    ) -> [Int] {
+        var ports: [Int] = []
+
+        func append(port: Int?) {
+            guard let port, (1...65535).contains(port), !ports.contains(port) else { return }
+            ports.append(port)
+        }
+
+        let urlKeys = [
+            "vel_tailscale_url",
+            "tailscale_base_url",
+            "vel_base_url",
+            "base_url",
+            "vel_lan_base_url",
+            "lan_base_url",
+        ]
+        for key in urlKeys {
+            guard let raw = userDefaults.string(forKey: key),
+                  let url = URL(string: raw)
+            else { continue }
+            append(port: url.port)
+            if url.port == nil {
+                append(port: url.scheme?.lowercased() == "https" ? 443 : 80)
+            }
+        }
+
+        append(port: 4130)
+        append(port: 8443)
+        log("HTTP discovery ports: \(ports.map(String.init).joined(separator: ", "))")
+        return ports
+    }
+
+    #if canImport(Darwin)
+    private static func performUDPBroadcastDiscovery() -> [URL] {
+        let socketFD = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        guard socketFD >= 0 else { return [] }
+        defer { close(socketFD) }
+
+        var enableBroadcast: Int32 = 1
+        guard setsockopt(
+            socketFD,
+            SOL_SOCKET,
+            SO_BROADCAST,
+            &enableBroadcast,
+            socklen_t(MemoryLayout<Int32>.size)
+        ) == 0 else {
+            return []
+        }
+
+        var timeout = timeval(tv_sec: 0, tv_usec: 50_000)
+        _ = withUnsafePointer(to: &timeout) { pointer in
+            setsockopt(
+                socketFD,
+                SOL_SOCKET,
+                SO_RCVTIMEO,
+                pointer,
+                socklen_t(MemoryLayout<timeval>.size)
+            )
+        }
+
+        var bindAddress = sockaddr_in()
+        bindAddress.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        bindAddress.sin_family = sa_family_t(AF_INET)
+        bindAddress.sin_port = in_port_t(0).bigEndian
+        bindAddress.sin_addr = in_addr(s_addr: in_addr_t(0))
+
+        let bindResult = withUnsafePointer(to: &bindAddress) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                bind(socketFD, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard bindResult == 0 else { return [] }
+
+        let requestID = "lan-disc-\(UUID().uuidString.lowercased())"
+        let query = LANDiscoveryQuery(
+            protocol: discoveryProtocolVersion,
+            request_id: requestID,
+            sender_node_id: "apple-client"
+        )
+        guard let payload = try? JSONEncoder().encode(query) else { return [] }
+
+        var sent = false
+        for host in localDiscoveryBroadcastHosts() {
+            guard var destination = sockaddrIn(host: host, port: discoveryBroadcastPort) else {
+                continue
+            }
+            let result = payload.withUnsafeBytes { bytes in
+                withUnsafePointer(to: &destination) { pointer in
+                    pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                        sendto(
+                            socketFD,
+                            bytes.baseAddress,
+                            bytes.count,
+                            0,
+                            sockaddrPointer,
+                            socklen_t(MemoryLayout<sockaddr_in>.size)
+                        )
+                    }
+                }
+            }
+            if result >= 0 {
+                sent = true
+            }
+        }
+        guard sent else {
+            log("UDP discovery broadcast send failed")
+            return []
+        }
+
+        let deadline = Date().addingTimeInterval(discoveryResponseTimeoutSeconds)
+        var discovered: [URL] = []
+        var seenNodeIDs = Set<String>()
+
+        while Date() < deadline {
+            var buffer = [UInt8](repeating: 0, count: 16 * 1024)
+            var sourceAddress = sockaddr_storage()
+            var sourceLength = socklen_t(MemoryLayout<sockaddr_storage>.size)
+            let received = withUnsafeMutablePointer(to: &sourceAddress) { sourcePointer in
+                sourcePointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                    recvfrom(
+                        socketFD,
+                        &buffer,
+                        buffer.count,
+                        0,
+                        sockaddrPointer,
+                        &sourceLength
+                    )
+                }
+            }
+            guard received > 0 else { continue }
+
+            let data = Data(buffer.prefix(received))
+            guard
+                let response = try? JSONDecoder().decode(LANDiscoveryResponse.self, from: data),
+                response.protocol == discoveryProtocolVersion,
+                response.request_id == requestID,
+                seenNodeIDs.insert(response.cluster.node_id).inserted
+            else {
+                continue
+            }
+
+            for url in bootstrapReachableBaseURLs(cluster: response.cluster) where !discovered.contains(url) {
+                discovered.append(url)
+            }
+        }
+
+        if discovered.isEmpty {
+            log("UDP discovery received no responses")
+        }
+        return discovered
+    }
+
+    private static func localDiscoveryBroadcastHosts() -> [String] {
+        var hosts: [String] = ["255.255.255.255"]
+        var addresses: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&addresses) == 0, let first = addresses else { return hosts }
+        defer { freeifaddrs(addresses) }
+
+        var pointer: UnsafeMutablePointer<ifaddrs>? = first
+        while let current = pointer {
+            let interface = current.pointee
+            pointer = interface.ifa_next
+
+            guard
+                let address = interface.ifa_addr,
+                let netmask = interface.ifa_netmask
+            else { continue }
+
+            let flags = Int32(interface.ifa_flags)
+            let isUp = (flags & IFF_UP) != 0
+            let isLoopback = (flags & IFF_LOOPBACK) != 0
+            guard isUp, !isLoopback, address.pointee.sa_family == UInt8(AF_INET) else {
+                continue
+            }
+
+            let ip = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { pointer in
+                UInt32(bigEndian: pointer.pointee.sin_addr.s_addr)
+            }
+            let mask = netmask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { pointer in
+                UInt32(bigEndian: pointer.pointee.sin_addr.s_addr)
+            }
+
+            let octets = (
+                Int((ip >> 24) & 0xff),
+                Int((ip >> 16) & 0xff),
+                Int((ip >> 8) & 0xff),
+                Int(ip & 0xff)
+            )
+            guard shouldProbeLANSubnet(octets) else { continue }
+
+            let broadcast = ip | ~mask
+            let host = [
+                String((broadcast >> 24) & 0xff),
+                String((broadcast >> 16) & 0xff),
+                String((broadcast >> 8) & 0xff),
+                String(broadcast & 0xff),
+            ].joined(separator: ".")
+            if !hosts.contains(host) {
+                hosts.append(host)
+            }
+        }
+
+        log("UDP discovery broadcast hosts: \(hosts.joined(separator: ", "))")
+        return hosts
+    }
+
+    private static func sockaddrIn(host: String, port: Int) -> sockaddr_in? {
+        guard (1...65535).contains(port) else { return nil }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = in_port_t(port).bigEndian
+
+        let status = host.withCString { hostPointer in
+            inet_pton(AF_INET, hostPointer, &address.sin_addr)
+        }
+        return status == 1 ? address : nil
+    }
+    #endif
+
+    private static func localIPv4ProbeHosts() -> [String] {
+        var hosts: [String] = []
+        var addresses: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&addresses) == 0, let first = addresses else { return [] }
+        defer { freeifaddrs(addresses) }
+
+        var pointer: UnsafeMutablePointer<ifaddrs>? = first
+        while let current = pointer {
+            let interface = current.pointee
+            pointer = interface.ifa_next
+
+            guard let address = interface.ifa_addr else { continue }
+
+            let flags = Int32(interface.ifa_flags)
+            let isUp = (flags & IFF_UP) != 0
+            let isLoopback = (flags & IFF_LOOPBACK) != 0
+            guard isUp, !isLoopback, address.pointee.sa_family == UInt8(AF_INET) else {
+                continue
+            }
+
+            let ipv4 = address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { pointer in
+                UInt32(bigEndian: pointer.pointee.sin_addr.s_addr)
+            }
+            let octets = (
+                Int((ipv4 >> 24) & 0xff),
+                Int((ipv4 >> 16) & 0xff),
+                Int((ipv4 >> 8) & 0xff),
+                Int(ipv4 & 0xff)
+            )
+            guard shouldProbeLANSubnet(octets) else { continue }
+
+            for lastOctet in 1...254 {
+                guard lastOctet != octets.3 else { continue }
+                let candidate = "\(octets.0).\(octets.1).\(octets.2).\(lastOctet)"
+                if !hosts.contains(candidate) {
+                    hosts.append(candidate)
+                }
+            }
+        }
+
+        log("HTTP discovery probe hosts count: \(hosts.count)")
+        return hosts
+    }
+
+    private static func shouldProbeLANSubnet(_ octets: (Int, Int, Int, Int)) -> Bool {
+        switch octets {
+        case (10, _, _, _):
+            return true
+        case (172, 16...31, _, _):
+            return true
+        case (192, 168, _, _):
+            return true
+        case (100, 64...127, _, _):
+            // Include carrier-grade / Tailnet-style addresses, but avoid scanning arbitrary public subnets.
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func shouldIncludeLoopbackFallbacks() -> Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    private static func log(_ message: String) {
+        #if canImport(OSLog)
+        logger.info("\(message)")
+        #endif
+    }
+
+}
+
+private struct DiscoveryBootstrapEnvelope: Decodable {
+    let data: ClusterBootstrapData?
+}
+
+private struct LANDiscoveryQuery: Encodable {
+    let `protocol`: String
+    let request_id: String
+    let sender_node_id: String
+}
+
+private struct LANDiscoveryResponse: Decodable {
+    let `protocol`: String
+    let request_id: String
+    let cluster: ClusterBootstrapData
 }
 
 public enum VelClientError: Error, Sendable {

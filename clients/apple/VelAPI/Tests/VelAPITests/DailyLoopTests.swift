@@ -146,7 +146,6 @@ final class DailyLoopTests: XCTestCase {
             requests.append(request)
             let path = request.url?.path ?? ""
             let query = request.url?.query ?? ""
-            let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: 200,
@@ -156,7 +155,8 @@ final class DailyLoopTests: XCTestCase {
 
             if path == "/v1/daily-loop/sessions" {
                 XCTAssertEqual(request.httpMethod, "POST")
-                XCTAssertTrue(body.contains("\"phase\":\"morning_overview\""))
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["phase"] as? String, "morning_overview")
                 return (response, Data(mockSessionEnvelopeJSON(id: "dls_1", phase: "morning_overview", status: "waiting_for_input").utf8))
             }
 
@@ -169,15 +169,17 @@ final class DailyLoopTests: XCTestCase {
 
             if path == "/v1/daily-loop/sessions/dls_2/turn" {
                 XCTAssertEqual(request.httpMethod, "POST")
-                XCTAssertTrue(body.contains("\"action\":\"skip\""))
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["action"] as? String, "skip")
                 return (response, Data(mockSessionEnvelopeJSON(id: "dls_2", phase: "standup", status: "completed").utf8))
             }
 
             if path == "/v1/daily-loop/check-ins/dci_2/skip" {
                 XCTAssertEqual(request.httpMethod, "POST")
-                XCTAssertTrue(body.contains("\"reason_code\":\"not_applicable\""))
-                XCTAssertTrue(body.contains("\"reason_text\":\"in a meeting\""))
-                XCTAssertTrue(body.contains("\"source\":\"user\""))
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["reason_code"] as? String, "not_applicable")
+                XCTAssertEqual(payload["reason_text"] as? String, "in a meeting")
+                XCTAssertEqual(payload["source"] as? String, "user")
                 return (
                     response,
                     Data(
@@ -274,6 +276,38 @@ private func mockOptionalSessionEnvelopeJSON(id: String, phase: String, status: 
       "meta": { "request_id": "req_mock_optional" }
     }
     """
+}
+
+private func jsonObject(from requestBody: Data?) -> [String: Any]? {
+    guard let requestBody, !requestBody.isEmpty else { return nil }
+    return (try? JSONSerialization.jsonObject(with: requestBody)) as? [String: Any]
+}
+
+private func jsonObject(from request: URLRequest) -> [String: Any]? {
+    if let payload = jsonObject(from: request.httpBody) {
+        return payload
+    }
+    guard let stream = request.httpBodyStream else { return nil }
+    let data = Data(reading: stream)
+    return jsonObject(from: data)
+}
+
+private extension Data {
+    init(reading stream: InputStream) {
+        self.init()
+        stream.open()
+        defer { stream.close() }
+
+        let bufferSize = 1024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while stream.hasBytesAvailable {
+            let readCount = stream.read(buffer, maxLength: bufferSize)
+            guard readCount > 0 else { break }
+            append(buffer, count: readCount)
+        }
+    }
 }
 
 private final class MockURLProtocol: URLProtocol {

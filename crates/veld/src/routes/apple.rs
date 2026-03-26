@@ -7,8 +7,9 @@ use crate::{errors::AppError, routes::response, services, state::AppState};
 
 /// GET /v1/apple/behavior-summary
 ///
-/// Returns the backend-owned bounded Apple behavior summary derived from persisted health_metric
-/// signals. Apple clients render this summary rather than synthesizing local heuristics.
+/// Returns the backend-owned bounded Apple behavior summary derived from persisted Apple health
+/// metrics and recent watch-originated signals. Apple clients render this summary rather than
+/// synthesizing local heuristics.
 pub async fn apple_behavior_summary(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<AppleBehaviorSummaryData>>, AppError> {

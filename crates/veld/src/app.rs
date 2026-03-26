@@ -89,6 +89,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::journal::create_pain_journal),
         )
         .route(
+            "/v1/journal/watch-signal",
+            post(routes::journal::create_watch_signal_journal),
+        )
+        .route(
             "/v1/commitments",
             get(routes::commitments::list_commitments).post(routes::commitments::create_commitment),
         )
@@ -1631,6 +1635,94 @@ mod tests {
         assert_eq!(pain_signals.len(), 1);
         assert_eq!(pain_signals[0].payload_json["severity"], 4);
         assert_eq!(pain_signals[0].payload_json["location"], "lower back");
+    }
+
+    #[tokio::test]
+    async fn journal_watch_signal_endpoint_creates_capture_and_signal() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/journal/watch-signal")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "signal_type": "need_focus",
+                            "note": "context switching too much",
+                            "context": {
+                                "surface": "watch"
+                            },
+                            "source_device": "test-watch"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let captures = storage.list_captures_recent(10, false).await.unwrap();
+        assert_eq!(captures.len(), 1);
+        assert_eq!(captures[0].capture_type, "watch_signal_need_focus");
+        assert_eq!(
+            captures[0].content_text,
+            "watch signal: need_focus - context switching too much"
+        );
+
+        let signals = storage
+            .list_signals(Some("watch_signal:need_focus"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].payload_json["signal_type"], "need_focus");
+        assert_eq!(signals[0].payload_json["note"], "context switching too much");
+        assert_eq!(signals[0].payload_json["context"]["surface"], "watch");
+    }
+
+    #[tokio::test]
+    async fn journal_watch_signal_endpoint_rejects_unknown_signal_type() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/journal/watch-signal")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "signal_type": "totally_new_kind",
+                            "source_device": "test-watch"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(storage.list_captures_recent(10, false).await.unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -12176,6 +12268,135 @@ END:VCALENDAR
             json["data"]["schedule"]["next_event"]["title"],
             "Design review"
         );
+    }
+
+    #[tokio::test]
+    async fn now_endpoint_appends_recent_watch_signal_reasons_to_attention() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "watch_signal:need_focus".to_string(),
+                source: "vel".to_string(),
+                source_ref: Some("watch:need-focus".to_string()),
+                timestamp: now,
+                payload_json: Some(serde_json::json!({
+                    "signal_type": "need_focus",
+                    "note": "Need a quieter block"
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    global_risk_level: "medium".to_string(),
+                    attention_state: "on_task".to_string(),
+                    drift_type: Some("none".to_string()),
+                    drift_severity: Some("none".to_string()),
+                    attention_confidence: Some(0.9),
+                    attention_reasons: vec!["Calendar and commitments are current.".to_string()],
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let reasons = json["data"]["attention"]["reasons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(reasons
+            .iter()
+            .any(|reason| reason.contains("watch input") && reason.contains("Need a quieter block")));
+    }
+
+    #[tokio::test]
+    async fn now_endpoint_empty_state_still_surfaces_apple_behavior_source_from_watch_signal() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "watch_signal:drifting".to_string(),
+                source: "vel".to_string(),
+                source_ref: Some("watch:drifting".to_string()),
+                timestamp: now,
+                payload_json: Some(serde_json::json!({
+                    "signal_type": "drifting",
+                    "note": "Losing focus during setup"
+                })),
+            })
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["data"]["context_line"]["fallback_used"], true);
+        assert_eq!(json["data"]["sources"]["health"]["label"], "Apple behavior");
+        assert!(json["data"]["sources"]["health"]["summary"]["headline"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("watch signals"));
     }
 
     #[tokio::test]

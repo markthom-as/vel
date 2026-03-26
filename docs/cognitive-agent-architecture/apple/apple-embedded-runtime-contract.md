@@ -17,6 +17,7 @@ index_terms:
   - daemon vs embedded boundary
 related_files:
   - docs/cognitive-agent-architecture/apple/apple-rust-integration-path.md
+  - docs/cognitive-agent-architecture/apple/apple-watch-edge-client-contract.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md
   - clients/apple/README.md
   - clients/apple/VelAPI/Package.swift
@@ -63,6 +64,8 @@ It is not:
 - a full Apple-local authority runtime
 - permission for Swift-owned planner or policy logic
 - a claim that watchOS or macOS should embed Rust in this phase
+
+The canonical watchOS stance now lives in [apple-watch-edge-client-contract.md](apple-watch-edge-client-contract.md): watch is an edge client and sensor/haptic surface over `veld`, with iPhone as the local bridge.
 
 # Runtime Modes
 

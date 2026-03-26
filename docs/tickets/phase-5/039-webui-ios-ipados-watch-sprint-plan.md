@@ -32,13 +32,13 @@
 
 ---
 
-## Sprint 3 — Wave 3 watch reduced surface (Apple, native)
+## Sprint 3 — Wave 3 watch edge-client surface (Apple, native)
 
 |Item|Task|Files|Estimate (SP)|Definition of Done|
 |---|---|---|---:|---|
-|VEL-APP-701|Define watch minimal scope in docs|`clients/apple/Docs/feature-capability-matrix.md`, `clients/apple/AGENTS.md`, `clients/apple/Docs/apple-architecture.md`|2|Watch scope explicitly limited to nudges + voice + keyboard append; unsupported paths listed.
-|VEL-APP-702|Implement watch minimal UI surface|`clients/apple/Apps/VelWatch/ContentView.swift`, `clients/apple/Apps/VelWatch/VelWatchApp.swift`|5|Watch surface supports nudge list, voice capture entry, and thread append input; no full thread management added.
-|VEL-APP-703|Bridge watch actions to existing services safely|`clients/apple/VelAPI/Sources/VelAPI/VelClient.swift`, `clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift`, `clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift`|4|Existing domain/service contracts reused; no transport DTO leakage into domain; failure states are explainable and user-visible.
+|VEL-APP-701|Define watch edge-client scope in docs|`docs/cognitive-agent-architecture/apple/apple-watch-edge-client-contract.md`, `clients/apple/Docs/feature-capability-matrix.md`, `clients/apple/Docs/apple-architecture.md`, `clients/apple/README.md`|2|Watch scope explicitly limited to edge-client duties: compact state, nudges, haptics, quick capture, and bounded voice/keyboard append; unsupported paths listed.
+|VEL-APP-702|Implement watch edge UI surface|`clients/apple/Apps/VelWatch/ContentView.swift`, `clients/apple/Apps/VelWatch/VelWatchApp.swift`|5|Watch surface supports compact snapshot, nudge actions, quick capture/voice entry, and thread append input; no full thread management added.
+|VEL-APP-703|Bridge watch actions through phone/cache and existing services safely|`clients/apple/VelAPI/Sources/VelAPI/VelClient.swift`, `clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift`, `clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift`|4|Existing domain/service contracts reused; no transport DTO leakage into domain; failure states are explainable and user-visible; iPhone-bridge/offline posture remains explicit.
 |VEL-APP-704|Watch regression checks|`clients/apple/Apps/VelWatch/*` tests and any new shared test doubles|2|Happy-path append and nudge actions pass; failure path surfaces clear message; no auth or capability overreach.
 
 **Sprint 3 subtotal: 13 SP**
@@ -62,4 +62,4 @@
 
 - Wave 1 gate: no critical mobile path blocked by hidden desktop controls; composer and nudges available.
 - Wave 2 gate (if run): iPad split state transitions are stable and stateful.
-- Wave 3 gate: watch route remains intentionally minimal and stable in capability scope.
+- Wave 3 gate: watch route remains intentionally minimal and stable in edge-client capability scope.

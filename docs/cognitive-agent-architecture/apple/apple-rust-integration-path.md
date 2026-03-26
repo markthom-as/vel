@@ -22,6 +22,7 @@ related_files:
   - docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
+  - docs/cognitive-agent-architecture/apple/apple-watch-edge-client-contract.md
   - docs/cognitive-agent-architecture/architecture/embedded-packet-core-and-browser-wasm-path.md
 summary: Current Apple integration truth and the future migration path from today's HTTP-first model to optional embedded Rust / FFI usage.
 ---
@@ -56,6 +57,8 @@ Today Apple does **not** use:
 - embedded Rust as the primary runtime path
 - FFI/UniFFI as the main product boundary
 - Swift-owned business logic for daily planning or review policy
+
+Apple Watch follows an even stricter rule than iPhone: it should be treated as an edge client of `veld` with iPhone as the bridge, not as a target for broad embedded Rust ownership. See [apple-watch-edge-client-contract.md](apple-watch-edge-client-contract.md).
 
 # Why Current HTTP-First Is Correct Today
 

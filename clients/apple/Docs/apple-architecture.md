@@ -1,12 +1,12 @@
 # Apple Architecture Scaffold
 
-Status: scaffolded boundary map for iPhone, iPad, Watch, and future macOS role-aware flows.
+Status: active boundary map for iPhone, iPad, Watch, and future macOS role-aware flows.
 
 ## Device Roles
 
 - iPhone: daily negotiation surface (capture, voice, quick decisions)
 - iPad: planning and structured review workspace
-- Watch: glance-and-confirm edge device
+- Watch: edge client, sensor/haptic node, and glance-and-confirm interrupt surface
 - macOS: scaffold path for future ambient/HUD integrations
 
 ## Shared Module Scaffold
@@ -38,22 +38,27 @@ Current truth is still daemon-backed HTTP via `VelAPI`. The embedded bridge exis
 - `VeliOS` now uses `VelApplication.VelAppEnvironment` + `VelFeatureFlags.FeatureCapabilities` to switch between:
   - iPhone shell with exactly three first-class surfaces: `Now`, `Threads`, and `System`
   - iPad shell (`NavigationSplitView`) over those same three surfaces
-- `VelWatch` remains intentionally lean with quick-loop and capture focus.
+- `VelWatch` remains intentionally lean with quick-loop, haptics, and capture focus.
 - `VelMac` is a live target with a placeholder sidebar shell and shared environment wiring.
 - `VelWidgetExtension` and `VelIntentsExtension` are scaffolded targets for Apple-native affordances.
 
-## Watch surface contract (Wave 3)
+## Watch edge-client contract (Wave 3)
 
 `VelWatch` is intentionally narrow for this phase:
 
-- primary objective: expose active nudges and provide quick completion/snooze actions
-- thread path: keyboard/text append into the active thread and voice transcript append
+- architectural role: edge client of `veld`, with iPhone as the local bridge/cache/reconciliation proxy
+- primary objective: expose active nudges, compact current-state posture, and quick capture/append actions
+- thread path: keyboard/text append into the active thread and voice transcript append only when canonical thread continuity already exists
 - reduced objective: no dedicated thread management/listing, project views, or settings hub
-- behavior: if no active thread is available, input is queued as watch capture with recoverable provenance
+- behavior: if no active thread is available, input is queued as watch capture with recoverable provenance rather than inventing a local thread flow
 - mapping: actions go through existing `VelWatchStore` call paths (`markTopNudgeDone`, `snoozeTopNudge`, `submitThreadText`) to preserve backend/API contract boundaries
+- authority rule: watch does not own synthesis, policy, or heavy decision-making; it sends bounded signals and renders compact snapshots
+
+Canonical authority for this stance lives in [apple-watch-edge-client-contract.md](../../../docs/cognitive-agent-architecture/apple/apple-watch-edge-client-contract.md).
 
 ## Next Moves
 
-1. Move one vertical slice (`Quick Capture`) through `VelApplication` + `VelInfrastructure` protocols.
-2. Route widget/live activity timeline state from durable backend snapshots.
-3. Expand App Intents from placeholder intent execution to auth-aware action routing.
+1. Tighten `VelWatch` around event-first edge-client behavior instead of growing more watch-local UI.
+2. Route widget/complication timeline state from durable backend snapshots and bounded iPhone bridge cache.
+3. Expand watch-originated signal vocabulary only through typed event-log contracts.
+4. Expand App Intents from placeholder intent execution to auth-aware action routing.

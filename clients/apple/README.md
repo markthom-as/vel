@@ -6,6 +6,7 @@ Cross-surface architecture authority:
 
 - runtime topology and shell boundaries: [cross-surface core and adapters](../../docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md)
 - embedded-capable Apple boundary: [apple embedded runtime contract](../../docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md)
+- watch edge-client boundary: [apple watch edge client contract](../../docs/cognitive-agent-architecture/apple/apple-watch-edge-client-contract.md)
 - local-first iPhone voice/offline boundary: [apple local-first voice continuity contract](../../docs/cognitive-agent-architecture/apple/apple-local-first-voice-continuity-contract.md)
 - command/query/read-model vocabulary: [cross-surface contract vocabulary](../../docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md)
 - shipped architecture proof flow: [cross-surface proof flows](../../docs/cognitive-agent-architecture/architecture/cross-surface-proof-flows.md)
@@ -18,7 +19,7 @@ Product-mode authority for summary-first disclosure:
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
 - **VeliOS** — iPhone/iPad: compact canonical `Now`, continuity-first `Threads`, and structural `System`, plus quick-entry capture + voice sheets, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
-- **VelWatch** — Apple Watch: reduced canonical `Now` lane from `/v1/now`, bounded advisories and inbox actions, quick capture/check-in/task entry, reduced thread response with handoff to phone/Mac, and cached fallback.
+- **VelWatch** — Apple Watch: edge-client surface over `veld` with iPhone as bridge; reduced canonical `Now` lane from `/v1/now`, bounded advisories and nudge actions, quick capture/check-in/task entry, reduced thread append with handoff to phone/Mac, haptic-first interruption, and cached fallback.
 - **VelMac** — macOS: summary-first `Now`, explicit `Inbox` triage, compact `Threads` continuity summary, secondary `Projects`, support-only `Settings`, quick entry as a shell-native wrapper over backend routes, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
 
 ## Product surface hierarchy
@@ -158,8 +159,14 @@ The Apple clients resolve endpoint candidates in this order:
 1. `vel_tailscale_url` (tailnet endpoint, preferred for cross-device)
 2. `vel_base_url`
 3. `vel_lan_base_url` (local network fallback)
-4. `http://127.0.0.1:4130`
-5. `http://localhost:4130`
+4. previously discovered LAN daemon routes cached from `GET /v1/discovery/bootstrap`
+5. `http://127.0.0.1:4130`
+6. `http://localhost:4130`
+
+If those explicit routes fail, the iOS client now does one bounded LAN discovery pass against nearby `veld` instances and caches any reachable base URLs for later launches.
+When a daemon responds, Apple follows the daemon-advertised order: `sync_base_url` first, then any additional advertised routes such as Tailscale, LAN, and configured fallback. That keeps transport preference aligned with `veld` instead of having Swift invent a separate precedence rule.
+That discovery path is not Bonjour/mDNS today; it first uses Vel's UDP broadcast query protocol on port `4131`, then falls back to bounded HTTP discovery probes on candidate LAN ports inferred from configured routes plus the common defaults `4130` and `8443`.
+Tailnet routes remain first-class: the Apple settings override stores `.ts.net` hosts as `vel_tailscale_url`, and the iOS app allows insecure HTTP loads for `*.ts.net` so local-first `veld` instances remain reachable over Tailscale without requiring TLS termination first.
 
 Use `vel_tailscale_url` for day-to-day multi-device use. Keep `vel_base_url` as a fallback target.
 
@@ -190,12 +197,14 @@ Current guardrails:
 - cache is best-effort and can be overwritten by canonical server state after reconnect
 - cached daily-loop sessions are render-only fallback state; Apple clients do not synthesize new morning prompts, standup commitments, or local reduction logic while offline
 
-Watch quick-action notes:
+Watch edge-client notes:
 
 - quick presets for common check-ins (for example meds taken / prep started)
 - quick note capture and quick commitment add directly from watch
-- watch refresh reads `/v1/now` for schedule/next-commitment state and `/v1/apple/behavior-summary` for the bounded behavior card
+- watch refresh reads `/v1/now` for schedule/next-commitment state and `/v1/apple/behavior-summary` for the bounded behavior card, which may combine health metrics with recent watch-originated signals
 - watch capture/task actions use the same queued sync lane when offline
+- watch should be treated as a bounded event producer plus haptic/glance surface, not as a second planner or thread-management shell
+- prefer phone-bridge cache/reconciliation when available; watch-local state should stay minimal
 - current-day schedule rendering should stay backend-owned here too: next event means the next future relevant calendar event, not a routine block or midnight-fragmented carryover artifact
 
 Voice capture notes:
@@ -226,6 +235,7 @@ Cross-surface parity note:
 - Apple `Settings` and Mac summary surfaces now read the same backend-owned planning profile that web `Settings` manages; that parity is inspect-only in this phase and should not be treated as a second planner
 - Apple `Now` and quick-loop surfaces should keep thread resurfacing equally bounded: one clearly relevant resumable thread is acceptable, but the main Apple surface should not become a thread inbox
 - watch follows the same rule in reduced form: show the top thread-backed follow-through cue, then hand the operator off to iPhone or Mac once the work stops being compact
+- watch should not become the place where synthesis, policy, or broad continuity browsing happens; it should emit bounded signals and render bounded results
 - in both cases, shells own permissions, push-to-talk, local STT/TTS, and offline presentation, while the backend owns transcript provenance, daily-loop authority, and continuity routing
 - current platform limit: browser voice depends on browser STT availability, and full Apple app-target validation still requires Xcode/macOS even though `make check-apple-swift` validates the shared Swift package on Linux
 - current closeout limit: Apple still inherits the compact `Now` contract rather than a paginated schedule browser or contextual-help system; deeper setup/help routing continues to live in docs and the daemon-backed setup surfaces

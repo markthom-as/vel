@@ -14,7 +14,7 @@ struct VelMacApp: App {
         WindowGroup {
             ContentView(appEnvironment: appEnvironment)
                 .environmentObject(client)
-                .preferredColorScheme(.dark)
+                .tint(.orange)
         }
         .windowStyle(.automatic)
         .defaultSize(width: 400, height: 500)

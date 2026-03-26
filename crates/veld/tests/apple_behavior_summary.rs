@@ -8,7 +8,7 @@ use time::{Duration, OffsetDateTime};
 use tower::util::ServiceExt;
 use vel_api_types::{ApiResponse, AppleBehaviorSummaryData};
 use vel_config::AppConfig;
-use vel_storage::Storage;
+use vel_storage::{SignalInsert, Storage};
 use veld::{app::build_app, policy_config::PolicyConfig};
 
 const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
@@ -245,6 +245,139 @@ async fn apple_behavior_summary_reports_freshness_and_explainable_reasons() {
     assert_eq!(summary.metrics[0].recorded_at, step_timestamp);
     assert_eq!(summary.metrics[1].recorded_at, stand_timestamp);
     assert_eq!(summary.metrics[2].recorded_at, exercise_timestamp);
+
+    let _ = std::fs::remove_file(file_path);
+}
+
+#[tokio::test]
+async fn apple_behavior_summary_returns_watch_signal_only_summary() {
+    let storage = test_storage().await;
+    let now = OffsetDateTime::now_utc();
+    storage
+        .insert_signal(SignalInsert {
+            signal_type: "watch_signal:drifting".to_string(),
+            source: "vel".to_string(),
+            source_ref: Some("watch:test-drifting".to_string()),
+            timestamp: now.unix_timestamp(),
+            payload_json: Some(serde_json::json!({
+                "signal_type": "drifting",
+                "note": "Losing focus during setup"
+            })),
+        })
+        .await
+        .unwrap();
+    storage
+        .insert_signal(SignalInsert {
+            signal_type: "watch_signal:need_focus".to_string(),
+            source: "vel".to_string(),
+            source_ref: Some("watch:test-focus".to_string()),
+            timestamp: (now - Duration::minutes(3)).unix_timestamp(),
+            payload_json: Some(serde_json::json!({
+                "signal_type": "need_focus",
+                "note": "Need a quieter block"
+            })),
+        })
+        .await
+        .unwrap();
+    storage
+        .insert_signal(SignalInsert {
+            signal_type: "watch_signal:drifting".to_string(),
+            source: "vel".to_string(),
+            source_ref: Some("watch:old-drifting".to_string()),
+            timestamp: (now - Duration::days(1)).unix_timestamp(),
+            payload_json: Some(serde_json::json!({
+                "signal_type": "drifting",
+                "note": "stale"
+            })),
+        })
+        .await
+        .unwrap();
+
+    let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+    let response = app.oneshot(behavior_summary_request()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<AppleBehaviorSummaryData> = serde_json::from_slice(&body).unwrap();
+    let summary = payload.data.expect("behavior summary");
+
+    assert!(summary.metrics.is_empty());
+    assert!(summary.headline.contains("watch signals"));
+    assert!(summary
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("drifting")));
+    assert!(summary
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("Need a quieter block")));
+    assert!(!summary
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("stale")));
+}
+
+#[tokio::test]
+async fn apple_behavior_summary_includes_watch_signal_context_alongside_metrics() {
+    let storage = test_storage().await;
+    let now = OffsetDateTime::now_utc();
+    let file_path = write_health_snapshot(serde_json::json!({
+        "source": "healthkit",
+        "samples": [
+            {
+                "metric_type": "step_count",
+                "timestamp": now.unix_timestamp(),
+                "value": 7100,
+                "unit": "count",
+                "source_app": "Health",
+                "device": "Apple Watch"
+            }
+        ]
+    }));
+    let config = AppConfig {
+        health_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+    let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+    let sync_response = app.clone().oneshot(sync_health_request()).await.unwrap();
+    assert_eq!(sync_response.status(), StatusCode::OK);
+
+    storage
+        .insert_signal(SignalInsert {
+            signal_type: "watch_signal:waking_up".to_string(),
+            source: "vel".to_string(),
+            source_ref: Some("watch:test-wake".to_string()),
+            timestamp: (now - Duration::minutes(2)).unix_timestamp(),
+            payload_json: Some(serde_json::json!({
+                "signal_type": "waking_up",
+                "note": "Alarm dismissed"
+            })),
+        })
+        .await
+        .unwrap();
+
+    let response = app.oneshot(behavior_summary_request()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<AppleBehaviorSummaryData> = serde_json::from_slice(&body).unwrap();
+    let summary = payload.data.expect("behavior summary");
+
+    assert_eq!(summary.metrics.len(), 1);
+    assert!(summary.headline.contains("recent watch signals"));
+    assert!(summary
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("wake")));
+    assert!(summary
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("Alarm dismissed")));
 
     let _ = std::fs::remove_file(file_path);
 }

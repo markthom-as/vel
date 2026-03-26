@@ -219,8 +219,11 @@ Repo-local supervised workflow:
 
 ### `POST /v1/journal/mood`
 ### `POST /v1/journal/pain`
+### `POST /v1/journal/watch-signal`
 
 - typed journal event creation
+- `POST /v1/journal/watch-signal` accepts bounded watch-originated operator signals such as `drifting`, `on_track`, `need_focus`, `wake`, `heart_rate`, and `motion`
+- the route persists a provenance-preserving capture plus a typed `watch_signal:*` event so watch/phone quick loops stay event-first instead of inventing Apple-only RPC state
 
 ## Commitments, risk, and suggestions
 
@@ -337,6 +340,7 @@ CLI fallback when the web shell is unavailable:
 - `next_event` is the next future relevant calendar event, not the current event and not routine/noise placeholders; all-day, free/transparent, declined, and cancelled calendar rows are filtered before the shell sees them
 - the unified today lane is commitment-first on the backend seam: `next_commitment` and `other_open` represent work already in play for the current sleep-relative day, while `todoist` remains the secondary pullable task lane
 - Apple surfaces should treat `GET /v1/now` as the schedule and quick-loop authority instead of synthesizing schedule answers locally
+- recent watch-originated signals may also appear in backend-owned `attention.reasons` and Apple behavior source activity inside `GET /v1/now`; shells should render those hints directly rather than deriving local watch heuristics
 - cross-surface continuity should stay equally bounded: `Now` may resurface one clearly ranked resumable thread, but shells should not widen that into a live thread inbox on the main surface
 - the `day_plan` portion of `GET /v1/now` now carries a backend-owned bounded same-day planning proposal with explicit `scheduled`, `deferred`, `did_not_fit`, and `needs_judgment` outcomes plus the routine blocks used to shape the proposal
 - those routine blocks now come from the durable routine-planning profile when configured, with inferred fallback only when no durable blocks exist
@@ -360,6 +364,7 @@ CLI fallback when the web shell is unavailable:
 - bounded planning-profile edit requests now use that same confirmation-first voice lane: Apple can stage a typed routine-block or planning-constraint proposal, but the edit remains staged and thread-backed rather than silently applying profile mutations
 - when a planning-profile edit is recognized, the route returns typed proposal continuity metadata rather than mutating saved routines directly; Apple should treat that as an explicit follow-through handoff, not as an already-applied planner change
 - `GET /v1/apple/behavior-summary` returns the bounded daily behavior rollup used by Apple quick-loop surfaces
+- that rollup is backend-owned and may combine persisted Apple health metrics with recent watch-originated signals, including watch-only days where no Health metrics were ingested
 - Apple clients should send the same operator auth headers as the rest of `/v1/*` (`x-vel-operator-token` or `Authorization: Bearer <token>`) when token policy is configured
 - safe offline Apple mutations should continue to reuse `POST /v1/sync/actions`; clients should not invent a parallel Apple-only write lane
 - current limit: Apple still depends on the dedicated `/v1/apple/voice/turn` compatibility route for typed quick-loop replies, while browser/desktop voice goes through `/api/assistant/entry` after local speech-to-text

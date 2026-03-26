@@ -3,6 +3,67 @@ import VelApplePlatform
 import VelApplication
 import VelAPI
 
+enum WatchSignalKind: String, CaseIterable, Identifiable {
+    case drifting
+    case onTrack
+    case needFocus
+    case wakingUp
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .drifting:
+            return "Drifting"
+        case .onTrack:
+            return "On track"
+        case .needFocus:
+            return "Need focus"
+        case .wakingUp:
+            return "Waking up"
+        }
+    }
+
+    var captureType: String {
+        switch self {
+        case .drifting:
+            return "watch_signal_drift"
+        case .onTrack:
+            return "watch_signal_on_track"
+        case .needFocus:
+            return "watch_signal_need_focus"
+        case .wakingUp:
+            return "watch_signal_wake"
+        }
+    }
+
+    var backendSignalType: String {
+        switch self {
+        case .drifting:
+            return "drifting"
+        case .onTrack:
+            return "on_track"
+        case .needFocus:
+            return "need_focus"
+        case .wakingUp:
+            return "wake"
+        }
+    }
+
+    var defaultBody: String {
+        switch self {
+        case .drifting:
+            return "signal_type: drifting"
+        case .onTrack:
+            return "signal_type: on_track"
+        case .needFocus:
+            return "signal_type: need_focus"
+        case .wakingUp:
+            return "signal_type: wake"
+        }
+    }
+}
+
 @main
 struct VelWatchApp: App {
     @StateObject private var store = VelWatchStore()
@@ -38,6 +99,43 @@ final class VelWatchStore: ObservableObject {
     @Published var behaviorHeadline: String?
     @Published var behaviorReason: String?
     @Published var lastActionStatus: String?
+
+    var compactStatusLine: String {
+        if let topActionTitle, !topActionTitle.isEmpty {
+            return topActionTitle
+        }
+        if let nextCommitmentText, !nextCommitmentText.isEmpty {
+            return nextCommitmentText
+        }
+        return message
+    }
+
+    var driftSummary: String? {
+        let headline = behaviorHeadline?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let headline, !headline.isEmpty {
+            return headline
+        }
+        let reason = behaviorReason?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return reason?.isEmpty == false ? reason : nil
+    }
+
+    var handoffSummary: String {
+        if activeThreadID != nil {
+            return "Use iPhone or Mac for deeper follow-through."
+        }
+        return "No active thread. Longer follow-through should hand off to iPhone or Mac."
+    }
+
+    var transportSummary: String {
+        switch transport?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "cached":
+            return "Using cached state through the bridge."
+        case let value? where !value.isEmpty:
+            return "Bridge transport: \(value)"
+        default:
+            return "Waiting for bridge state."
+        }
+    }
 
     init() {
         let initial = VelEndpointResolver.candidateBaseURLs().first
@@ -159,6 +257,50 @@ final class VelWatchStore: ObservableObject {
 
         pendingActionCount = offlineStore.pendingActionCount()
         await refresh()
+    }
+
+    func queueEscalationRequest(_ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let body = [
+            "watch_escalation_request:",
+            "handoff: phone_or_mac",
+            "",
+            trimmed,
+        ].joined(separator: "\n")
+        await createCapture(text: body, type: "watch_escalation", source: "apple_watch")
+        lastActionStatus = "Escalation queued for phone or Mac."
+    }
+
+    func emitSignal(_ kind: WatchSignalKind, note: String? = nil) async {
+        let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            _ = try await client.createWatchSignal(
+                WatchSignalCreateRequestData(
+                    signal_type: kind.backendSignalType,
+                    note: trimmedNote?.isEmpty == false ? trimmedNote : nil,
+                    context: .object(["surface": .string("watch")]),
+                    source_device: "apple_watch_signal"
+                )
+            )
+            lastActionStatus = "\(kind.title) signal sent."
+        } catch {
+            var lines = [
+                kind.defaultBody,
+                "source_surface: watch",
+            ]
+            if let trimmedNote, !trimmedNote.isEmpty {
+                lines.append("")
+                lines.append(trimmedNote)
+            }
+            await createCapture(
+                text: lines.joined(separator: "\n"),
+                type: kind.captureType,
+                source: "apple_watch_signal"
+            )
+            lastActionStatus = "\(kind.title) signal queued as capture."
+        }
     }
 
     func submitThreadText(_ text: String) async {

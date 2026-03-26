@@ -151,6 +151,49 @@ public struct AssistantEntryConversationData: Codable, Sendable {
     }
 }
 
+public struct ThreadContinuationData: Codable, Sendable {
+    public let escalation_reason: String
+    public let continuation_context: JSONValue
+    public let review_requirements: [String]
+    public let bounded_capability_state: String
+    public let continuation_category: NowHeaderBucketKindData
+    public let open_target: String
+}
+
+public struct ConversationContinuationData: Codable, Sendable {
+    public let thread_id: String
+    public let thread_type: String
+    public let lifecycle_stage: String?
+    public let continuation: ThreadContinuationData
+}
+
+public struct ConversationData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let title: String?
+    public let kind: String
+    public let pinned: Bool
+    public let archived: Bool
+    public let call_mode_active: Bool
+    public let created_at: Int
+    public let updated_at: Int
+    public let message_count: Int
+    public let last_message_at: Int?
+    public let project_label: String?
+    public let continuation: ConversationContinuationData?
+}
+
+public struct MessageData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let conversation_id: String
+    public let role: String
+    public let kind: String
+    public let content: JSONValue
+    public let status: String?
+    public let importance: String?
+    public let created_at: Int
+    public let updated_at: Int?
+}
+
 // MARK: - Apple quick loops
 
 public typealias AppleVoiceTurnResponse = APIEnvelope<AppleVoiceTurnResponseData>
@@ -442,6 +485,25 @@ public struct DailyLoopCheckInSkipResponseData: Codable, Sendable {
     }
 }
 
+public struct WatchSignalCreateRequestData: Codable, Sendable {
+    public let signal_type: String
+    public let note: String?
+    public let context: JSONValue?
+    public let source_device: String?
+
+    public init(
+        signal_type: String,
+        note: String? = nil,
+        context: JSONValue? = nil,
+        source_device: String? = nil
+    ) {
+        self.signal_type = signal_type
+        self.note = note
+        self.context = context
+        self.source_device = source_device
+    }
+}
+
 public struct DailyLoopPromptData: Codable, Sendable {
     public let prompt_id: String
     public let kind: DailyLoopPromptKindData
@@ -478,6 +540,21 @@ public struct MorningOverviewStateData: Codable, Sendable {
     public let friction_callouts: [MorningFrictionCalloutData]
     public let signals: [MorningIntentSignalData]
     public let check_in_history: [DailyLoopCheckInResolutionData]
+
+    enum CodingKeys: String, CodingKey {
+        case snapshot
+        case friction_callouts
+        case signals
+        case check_in_history
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        snapshot = try container.decode(String.self, forKey: .snapshot)
+        friction_callouts = try container.decodeIfPresent([MorningFrictionCalloutData].self, forKey: .friction_callouts) ?? []
+        signals = try container.decodeIfPresent([MorningIntentSignalData].self, forKey: .signals) ?? []
+        check_in_history = try container.decodeIfPresent([DailyLoopCheckInResolutionData].self, forKey: .check_in_history) ?? []
+    }
 }
 
 public struct DailyCommitmentDraftData: Codable, Sendable {
@@ -505,6 +582,23 @@ public struct DailyStandupOutcomeData: Codable, Sendable {
     public let confirmed_calendar: [String]
     public let focus_blocks: [DailyFocusBlockProposalData]
     public let check_in_history: [DailyLoopCheckInResolutionData]
+
+    enum CodingKeys: String, CodingKey {
+        case commitments
+        case deferred_tasks
+        case confirmed_calendar
+        case focus_blocks
+        case check_in_history
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        commitments = try container.decodeIfPresent([DailyCommitmentDraftData].self, forKey: .commitments) ?? []
+        deferred_tasks = try container.decodeIfPresent([DailyDeferredTaskData].self, forKey: .deferred_tasks) ?? []
+        confirmed_calendar = try container.decodeIfPresent([String].self, forKey: .confirmed_calendar) ?? []
+        focus_blocks = try container.decodeIfPresent([DailyFocusBlockProposalData].self, forKey: .focus_blocks) ?? []
+        check_in_history = try container.decodeIfPresent([DailyLoopCheckInResolutionData].self, forKey: .check_in_history) ?? []
+    }
 }
 
 public struct DailyLoopSessionStateData: Codable, Sendable {
@@ -517,6 +611,31 @@ public struct DailyLoopSessionStateData: Codable, Sendable {
     public let confirmed_calendar: [String]
     public let focus_blocks: [DailyFocusBlockProposalData]
     public let check_in_history: [DailyLoopCheckInResolutionData]
+
+    enum CodingKeys: String, CodingKey {
+        case phase
+        case snapshot
+        case friction_callouts
+        case signals
+        case commitments
+        case deferred_tasks
+        case confirmed_calendar
+        case focus_blocks
+        case check_in_history
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        phase = try container.decode(DailyLoopPhaseData.self, forKey: .phase)
+        snapshot = try container.decodeIfPresent(String.self, forKey: .snapshot)
+        friction_callouts = try container.decodeIfPresent([MorningFrictionCalloutData].self, forKey: .friction_callouts) ?? []
+        signals = try container.decodeIfPresent([MorningIntentSignalData].self, forKey: .signals) ?? []
+        commitments = try container.decodeIfPresent([DailyCommitmentDraftData].self, forKey: .commitments) ?? []
+        deferred_tasks = try container.decodeIfPresent([DailyDeferredTaskData].self, forKey: .deferred_tasks) ?? []
+        confirmed_calendar = try container.decodeIfPresent([String].self, forKey: .confirmed_calendar) ?? []
+        focus_blocks = try container.decodeIfPresent([DailyFocusBlockProposalData].self, forKey: .focus_blocks) ?? []
+        check_in_history = try container.decodeIfPresent([DailyLoopCheckInResolutionData].self, forKey: .check_in_history) ?? []
+    }
 }
 
 public struct DailyLoopSessionOutcomeData: Codable, Sendable {
@@ -527,6 +646,27 @@ public struct DailyLoopSessionOutcomeData: Codable, Sendable {
     public let confirmed_calendar: [String]
     public let focus_blocks: [DailyFocusBlockProposalData]
     public let check_in_history: [DailyLoopCheckInResolutionData]
+
+    enum CodingKeys: String, CodingKey {
+        case phase
+        case signals
+        case commitments
+        case deferred_tasks
+        case confirmed_calendar
+        case focus_blocks
+        case check_in_history
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        phase = try container.decode(DailyLoopPhaseData.self, forKey: .phase)
+        signals = try container.decodeIfPresent([MorningIntentSignalData].self, forKey: .signals) ?? []
+        commitments = try container.decodeIfPresent([DailyCommitmentDraftData].self, forKey: .commitments) ?? []
+        deferred_tasks = try container.decodeIfPresent([DailyDeferredTaskData].self, forKey: .deferred_tasks) ?? []
+        confirmed_calendar = try container.decodeIfPresent([String].self, forKey: .confirmed_calendar) ?? []
+        focus_blocks = try container.decodeIfPresent([DailyFocusBlockProposalData].self, forKey: .focus_blocks) ?? []
+        check_in_history = try container.decodeIfPresent([DailyLoopCheckInResolutionData].self, forKey: .check_in_history) ?? []
+    }
 }
 
 public struct DailyLoopSessionData: Codable, Sendable, Identifiable {
@@ -1200,6 +1340,12 @@ public struct WorkerCapacityData: Codable, Sendable {
     public let max_concurrency: Int
     public let current_load: Int
     public let available_concurrency: Int
+
+    public init(max_concurrency: Int, current_load: Int, available_concurrency: Int) {
+        self.max_concurrency = max_concurrency
+        self.current_load = current_load
+        self.available_concurrency = available_concurrency
+    }
 }
 
 public struct WorkerPresenceData: Codable, Sendable, Identifiable {
@@ -1237,6 +1383,76 @@ public struct WorkerPresenceData: Codable, Sendable, Identifiable {
     public let last_sync_error: String?
     public let incoming_linking_prompt: LinkingPromptData?
     public let capacity: WorkerCapacityData
+
+    public init(
+        worker_id: String,
+        node_id: String,
+        node_display_name: String,
+        client_kind: String?,
+        client_version: String?,
+        protocol_version: String?,
+        build_id: String?,
+        worker_classes: [String],
+        capabilities: [String],
+        status: String,
+        queue_depth: Int,
+        reachability: String,
+        latency_class: String,
+        compute_class: String,
+        power_class: String,
+        recent_failure_rate: Double,
+        tailscale_preferred: Bool,
+        last_heartbeat_at: Int,
+        started_at: Int?,
+        sync_base_url: String,
+        sync_transport: String,
+        tailscale_base_url: String?,
+        preferred_tailnet_endpoint: String?,
+        tailscale_reachable: Bool,
+        lan_base_url: String?,
+        localhost_base_url: String?,
+        ping_ms: Int?,
+        sync_status: String?,
+        last_upstream_sync_at: Int?,
+        last_downstream_sync_at: Int?,
+        last_sync_error: String?,
+        incoming_linking_prompt: LinkingPromptData?,
+        capacity: WorkerCapacityData
+    ) {
+        self.worker_id = worker_id
+        self.node_id = node_id
+        self.node_display_name = node_display_name
+        self.client_kind = client_kind
+        self.client_version = client_version
+        self.protocol_version = protocol_version
+        self.build_id = build_id
+        self.worker_classes = worker_classes
+        self.capabilities = capabilities
+        self.status = status
+        self.queue_depth = queue_depth
+        self.reachability = reachability
+        self.latency_class = latency_class
+        self.compute_class = compute_class
+        self.power_class = power_class
+        self.recent_failure_rate = recent_failure_rate
+        self.tailscale_preferred = tailscale_preferred
+        self.last_heartbeat_at = last_heartbeat_at
+        self.started_at = started_at
+        self.sync_base_url = sync_base_url
+        self.sync_transport = sync_transport
+        self.tailscale_base_url = tailscale_base_url
+        self.preferred_tailnet_endpoint = preferred_tailnet_endpoint
+        self.tailscale_reachable = tailscale_reachable
+        self.lan_base_url = lan_base_url
+        self.localhost_base_url = localhost_base_url
+        self.ping_ms = ping_ms
+        self.sync_status = sync_status
+        self.last_upstream_sync_at = last_upstream_sync_at
+        self.last_downstream_sync_at = last_downstream_sync_at
+        self.last_sync_error = last_sync_error
+        self.incoming_linking_prompt = incoming_linking_prompt
+        self.capacity = capacity
+    }
 }
 
 public struct ClusterWorkersData: Codable, Sendable {

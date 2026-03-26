@@ -66,6 +66,11 @@ final class OfflineStoreTests: XCTestCase {
 
         let persisted = store.cachedVoiceContinuityHistory()
         XCTAssertEqual(persisted.first?.thread_id, "thread_123")
-        XCTAssertEqual(persisted.first?.merged_at?.timeIntervalSince1970, mergedAt.timeIntervalSince1970, accuracy: 1)
+        XCTAssertNotNil(persisted.first?.merged_at)
+        XCTAssertEqual(
+            persisted.first?.merged_at?.timeIntervalSince1970 ?? 0,
+            mergedAt.timeIntervalSince1970,
+            accuracy: 1
+        )
     }
 }

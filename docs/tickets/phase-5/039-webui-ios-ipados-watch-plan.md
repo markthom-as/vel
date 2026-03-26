@@ -1,4 +1,4 @@
-# Ticket 039: Responsive Web UI for iOS/iPadOS with Watch-Reduced Surface Strategy
+# Ticket 039: Responsive Web UI for iOS/iPadOS with Watch Edge-Client Strategy
 
 ## Owner
 - TBD
@@ -12,13 +12,14 @@ The current web UI has partial mobile behavior but remains desktop-first in layo
 1) responsive iOS-first experience,
 2) iPad-optimized split experience,
 3) optional desktop polish if near-free,
-4) and a reduced-watch surface focused on nudges + voice + keyboard append into threads.
+4) and a watch edge-client surface focused on nudges, haptics, quick capture, and bounded voice/keyboard append into threads.
 
 Priority order follows repo guidance: capture + recall + contextual flows before speculative platform features.
 
 ## Goals
 - Make iOS and iPad primary web interactions feel native-like and reliable under touch/virtual keyboard/viewport-change.
-- Keep watch surface intentionally narrow: nudges + quick voice/keyboard append into existing thread flows.
+- Keep watch surface intentionally narrow: nudges, compact state, quick capture, and quick voice/keyboard append into existing thread flows.
+- Treat watch as an edge client of `veld`, with iPhone as the preferred bridge/cache/reconciliation proxy.
 - Preserve layering contracts and boundary rules (no transport DTO leakage into domain/services).
 
 ## Non-goals
@@ -128,25 +129,30 @@ Priority order follows repo guidance: capture + recall + contextual flows before
 
 ---
 
-### Wave 3: watch-reduced surface (native-first)
+### Wave 3: watch edge-client surface (native-first)
 
 #### 11. [VEL-APP-701] Native watch reduced surface
 - Implement watch route in `clients/apple` that supports:
   - active nudges
+  - compact `Now` or risk snapshot
+  - quick capture
   - voice capture
   - keyboard-to-thread append
 - Do not expand to full thread management in Wave 3.
+- Keep watch policy-free: no watch-local synthesis, no heavy planner logic, no broad thread browsing.
 
 **Acceptance criteria**
 - Watch user can always reach nudge actions and append to a thread.
 - No complex list management in watch surface.
+- iPhone is treated as the preferred bridge for cache, offline replay, and remote transport.
 
 #### 12. [VEL-APP-702] Boundary-safe action mapping
-- Wire watch actions to existing services/contracts; keep boundaries clean.
+- Wire watch actions to existing services/contracts and typed event/log lanes; keep boundaries clean.
 
 **Acceptance criteria**
 - Watch actions map to existing APIs without domain-layer transport coupling.
 - Error handling remains deterministic with explainable provenance.
+- Sensor or haptic-oriented expansions must remain event-first rather than watch-specific RPC sprawl.
 
 #### 13. [VEL-DOC-703] Surface contract documentation
 - Update affected docs and ticket references in `docs/` and Apple docs.
