@@ -2987,7 +2987,7 @@ private struct SettingsTab: View {
     }
 
     private func redeemPairingToken(using prompt: LinkingPromptData) async {
-        let normalized = formatPairingTokenInput(pairingCodeInput)
+        let normalized = store.normalizeDomainHint(formatPairingTokenInput(pairingCodeInput)).uppercased()
         guard !normalized.isEmpty else {
             pairingFeedback = "Enter the pairing token shown on the issuing node."
             return

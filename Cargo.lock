@@ -2765,6 +2765,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "vel-embedded-bridge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "vel-llm"
 version = "0.1.0"
 dependencies = [

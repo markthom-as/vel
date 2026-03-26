@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="$ROOT/clients/apple/Vel.xcodeproj"
 SCHEME="${APPLE_IOS_SCHEME:-VeliOS}"
+CONFIGURATION="${APPLE_BUILD_CONFIGURATION:-Debug}"
 
 if [[ ! -d "$PROJECT" ]]; then
   echo "apple-build-ios-sim: missing Xcode project at $PROJECT" >&2
@@ -58,5 +59,27 @@ echo "apple-build-ios-sim: building scheme '$SCHEME' for simulator device $DEVIC
 xcodebuild \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
+  -configuration "$CONFIGURATION" \
   -destination "id=$DEVICE_ID" \
   build
+
+BUILD_SETTINGS="$(xcodebuild \
+  -project "$PROJECT" \
+  -scheme "$SCHEME" \
+  -destination "id=$DEVICE_ID" \
+  -configuration "$CONFIGURATION" \
+  -showBuildSettings)"
+
+TARGET_BUILD_DIR="$(printf '%s\n' "$BUILD_SETTINGS" | sed -n 's/^[[:space:]]*TARGET_BUILD_DIR = //p' | tail -n1)"
+WRAPPER_NAME="$(printf '%s\n' "$BUILD_SETTINGS" | sed -n 's/^[[:space:]]*WRAPPER_NAME = //p' | tail -n1)"
+APP_PATH="$TARGET_BUILD_DIR/$WRAPPER_NAME"
+
+if [[ -z "$TARGET_BUILD_DIR" || -z "$WRAPPER_NAME" || ! -d "$APP_PATH" ]]; then
+  echo "apple-build-ios-sim: unable to resolve built app path after bridge copy step." >&2
+  exit 1
+fi
+
+APPLE_EMBEDDED_BRIDGE_PLATFORM=simulator \
+APPLE_EMBEDDED_BRIDGE_PROFILE="$CONFIGURATION" \
+APPLE_EMBEDDED_BRIDGE_APP_PATH="$APP_PATH" \
+bash "$ROOT/scripts/apple-package-embedded-bridge.sh"

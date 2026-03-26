@@ -103,21 +103,23 @@ public struct VelAppEnvironment {
     }
 
     public static func bootstrap(capabilities: FeatureCapabilities) -> VelAppEnvironment {
-        let embeddedBridge = NoopEmbeddedBridgeSurface(
-            configuration: EmbeddedBridgeConfiguration(
-                isBridgeAvailableInBuild: capabilities.supportsEmbeddedRustBridge,
-                mode: capabilities.supportsEmbeddedRustBridge ? .embeddedCapable : .daemonBacked,
-                target: capabilities.supportsEmbeddedRustBridge ? .iphoneOnly : .unavailable,
-                approvedFlows: capabilities.supportsEmbeddedRustBridge
-                    ? [
-                        .cachedNowHydration,
-                        .localQuickActionPreparation,
-                        .offlineRequestPackaging,
-                        .deterministicDomainHelpers
-                    ]
-                    : []
-            )
+        let embeddedConfiguration = EmbeddedBridgeConfiguration(
+            isBridgeAvailableInBuild: capabilities.supportsEmbeddedRustBridge,
+            mode: capabilities.supportsEmbeddedRustBridge ? .embeddedCapable : .daemonBacked,
+            target: capabilities.supportsEmbeddedRustBridge ? .iphoneOnly : .unavailable,
+            approvedFlows: capabilities.supportsEmbeddedRustBridge
+                ? [
+                    .cachedNowHydration,
+                    .localQuickActionPreparation,
+                    .offlineRequestPackaging,
+                    .deterministicDomainHelpers
+                ]
+                : []
         )
+
+        let embeddedBridge = VelEmbeddedRustBridgeSurface(configuration: embeddedConfiguration)
+            ?? NoopEmbeddedBridgeSurface(configuration: embeddedConfiguration)
+
         return VelAppEnvironment(
             sessionStore: SessionState(),
             syncController: NoopSyncController(),

@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="$ROOT/clients/apple/Vel.xcodeproj"
 SCHEME="${APPLE_IOS_SCHEME:-VeliOS}"
+CONFIGURATION="${APPLE_BUILD_CONFIGURATION:-Debug}"
 
 if [[ ! -d "$PROJECT" ]]; then
   echo "apple-run-ios-sim: missing Xcode project at $PROJECT" >&2
@@ -58,12 +59,14 @@ echo "apple-run-ios-sim: building scheme '$SCHEME' for simulator device $DEVICE_
 xcodebuild \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
+  -configuration "$CONFIGURATION" \
   -destination "id=$DEVICE_ID" \
   build >/dev/null
 
 BUILD_SETTINGS="$(xcodebuild \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
+  -configuration "$CONFIGURATION" \
   -destination "id=$DEVICE_ID" \
   -showBuildSettings)"
 
@@ -81,6 +84,11 @@ if [[ ! -d "$APP_PATH" ]]; then
   echo "apple-run-ios-sim: app bundle not found at $APP_PATH" >&2
   exit 1
 fi
+
+APPLE_EMBEDDED_BRIDGE_PLATFORM=simulator \
+APPLE_EMBEDDED_BRIDGE_PROFILE="$CONFIGURATION" \
+APPLE_EMBEDDED_BRIDGE_APP_PATH="$APP_PATH" \
+bash "$ROOT/scripts/apple-package-embedded-bridge.sh"
 
 open -a Simulator
 xcrun simctl boot "$DEVICE_ID" >/dev/null 2>&1 || true

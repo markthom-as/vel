@@ -215,7 +215,12 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.createCommitment(text: text)
             },
             queueFallback: {
-                offlineStore.enqueueCommitmentCreate(text: text)
+                offlineStore.enqueueCommitmentCreate(
+                    text: packageOfflineRequestPayload(
+                        kind: "commitment.create",
+                        payload: text
+                    )
+                )
             }
         )
     }
@@ -231,15 +236,22 @@ final class VelClientStore: ObservableObject {
         } else {
             preparedText = text
         }
+        let queueText = packageOfflineRequestPayload(
+            kind: "capture.create",
+            payload: queuedCaptureText(
+                text: preparedText,
+                type: type,
+                source: source
+            )
+        )
+
         await performAction(
             queuedMessage: "Queued capture for sync.",
             remote: {
                 _ = try await client.createCapture(text: preparedText, type: type, source: source)
             },
             queueFallback: {
-                offlineStore.enqueueCaptureCreate(
-                    text: queuedCaptureText(text: preparedText, type: type, source: source)
-                )
+                offlineStore.enqueueCaptureCreate(text: queueText)
             }
         )
     }
@@ -269,10 +281,13 @@ final class VelClientStore: ObservableObject {
                 .joined(separator: "\n")
 
             offlineStore.enqueueCaptureCreate(
-                text: queuedCaptureText(
-                    text: fallbackText,
-                    type: "assistant_entry",
-                    source: "apple_ios_chat"
+                text: packageOfflineRequestPayload(
+                    kind: "assistant_entry",
+                    payload: queuedCaptureText(
+                        text: fallbackText,
+                        type: "assistant_entry",
+                        source: "apple_ios_chat"
+                    )
                 )
             )
             pendingActionCount = offlineStore.pendingActionCount()
@@ -280,6 +295,12 @@ final class VelClientStore: ObservableObject {
             await refresh()
             return nil
         }
+    }
+
+    func normalizeDomainHint(_ input: String) -> String {
+        embeddedBridge.domainHelpersBridge.normalizeDomainHint(
+            input.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
     }
 
     func setBaseURLOverride(_ value: String?) {
@@ -402,6 +423,43 @@ final class VelClientStore: ObservableObject {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: Date())
+    }
+
+    private struct OfflineRequestEnvelope: Codable {
+        let kind: String
+        let payload: String
+    }
+
+    private struct OfflineRequestPacket: Decodable {
+        let kind: String
+        let payload: String
+        let ready: Bool
+        let reason: String?
+    }
+
+    private func packageOfflineRequestPayload(kind: String, payload: String) -> String {
+        guard let encoded = try? JSONEncoder().encode(
+            OfflineRequestEnvelope(kind: kind, payload: payload)
+        ), let json = String(data: encoded, encoding: .utf8)
+        else {
+            return payload
+        }
+
+        let packaged = embeddedBridge.offlineRequestBridge.packageOfflineRequest(json)
+        guard let parsed = parseOfflineRequestPacket(from: packaged), parsed.ready else {
+            return payload
+        }
+
+        if !parsed.payload.isEmpty { return parsed.payload }
+        if let reason = parsed.reason, !reason.isEmpty {
+            return "\(payload)\noffline_request_reason:\(reason)"
+        }
+        return payload
+    }
+
+    private func parseOfflineRequestPacket(from value: String) -> OfflineRequestPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
     }
 
     private func queuedCaptureText(text: String, type: String, source: String) -> String {

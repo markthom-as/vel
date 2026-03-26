@@ -61,3 +61,7 @@ mkdir -p "$ROOT/var/apple-device-build"
 printf '%s\n' "$APP_PATH" > "$ROOT/var/apple-device-build/last-ios-app-path.txt"
 
 echo "apple-build-ios-device: built app at $APP_PATH"
+APPLE_EMBEDDED_BRIDGE_PLATFORM=device \
+APPLE_EMBEDDED_BRIDGE_PROFILE="$CONFIGURATION" \
+APPLE_EMBEDDED_BRIDGE_APP_PATH="$APP_PATH" \
+bash "$ROOT/scripts/apple-package-embedded-bridge.sh"
