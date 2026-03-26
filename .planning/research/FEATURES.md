@@ -97,8 +97,8 @@ Defer:
 - Repo authority: [MASTER_PLAN.md](/home/jove/code/vel/docs/MASTER_PLAN.md)
 - Product boundary: [now-inbox-threads-boundaries.md](/home/jove/code/vel/docs/product/now-inbox-threads-boundaries.md)
 - Architecture contract: [day-plan-reflow-contract.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/day-plan-reflow-contract.md)
-- Phase input: [40-CONTEXT.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-CONTEXT.md)
-- Phase input: [40-RESEARCH.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-RESEARCH.md)
+- Phase input: [40-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-CONTEXT.md)
+- Phase input: [40-RESEARCH.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-RESEARCH.md)
 - External pattern check: https://www.sunsama.com/daily-planning
 - External pattern check: https://www.sunsama.com/features/guided-planning-and-reviews
 - External pattern check: https://help.sunsama.com/docs/importing-meetings

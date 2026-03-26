@@ -93,7 +93,7 @@ vel/
 **`.planning/`**
 - Purpose: Current planning state for the GSD workflow.
 - Contains: `STATE.md`, active phase folders, milestones, todos, and this codebase map.
-- Key files: `.planning/STATE.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/phases/54-final-ui-cleanup-and-polish-pass/`.
+- Key files: `.planning/STATE.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/milestones/v0.4-phases/54-final-ui-cleanup-and-polish-pass/`.
 - Subdirectories: `codebase/`, `phases/`, `milestones/`, `todos/`, `research/`.
 
 ## Key File Locations

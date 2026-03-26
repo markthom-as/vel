@@ -6,8 +6,8 @@ Run the single-node MVP proof, direct acceptance audit, and milestone closeout f
 
 ## Preconditions
 
-- [99-CONTEXT.md](/home/jove/code/vel/.planning/phases/99-web-surface-polish-and-operator-flow-completion/99-CONTEXT.md) is satisfied
-- [99-01-PLAN.md](/home/jove/code/vel/.planning/phases/99-web-surface-polish-and-operator-flow-completion/99-01-PLAN.md) has landed the remaining interaction and polish work
+- [99-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/99-web-surface-polish-and-operator-flow-completion/99-CONTEXT.md) is satisfied
+- [99-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/99-web-surface-polish-and-operator-flow-completion/99-01-PLAN.md) has landed the remaining interaction and polish work
 - the relevant browser/manual verification tooling is available for desktop Chrome
 
 ## Main implementation targets

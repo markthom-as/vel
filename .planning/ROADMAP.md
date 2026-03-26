@@ -9,6 +9,14 @@
 - `v0.5.1` shipped canonical client reconnection archive: [v0.5.1-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-ROADMAP.md)
 - `v0.5.2` shipped operator-surface embodiment archive: [v0.5.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-ROADMAP.md)
 
+Archived phase buckets for closed later lines now live under [milestones/README.md](/home/jove/code/vel/.planning/milestones/README.md):
+
+- `0.4.x`: [v0.4-phases](/home/jove/code/vel/.planning/milestones/v0.4-phases)
+- `0.5.3`: [v0.5.3-phases](/home/jove/code/vel/.planning/milestones/v0.5.3-phases)
+- `0.5.4`: [v0.5.4-phases](/home/jove/code/vel/.planning/milestones/v0.5.4-phases)
+- `0.5.4` carry-forward history: [v0.5.4-carry-forward-phases](/home/jove/code/vel/.planning/milestones/v0.5.4-carry-forward-phases)
+- `0.5.5`: [v0.5.5-phases](/home/jove/code/vel/.planning/milestones/v0.5.5-phases)
+
 ## Previously Closed Milestones
 
 `0.5` is now closed. It delivered the backend core rewrite packet:
@@ -47,7 +55,7 @@ Milestone `0.5.2` embodied the frozen `0.5` / truthful `0.5.1` web line into the
 - per-surface browser proof plus one cross-surface operator loop
 - refreshed Apple handoff/spec only
 
-## Latest Closed Milestone
+## Latest Closed Milestone Before The MVP Line
 
 `0.5.4` is now closed as the web UI implementation line, with explicit carry-forward into `0.5.5` for unresolved API / functionality / polish work.
 
@@ -86,7 +94,141 @@ Milestone `0.5.3` delivered:
 
 `0.5.7` is now in progress as the active architecture milestone.
 
-## Latest Closed Milestone
+## v0.5.7 Hybrid Duplex Voice Runtime
+
+`0.5.7` is active as the hybrid duplex voice runtime line.
+
+Milestone `0.5.7` exists to add truthful duplex voice interaction while preserving the ownership split:
+
+- native Apple shell for session policy, interruptions, route changes, permissions, and voice-processing I/O
+- portable Rust core for buffering, resampling, VAD, STT/TTS/LLM orchestration, turn state, and policy
+- explicit validation and real-device proof before closeout
+
+### Active Packet
+
+- [v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
+- [v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md)
+- [v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md)
+- [v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md)
+- [v0.5.7-hybrid-duplex-voice-runtime/11-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/11-VERIFICATION.md)
+- [v0.5.7-hybrid-duplex-voice-runtime/13-NEXT-STEPS.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/13-NEXT-STEPS.md)
+
+### Scope Guardrails
+
+The active `0.5.7` line should remain bounded by:
+
+- no all-Rust ownership of privileged Apple audio/session behavior
+- no "everything native" erosion of the Rust product core
+- no wake-word or diarization widening in this line
+- no speculative distributed-inference or multi-agent voice widening
+- no pretending the desktop proving path is equivalent to iOS-native proof
+
+### Requirement Buckets
+
+| ID | Description |
+|----|-------------|
+| ARCH-57-01 | The hybrid native-audio / Rust-engine boundary is explicit, documented, and enforced. |
+| CORE-57-01 | The Rust speech engine owns buffering, resampling, VAD/turn detection, orchestration, and conversation state. |
+| ADAPTER-57-01 | Platform adapters keep privileged session concerns native while feeding typed PCM and device events into Rust. |
+| CALL-57-01 | Duplex thread call mode supports streaming listen/respond, interruption, and recovery without shadow state. |
+| VERIFY-57-01 | Formal validation, execution-backed verification, and manual real-device proof close the line honestly. |
+
+### Phases
+
+- [ ] **Phase 101: Duplex architecture lock and contract packet** - lock the ownership and validation contract before implementation broadens.
+- [ ] **Phase 102: Portable Rust speech engine spine** - build the Rust-owned engine seam for buffers, VAD, orchestration, and cancellation.
+- [ ] **Phase 103: Proving adapter and duplex thread loop** - prove the engine end to end before iOS-specific quality claims.
+- [ ] **Phase 104: iOS native voice-processing bridge** - add the Apple-quality path without moving logic out of Rust.
+- [ ] **Phase 105: Duplex validation, proof, and closeout** - execute the full validation matrix and close honestly.
+
+### Progress
+
+**Planned execution order:** 101 -> 102 -> 103 -> 104 -> 105
+
+| Phase | Requirements | Status |
+|-------|--------------|--------|
+| 101. Duplex architecture lock and contract packet | ARCH-57-01, VERIFY-57-01 | Planned |
+| 102. Portable Rust speech engine spine | CORE-57-01 | Planned |
+| 103. Proving adapter and duplex thread loop | ADAPTER-57-01, CALL-57-01, VERIFY-57-01 | Planned |
+| 104. iOS native voice-processing bridge | ADAPTER-57-01, CALL-57-01, VERIFY-57-01 | Planned |
+| 105. Duplex validation, proof, and closeout | VERIFY-57-01 | Planned |
+
+### Phase Details
+
+### Phase 101: Duplex architecture lock and contract packet
+
+**Goal:** lock the ownership and validation contract before implementation broadens.
+**Requirements:** ARCH-57-01, VERIFY-57-01
+**Depends on:** `0.5.6` closeout
+**Success Criteria:**
+1. The ownership matrix makes native-shell and Rust-engine responsibilities explicit enough to block future ambiguity.
+2. Callback-safe threading rules and banned operations are written as hard constraints before implementation broadens.
+3. Typed adapter events, turn-state semantics, and interrupt/cancel behavior are locked in milestone docs and phase artifacts.
+4. Desktop/harness proof and real-device iOS proof obligations are defined before implementation claims begin.
+
+### Phase 102: Portable Rust speech engine spine
+
+**Goal:** build the Rust-owned engine seam for buffers, VAD, orchestration, and cancellation.
+**Requirements:** CORE-57-01
+**Depends on:** Phase 101
+**Success Criteria:**
+1. Ring-buffered audio ingress and egress exist with fixed frame contracts and callback-safe boundaries.
+2. Rust owns resampling, normalization, VAD or turn detection, and segment lifecycle logic.
+3. STT, TTS, and conversation-model adapters are swappable behind engine-owned traits.
+4. Cancellation and flush behavior are first-class tested engine paths.
+
+### Phase 103: Proving adapter and duplex thread loop
+
+**Goal:** prove the engine end to end before iOS-specific quality claims.
+**Requirements:** ADAPTER-57-01, CALL-57-01, VERIFY-57-01
+**Depends on:** Phase 102
+**Success Criteria:**
+1. A proving adapter or harness can drive PCM into the engine and play synthesized output back out.
+2. Thread call mode reuses truthful thread state instead of introducing a separate voice-only shadow path.
+3. Barge-in, interruption, and single-active-turn behavior work in execution-backed tests.
+4. Traces and metrics exist for turn transitions, latency, cancellation, and underruns.
+
+### Phase 104: iOS native voice-processing bridge
+
+**Goal:** add the Apple-quality path without moving logic out of Rust.
+**Requirements:** ADAPTER-57-01, CALL-57-01, VERIFY-57-01
+**Depends on:** Phase 103
+**Success Criteria:**
+1. Native Swift or Obj-C code owns `AVAudioSession` policy, route changes, interruptions, permissions, and voice-processing setup.
+2. Apple-native voice-processing feeds typed PCM and device events into the existing Rust engine without widening Rust authority.
+3. Playback and interruption behavior recover without corrupting engine-owned turn state.
+4. Real-device iOS duplex proof exists for interruption and route-change scenarios.
+
+### Phase 105: Duplex validation, proof, and closeout
+
+**Goal:** execute the full validation matrix and close honestly.
+**Requirements:** VERIFY-57-01
+**Depends on:** Phase 104
+**Success Criteria:**
+1. Structural, boundary, behavioral, temporal, adversarial, platform, and operational validation are executed rather than merely documented.
+2. Latency, glitch, cancellation, and long-session behavior are measured and recorded.
+3. Desktop or harness proof and at least one real iOS-device proof path are captured with execution-backed evidence.
+4. Any remaining work is deferred explicitly with rationale instead of being hidden in optimistic milestone language.
+
+### Queued Cleanup After The Duplex Milestone
+
+`docs/VELOCITY-DRIFT-CLEANUP.md` remains the seed audit for the next cleanup packet after duplex voice closes. These are intentionally queued after `0.5.7`, not part of the active duplex execution line:
+
+- queued packet bucket: [post-v0.5.7-velocity-drift-cleanup-phases](/home/jove/code/vel/.planning/milestones/post-v0.5.7-velocity-drift-cleanup-phases)
+- seed audit: [docs/VELOCITY-DRIFT-CLEANUP.md](/home/jove/code/vel/docs/VELOCITY-DRIFT-CLEANUP.md)
+
+- cleanup packet draft `106`: simplify traits, policy dead code, and suppression triage
+- cleanup packet draft `107`: time migration and orphaned storage cleanup
+- cleanup packet draft `108`: error boundary standardization and crate fate decisions
+- cleanup packet draft `109`: module splits and DTO reorganization
+
+### Backlog Seeds
+
+- backlog seed bucket: [post-v0.5.7-cluster-mesh-seed](/home/jove/code/vel/.planning/milestones/post-v0.5.7-cluster-mesh-seed)
+- future spec: [multi-transport-cluster-mesh-routing-and-capability-sync-spec.md](/home/jove/code/vel/docs/future/multi-transport-cluster-mesh-routing-and-capability-sync-spec.md)
+- backlog seed `999.1`: multi-transport cluster mesh, routing, and capability sync remains future-only and should not widen the active duplex milestone
+
+## v0.5.6 Single-Node MVP and Polished Web UI (Closed)
 
 `0.5.6` is now closed as the single-node MVP and polished web UI line.
 
@@ -98,61 +240,7 @@ Packet:
 - [v0.5.6-REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.6-REQUIREMENTS.md)
 - [v0.5.6-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-MILESTONE-AUDIT.md)
 
-## Active Milestone
-
-`0.5.7` is active as the hybrid duplex voice runtime line.
-
-Milestone `0.5.7` exists to add truthful duplex voice interaction while preserving the ownership split:
-
-- native Apple shell for session policy, interruptions, route changes, permissions, and voice-processing I/O
-- portable Rust core for buffering, resampling, VAD, STT/TTS/LLM orchestration, turn state, and policy
-- explicit validation and real-device proof before closeout
-
-Packet:
-
-- [v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/00-CONTEXT.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md)
-
-## `0.5.7` Scope Guardrails
-
-The active `0.5.7` line should remain bounded by:
-
-- no all-Rust ownership of privileged Apple audio/session behavior
-- no “everything native” erosion of the Rust product core
-- no wake-word or diarization widening in this line
-- no speculative distributed-inference or multi-agent voice widening
-- no pretending the desktop proving path is equivalent to iOS-native proof
-
-## `0.5.7` Requirement Buckets
-
-| ID | Description |
-|----|-------------|
-| ARCH-57-01 | The hybrid native-audio / Rust-engine boundary is explicit, documented, and enforced. |
-| CORE-57-01 | The Rust speech engine owns buffering, resampling, VAD/turn detection, orchestration, and conversation state. |
-| ADAPTER-57-01 | Platform adapters keep privileged session concerns native while feeding typed PCM and device events into Rust. |
-| CALL-57-01 | Duplex thread call mode supports streaming listen/respond, interruption, and recovery without shadow state. |
-| VERIFY-57-01 | Formal validation, execution-backed verification, and manual real-device proof close the line honestly. |
-
-## `0.5.7` Phases
-
-- [ ] **Phase 101: Duplex architecture lock and contract packet** - lock the ownership and validation contract before implementation broadens.
-- [ ] **Phase 102: Portable Rust speech engine spine** - build the Rust-owned engine seam for buffers, VAD, orchestration, and cancellation.
-- [ ] **Phase 103: Proving adapter and duplex thread loop** - prove the engine end to end before iOS-specific quality claims.
-- [ ] **Phase 104: iOS native voice-processing bridge** - add the Apple-quality path without moving logic out of Rust.
-- [ ] **Phase 105: Duplex validation, proof, and closeout** - execute the full validation matrix and close honestly.
-
-## Post-`0.5.7` Queued Cleanup Lane
-
-`docs/VELOCITY-DRIFT-CLEANUP.md` is now the seed audit for the next cleanup packet after duplex voice closes. The goal is to pay down structural drift without mixing unrelated repository cleanup into the active voice-runtime line.
-
-- [ ] **Phase 106: Velocity cleanup: simplify traits, policy dead code, and suppression triage** - close VD-01 through VD-04 by removing single-implementation indirection, deleting unused policy scaffolding, and replacing blanket dead-code suppression with targeted decisions.
-- [ ] **Phase 107: Velocity cleanup: time migration and orphaned storage cleanup** - close VD-05 and VD-06 by finishing the `chrono` to `time` migration and removing schema objects that no longer have runtime ownership.
-- [ ] **Phase 108: Velocity cleanup: error boundary standardization and crate fate decisions** - close VD-10 and VD-11 by normalizing boundary error patterns and deciding whether `vel-sim` and `vel-agent-sdk` stay, move, or retire.
-- [ ] **Phase 109: Velocity cleanup: module splits and DTO reorganization** - close VD-07 through VD-09 by splitting monolithic route/service files and breaking `vel-api-types` into maintainable modules.
-
-## `0.5.6` Scope Guardrails (Closed)
+### Scope Guardrails
 
 The closed `0.5.6` line remained bounded by:
 
@@ -162,7 +250,7 @@ The closed `0.5.6` line remained bounded by:
 - no speculative workflow-builder or planner-studio widening
 - no Apple implementation
 
-## `0.5.6` Requirement Buckets (Closed)
+### Requirement Buckets
 
 | ID | Description |
 |----|-------------|
@@ -173,14 +261,14 @@ The closed `0.5.6` line remained bounded by:
 | POLISH-56-01 | The web UI reaches accepted polish across navbar, nudges, composer, `Now`, `Threads`, and `System`. |
 | VERIFY-56-01 | Browser/API/manual proof closes the milestone honestly. |
 
-## Phases
+### Phases
 
 - [x] **Phase 97: MVP scope lock and feedback-to-contract mapping** - convert `TODO.md` into explicit single-node MVP acceptance criteria without losing the operator’s exact wording.
 - [x] **Phase 98: Single-node truth and settings/integrations completion** - make the single-node runtime, settings, integrations, and chat seams truthful enough for real use.
 - [x] **Phase 99: Web surface polish and operator-flow completion** - finish the accepted web UI and interaction model across the three surfaces.
 - [x] **Phase 100: MVP proof, audit, and milestone closeout** - prove the single-node MVP works end to end and close the line honestly. (completed 2026-03-25)
 
-## Progress
+### Progress
 
 **Planned execution order:** 97 -> 98 -> 99 -> 100
 
@@ -191,7 +279,7 @@ The closed `0.5.6` line remained bounded by:
 | 99. Web surface polish and operator-flow completion | NOW-56-01, SYSTEM-56-01, POLISH-56-01 | Complete |
 | 100. MVP proof, audit, and milestone closeout | VERIFY-56-01 | Complete |
 
-## Phase Details
+### Phase Details
 
 ### Phase 97: MVP scope lock and feedback-to-contract mapping
 
@@ -210,20 +298,20 @@ The closed `0.5.6` line remained bounded by:
 **Requirements:** MVP-56-01, NOW-56-01, CHAT-56-01, SYSTEM-56-01
 **Depends on:** Phase 97
 **Success Criteria:**
-1. Google and Todoist integrations are configurable/editable in `System` and feed `Now` truthfully.
+1. Google and Todoist integrations are configurable or editable in `System` and feed `Now` truthfully.
 2. Supported chat backends work through bounded persisted config and operator-visible settings.
-3. Client location/config support exists at the backend/settings seam.
-4. Critical single-node flows stop depending on fake/local-only UI state.
+3. Client location or config support exists at the backend or settings seam.
+4. Critical single-node flows stop depending on fake or local-only UI state.
 
 Closeout checkpoint:
 
 - Core settings are now persisted through the backend settings seam.
 - The floating composer is now gated on truthful Core readiness, with a developer override.
-- `System` now exposes default/fallback LLM routing through persisted settings.
-- `System` now exposes Google/Todoist credential and reconnect controls through real integration routes.
-- `Now` now owns commit-to-today and overdue-plus-today truth through backend/runtime seams rather than web-only implication.
+- `System` now exposes default or fallback LLM routing through persisted settings.
+- `System` now exposes Google or Todoist credential and reconnect controls through real integration routes.
+- `Now` now owns commit-to-today and overdue-plus-today truth through backend or runtime seams rather than web-only implication.
 - Thread call mode and multimodal attachment facts now persist through explicit conversation and assistant-entry contracts.
-- The richer bedtime/end-of-day plus sunrise boundary rule remains deferred until the runtime has real signal sources for it.
+- The richer bedtime or end-of-day plus sunrise boundary rule remains deferred until the runtime has real signal sources for it.
 
 ### Phase 99: Web surface polish and operator-flow completion
 
@@ -232,7 +320,7 @@ Closeout checkpoint:
 **Depends on:** Phase 98
 **Success Criteria:**
 1. Navbar, composer, and nudge behavior match the accepted feedback.
-2. `Now` task/event/lane semantics and drag/drop feel polished and trustworthy.
+2. `Now` task, event, and lane semantics plus drag and drop feel polished and trustworthy.
 3. `Threads` no longer duplicates user sends and follows the accepted modern chat layout.
 4. `System` reaches the intended dense, sticky, operator-readable target with developer-mode gating.
 
@@ -243,61 +331,9 @@ Closeout checkpoint:
 **Depends on:** Phase 99
 **Success Criteria:**
 1. Browser proof exists for accepted `Now`, `Threads`, and `System` states.
-2. Manual/API checks cover integrations, settings mutation, and chat provider paths.
+2. Manual or API checks cover integrations, settings mutation, and chat provider paths.
 3. Final acceptance audit is run directly against the copied verbatim feedback.
 4. Any remaining work is moved into explicit deferred scope with a stated reason.
 
-### Phase 106: Velocity cleanup: simplify traits, policy dead code, and suppression triage
-
-**Goal:** remove the lowest-risk cleanup drift called out in `docs/VELOCITY-DRIFT-CLEANUP.md` without widening scope into broader refactors.
-**Requirements:** post-`0.5.7` cleanup lane (`VD-01`, `VD-02`, `VD-03`, `VD-04`)
-**Depends on:** Phase 105
-**Success Criteria:**
-1. `CapabilityResolver` and `ToolRunner` no longer use single-implementation traits where no polymorphism exists.
-2. Dead policy structs and accessors that have no runtime readers are removed cleanly, while still preserving any actively used policy fields.
-3. Blanket crate-level `#![allow(dead_code)]` suppressions are reduced or removed for the touched crates, with any remaining suppression moved to item-local documented allows.
-4. The resulting warning/dead-code posture is documented truthfully, including anything intentionally retained for near-term follow-on work.
-
-### Phase 107: Velocity cleanup: time migration and orphaned storage cleanup
-
-**Goal:** finish the stalled temporal-library migration and remove schema objects with no runtime ownership.
-**Requirements:** post-`0.5.7` cleanup lane (`VD-05`, `VD-06`)
-**Depends on:** Phase 106
-**Success Criteria:**
-1. `veld` no longer mixes `chrono` and `time` in the active service/test seams targeted by the audit.
-2. Any required timezone support is re-established through the chosen `time`-compatible path before legacy time crates are removed.
-3. Flagged schema objects are re-verified against the live codebase and Master Plan, and only truly unowned tables are dropped.
-4. Tests and docs prove the cleanup did not break temporal logic or schema verification.
-
-### Phase 108: Velocity cleanup: error boundary standardization and crate fate decisions
-
-**Goal:** make cross-layer error handling more coherent and keep `vel-sim` plus `vel-agent-sdk` as explicit, integrated surfaces rather than orphan crates.
-**Requirements:** post-`0.5.7` cleanup lane (`VD-10`, `VD-11`)
-**Depends on:** Phase 107
-**Success Criteria:**
-1. The chosen error-boundary normalization is applied consistently across at least one full route → service → storage seam and documented as the forward pattern.
-2. `vel-sim` and `vel-agent-sdk` each have an explicit purpose, an integration point under existing CLI surfaces, and a documented near-term use case.
-3. Any deferred error-boundary cleanup is narrowed to named follow-ons rather than left as a vague repo-wide aspiration.
-4. The crate-retention decision is implemented, not merely discussed.
-
-### Phase 109: Velocity cleanup: module splits and DTO reorganization
-
-**Goal:** pay down navigability debt in the monolithic daemon and DTO files without reopening behavior contracts.
-**Requirements:** post-`0.5.7` cleanup lane (`VD-07`, `VD-08`, `VD-09`)
-**Depends on:** Phase 108
-**Success Criteria:**
-1. `app.rs`, `now.rs`, and `vel-api-types/src/lib.rs` are split into maintainable modules while preserving external behavior.
-2. Public APIs remain stable unless a clearly justified boundary cleanup is bundled and documented.
-3. Tests and build checks show the file-organization changes are behavior-preserving.
-4. The new layout is obvious enough that future work does not need another cleanup audit just to find the owning file.
-
-## Active Packet
-
-- [v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md)
-- [v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
-- [v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
-- [v0.5.5-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.5-MILESTONE-AUDIT.md)
-- [v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md)
-
 ---
-*Last updated: 2026-03-25 after archiving `0.5.6` and activating `0.5.7`*
+*Last updated: 2026-03-26 after repairing `0.5.7` roadmap structure and active planning pointers*

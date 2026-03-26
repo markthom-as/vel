@@ -25,10 +25,10 @@ Phase 42 shipped one bounded Rust-owned same-day reflow lane:
 
 ## Evidence Sources
 
-- [42-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/42-explainable-same-day-reflow/42-01-SUMMARY.md)
-- [42-02-SUMMARY.md](/home/jove/code/vel/.planning/phases/42-explainable-same-day-reflow/42-02-SUMMARY.md)
-- [42-03-SUMMARY.md](/home/jove/code/vel/.planning/phases/42-explainable-same-day-reflow/42-03-SUMMARY.md)
-- [42-04-SUMMARY.md](/home/jove/code/vel/.planning/phases/42-explainable-same-day-reflow/42-04-SUMMARY.md)
+- [42-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/42-explainable-same-day-reflow/42-01-SUMMARY.md)
+- [42-02-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/42-explainable-same-day-reflow/42-02-SUMMARY.md)
+- [42-03-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/42-explainable-same-day-reflow/42-03-SUMMARY.md)
+- [42-04-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/42-explainable-same-day-reflow/42-04-SUMMARY.md)
 - [day-plan-reflow-contract.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/day-plan-reflow-contract.md)
 - [mvp-loop-contracts.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md)
 - [daily-use.md](/home/jove/code/vel/docs/user/daily-use.md)

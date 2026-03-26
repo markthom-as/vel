@@ -13,8 +13,8 @@ Verified milestone truths:
 
 Primary evidence:
 
-- [`49-VERIFICATION.md`](/home/jove/code/vel/.planning/phases/49-web-canonical-now-embodiment/49-VERIFICATION.md)
-- [`50-VERIFICATION.md`](/home/jove/code/vel/.planning/phases/50-apple-parity-and-reduced-watch-embodiment/50-VERIFICATION.md)
+- [`49-VERIFICATION.md`](/home/jove/code/vel/.planning/milestones/v0.3-phases/49-web-canonical-now-embodiment/49-VERIFICATION.md)
+- [`50-VERIFICATION.md`](/home/jove/code/vel/.planning/milestones/v0.3-phases/50-apple-parity-and-reduced-watch-embodiment/50-VERIFICATION.md)
 - [`docs/product/now-surface-canonical-contract.md`](/home/jove/code/vel/docs/product/now-surface-canonical-contract.md)
 - [`docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md`](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md)
 

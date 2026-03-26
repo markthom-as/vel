@@ -25,11 +25,11 @@ Phase 45 verifies the full `v0.2` MVP loop as one backend-owned operator path:
 
 ## Evidence Sources
 
-- [41-04-SUMMARY.md](/home/jove/code/vel/.planning/phases/41-rust-owned-overview-commitment-flow-and-orientation-core/41-04-SUMMARY.md)
-- [42-VERIFICATION.md](/home/jove/code/vel/.planning/phases/42-explainable-same-day-reflow/42-VERIFICATION.md)
-- [43-VERIFICATION.md](/home/jove/code/vel/.planning/phases/43-thread-continuation-tools-context-and-data/43-VERIFICATION.md)
-- [44-VERIFICATION.md](/home/jove/code/vel/.planning/phases/44-minimal-fresh-web-and-apple-shells/44-VERIFICATION.md)
-- [45-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/45-review-mvp-verification-and-post-mvp-roadmap-shaping/45-01-SUMMARY.md)
+- [41-04-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/41-rust-owned-overview-commitment-flow-and-orientation-core/41-04-SUMMARY.md)
+- [42-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/42-explainable-same-day-reflow/42-VERIFICATION.md)
+- [43-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/43-thread-continuation-tools-context-and-data/43-VERIFICATION.md)
+- [44-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/44-minimal-fresh-web-and-apple-shells/44-VERIFICATION.md)
+- [45-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/45-review-mvp-verification-and-post-mvp-roadmap-shaping/45-01-SUMMARY.md)
 - [mvp-operator-loop.md](/home/jove/code/vel/docs/product/mvp-operator-loop.md)
 - [mvp-loop-contracts.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md)
 - [daily-use.md](/home/jove/code/vel/docs/user/daily-use.md)

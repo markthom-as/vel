@@ -25,9 +25,9 @@ Phase 43 shipped one bounded thread continuation substrate:
 
 ## Evidence Sources
 
-- [43-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/43-thread-continuation-tools-context-and-data/43-01-SUMMARY.md)
-- [43-02-SUMMARY.md](/home/jove/code/vel/.planning/phases/43-thread-continuation-tools-context-and-data/43-02-SUMMARY.md)
-- [43-03-SUMMARY.md](/home/jove/code/vel/.planning/phases/43-thread-continuation-tools-context-and-data/43-03-SUMMARY.md)
+- [43-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/43-thread-continuation-tools-context-and-data/43-01-SUMMARY.md)
+- [43-02-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/43-thread-continuation-tools-context-and-data/43-02-SUMMARY.md)
+- [43-03-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/43-thread-continuation-tools-context-and-data/43-03-SUMMARY.md)
 - [mvp-loop-contracts.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md)
 - [now-inbox-threads-boundaries.md](/home/jove/code/vel/docs/product/now-inbox-threads-boundaries.md)
 - [daily-use.md](/home/jove/code/vel/docs/user/daily-use.md)

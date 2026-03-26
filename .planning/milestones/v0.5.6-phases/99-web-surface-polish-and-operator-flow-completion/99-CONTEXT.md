@@ -6,8 +6,8 @@ Finish the accepted web interaction model and polish once the single-node truth 
 
 ## Preconditions
 
-- [98-CONTEXT.md](/home/jove/code/vel/.planning/phases/98-single-node-truth-and-settings-integrations/98-CONTEXT.md) is satisfied
-- [98-01-PLAN.md](/home/jove/code/vel/.planning/phases/98-single-node-truth-and-settings-integrations/98-01-PLAN.md) has landed the truthful contracts and settings/integration seams
+- [98-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/98-single-node-truth-and-settings-integrations/98-CONTEXT.md) is satisfied
+- [98-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/98-single-node-truth-and-settings-integrations/98-01-PLAN.md) has landed the truthful contracts and settings/integration seams
 - remaining work is primarily operator flow completion, disclosure tuning, and browser-level fidelity
 
 ## Main implementation targets

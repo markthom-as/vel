@@ -14,7 +14,7 @@ Closed Phase 46 with explicit validation, verification, and milestone-state repa
 ## Verification
 
 - `rg -n "compact|bucket|watch|Rust|Threads|Inbox|Now|deterministic|approval|conflict|undo|scheduling" docs/product/now-surface-canonical-contract.md docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md docs/product/now-inbox-threads-boundaries.md .planning/PROJECT.md .planning/REQUIREMENTS.md .planning/ROADMAP.md`
-- `rg -n "Phase 47|Phase 48|Phase 49|Phase 50|Phase 51|ranking|intent|approval|conflict" .planning/phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md`
+- `rg -n "Phase 47|Phase 48|Phase 49|Phase 50|Phase 51|ranking|intent|approval|conflict" /home/jove/code/vel/.planning/milestones/v0.3-phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md`
 
 ## Notes
 

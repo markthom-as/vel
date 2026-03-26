@@ -28,7 +28,7 @@
 ## Known Bugs
 
 **Legacy settings JSX is still present but unreachable:**
-- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `.planning/STATE.md`, `.planning/phases/52-full-now-ui-conformance-implementation-chunk/52-VERIFICATION.md`
+- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `.planning/STATE.md`, `.planning/milestones/v0.4-phases/52-full-now-ui-conformance-implementation-chunk/52-VERIFICATION.md`
 - Symptoms: Developers can edit the old tabbed settings UI block and nothing changes at runtime because the compact layout returns earlier in the component.
 - Trigger: Any maintenance work that assumes the lower `return` block is still live.
 - Workaround: Only touch the first rendered settings shell near the active `loading` guard and compact left-rail layout.

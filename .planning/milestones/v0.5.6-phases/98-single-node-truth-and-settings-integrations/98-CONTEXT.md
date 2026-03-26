@@ -6,8 +6,8 @@ Implement the single-node truth seams that make `0.5.6` a real MVP instead of a 
 
 ## Preconditions
 
-- [97-CONTEXT.md](/home/jove/code/vel/.planning/phases/97-mvp-lock-and-acceptance-checklist/97-CONTEXT.md) has locked the MVP bar
-- [97-01-PLAN.md](/home/jove/code/vel/.planning/phases/97-mvp-lock-and-acceptance-checklist/97-01-PLAN.md) defines the execution checklist
+- [97-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/97-mvp-lock-and-acceptance-checklist/97-CONTEXT.md) has locked the MVP bar
+- [97-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/97-mvp-lock-and-acceptance-checklist/97-01-PLAN.md) defines the execution checklist
 - `0.5.6` scope is now bounded to one node, desktop Chrome acceptance, local `llama.ccp`, OpenAI, Google, and Todoist
 
 ## Main implementation targets

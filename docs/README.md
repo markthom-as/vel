@@ -33,9 +33,10 @@ These files drive ongoing implementation work:
 - `.planning/BACKLOG.md`: non-phase future work that is worth preserving but not yet committed
 - `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows
 - `.planning/phases/101-*` through `.planning/phases/105-*`: current active phase-planning directories for milestone `0.5.7`
-- `.planning/phases/*`: historical and queued phase packets across prior milestones and follow-on cleanup work
+- `.planning/milestones/README.md`: archive and queued-packet index for historical milestone phase buckets outside active scope
 - `docs/future/*.md`: future-facing product and architecture specs that are explicitly not shipped-behavior authority
 - [future/cli-coverage-detection-and-implementation-plan.md](future/cli-coverage-detection-and-implementation-plan.md): implemented `vel-cli` coverage baseline plus remaining ratchet plan for thresholds and deeper command/client coverage
+- [future/multi-transport-cluster-mesh-routing-and-capability-sync-spec.md](future/multi-transport-cluster-mesh-routing-and-capability-sync-spec.md): future mesh architecture for multi-transport discovery, routing, root election, handoff, and capability-governed sync
 - [notes/README.md](notes/README.md): working-note guidance for interview logs, parked ideas, and in-progress design material that is not authority by itself
 - [tickets/README.md](tickets/README.md): queue index and phase navigation
 - [tickets/architecture-first-parallel-queue.md](tickets/architecture-first-parallel-queue.md): documentation/contracts-first execution order and parallel work waves

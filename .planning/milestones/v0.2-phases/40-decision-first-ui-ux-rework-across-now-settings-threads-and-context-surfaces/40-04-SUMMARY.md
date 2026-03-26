@@ -8,7 +8,7 @@ The main slice landed in:
 
 - `docs/templates/mvp-loop-contract-checklist.md`
 - `docs/templates/README.md`
-- `.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-VALIDATION.md`
+- `/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-VALIDATION.md`
 
 ## What changed
 
@@ -26,7 +26,7 @@ The main slice landed in:
 ## Verification
 
 - `rg -n "OverviewReadModel|CommitmentFlow|ReflowProposal|ThreadEscalation|ReviewSnapshot|degraded-state|action \\+ timeline|dominant action|compact timeline|single visible nudge|Why \\+ state|accept|choose|thread|close" docs/templates/mvp-loop-contract-checklist.md`
-- `rg -n "mvp-loop-contract-checklist|docs/product/mvp-operator-loop.md|docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md|action \\+ timeline|dominant action|compact timeline|single visible nudge|Why \\+ state|1-3 suggestions|accept|choose|thread|close|local-calendar|UI-only" docs/templates/README.md .planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-VALIDATION.md`
+- `rg -n "mvp-loop-contract-checklist|docs/product/mvp-operator-loop.md|docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md|action \\+ timeline|dominant action|compact timeline|single visible nudge|Why \\+ state|1-3 suggestions|accept|choose|thread|close|local-calendar|UI-only" docs/templates/README.md /home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-VALIDATION.md`
 
 ## Notes
 

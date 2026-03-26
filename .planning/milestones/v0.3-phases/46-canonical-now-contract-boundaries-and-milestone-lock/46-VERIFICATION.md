@@ -36,7 +36,7 @@ The packet is also explicitly reconciled against the full local source contract:
 - `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
 - `docs/MASTER_PLAN.md`
-- `.planning/phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md`
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md`
 
 ## Verified Conclusions
 
@@ -50,7 +50,7 @@ The packet is also explicitly reconciled against the full local source contract:
 
 - `rg -n "always_show|hidden_until_active|No dead states|thread-first|carry-forward|raw capture|pulse|glow|latest user input|version-control-like|day thread|What's going on right now\\?|Do you want to start something\\?|multiple threads" docs/product/now-surface-canonical-contract.md docs/product/now-inbox-threads-boundaries.md docs/product/mvp-operator-loop.md`
 - `rg -n "count-display|intent taxonomy|approval|deterministic-enough|raw capture|watch-safe|metadata filters|config-mutation|local approval" docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`
-- `rg -n "ranking|intent|approval|config|Phase 47|Phase 48|Phase 49|Phase 50|Phase 51|raw capture|day thread" .planning/phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md .planning/PROJECT.md .planning/REQUIREMENTS.md .planning/ROADMAP.md docs/MASTER_PLAN.md`
+- `rg -n "ranking|intent|approval|config|Phase 47|Phase 48|Phase 49|Phase 50|Phase 51|raw capture|day thread" /home/jove/code/vel/.planning/milestones/v0.3-phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md .planning/PROJECT.md .planning/REQUIREMENTS.md .planning/ROADMAP.md docs/MASTER_PLAN.md`
 
 ## Limits
 

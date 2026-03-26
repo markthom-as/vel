@@ -136,25 +136,25 @@ Planned sequence:
 
 ## Phase 97 Packet
 
-- [97-CONTEXT.md](/home/jove/code/vel/.planning/phases/97-mvp-lock-and-acceptance-checklist/97-CONTEXT.md)
-- [97-01-PLAN.md](/home/jove/code/vel/.planning/phases/97-mvp-lock-and-acceptance-checklist/97-01-PLAN.md)
+- [97-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/97-mvp-lock-and-acceptance-checklist/97-CONTEXT.md)
+- [97-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/97-mvp-lock-and-acceptance-checklist/97-01-PLAN.md)
 
 ## Phase 98 Packet
 
-- [98-CONTEXT.md](/home/jove/code/vel/.planning/phases/98-single-node-truth-and-settings-integrations/98-CONTEXT.md)
-- [98-01-PLAN.md](/home/jove/code/vel/.planning/phases/98-single-node-truth-and-settings-integrations/98-01-PLAN.md)
+- [98-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/98-single-node-truth-and-settings-integrations/98-CONTEXT.md)
+- [98-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/98-single-node-truth-and-settings-integrations/98-01-PLAN.md)
 
 ## Phase 99 Packet
 
-- [99-CONTEXT.md](/home/jove/code/vel/.planning/phases/99-web-surface-polish-and-operator-flow-completion/99-CONTEXT.md)
-- [99-01-PLAN.md](/home/jove/code/vel/.planning/phases/99-web-surface-polish-and-operator-flow-completion/99-01-PLAN.md)
-- [99-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/99-web-surface-polish-and-operator-flow-completion/99-01-SUMMARY.md)
-- [99-VERIFICATION.md](/home/jove/code/vel/.planning/phases/99-web-surface-polish-and-operator-flow-completion/99-VERIFICATION.md)
+- [99-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/99-web-surface-polish-and-operator-flow-completion/99-CONTEXT.md)
+- [99-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/99-web-surface-polish-and-operator-flow-completion/99-01-PLAN.md)
+- [99-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/99-web-surface-polish-and-operator-flow-completion/99-01-SUMMARY.md)
+- [99-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/99-web-surface-polish-and-operator-flow-completion/99-VERIFICATION.md)
 
 ## Phase 100 Packet
 
-- [100-CONTEXT.md](/home/jove/code/vel/.planning/phases/100-mvp-proof-audit-and-closeout/100-CONTEXT.md)
-- [100-01-PLAN.md](/home/jove/code/vel/.planning/phases/100-mvp-proof-audit-and-closeout/100-01-PLAN.md)
+- [100-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/100-mvp-proof-audit-and-closeout/100-CONTEXT.md)
+- [100-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/100-mvp-proof-audit-and-closeout/100-01-PLAN.md)
 
 ## Verbatim Feedback Copy
 

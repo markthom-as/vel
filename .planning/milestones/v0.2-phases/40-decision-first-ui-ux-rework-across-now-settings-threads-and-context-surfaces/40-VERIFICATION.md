@@ -24,10 +24,10 @@ Phase 40 shipped the durable `v0.2` MVP authority packet:
 
 ## Evidence Sources
 
-- [40-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-01-SUMMARY.md)
-- [40-02-SUMMARY.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-02-SUMMARY.md)
-- [40-03-SUMMARY.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-03-SUMMARY.md)
-- [40-04-SUMMARY.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-04-SUMMARY.md)
+- [40-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-01-SUMMARY.md)
+- [40-02-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-02-SUMMARY.md)
+- [40-03-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-03-SUMMARY.md)
+- [40-04-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-04-SUMMARY.md)
 - [mvp-operator-loop.md](/home/jove/code/vel/docs/product/mvp-operator-loop.md)
 - [mvp-loop-contracts.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md)
 

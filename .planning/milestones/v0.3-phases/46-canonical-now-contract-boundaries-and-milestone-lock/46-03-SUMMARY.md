@@ -6,7 +6,7 @@ Created the explicit subsystem inventory for the canonical `Now` contract and al
 
 ## What Changed
 
-- `.planning/phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md`
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md`
   - Added the owner-phase map for every supporting subsystem required by the local source contract, including ranking, intent taxonomy, approval policy, governed config, `day thread`, `raw capture`, mesh summary, and reduced watch consumption.
 - `.planning/PROJECT.md`
   - Tightened the `v0.3` target feature and active-scope language so governed config, deterministic ranking, and approval posture are explicitly part of the Rust-owned product-core lane.
@@ -20,7 +20,7 @@ Created the explicit subsystem inventory for the canonical `Now` contract and al
 
 ## Verification
 
-- `rg -n "ranking|intent|approval|config|Phase 47|Phase 48|Phase 49|Phase 50|Phase 51|raw capture|day thread" .planning/phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md .planning/PROJECT.md .planning/REQUIREMENTS.md .planning/ROADMAP.md docs/MASTER_PLAN.md`
+- `rg -n "ranking|intent|approval|config|Phase 47|Phase 48|Phase 49|Phase 50|Phase 51|raw capture|day thread" /home/jove/code/vel/.planning/milestones/v0.3-phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md .planning/PROJECT.md .planning/REQUIREMENTS.md .planning/ROADMAP.md docs/MASTER_PLAN.md`
 
 ## Notes
 

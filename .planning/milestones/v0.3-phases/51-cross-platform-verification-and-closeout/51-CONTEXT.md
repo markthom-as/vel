@@ -38,8 +38,8 @@ This phase should prefer evidence-backed truth over new implementation. If new c
 - Phase 46-50 docs now define the full v0.3 contract and implementation trail.
 
 ### Integration Points
-- `.planning/phases/49-web-canonical-now-embodiment/*`
-- `.planning/phases/50-apple-parity-and-reduced-watch-embodiment/*`
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/49-web-canonical-now-embodiment/*`
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/50-apple-parity-and-reduced-watch-embodiment/*`
 - `docs/user/daily-use.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`

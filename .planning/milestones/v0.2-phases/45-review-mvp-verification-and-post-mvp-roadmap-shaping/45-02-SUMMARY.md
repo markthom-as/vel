@@ -4,7 +4,7 @@ Published the milestone-level MVP verification packet and tied the final `v0.2` 
 
 ### What changed
 
-- Added `.planning/phases/45-review-mvp-verification-and-post-mvp-roadmap-shaping/45-VERIFICATION.md` to record the full verified loop:
+- Added `/home/jove/code/vel/.planning/milestones/v0.2-phases/45-review-mvp-verification-and-post-mvp-roadmap-shaping/45-VERIFICATION.md` to record the full verified loop:
   - `overview`
   - `commitments`
   - `reflow`

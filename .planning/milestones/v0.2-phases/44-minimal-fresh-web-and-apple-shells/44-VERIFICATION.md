@@ -25,10 +25,10 @@ Phase 44 shipped one minimal cross-surface shell model:
 
 ## Evidence Sources
 
-- [44-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/44-minimal-fresh-web-and-apple-shells/44-01-SUMMARY.md)
-- [44-02-SUMMARY.md](/home/jove/code/vel/.planning/phases/44-minimal-fresh-web-and-apple-shells/44-02-SUMMARY.md)
-- [44-03-SUMMARY.md](/home/jove/code/vel/.planning/phases/44-minimal-fresh-web-and-apple-shells/44-03-SUMMARY.md)
-- [44-04-SUMMARY.md](/home/jove/code/vel/.planning/phases/44-minimal-fresh-web-and-apple-shells/44-04-SUMMARY.md)
+- [44-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/44-minimal-fresh-web-and-apple-shells/44-01-SUMMARY.md)
+- [44-02-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/44-minimal-fresh-web-and-apple-shells/44-02-SUMMARY.md)
+- [44-03-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/44-minimal-fresh-web-and-apple-shells/44-03-SUMMARY.md)
+- [44-04-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/44-minimal-fresh-web-and-apple-shells/44-04-SUMMARY.md)
 - [daily-use.md](/home/jove/code/vel/docs/user/daily-use.md)
 
 ## Verification Substrate

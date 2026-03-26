@@ -6,7 +6,7 @@ status: passed
 
 - reviewed [ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md) for phase definitions, execution order, and linked phase packets
 - reviewed [REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md) for locked MVP flows and operator clarifications
-- verified [97-CONTEXT.md](/home/jove/code/vel/.planning/phases/97-mvp-lock-and-acceptance-checklist/97-CONTEXT.md) and [97-01-PLAN.md](/home/jove/code/vel/.planning/phases/97-mvp-lock-and-acceptance-checklist/97-01-PLAN.md) exist and align with milestone scope
+- verified [97-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/97-mvp-lock-and-acceptance-checklist/97-CONTEXT.md) and [97-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.6-phases/97-mvp-lock-and-acceptance-checklist/97-01-PLAN.md) exist and align with milestone scope
 - verified downstream packets exist for Phase 98, Phase 99, and Phase 100
 
 ## Verified outcomes

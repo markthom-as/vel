@@ -6,7 +6,7 @@ Closed Phase 44 with parity evidence across the reduced web and Apple shell boun
 
 - Refreshed shell-boundary evidence wording in `clients/web/src/components/MainPanel.test.tsx` and `clients/web/src/components/Sidebar.test.tsx` so the Phase 44 parity intent is explicit in the focused verification layer.
 - Updated `docs/user/daily-use.md` to state the cross-surface MVP shell hierarchy directly: `Now`, `Inbox`, and `Threads` are primary, `Settings` is support, and `Projects` remains secondary.
-- Added a phase verification report at `.planning/phases/44-minimal-fresh-web-and-apple-shells/44-VERIFICATION.md`.
+- Added a phase verification report at `/home/jove/code/vel/.planning/milestones/v0.2-phases/44-minimal-fresh-web-and-apple-shells/44-VERIFICATION.md`.
 - Marked Phase 44 complete in `.planning/ROADMAP.md` and advanced `.planning/STATE.md` to Phase 45.
 
 ### Verification

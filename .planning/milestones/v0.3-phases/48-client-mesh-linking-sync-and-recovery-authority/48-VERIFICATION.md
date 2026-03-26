@@ -16,10 +16,10 @@ This is sufficient to unblock Phase 49 web embodiment without asking the shell t
 
 ## Evidence
 
-- [48-01-SUMMARY.md](/home/jove/code/vel/.planning/phases/48-client-mesh-linking-sync-and-recovery-authority/48-01-SUMMARY.md)
-- [48-02-SUMMARY.md](/home/jove/code/vel/.planning/phases/48-client-mesh-linking-sync-and-recovery-authority/48-02-SUMMARY.md)
-- [48-03-SUMMARY.md](/home/jove/code/vel/.planning/phases/48-client-mesh-linking-sync-and-recovery-authority/48-03-SUMMARY.md)
-- [48-04-SUMMARY.md](/home/jove/code/vel/.planning/phases/48-client-mesh-linking-sync-and-recovery-authority/48-04-SUMMARY.md)
+- [48-01-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.3-phases/48-client-mesh-linking-sync-and-recovery-authority/48-01-SUMMARY.md)
+- [48-02-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.3-phases/48-client-mesh-linking-sync-and-recovery-authority/48-02-SUMMARY.md)
+- [48-03-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.3-phases/48-client-mesh-linking-sync-and-recovery-authority/48-03-SUMMARY.md)
+- [48-04-SUMMARY.md](/home/jove/code/vel/.planning/milestones/v0.3-phases/48-client-mesh-linking-sync-and-recovery-authority/48-04-SUMMARY.md)
 
 ## Command-backed checks
 

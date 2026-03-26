@@ -15,8 +15,8 @@ This closeout:
 - `docs/user/daily-use.md`
 - `.planning/ROADMAP.md`
 - `.planning/STATE.md`
-- `.planning/phases/47-rust-owned-now-core-models-and-transport-seam/47-VALIDATION.md`
-- `.planning/phases/47-rust-owned-now-core-models-and-transport-seam/47-VERIFICATION.md`
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/47-rust-owned-now-core-models-and-transport-seam/47-VALIDATION.md`
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/47-rust-owned-now-core-models-and-transport-seam/47-VERIFICATION.md`
 
 ## Verification
 

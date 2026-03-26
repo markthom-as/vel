@@ -1,6 +1,6 @@
 # Next Steps
 
-1. finish `0.5.6` scoping so the call-mode entry point and thread surface are stable
+1. preserve the `0.5.6` call-mode entry point and thread surface as the stable baseline for duplex work
 2. start Phase 101 and lock the hybrid boundary before code spreads
 3. stand up the Rust speech-engine skeleton and callback-safe transport
 4. add a proving adapter/harness and measure interruption behavior early

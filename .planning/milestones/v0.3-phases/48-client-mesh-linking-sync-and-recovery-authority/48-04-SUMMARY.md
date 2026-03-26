@@ -9,7 +9,7 @@ Phase 48 is closed. The shared `Now` seam now carries compact mesh trust posture
 - Updated [docs/user/daily-use.md](/home/jove/code/vel/docs/user/daily-use.md) to describe the shipped compact mesh summary truthfully.
 - Marked Phase 48 complete and Phase 49 active in [ROADMAP.md](/home/jove/code/vel/.planning/ROADMAP.md).
 - Advanced [STATE.md](/home/jove/code/vel/.planning/STATE.md) to Phase 49.
-- Recorded closeout evidence in [48-VALIDATION.md](/home/jove/code/vel/.planning/phases/48-client-mesh-linking-sync-and-recovery-authority/48-VALIDATION.md) and [48-VERIFICATION.md](/home/jove/code/vel/.planning/phases/48-client-mesh-linking-sync-and-recovery-authority/48-VERIFICATION.md).
+- Recorded closeout evidence in [48-VALIDATION.md](/home/jove/code/vel/.planning/milestones/v0.3-phases/48-client-mesh-linking-sync-and-recovery-authority/48-VALIDATION.md) and [48-VERIFICATION.md](/home/jove/code/vel/.planning/milestones/v0.3-phases/48-client-mesh-linking-sync-and-recovery-authority/48-VERIFICATION.md).
 
 ## Verification
 

@@ -64,7 +64,7 @@ This phase must keep that truth in the platform-portable Rust core and shared tr
 
 ### Reusable Assets
 - `docs/product/now-surface-canonical-contract.md` and `docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md` already lock the product and architecture expectations for compact mesh visibility and governed config.
-- `.planning/phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md` already assigns Phase 48 the missing support lanes:
+- `/home/jove/code/vel/.planning/milestones/v0.3-phases/46-canonical-now-contract-boundaries-and-milestone-lock/46-SUBSYSTEM-INVENTORY.md` already assigns Phase 48 the missing support lanes:
   - title/display policy
   - count-display policy
   - sync/offline header summary

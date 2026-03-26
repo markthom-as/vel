@@ -19,7 +19,7 @@ The research task is to turn the current milestone decisions into an implementat
 ## Inputs
 
 - milestone authority in `.planning/PROJECT.md`, `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md`, and `.planning/STATE.md`
-- locked Phase 40 decisions in [40-CONTEXT.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-CONTEXT.md)
+- locked Phase 40 decisions in [40-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.2-phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-CONTEXT.md)
 - durable repo rules in `AGENTS.md`
 - implementation truth in `docs/MASTER_PLAN.md`
 - current Rust seams in:
