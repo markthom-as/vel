@@ -21,6 +21,7 @@ related_files:
   - crates/vel-embedded-bridge/src/browser_wasm.rs
   - clients/web/src/data/embeddedBridgePackets.ts
   - clients/web/src/data/embeddedBridgeAdapter.ts
+  - clients/web/src/data/embeddedBridgeWasmRuntime.ts
   - clients/web/src/data/embeddedBridgePackets.example.ts
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - docs/cognitive-agent-architecture/apple/apple-rust-integration-path.md
@@ -116,7 +117,7 @@ The current repository scaffold for this future path is:
 Current truth of that scaffold:
 
 - `portable_core.rs` is the extraction point for pure reusable helpers.
-- `browser_wasm.rs` now exposes scaffold-level browser packet helpers for a first low-risk set:
+- `browser_wasm.rs` now defines the JS/WASM export contract for the current packet families:
   - pairing-token normalization
   - domain-hint normalization
   - thread-draft packet shaping
@@ -133,15 +134,16 @@ Current truth of that scaffold:
   - voice cached query packet shaping
 - `embeddedBridgePackets.ts` is now a Rust-runtime boundary only. It no longer owns duplicate packet shaping logic in TypeScript.
 - `embeddedBridgeAdapter.ts` is the next seam up: it parses packet JSON into typed browser-facing values so future callers do not depend directly on raw packet JSON strings.
+- `embeddedBridgeWasmRuntime.ts` is the installer seam that adapts JS/WASM exports into the packet runtime interface used by web data code.
 - `embeddedBridgePackets.example.ts` is a checked-in usage reference for future browser callers so the scaffold has a concrete packet-consumption example.
 - until the WASM runtime is installed, browser packet calls fail closed instead of silently using a duplicated TypeScript implementation.
 
 # Next Implementation Sequence
 
 1. continue moving deterministic helpers from `lib.rs` into `portable_core.rs`
-2. add a browser-oriented export layer that returns JS-friendly typed packets
+2. build the actual browser-targeted artifact for `browser_wasm`
 3. keep Apple native FFI as a thin adapter over the same portable core
-4. install the browser/WASM runtime into `embeddedBridgePackets.ts` so the web adapter can call Rust directly
+4. install the browser/WASM runtime into app startup so web data code calls Rust directly
 5. avoid widening browser-local logic into authority-runtime policy
 
 # Acceptance Criteria

@@ -1,8 +1,8 @@
 //! Browser/WASM scaffold for `vel-embedded-bridge`.
 //!
-//! This file is intentionally non-executable today. It marks the future adapter
-//! seam where portable packet-shaping logic from `portable_core` can be exposed
-//! to browser code without the native Apple FFI loader path.
+//! This file exposes the browser adapter seam where portable packet-shaping
+//! logic from `portable_core` can be surfaced to JS/WASM callers without the
+//! native Apple FFI loader path.
 
 use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
@@ -13,6 +13,8 @@ use crate::portable_core::{
     prepare_voice_capture_payload, prepare_voice_continuity_summary_packet,
     prepare_voice_offline_response_packet, prepare_voice_quick_action_packet, trim_text,
 };
+#[cfg(feature = "browser-wasm")]
+use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrowserPacketResponse {
@@ -370,4 +372,200 @@ fn bool_json(value: bool) -> &'static str {
     } else {
         "false"
     }
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedBrowserStatus)]
+pub fn vel_embedded_browser_status() -> String {
+    BrowserWasmScaffold::STATUS.to_string()
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedNormalizePairingTokenPacket)]
+pub fn vel_embedded_normalize_pairing_token_packet(input: String) -> String {
+    BrowserWasmScaffold::normalize_pairing_token_packet(&input).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedNormalizeDomainHintPacket)]
+pub fn vel_embedded_normalize_domain_hint_packet(input: String) -> String {
+    BrowserWasmScaffold::normalize_domain_hint_packet(&input).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedQueuedActionPacket)]
+pub fn vel_embedded_queued_action_packet(
+    kind: String,
+    target_id: Option<String>,
+    text: Option<String>,
+    minutes: Option<i64>,
+) -> String {
+    BrowserWasmScaffold::queued_action_packet(kind, target_id, text, minutes).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedVoiceQuickActionPacket)]
+pub fn vel_embedded_voice_quick_action_packet(
+    intent_storage_token: String,
+    primary_text: String,
+    target_id: Option<String>,
+    minutes: Option<i64>,
+) -> String {
+    BrowserWasmScaffold::voice_quick_action_packet(
+        intent_storage_token,
+        primary_text,
+        target_id,
+        minutes,
+    )
+    .payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedAssistantEntryFallbackPacket)]
+pub fn vel_embedded_assistant_entry_fallback_packet(
+    text: String,
+    requested_conversation_id: Option<String>,
+) -> String {
+    BrowserWasmScaffold::assistant_entry_fallback_packet(text, requested_conversation_id).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedCaptureMetadataPacket)]
+pub fn vel_embedded_capture_metadata_packet(
+    text: String,
+    capture_type: String,
+    source_device: String,
+) -> String {
+    BrowserWasmScaffold::capture_metadata_packet(text, capture_type, source_device).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedThreadDraftPacket)]
+pub fn vel_embedded_thread_draft_packet(
+    text: String,
+    requested_conversation_id: Option<String>,
+) -> String {
+    BrowserWasmScaffold::thread_draft_packet(text, requested_conversation_id).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedVoiceCapturePacket)]
+pub fn vel_embedded_voice_capture_packet(
+    transcript: String,
+    intent_storage_token: String,
+) -> String {
+    BrowserWasmScaffold::voice_capture_packet(transcript, intent_storage_token).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedLinkingRequestPacket)]
+pub fn vel_embedded_linking_request_packet(
+    token_code: Option<String>,
+    target_base_url: Option<String>,
+) -> String {
+    BrowserWasmScaffold::linking_request_packet(token_code, target_base_url).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedLinkingFeedbackPacket)]
+pub fn vel_embedded_linking_feedback_packet(
+    scenario: String,
+    node_display_name: Option<String>,
+) -> String {
+    BrowserWasmScaffold::linking_feedback_packet(scenario, node_display_name).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedAppShellFeedbackPacket)]
+pub fn vel_embedded_app_shell_feedback_packet(
+    scenario: String,
+    detail: Option<String>,
+) -> String {
+    BrowserWasmScaffold::app_shell_feedback_packet(scenario, detail).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedCollectRemoteRoutesPacket)]
+pub fn vel_embedded_collect_remote_routes_packet(
+    sync_base_url: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
+    public_base_url: Option<String>,
+) -> String {
+    BrowserWasmScaffold::remote_routes_packet(
+        sync_base_url,
+        tailscale_base_url,
+        lan_base_url,
+        public_base_url,
+    )
+    .payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedVoiceContinuitySummaryPacket)]
+pub fn vel_embedded_voice_continuity_summary_packet(
+    draft_exists: Option<bool>,
+    threaded_transcript: Option<String>,
+    pending_recovery_count: Option<i64>,
+    is_reachable: Option<bool>,
+    merged_transcript: Option<String>,
+) -> String {
+    BrowserWasmScaffold::voice_continuity_summary_packet(
+        draft_exists,
+        threaded_transcript,
+        pending_recovery_count,
+        is_reachable,
+        merged_transcript,
+    )
+    .payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedVoiceOfflineResponsePacket)]
+pub fn vel_embedded_voice_offline_response_packet(
+    scenario: String,
+    primary_text: Option<String>,
+    matched_text: Option<String>,
+    options: Option<String>,
+    minutes: Option<i64>,
+    is_reachable: Option<bool>,
+) -> String {
+    BrowserWasmScaffold::voice_offline_response_packet(
+        scenario,
+        primary_text,
+        matched_text,
+        options,
+        minutes,
+        is_reachable,
+    )
+    .payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedVoiceCachedQueryResponsePacket)]
+pub fn vel_embedded_voice_cached_query_response_packet(
+    scenario: String,
+    next_title: Option<String>,
+    leave_by: Option<String>,
+    empty_message: Option<String>,
+    cached_now_summary: Option<String>,
+    first_reason: Option<String>,
+    next_commitment_text: Option<String>,
+    next_commitment_due_at: Option<String>,
+    behavior_headline: Option<String>,
+    behavior_reason: Option<String>,
+) -> String {
+    BrowserWasmScaffold::voice_cached_query_response_packet(
+        scenario,
+        next_title,
+        leave_by,
+        empty_message,
+        cached_now_summary,
+        first_reason,
+        next_commitment_text,
+        next_commitment_due_at,
+        behavior_headline,
+        behavior_reason,
+    )
+    .payload_json
 }

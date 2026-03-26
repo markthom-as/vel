@@ -14,6 +14,7 @@ import {
   voiceQuickActionPacket,
 } from './embeddedBridgePackets';
 import type { EmbeddedBridgePacketKind } from './embeddedBridgePackets';
+import { maybeInstallEmbeddedBridgePacketRuntimeFromGlobal } from './embeddedBridgeWasmRuntime';
 
 export const EMBEDDED_BRIDGE_WEB_MODE = 'rust_required' as const;
 
@@ -71,12 +72,18 @@ function parsePacket<T>(kind: EmbeddedBridgePacketKind, payloadJson: string): T 
   return parsed;
 }
 
+function ensureEmbeddedBridgeRuntime(): void {
+  maybeInstallEmbeddedBridgePacketRuntimeFromGlobal();
+}
+
 export function normalizePairingTokenValue(input: string): { tokenCode: string } {
+  ensureEmbeddedBridgeRuntime();
   const response = normalizePairingTokenPacket(input);
   return parsePacket(response.kind, response.payloadJson);
 }
 
 export function normalizeDomainHintValue(input: string): { normalized: string } {
+  ensureEmbeddedBridgeRuntime();
   const response = normalizeDomainHintPacket(input);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -87,6 +94,7 @@ export function buildQueuedActionValue(
   text?: string | null,
   minutes?: number | null,
 ): EmbeddedBridgeQueuePacket {
+  ensureEmbeddedBridgeRuntime();
   const response = queuedActionPacket(kind, targetId, text, minutes);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -105,6 +113,7 @@ export function buildVoiceQuickActionValue(
   targetId?: string | null,
   minutes?: number | null,
 ): EmbeddedBridgeQueuePacket {
+  ensureEmbeddedBridgeRuntime();
   const response = voiceQuickActionPacket(intentStorageToken, primaryText, targetId, minutes);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -116,6 +125,7 @@ export function buildVoiceContinuitySummaryValue(
   isReachable?: boolean | null,
   mergedTranscript?: string | null,
 ): EmbeddedBridgeVoiceContinuitySummaryPacket {
+  ensureEmbeddedBridgeRuntime();
   const response = voiceContinuitySummaryPacket(
     draftExists,
     threadedTranscript,
@@ -134,6 +144,7 @@ export function buildVoiceOfflineResponseValue(
   minutes?: number | null,
   isReachable?: boolean | null,
 ): EmbeddedBridgeVoiceOfflineResponsePacket {
+  ensureEmbeddedBridgeRuntime();
   const response = voiceOfflineResponsePacket(
     scenario,
     primaryText,
@@ -157,6 +168,7 @@ export function buildVoiceCachedQueryValue(
   behaviorHeadline?: string | null,
   behaviorReason?: string | null,
 ): EmbeddedBridgeCachedQueryPacket {
+  ensureEmbeddedBridgeRuntime();
   const response = voiceCachedQueryResponsePacket(
     scenario,
     nextTitle,
@@ -176,6 +188,7 @@ export function buildAssistantEntryFallbackValue(
   text: string,
   requestedConversationId?: string | null,
 ): EmbeddedBridgePayloadPacket {
+  ensureEmbeddedBridgeRuntime();
   const response = assistantEntryFallbackPacket(text, requestedConversationId);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -184,6 +197,7 @@ export function buildLinkingRequestValue(
   tokenCode?: string | null,
   targetBaseUrl?: string | null,
 ): { tokenCode: string | null; targetBaseUrl: string | null } {
+  ensureEmbeddedBridgeRuntime();
   const response = linkingRequestPacket(tokenCode, targetBaseUrl);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -192,6 +206,7 @@ export function buildLinkingFeedbackValue(
   scenario: string,
   nodeDisplayName?: string | null,
 ): EmbeddedBridgeSimpleMessagePacket {
+  ensureEmbeddedBridgeRuntime();
   const response = linkingFeedbackPacket(scenario, nodeDisplayName);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -200,6 +215,7 @@ export function buildAppShellFeedbackValue(
   scenario: string,
   detail?: string | null,
 ): EmbeddedBridgeSimpleMessagePacket {
+  ensureEmbeddedBridgeRuntime();
   const response = appShellFeedbackPacket(scenario, detail);
   return parsePacket(response.kind, response.payloadJson);
 }
@@ -210,6 +226,7 @@ export function buildRemoteRoutesValue(
   lanBaseUrl?: string | null,
   publicBaseUrl?: string | null,
 ): EmbeddedBridgeRoute[] {
+  ensureEmbeddedBridgeRuntime();
   const response = collectRemoteRoutesPacket(
     syncBaseUrl,
     tailscaleBaseUrl,
