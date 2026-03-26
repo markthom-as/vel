@@ -12,7 +12,7 @@ use vel_core::CommitmentStatus;
 
 use crate::{
     errors::AppError,
-    services::{execution_routing, operator_settings, people, projects},
+    services::{execution_routing, integrations_todoist, operator_settings, people, projects},
     state::AppState,
 };
 
@@ -47,6 +47,8 @@ pub async fn build_agent_inspect(state: &AppState) -> Result<AgentInspectData, A
     .await?;
     let writeback_enabled =
         operator_settings::runtime_writeback_enabled(&state.storage, &state.config).await?;
+    let todoist_settings = integrations_todoist::load_todoist_settings(&state.storage).await?;
+    let todoist_status = integrations_todoist::todoist_status(&todoist_settings);
     let current_context =
         state
             .storage
@@ -158,6 +160,7 @@ pub async fn build_agent_inspect(state: &AppState) -> Result<AgentInspectData, A
                     entries: vec![
                         assistant_staged_actions_capability(writeback_enabled),
                         integration_writeback_capability(writeback_enabled),
+                        todoist_task_writeback_capability(writeback_enabled, todoist_status.has_api_token),
                         repo_handoff_capability(
                             pending_handoffs.as_slice(),
                             approved_handoffs.as_slice(),
@@ -298,6 +301,31 @@ fn assistant_staged_actions_capability(writeback_enabled: bool) -> AgentCapabili
                 .to_string(),
         available: writeback_enabled,
         blocked_reason: (!writeback_enabled).then_some(writeback_disabled_blocker()),
+        requires_review_gate: Some(ExecutionReviewGateData::OperatorPreview),
+        requires_writeback_enabled: true,
+    }
+}
+
+fn todoist_task_writeback_capability(
+    writeback_enabled: bool,
+    todoist_configured: bool,
+) -> AgentCapabilityEntryData {
+    let blocked_reason = if !writeback_enabled {
+        Some(writeback_disabled_blocker())
+    } else if !todoist_configured {
+        Some(todoist_not_configured_blocker())
+    } else {
+        None
+    };
+
+    AgentCapabilityEntryData {
+        key: "todoist_task_writeback".to_string(),
+        label: "Mutate Todoist-backed tasks".to_string(),
+        summary:
+            "The agent can create, update, complete, and reopen Todoist-backed tasks through the bounded writeback lane."
+                .to_string(),
+        available: writeback_enabled && todoist_configured,
+        blocked_reason,
         requires_review_gate: Some(ExecutionReviewGateData::OperatorPreview),
         requires_writeback_enabled: true,
     }
@@ -464,6 +492,17 @@ fn no_pending_handoffs_blocker() -> AgentBlockerData {
         message: "No pending execution handoffs are waiting for review.".to_string(),
         escalation_hint: Some(
             "Create a new scoped handoff if you need to route repo-local work for review."
+                .to_string(),
+        ),
+    }
+}
+
+fn todoist_not_configured_blocker() -> AgentBlockerData {
+    AgentBlockerData {
+        code: "todoist_not_configured".to_string(),
+        message: "Todoist task mutation requires a configured Todoist API token.".to_string(),
+        escalation_hint: Some(
+            "Connect Todoist in Settings before requesting task mutation through the agent."
                 .to_string(),
         ),
     }

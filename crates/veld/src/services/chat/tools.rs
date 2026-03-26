@@ -14,7 +14,10 @@ use crate::services::chat::thread_continuation::{
 };
 use crate::{
     errors::AppError,
-    services::{agent_grounding, daily_loop, people, projects, retrieval, timezone},
+    services::{
+        agent_grounding, daily_loop, integrations_todoist, operator_settings, people, projects,
+        retrieval, timezone, writeback,
+    },
     state::AppState,
 };
 
@@ -23,6 +26,10 @@ const TOOL_LIST_CALENDAR_EVENTS: &str = "vel_list_calendar_events";
 const TOOL_GET_CALENDAR_EVENT: &str = "vel_get_calendar_event";
 const TOOL_LIST_TASKS: &str = "vel_list_tasks";
 const TOOL_GET_TASK: &str = "vel_get_task";
+const TOOL_CREATE_TODOIST_TASK: &str = "vel_create_todoist_task";
+const TOOL_UPDATE_TODOIST_TASK: &str = "vel_update_todoist_task";
+const TOOL_COMPLETE_TODOIST_TASK: &str = "vel_complete_todoist_task";
+const TOOL_REOPEN_TODOIST_TASK: &str = "vel_reopen_todoist_task";
 const TOOL_SEARCH_MEMORY: &str = "vel_search_memory";
 const TOOL_GET_RECALL_CONTEXT: &str = "vel_get_recall_context";
 const TOOL_LIST_PROJECTS: &str = "vel_list_projects";
@@ -129,6 +136,138 @@ pub(crate) fn chat_tool_specs() -> Vec<ToolSpec> {
                         "type": "string",
                         "minLength": 1,
                         "description": "Canonical Vel task/commitment id."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_CREATE_TODOIST_TASK.to_string(),
+            description:
+                "Create a Todoist-backed task through Vel's bounded writeback lane when SAFE MODE is disabled."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Todoist task content."
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "description": "Optional canonical Vel project id."
+                    },
+                    "scheduled_for": {
+                        "type": "string",
+                        "description": "Optional due date or datetime string."
+                    },
+                    "priority": {
+                        "description": "Optional Todoist priority, as 1-4 or strings like p1/high/low.",
+                        "oneOf": [
+                            { "type": "integer", "minimum": 1, "maximum": 4 },
+                            { "type": "string", "minLength": 1 }
+                        ]
+                    },
+                    "waiting_on": {
+                        "type": "string",
+                        "description": "Optional waiting_on label value."
+                    },
+                    "review_state": {
+                        "type": "string",
+                        "description": "Optional review_state label value."
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional Todoist tags. An empty array clears tags if tag writeback is enabled."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_UPDATE_TODOIST_TASK.to_string(),
+            description:
+                "Update one Todoist-backed Vel task by canonical task id through Vel's bounded writeback lane."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["task_id"],
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Canonical Vel task id for a Todoist-backed commitment."
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Updated Todoist task content."
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "description": "Optional canonical Vel project id."
+                    },
+                    "scheduled_for": {
+                        "type": "string",
+                        "description": "Optional due date or datetime string."
+                    },
+                    "priority": {
+                        "description": "Optional Todoist priority, as 1-4 or strings like p1/high/low.",
+                        "oneOf": [
+                            { "type": "integer", "minimum": 1, "maximum": 4 },
+                            { "type": "string", "minLength": 1 }
+                        ]
+                    },
+                    "waiting_on": {
+                        "type": "string",
+                        "description": "Optional waiting_on label value."
+                    },
+                    "review_state": {
+                        "type": "string",
+                        "description": "Optional review_state label value."
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional Todoist tags. An empty array clears tags if tag writeback is enabled."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_COMPLETE_TODOIST_TASK.to_string(),
+            description:
+                "Complete one Todoist-backed Vel task by canonical task id through Vel's bounded writeback lane."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["task_id"],
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Canonical Vel task id for a Todoist-backed commitment."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_REOPEN_TODOIST_TASK.to_string(),
+            description:
+                "Reopen one Todoist-backed Vel task by canonical task id through Vel's bounded writeback lane."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["task_id"],
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Canonical Vel task id for a Todoist-backed commitment."
                     }
                 },
                 "additionalProperties": false,
@@ -410,6 +549,75 @@ pub(crate) async fn execute_chat_tool(
                 "surfaced_in_now": surfaced_in_now,
             }))
         }
+        TOOL_CREATE_TODOIST_TASK => {
+            let mutation = parse_todoist_tool_mutation(
+                arguments,
+                TOOL_CREATE_TODOIST_TASK,
+                TodoistContentRequirement::Required,
+            )?;
+            if let Some(blocked) =
+                todoist_writeback_block_response(state, "todoist_create_task").await?
+            {
+                return Ok(blocked);
+            }
+            let operation =
+                writeback::todoist_create_task(&state.storage, &state.config, "vel-chat", mutation)
+                    .await?;
+            Ok(todoist_writeback_result("todoist_create_task", operation))
+        }
+        TOOL_UPDATE_TODOIST_TASK => {
+            let task_id =
+                required_trimmed_argument(arguments, "task_id", TOOL_UPDATE_TODOIST_TASK)?;
+            let mutation = parse_todoist_tool_mutation(
+                arguments,
+                TOOL_UPDATE_TODOIST_TASK,
+                TodoistContentRequirement::Optional,
+            )?;
+            if let Some(blocked) =
+                todoist_writeback_block_response(state, "todoist_update_task").await?
+            {
+                return Ok(blocked);
+            }
+            let operation = writeback::todoist_update_task(
+                &state.storage,
+                &state.config,
+                "vel-chat",
+                &task_id,
+                mutation,
+            )
+            .await?;
+            Ok(todoist_writeback_result("todoist_update_task", operation))
+        }
+        TOOL_COMPLETE_TODOIST_TASK => {
+            let task_id =
+                required_trimmed_argument(arguments, "task_id", TOOL_COMPLETE_TODOIST_TASK)?;
+            if let Some(blocked) =
+                todoist_writeback_block_response(state, "todoist_complete_task").await?
+            {
+                return Ok(blocked);
+            }
+            let operation = writeback::todoist_complete_task(
+                &state.storage,
+                &state.config,
+                "vel-chat",
+                &task_id,
+            )
+            .await?;
+            Ok(todoist_writeback_result("todoist_complete_task", operation))
+        }
+        TOOL_REOPEN_TODOIST_TASK => {
+            let task_id =
+                required_trimmed_argument(arguments, "task_id", TOOL_REOPEN_TODOIST_TASK)?;
+            if let Some(blocked) =
+                todoist_writeback_block_response(state, "todoist_reopen_task").await?
+            {
+                return Ok(blocked);
+            }
+            let operation =
+                writeback::todoist_reopen_task(&state.storage, &state.config, "vel-chat", &task_id)
+                    .await?;
+            Ok(todoist_writeback_result("todoist_reopen_task", operation))
+        }
         TOOL_SEARCH_MEMORY => {
             let query = arguments
                 .get("query")
@@ -589,6 +797,8 @@ pub(crate) async fn build_chat_grounding_prompt(state: &AppState) -> Result<Stri
         "You are Vel, a concise assistant for capture, recall, daily orientation, and supervised execution.\n\
          Use the provided Vel tool surface when the user asks about their current state, projects, people, commitments, or prior captured knowledge.\n\
          Use the dedicated task and calendar tools for detailed inspection when the user needs concrete commitments or surfaced schedule events instead of only the compact Now summary.\n\
+         Todoist task mutation tools are bounded by SAFE MODE and Todoist connectivity; use them only when the user explicitly asks to create, update, complete, or reopen a Todoist-backed task.\n\
+         Calendar mutation is not currently available through chat tools; do not pretend a calendar write happened.\n\
          Prefer the recall-context tool for memory-backed questions when you need a bounded pack of relevant context instead of a raw search list.\n\
          Daily-loop state, standup continuity, closeout briefs, and thread-based resolution should stay aligned with Vel's existing product lanes rather than invented ad hoc in chat.\n\
          Never invent access you do not have. If a write, mutation, or review-gated action is requested, explain the limit instead of pretending it happened.\n\
@@ -794,6 +1004,172 @@ fn task_status_label(status: Option<CommitmentStatus>) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy)]
+enum TodoistContentRequirement {
+    Required,
+    Optional,
+}
+
+async fn todoist_writeback_block_response(
+    state: &AppState,
+    action: &str,
+) -> Result<Option<Value>, AppError> {
+    if !operator_settings::runtime_writeback_enabled(&state.storage, &state.config).await? {
+        return Ok(Some(todoist_blocked_response(
+            action,
+            "safe_mode_enabled",
+            writeback::SAFE_MODE_MESSAGE,
+            true,
+        )));
+    }
+
+    let settings = integrations_todoist::load_todoist_settings(&state.storage).await?;
+    let status = integrations_todoist::todoist_status(&settings);
+    if !status.has_api_token {
+        return Ok(Some(todoist_blocked_response(
+            action,
+            "todoist_not_configured",
+            "Todoist task mutation requires a configured Todoist API token.",
+            false,
+        )));
+    }
+
+    Ok(None)
+}
+
+fn todoist_blocked_response(
+    action: &str,
+    code: &str,
+    message: &str,
+    requires_writeback_enabled: bool,
+) -> Value {
+    json!({
+        "provider": "todoist",
+        "action": action,
+        "outcome": "blocked",
+        "requires_writeback_enabled": requires_writeback_enabled,
+        "blocked_reason": {
+            "code": code,
+            "message": message,
+        }
+    })
+}
+
+fn todoist_writeback_result(action: &str, operation: vel_core::WritebackOperationRecord) -> Value {
+    json!({
+        "provider": "todoist",
+        "action": action,
+        "outcome": operation.status.to_string(),
+        "writeback": operation,
+    })
+}
+
+fn parse_todoist_tool_mutation(
+    arguments: &Value,
+    tool_name: &str,
+    content_requirement: TodoistContentRequirement,
+) -> Result<integrations_todoist::TodoistTaskMutation, AppError> {
+    let content = match content_requirement {
+        TodoistContentRequirement::Required => {
+            Some(required_trimmed_argument(arguments, "content", tool_name)?)
+        }
+        TodoistContentRequirement::Optional => optional_trimmed_argument(arguments, "content")?,
+    };
+
+    Ok(integrations_todoist::TodoistTaskMutation {
+        content,
+        project_id: optional_trimmed_argument(arguments, "project_id")?,
+        scheduled_for: optional_trimmed_argument(arguments, "scheduled_for")?,
+        priority: parse_todoist_priority_argument(arguments.get("priority"))?,
+        waiting_on: optional_trimmed_argument(arguments, "waiting_on")?,
+        review_state: optional_trimmed_argument(arguments, "review_state")?,
+        tags: parse_string_list_argument(arguments.get("tags"), "tags")?,
+    })
+}
+
+fn parse_string_list_argument(
+    value: Option<&Value>,
+    key: &str,
+) -> Result<Option<Vec<String>>, AppError> {
+    match value {
+        None => Ok(None),
+        Some(Value::Null) => Ok(Some(Vec::new())),
+        Some(Value::Array(values)) => values
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(|value| value.to_string())
+                    .ok_or_else(|| {
+                        AppError::bad_request(format!(
+                            "{key} must be an array of non-empty strings"
+                        ))
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(Some),
+        Some(_) => Err(AppError::bad_request(format!(
+            "{key} must be an array of non-empty strings"
+        ))),
+    }
+}
+
+fn parse_todoist_priority_argument(value: Option<&Value>) -> Result<Option<u8>, AppError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
+    match value {
+        Value::Number(number) => {
+            if let Some(raw) = number.as_u64() {
+                return parse_todoist_priority_value(raw as i64);
+            }
+            if let Some(raw) = number.as_i64() {
+                return parse_todoist_priority_value(raw);
+            }
+            Err(AppError::bad_request(
+                "todoist priority must be between 1 and 4",
+            ))
+        }
+        Value::String(raw) => {
+            let trimmed = raw.trim().to_ascii_lowercase();
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
+            match trimmed.as_str() {
+                "critical" | "urgent" | "high" => Ok(Some(1)),
+                "medium" => Ok(Some(2)),
+                "low" => Ok(Some(3)),
+                "lowest" => Ok(Some(4)),
+                _ => {
+                    let numeric = trimmed.strip_prefix('p').unwrap_or(trimmed.as_str());
+                    let parsed = numeric.parse::<i64>().map_err(|_| {
+                        AppError::bad_request(format!(
+                            "todoist priority string {trimmed} is not recognized"
+                        ))
+                    })?;
+                    parse_todoist_priority_value(parsed)
+                }
+            }
+        }
+        other => Err(AppError::bad_request(format!(
+            "todoist priority must be a number or string, got {other}"
+        ))),
+    }
+}
+
+fn parse_todoist_priority_value(value: i64) -> Result<Option<u8>, AppError> {
+    if (1..=4).contains(&value) {
+        Ok(Some(value as u8))
+    } else {
+        Err(AppError::bad_request(
+            "todoist priority must be between 1 and 4",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -806,10 +1182,14 @@ mod tests {
     };
 
     fn test_state(storage: vel_storage::Storage) -> AppState {
+        test_state_with_config(storage, AppConfig::default())
+    }
+
+    fn test_state_with_config(storage: vel_storage::Storage, config: AppConfig) -> AppState {
         let (broadcast_tx, _) = broadcast::channel(8);
         AppState::new(
             storage,
-            AppConfig::default(),
+            config,
             crate::policy_config::PolicyConfig::default(),
             broadcast_tx,
             None,
@@ -1166,5 +1546,104 @@ mod tests {
 
         assert_eq!(fetched["event"]["title"], "Design review");
         assert_eq!(fetched["surfaced_in"], "upcoming_events");
+    }
+
+    #[tokio::test]
+    async fn todoist_create_tool_returns_blocked_response_in_safe_mode() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let state = test_state(storage);
+        let value = execute_chat_tool(
+            &state,
+            TOOL_CREATE_TODOIST_TASK,
+            &json!({
+                "content": "Follow up on agenda",
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(value["outcome"], "blocked");
+        assert_eq!(value["blocked_reason"]["code"], "safe_mode_enabled");
+        assert_eq!(value["action"], "todoist_create_task");
+    }
+
+    #[tokio::test]
+    async fn todoist_create_tool_returns_blocked_response_when_not_configured() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_state_with_config(
+            storage,
+            AppConfig {
+                writeback_enabled: true,
+                ..AppConfig::default()
+            },
+        );
+
+        let value = execute_chat_tool(
+            &state,
+            TOOL_CREATE_TODOIST_TASK,
+            &json!({
+                "content": "Follow up on agenda",
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(value["outcome"], "blocked");
+        assert_eq!(value["blocked_reason"]["code"], "todoist_not_configured");
+        assert_eq!(value["provider"], "todoist");
+    }
+
+    #[tokio::test]
+    async fn todoist_update_tool_rejects_empty_change_set_before_network() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                integrations_todoist::TODOIST_SETTINGS_KEY,
+                &json!({
+                    "write_capabilities": {
+                        "completion_status": true,
+                        "due_date": true,
+                        "tags": false
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                integrations_todoist::TODOIST_SECRETS_KEY,
+                &json!({
+                    "api_token": "test-token"
+                }),
+            )
+            .await
+            .unwrap();
+
+        let state = test_state_with_config(
+            storage,
+            AppConfig {
+                writeback_enabled: true,
+                ..AppConfig::default()
+            },
+        );
+
+        let error = execute_chat_tool(
+            &state,
+            TOOL_UPDATE_TODOIST_TASK,
+            &json!({
+                "task_id": "commitment_missing_changes",
+            }),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "todoist_update_task requires at least one changed field"
+        );
     }
 }
