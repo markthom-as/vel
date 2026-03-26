@@ -288,27 +288,15 @@ mod tests {
         .await
         .unwrap();
 
-        let filtered = list_daily_check_in_events_for_session(
-            &pool,
-            "dls_2",
-            Some("mood"),
-            None,
-            true,
-            10,
-        )
-            .await
-            .unwrap();
+        let filtered =
+            list_daily_check_in_events_for_session(&pool, "dls_2", Some("mood"), None, true, 10)
+                .await
+                .unwrap();
         assert_eq!(filtered.len(), 1);
-        let filtered_empty = list_daily_check_in_events_for_session(
-            &pool,
-            "dls_2",
-            Some("pain"),
-            None,
-            true,
-            10,
-        )
-        .await
-        .unwrap();
+        let filtered_empty =
+            list_daily_check_in_events_for_session(&pool, "dls_2", Some("pain"), None, true, 10)
+                .await
+                .unwrap();
         assert_eq!(filtered_empty.len(), 0);
     }
 
@@ -342,28 +330,15 @@ mod tests {
         .await
         .unwrap();
 
-        let filtered = list_daily_check_in_events_for_session(
-            &pool,
-            "dls_3",
-            None,
-            None,
-            false,
-            10,
-        )
-        .await
-        .unwrap();
+        let filtered =
+            list_daily_check_in_events_for_session(&pool, "dls_3", None, None, false, 10)
+                .await
+                .unwrap();
         assert_eq!(filtered.len(), 0);
 
-        let filtered = list_daily_check_in_events_for_session(
-            &pool,
-            "dls_3",
-            None,
-            None,
-            true,
-            10,
-        )
-        .await
-        .unwrap();
+        let filtered = list_daily_check_in_events_for_session(&pool, "dls_3", None, None, true, 10)
+            .await
+            .unwrap();
         assert_eq!(filtered.len(), 1);
         assert!(filtered[0].skipped);
     }
@@ -424,18 +399,11 @@ mod tests {
         .await
         .unwrap();
 
-        let filtered = list_daily_check_in_events_for_session(
-            &pool,
-            "dls_4",
-            None,
-            Some("morning"),
-            true,
-            10,
-        )
-        .await
-        .unwrap();
+        let filtered =
+            list_daily_check_in_events_for_session(&pool, "dls_4", None, Some("morning"), true, 10)
+                .await
+                .unwrap();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].session_phase, "morning");
     }
-
 }

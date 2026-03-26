@@ -318,12 +318,7 @@ async fn agent_grounding_inspect_reports_no_matching_write_grant_when_none_exist
     let app = build_app_with_state(state);
 
     let response = app
-        .oneshot(request(
-            "GET",
-            "/v1/agent/inspect",
-            None,
-            None,
-        ))
+        .oneshot(request("GET", "/v1/agent/inspect", None, None))
         .await
         .expect("inspect response");
     assert_eq!(response.status(), StatusCode::OK);

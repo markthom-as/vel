@@ -9,9 +9,9 @@ use std::{
     time::UNIX_EPOCH,
 };
 use vel_api_types::{
-    BatchImportCapture, BatchImportItem, BatchImportProject, BatchImportRequest,
-    BatchImportSignal, CaptureCreateRequest, ProjectFamilyData, ProjectProvisionRequestData,
-    ProjectRootRefData, ProjectStatusData,
+    BatchImportCapture, BatchImportItem, BatchImportProject, BatchImportRequest, BatchImportSignal,
+    CaptureCreateRequest, ProjectFamilyData, ProjectProvisionRequestData, ProjectRootRefData,
+    ProjectStatusData,
 };
 use vel_core::CaptureId;
 
@@ -146,11 +146,15 @@ pub async fn run_codex_workspace(client: &ApiClient, path: &str) -> anyhow::Resu
     println!("projects skipped: {}", summary.projects_skipped);
     println!(
         "captures created: {}",
-        data.summary.created.saturating_sub(summary.projects_created as usize)
+        data.summary
+            .created
+            .saturating_sub(summary.projects_created as usize)
     );
     println!(
         "captures skipped: {}",
-        data.summary.skipped.saturating_sub(summary.projects_skipped as usize)
+        data.summary
+            .skipped
+            .saturating_sub(summary.projects_skipped as usize)
     );
     println!(
         "total: {} created, {} skipped, {} errors",
@@ -198,7 +202,12 @@ pub fn build_codex_workspace_items(root: &Path) -> anyhow::Result<Vec<BatchImpor
     }
 
     // Note documents
-    build_document_items(root, &workspace_note_files(root), NOTE_CAPTURE_TYPE, &mut items)?;
+    build_document_items(
+        root,
+        &workspace_note_files(root),
+        NOTE_CAPTURE_TYPE,
+        &mut items,
+    )?;
 
     // Routine documents
     build_document_items(
@@ -578,8 +587,15 @@ mod tests {
             .count();
 
         assert_eq!(project_count, 1, "should have 1 project");
-        assert!(capture_count >= 3, "should have at least 3 captures (notes + routine), got {}", capture_count);
-        assert_eq!(capture_count, signal_count, "each capture should have a paired signal");
+        assert!(
+            capture_count >= 3,
+            "should have at least 3 captures (notes + routine), got {}",
+            capture_count
+        );
+        assert_eq!(
+            capture_count, signal_count,
+            "each capture should have a paired signal"
+        );
 
         // node_modules content should not appear
         let has_node_modules = items.iter().any(|i| match i {

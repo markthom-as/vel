@@ -3,8 +3,8 @@
 use crate::client::ApiClient;
 use crate::commands::doctor::backup_summary_lines;
 use vel_api_types::{
-    ActionItemData, BackupTrustData, CommitmentSchedulingProposalSummaryData, NowData, PersonRecordData,
-    ReviewSnapshotData,
+    ActionItemData, BackupTrustData, CommitmentSchedulingProposalSummaryData, NowData,
+    PersonRecordData, ReviewSnapshotData,
 };
 
 const TRUNCATE: usize = 50;
@@ -214,8 +214,8 @@ fn people_needing_review(now: &NowData) -> Vec<PersonRecordData> {
 #[cfg(test)]
 mod tests {
     use super::{
-        commitment_scheduling_summary_lines,
-        people_needing_review, summarize_review_snapshot, top_action_titles,
+        commitment_scheduling_summary_lines, people_needing_review, summarize_review_snapshot,
+        top_action_titles,
     };
     use serde_json::json;
     use time::OffsetDateTime;
@@ -223,9 +223,8 @@ mod tests {
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionPermissionModeData,
         ActionScopeAffinityData, ActionStateData, ActionSurfaceData, NowAttentionData, NowData,
         NowDebugData, NowFreshnessData, NowLabelData, NowRiskSummaryData, NowScheduleData,
-        NowSourcesData, NowSummaryData, NowTasksData, PersonRecordData,
-        ReviewSnapshotData, TrustReadinessData, TrustReadinessFacetData,
-        TrustReadinessReviewData,
+        NowSourcesData, NowSummaryData, NowTasksData, PersonRecordData, ReviewSnapshotData,
+        TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
     };
     use vel_core::{ActionItemId, PersonId};
 

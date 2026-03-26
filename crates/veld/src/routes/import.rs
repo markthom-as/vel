@@ -22,11 +22,8 @@ pub async fn import_batch(
         ));
     }
 
-    let storage_items: Vec<BatchImportStorageItem> = payload
-        .items
-        .into_iter()
-        .map(map_to_storage_item)
-        .collect();
+    let storage_items: Vec<BatchImportStorageItem> =
+        payload.items.into_iter().map(map_to_storage_item).collect();
 
     let storage_results = state.storage.import_batch(storage_items).await?;
 

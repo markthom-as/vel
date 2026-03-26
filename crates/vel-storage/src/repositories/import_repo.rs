@@ -1,7 +1,10 @@
 use serde_json::Value as JsonValue;
 use sqlx::SqlitePool;
 use time::OffsetDateTime;
-use vel_core::{CaptureId, PrivacyClass, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus, ProjectFamily};
+use vel_core::{
+    CaptureId, PrivacyClass, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord,
+    ProjectRootRef, ProjectStatus,
+};
 
 use crate::db::{CaptureInsert, SignalInsert, StorageError};
 use crate::repositories::{captures_repo, projects_repo, signals_repo};
@@ -153,8 +156,7 @@ pub(crate) async fn import_batch(
                 upstream_ids,
                 pending_provision,
             } => {
-                let existing =
-                    projects_repo::get_project_by_slug_in_tx(&mut tx, &slug).await;
+                let existing = projects_repo::get_project_by_slug_in_tx(&mut tx, &slug).await;
                 match existing {
                     Ok(Some(_)) => BatchImportStorageResult {
                         index,

@@ -16,14 +16,14 @@ pub use db::{
     BackupRunRecord, BrokerEventRecord, CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert,
     CommitmentInsert, ConnectRunEventRecord, ConnectRunRecord, ConversationInsert,
     ConversationRecord, DailyCheckInEventInsert, DailyCheckInEventRecord, DailySessionRecord,
-    EventLogInsert, EventLogRecord, InferredStateInsert,
-    IntegrationConnectionFilters, IntegrationConnectionInsert, InterventionInsert,
-    InterventionRecord, MessageInsert, MessageRecord, NudgeInsert, NudgeRecord, PendingJob,
-    RetryReadyRun, RuntimeLoopRecord, SearchFilters, SignalInsert, SignalRecord, Storage,
-    StorageError, SuggestionEvidenceInsert, SuggestionEvidenceRecord, SuggestionFeedbackInsert,
-    SuggestionFeedbackRecord, SuggestionFeedbackSummary, SuggestionInsertV2, SuggestionRecord,
-    UncertaintyRecord, UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert,
-    WorkAssignmentRecord, WorkAssignmentUpdate,
+    EventLogInsert, EventLogRecord, InferredStateInsert, IntegrationConnectionFilters,
+    IntegrationConnectionInsert, InterventionInsert, InterventionRecord, MessageInsert,
+    MessageRecord, NudgeInsert, NudgeRecord, PendingJob, RetryReadyRun, RuntimeLoopRecord,
+    SearchFilters, SignalInsert, SignalRecord, Storage, StorageError, SuggestionEvidenceInsert,
+    SuggestionEvidenceRecord, SuggestionFeedbackInsert, SuggestionFeedbackRecord,
+    SuggestionFeedbackSummary, SuggestionInsertV2, SuggestionRecord, UncertaintyRecord,
+    UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord,
+    WorkAssignmentUpdate,
 };
 pub use migration_artifacts::{
     replay_migration_artifact, validate_migration_artifact, MigrationArtifactRecord,
@@ -35,6 +35,9 @@ pub use projection_rebuilder::rebuild_source_summary_projection;
 pub use query::{
     query_canonical_objects, traverse_relations, CanonicalObjectQuery, CanonicalObjectSort,
     CanonicalObjectSortField, QuerySortDirection, RelationTraversal,
+};
+pub use repositories::import_repo::{
+    BatchImportStorageItem, BatchImportStorageResult, BatchImportStorageStatus,
 };
 pub use repositories::{
     canonical_objects_repo::{
@@ -54,9 +57,6 @@ pub use repositories::{
         get_sync_link, list_sync_links_for_object, update_sync_link_state, upsert_sync_link,
         SyncLinkRecord,
     },
-};
-pub use repositories::import_repo::{
-    BatchImportStorageItem, BatchImportStorageResult, BatchImportStorageStatus,
 };
 pub use storage_backend::{
     AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,

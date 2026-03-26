@@ -1,12 +1,12 @@
+use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_storage::{DailyCheckInEventInsert, DailyCheckInEventRecord, Storage};
 use vel_core::{
     ActionItemId, CheckInCard, CheckInEscalation, CheckInEscalationTarget, CheckInSourceKind,
     CheckInSubmitTarget, CheckInSubmitTargetKind, CheckInTransition, CheckInTransitionKind,
     CheckInTransitionTargetKind, DailyLoopCheckInResolution, DailyLoopCheckInResolutionKind,
     DailyLoopPhase, DailyLoopSession, DailyLoopTurnAction, DailyLoopTurnRequest,
 };
-use serde_json::Value as JsonValue;
+use vel_storage::{DailyCheckInEventInsert, DailyCheckInEventRecord, Storage};
 
 use crate::{
     errors::AppError,
@@ -98,10 +98,7 @@ pub async fn submit_check_in(
 ) -> Result<DailyCheckInSubmitResult, AppError> {
     let check_in_type = check_in_type_label(&input.check_in_type)?;
     let session_phase = session_phase_label_input(&input.session_phase)?;
-    let source = input
-        .source
-        .trim()
-        .to_lowercase();
+    let source = input.source.trim().to_lowercase();
     if source != "user" && source != "inferred" {
         return Err(AppError::bad_request("source must be `user` or `inferred`"));
     }
@@ -240,10 +237,18 @@ pub async fn skip_check_in(
         return Err(AppError::bad_request("source must be `user` or `inferred`"));
     }
 
-    let reason_code = input.reason_code.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
-    let reason_text = input.reason_text.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+    let reason_code = input
+        .reason_code
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let reason_text = input
+        .reason_text
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     if reason_code.is_none() && reason_text.is_none() {
-        return Err(AppError::bad_request("skip requires a reason_code or reason_text"));
+        return Err(AppError::bad_request(
+            "skip requires a reason_code or reason_text",
+        ));
     }
 
     let new_check_in_event_id = storage
@@ -273,7 +278,9 @@ pub async fn skip_check_in(
             }),
         })
         .await
-        .map_err(|error| AppError::internal(format!("insert daily check-in skip event: {error}")))?;
+        .map_err(|error| {
+            AppError::internal(format!("insert daily check-in skip event: {error}"))
+        })?;
 
     Ok(DailyCheckInSkipResult {
         check_in_event_id: new_check_in_event_id,
@@ -465,10 +472,7 @@ pub async fn persist_resolution_follow_through(
     Ok(())
 }
 
-fn check_in_type_for_prompt(
-    phase: &DailyLoopPhase,
-    response_text: &Option<String>,
-) -> String {
+fn check_in_type_for_prompt(phase: &DailyLoopPhase, response_text: &Option<String>) -> String {
     if let Some(text) = response_text {
         if text.to_lowercase().contains("mood") {
             return "mood".to_string();

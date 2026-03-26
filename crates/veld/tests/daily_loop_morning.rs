@@ -4,12 +4,12 @@ use axum::{
 };
 use tower::util::ServiceExt;
 use vel_api_types::{
-    ApiResponse, DailyLoopCheckInEventData, DailyLoopCheckInSubmitRequestData,
-    DailyLoopCheckInSubmitResponseData, DailyLoopCheckInSkipRequestData,
-    DailyLoopCheckInSkipResponseData, DailyLoopPhaseData, DailyLoopSessionData,
+    ApiResponse, DailyLoopCheckInEventData, DailyLoopCheckInSkipRequestData,
+    DailyLoopCheckInSkipResponseData, DailyLoopCheckInSubmitRequestData,
+    DailyLoopCheckInSubmitResponseData, DailyLoopPhaseData, DailyLoopSessionData,
     DailyLoopSessionStateData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
-    DailyLoopStartSourceData,
-    DailyLoopSurfaceData, DailyLoopTurnActionData, DailyLoopTurnRequestData,
+    DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
+    DailyLoopTurnRequestData,
 };
 use vel_config::AppConfig;
 use vel_core::CommitmentStatus;
@@ -71,7 +71,8 @@ async fn decode_check_in_events(
     let body = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .unwrap();
-    let payload: ApiResponse<Vec<DailyLoopCheckInEventData>> = serde_json::from_slice(&body).unwrap();
+    let payload: ApiResponse<Vec<DailyLoopCheckInEventData>> =
+        serde_json::from_slice(&body).unwrap();
     payload.data.unwrap_or_default()
 }
 
@@ -676,7 +677,10 @@ async fn submit_check_in_creates_event() {
     .await;
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].check_in_type, "mood");
-    assert_eq!(events[0].text.as_deref(), Some("Sleep was rough but productive"));
+    assert_eq!(
+        events[0].text.as_deref(),
+        Some("Sleep was rough but productive")
+    );
 }
 
 #[tokio::test]
@@ -898,7 +902,10 @@ async fn skip_check_in_creates_reasoned_skip_event() {
         app.clone()
             .oneshot(authed_json_request(
                 "POST",
-                &format!("/v1/daily-loop/check-ins/{}/skip", original.check_in_event_id),
+                &format!(
+                    "/v1/daily-loop/check-ins/{}/skip",
+                    original.check_in_event_id
+                ),
                 &DailyLoopCheckInSkipRequestData {
                     source: Some("user".to_string()),
                     answered_at: None,
@@ -912,7 +919,10 @@ async fn skip_check_in_creates_reasoned_skip_event() {
     .await;
 
     assert_eq!(skip_result.status, "skipped");
-    assert_eq!(skip_result.supersedes_event_id, Some(original.check_in_event_id.clone()));
+    assert_eq!(
+        skip_result.supersedes_event_id,
+        Some(original.check_in_event_id.clone())
+    );
     assert_eq!(skip_result.session_id, session.id);
 
     let events = decode_check_in_events(
@@ -928,9 +938,15 @@ async fn skip_check_in_creates_reasoned_skip_event() {
 
     assert_eq!(events.len(), 2);
     assert!(events[0].skipped);
-    assert_eq!(events[0].replaced_by_event_id, Some(original.check_in_event_id));
+    assert_eq!(
+        events[0].replaced_by_event_id,
+        Some(original.check_in_event_id)
+    );
     assert_eq!(events[0].skip_reason_code.as_deref(), Some("not_now"));
-    assert_eq!(events[0].skip_reason_text.as_deref(), Some("Need to postpone"));
+    assert_eq!(
+        events[0].skip_reason_text.as_deref(),
+        Some("Need to postpone")
+    );
 }
 
 #[tokio::test]
@@ -985,7 +1001,10 @@ async fn skip_check_in_requires_reason() {
         .clone()
         .oneshot(authed_json_request(
             "POST",
-            &format!("/v1/daily-loop/check-ins/{}/skip", original.check_in_event_id),
+            &format!(
+                "/v1/daily-loop/check-ins/{}/skip",
+                original.check_in_event_id
+            ),
             &DailyLoopCheckInSkipRequestData {
                 source: Some("user".to_string()),
                 answered_at: None,

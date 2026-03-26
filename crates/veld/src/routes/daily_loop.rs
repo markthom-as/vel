@@ -8,13 +8,13 @@ use std::str::FromStr;
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, DailyLoopOverdueActionData, DailyLoopOverdueApplyRequestData,
+    ApiResponse, DailyLoopCheckInEventData, DailyLoopCheckInEventsQueryData,
+    DailyLoopCheckInSkipRequestData, DailyLoopCheckInSkipResponseData,
+    DailyLoopCheckInSubmitRequestData, DailyLoopCheckInSubmitResponseData,
+    DailyLoopOverdueActionData, DailyLoopOverdueApplyRequestData,
     DailyLoopOverdueApplyResponseData, DailyLoopOverdueConfirmRequestData,
     DailyLoopOverdueConfirmResponseData, DailyLoopOverdueGuessConfidenceData,
-    DailyLoopCheckInEventData, DailyLoopCheckInEventsQueryData, DailyLoopOverdueMenuItemData,
-    DailyLoopCheckInSubmitRequestData, DailyLoopCheckInSubmitResponseData,
-    DailyLoopCheckInSkipRequestData, DailyLoopCheckInSkipResponseData,
-    DailyLoopOverdueMenuRequestData,
+    DailyLoopOverdueMenuItemData, DailyLoopOverdueMenuRequestData,
     DailyLoopOverdueMenuResponseData, DailyLoopOverdueStateSnapshotData,
     DailyLoopOverdueUndoRequestData, DailyLoopOverdueUndoResponseData,
     DailyLoopOverdueVelGuessData, DailyLoopPhaseData, DailyLoopSessionData,
@@ -150,8 +150,7 @@ pub async fn submit_check_in(
         run_id: None,
     };
 
-    let result = services::check_in::submit_check_in(&state.storage, &session_id, request)
-        .await?;
+    let result = services::check_in::submit_check_in(&state.storage, &session_id, request).await?;
 
     Ok(response::success(DailyLoopCheckInSubmitResponseData {
         check_in_event_id: result.check_in_event_id,
@@ -172,7 +171,8 @@ pub async fn skip_check_in(
         reason_code: request.reason_code,
         reason_text: request.reason_text,
     };
-    let result = services::check_in::skip_check_in(&state.storage, &check_in_event_id, request).await?;
+    let result =
+        services::check_in::skip_check_in(&state.storage, &check_in_event_id, request).await?;
 
     Ok(response::success(DailyLoopCheckInSkipResponseData {
         check_in_event_id: result.check_in_event_id,

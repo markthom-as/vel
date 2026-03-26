@@ -1,8 +1,8 @@
 use axum::extract::State;
 use axum::Json;
 use serde::Deserialize;
-use tracing::warn;
 use time::OffsetDateTime;
+use tracing::warn;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
@@ -315,7 +315,11 @@ impl From<services::now::NowOutput> for NowData {
 fn is_calendar_backed_task(task: &services::now::NowTaskOutput) -> bool {
     matches!(
         task.source_type.trim().to_ascii_lowercase().as_str(),
-        "calendar" | "calendar_event" | "google_calendar" | "gcal" | "apple_calendar"
+        "calendar"
+            | "calendar_event"
+            | "google_calendar"
+            | "gcal"
+            | "apple_calendar"
             | "icloud_calendar"
     )
 }

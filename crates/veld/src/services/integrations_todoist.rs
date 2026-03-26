@@ -2311,7 +2311,12 @@ mod tests {
         assert_eq!(payload["content"], "Follow up today");
         assert_eq!(
             payload["labels"],
-            json!(["focus", "ops", "review_state:needs_review", "waiting_on:alex"])
+            json!([
+                "focus",
+                "ops",
+                "review_state:needs_review",
+                "waiting_on:alex"
+            ])
         );
 
         let updated_task = TodoistTask {
@@ -2356,5 +2361,4 @@ mod tests {
             ])
         );
     }
-
 }

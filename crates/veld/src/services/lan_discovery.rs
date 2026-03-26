@@ -37,7 +37,8 @@ struct DiscoveryResponse {
 
 #[derive(Debug, Clone)]
 pub(crate) struct LanDiscoveredPeer {
-    #[allow(dead_code)] // Preserved for peer diagnostics even though current flows consume cluster data only.
+    #[allow(dead_code)]
+    // Preserved for peer diagnostics even though current flows consume cluster data only.
     pub source_addr: SocketAddr,
     pub cluster: ClusterBootstrapData,
 }

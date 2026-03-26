@@ -121,7 +121,9 @@ async fn effective_bind_addr(config: &AppConfig) -> String {
     let has_remote_discovery_transport = config.lan_base_url.is_some()
         || services::discover_lan_base_url(config).is_some()
         || config.tailscale_base_url.is_some()
-        || services::discover_tailscale_base_url(config).await.is_some();
+        || services::discover_tailscale_base_url(config)
+            .await
+            .is_some();
 
     if !has_remote_discovery_transport {
         return config.bind_addr.clone();
