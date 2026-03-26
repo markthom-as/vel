@@ -145,6 +145,11 @@ pub struct PortableTaskDisplayNormalizationPacket {
     pub project: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableClientKindLabelPacket {
+    pub short_label: Option<String>,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
 }
@@ -163,7 +168,10 @@ pub fn normalize_task_display_packet(
             continue;
         }
         let normalized = trimmed.to_lowercase();
-        if project_key.as_ref().is_some_and(|project_key| project_key == &normalized) {
+        if project_key
+            .as_ref()
+            .is_some_and(|project_key| project_key == &normalized)
+        {
             continue;
         }
         if normalized_tags
@@ -179,6 +187,35 @@ pub fn normalize_task_display_packet(
         tags: normalized_tags,
         project,
     }
+}
+
+pub fn short_client_kind_label_packet(client_kind: Option<String>) -> PortableClientKindLabelPacket {
+    let Some(client_kind) = normalized_optional_trimmed(client_kind) else {
+        return PortableClientKindLabelPacket { short_label: None };
+    };
+
+    let normalized = client_kind.to_lowercase();
+    let short_label = if normalized.contains("web") {
+        Some("Web".to_string())
+    } else if normalized.contains("mac") {
+        Some("macOS".to_string())
+    } else if normalized.contains("ios")
+        || normalized.contains("iphone")
+        || normalized.contains("ipad")
+    {
+        Some("iOS".to_string())
+    } else if normalized.contains("watch") {
+        Some("watchOS".to_string())
+    } else if normalized.contains("veld")
+        || normalized.contains("daemon")
+        || normalized.contains("server")
+    {
+        Some("Authority".to_string())
+    } else {
+        Some(client_kind)
+    };
+
+    PortableClientKindLabelPacket { short_label }
 }
 
 pub fn prepare_voice_quick_action_packet(

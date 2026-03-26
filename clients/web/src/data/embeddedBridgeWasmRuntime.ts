@@ -12,6 +12,7 @@ export interface EmbeddedBridgeWasmModule {
   velEmbeddedNormalizeDomainHintPacket(input: string): string;
   velEmbeddedNormalizeSemanticLabelPacket(input: string): string;
   velEmbeddedNormalizeTaskDisplayPacket(tagsJson?: string | null, project?: string | null): string;
+  velEmbeddedShortClientKindLabelPacket(clientKind?: string | null): string;
   velEmbeddedQueuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -115,6 +116,12 @@ export function createEmbeddedBridgePacketRuntimeFromWasm(
           tags == null ? null : JSON.stringify(tags),
           project,
         ),
+      );
+    },
+    shortClientKindLabelPacket(clientKind) {
+      return response(
+        'deterministic_domain_helpers',
+        wasm.velEmbeddedShortClientKindLabelPacket(clientKind),
       );
     },
     queuedActionPacket(kind, targetId, text, minutes) {

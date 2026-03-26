@@ -9,11 +9,11 @@ use crate::portable_core::{
     normalize_positive_minutes, normalize_semantic_label, normalize_task_display_packet,
     normalized_optional_trimmed, prepare_app_shell_feedback_packet,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
-    prepare_linking_feedback_packet, prepare_linking_request_packet,
-    prepare_queued_action_packet, prepare_thread_draft_packet,
-    prepare_voice_cached_query_response_packet, prepare_voice_capture_payload,
-    prepare_voice_continuity_summary_packet, prepare_voice_offline_response_packet,
-    prepare_voice_quick_action_packet, trim_text,
+    prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
+    prepare_thread_draft_packet, prepare_voice_cached_query_response_packet,
+    prepare_voice_capture_payload, prepare_voice_continuity_summary_packet,
+    prepare_voice_offline_response_packet, prepare_voice_quick_action_packet,
+    short_client_kind_label_packet, trim_text,
 };
 #[cfg(feature = "browser-wasm")]
 use wasm_bindgen::prelude::*;
@@ -96,6 +96,14 @@ impl BrowserWasmScaffold {
                     .join(","),
                 option_json(packet.project)
             ),
+        }
+    }
+
+    pub fn short_client_kind_label_packet(client_kind: Option<String>) -> BrowserPacketResponse {
+        let packet = short_client_kind_label_packet(client_kind);
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!("{{\"shortLabel\":{}}}", option_json(packet.short_label)),
         }
     }
 
@@ -435,6 +443,12 @@ pub fn vel_embedded_normalize_task_display_packet(
     project: Option<String>,
 ) -> String {
     BrowserWasmScaffold::normalize_task_display_packet(tags_json, project).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedShortClientKindLabelPacket)]
+pub fn vel_embedded_short_client_kind_label_packet(client_kind: Option<String>) -> String {
+    BrowserWasmScaffold::short_client_kind_label_packet(client_kind).payload_json
 }
 
 #[cfg(feature = "browser-wasm")]

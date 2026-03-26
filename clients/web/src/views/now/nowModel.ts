@@ -7,7 +7,12 @@ import type {
   RoutineBlockData,
   WorkerPresenceData,
 } from '../../types';
-import type { SystemNavigationTarget } from '../system';
+import { shortClientKindLabelValue } from '../../data/embeddedBridgeAdapter';
+import {
+  systemTargetForCoreSetting,
+  systemTargetForProvider,
+  type SystemNavigationTarget,
+} from '../system';
 
 function coreSetupChecklistTarget(actionKind: string): SystemNavigationTarget | null {
   const parts = actionKind.split(':');
@@ -17,17 +22,17 @@ function coreSetupChecklistTarget(actionKind: string): SystemNavigationTarget | 
   const item = parts[2] ?? null;
   switch (item) {
     case 'user_display_name':
-      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-user-display-name' };
+      return systemTargetForCoreSetting('user_display_name');
     case 'node_display_name':
-      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-node-display-name' };
+      return systemTargetForCoreSetting('node_display_name');
     case 'agent_profile':
-      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-agent-profile-freeform' };
+      return systemTargetForCoreSetting('agent_profile');
     case 'llm_provider':
-      return { section: 'integrations', subsection: 'providers', anchor: 'providers-llm-routing' };
+      return systemTargetForProvider('llm_routing');
     case 'synced_provider':
-      return { section: 'integrations', subsection: 'providers', anchor: 'providers-google-calendar' };
+      return systemTargetForProvider('google_calendar');
     default:
-      return { section: 'core', subsection: 'core_settings', anchor: 'core-settings-required-setup' };
+      return systemTargetForCoreSetting('required_setup');
   }
 }
 
@@ -43,15 +48,15 @@ export function nudgeOpenSystemTarget(
   }
   if (bar.id === 'core_setup_required') {
     return coreSetupChecklistTarget(actionKind)
-      ?? { section: 'core', subsection: 'core_settings', anchor: 'core-settings-required-setup' };
+      ?? systemTargetForCoreSetting('required_setup');
   }
   if (bar.id === 'backup_trust_warning') {
-    return { section: 'operations', subsection: 'recovery' };
+    return systemTargetForProvider('recovery');
   }
   if (bar.id === 'mesh_summary_warning') {
-    return { section: 'integrations', subsection: 'accounts' };
+    return systemTargetForProvider('accounts');
   }
-  return { section: 'core', subsection: 'core_settings' };
+  return systemTargetForCoreSetting('required_setup');
 }
 
 export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTaskData[] {
@@ -220,26 +225,7 @@ export function nowLocationLabel(
 }
 
 export function shortClientKindLabel(clientKind: string | null | undefined): string | null {
-  if (!clientKind) {
-    return null;
-  }
-  const normalized = clientKind.trim().toLowerCase();
-  if (normalized.includes('web')) {
-    return 'Web';
-  }
-  if (normalized.includes('mac')) {
-    return 'macOS';
-  }
-  if (normalized.includes('ios') || normalized.includes('iphone') || normalized.includes('ipad')) {
-    return 'iOS';
-  }
-  if (normalized.includes('watch')) {
-    return 'watchOS';
-  }
-  if (normalized.includes('veld') || normalized.includes('daemon') || normalized.includes('server')) {
-    return 'Authority';
-  }
-  return clientKind;
+  return shortClientKindLabelValue(clientKind ?? null).shortLabel;
 }
 
 export function formatNowClientCaption(

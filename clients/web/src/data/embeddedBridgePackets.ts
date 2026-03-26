@@ -27,6 +27,7 @@ export interface EmbeddedBridgePacketRuntime {
     tags?: string[] | null,
     project?: string | null,
   ): EmbeddedBridgePacketResponse;
+  shortClientKindLabelPacket(clientKind?: string | null): EmbeddedBridgePacketResponse;
   queuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -135,6 +136,12 @@ export function normalizeTaskDisplayPacket(
   project?: string | null,
 ): EmbeddedBridgePacketResponse {
   return getEmbeddedBridgePacketRuntime().normalizeTaskDisplayPacket(tags, project);
+}
+
+export function shortClientKindLabelPacket(
+  clientKind?: string | null,
+): EmbeddedBridgePacketResponse {
+  return getEmbeddedBridgePacketRuntime().shortClientKindLabelPacket(clientKind);
 }
 
 export function queuedActionPacket(

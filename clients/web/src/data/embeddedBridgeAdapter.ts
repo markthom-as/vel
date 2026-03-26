@@ -9,6 +9,7 @@ import {
   normalizeSemanticLabelPacket,
   normalizeTaskDisplayPacket,
   queuedActionPacket,
+  shortClientKindLabelPacket,
   threadDraftPacket,
   voiceCachedQueryResponsePacket,
   voiceContinuitySummaryPacket,
@@ -18,7 +19,7 @@ import {
 import type { EmbeddedBridgePacketKind } from './embeddedBridgePackets';
 import { maybeInstallEmbeddedBridgePacketRuntimeFromGlobal } from './embeddedBridgeWasmRuntime';
 
-export const EMBEDDED_BRIDGE_WEB_MODE = 'rust_required' as const;
+export const EMBEDDED_BRIDGE_WEB_MODE = 'scaffold_only' as const;
 
 export type EmbeddedBridgeWebMode = typeof EMBEDDED_BRIDGE_WEB_MODE;
 
@@ -73,6 +74,10 @@ export type EmbeddedBridgeTaskDisplayPacket = {
   project: string | null;
 };
 
+export type EmbeddedBridgeClientKindPacket = {
+  shortLabel: string | null;
+};
+
 function parsePacket<T>(kind: EmbeddedBridgePacketKind, payloadJson: string): T {
   const parsed = JSON.parse(payloadJson) as { kind?: string } & T;
   void kind;
@@ -107,6 +112,14 @@ export function normalizeTaskDisplayValue(
 ): EmbeddedBridgeTaskDisplayPacket {
   ensureEmbeddedBridgeRuntime();
   const response = normalizeTaskDisplayPacket(tags, project);
+  return parsePacket(response.kind, response.payloadJson);
+}
+
+export function shortClientKindLabelValue(
+  clientKind?: string | null,
+): EmbeddedBridgeClientKindPacket {
+  ensureEmbeddedBridgeRuntime();
+  const response = shortClientKindLabelPacket(clientKind);
   return parsePacket(response.kind, response.payloadJson);
 }
 
