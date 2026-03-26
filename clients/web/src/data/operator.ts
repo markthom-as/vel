@@ -573,9 +573,13 @@ export function issuePairingToken(payload: {
   target_node_display_name?: string | null;
   target_base_url?: string | null;
 }): Promise<ApiResponse<PairingTokenData>> {
+  const linkingRequest = buildLinkingRequestValue(null, payload.target_base_url);
   return canonicalPostMutation<PairingTokenData>(
     '/v1/linking/tokens',
-    payload,
+    {
+      ...payload,
+      target_base_url: linkingRequest.targetBaseUrl,
+    },
     (value) => decodeApiResponse(value, decodePairingTokenData),
   );
 }
@@ -634,9 +638,34 @@ export function redeemPairingToken(payload: {
   localhost_base_url?: string | null;
   public_base_url?: string | null;
 }): Promise<ApiResponse<LinkedNodeData>> {
+  const draft = buildEmbeddedLinkingRequestDraft({
+    token_code: payload.token_code,
+    target_base_url: null,
+    sync_base_url: payload.sync_base_url,
+    tailscale_base_url: payload.tailscale_base_url,
+    lan_base_url: payload.lan_base_url,
+    public_base_url: payload.public_base_url,
+  });
+
   return canonicalPostMutation<LinkedNodeData>(
     '/v1/linking/redeem',
-    payload,
+    {
+      ...payload,
+      token_code: draft.token_code ?? payload.token_code,
+      sync_base_url: draft.route_candidates[0]?.baseUrl ?? payload.sync_base_url ?? null,
+      tailscale_base_url:
+        draft.route_candidates.find((route) => route.label === 'tailscale')?.baseUrl
+        ?? payload.tailscale_base_url
+        ?? null,
+      lan_base_url:
+        draft.route_candidates.find((route) => route.label === 'lan')?.baseUrl
+        ?? payload.lan_base_url
+        ?? null,
+      public_base_url:
+        draft.route_candidates.find((route) => route.label === 'public')?.baseUrl
+        ?? payload.public_base_url
+        ?? null,
+    },
     (value) => decodeApiResponse(value, decodeLinkedNodeData),
   );
 }
