@@ -2641,6 +2641,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local capture metadata packaging", value: configuration.permits(.localCaptureMetadataPackaging))
             BoolStatusRow(label: "Local voice continuity summary packaging", value: configuration.permits(.localVoiceContinuitySummaryPackaging))
             BoolStatusRow(label: "Local voice offline response packaging", value: configuration.permits(.localVoiceOfflineResponsePackaging))
+            BoolStatusRow(label: "Local voice cached query packaging", value: configuration.permits(.localVoiceCachedQueryPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2657,6 +2658,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Capture metadata symbol loaded", value: runtimeStatus.symbolAvailable(for: .localCaptureMetadataPackaging))
             BoolStatusRow(label: "Voice continuity summary symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuitySummaryPackaging))
             BoolStatusRow(label: "Voice offline response symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceOfflineResponsePackaging))
+            BoolStatusRow(label: "Voice cached query symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCachedQueryPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -4747,6 +4749,32 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         )
     }
 
+    private func voiceCachedQueryPacket(
+        scenario: String,
+        nextTitle: String? = nil,
+        leaveBy: String? = nil,
+        emptyMessage: String? = nil,
+        cachedNowSummary: String? = nil,
+        firstReason: String? = nil,
+        nextCommitmentText: String? = nil,
+        nextCommitmentDueAt: String? = nil,
+        behaviorHeadline: String? = nil,
+        behaviorReason: String? = nil
+    ) -> EmbeddedVoiceCachedQueryPacket? {
+        appEnvironment.embeddedBridge.voiceCachedQueryBridge.prepareVoiceCachedQueryResponse(
+            scenario: scenario,
+            nextTitle: nextTitle,
+            leaveBy: leaveBy,
+            emptyMessage: emptyMessage,
+            cachedNowSummary: cachedNowSummary,
+            firstReason: firstReason,
+            nextCommitmentText: nextCommitmentText,
+            nextCommitmentDueAt: nextCommitmentDueAt,
+            behaviorHeadline: behaviorHeadline,
+            behaviorReason: behaviorReason
+        )
+    }
+
     private func applyVoiceQuickActionPacket(_ packet: EmbeddedVoiceQuickActionPacket, using offlineStore: VelOfflineStore) {
         guard let kind = QueuedAction.Kind(rawValue: packet.queueKind) else { return }
 
@@ -4812,41 +4840,66 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         offlineStore: VelOfflineStore
     ) -> VoiceResponse {
         guard let now = offlineStore.cachedNow() else {
+            let packet = voiceCachedQueryPacket(scenario: "cached_now_missing")
             return VoiceResponse(
-                summary: "Unavailable offline.",
-                detail: "No cached backend /v1/now payload is available yet."
+                summary: packet?.summary ?? "Unavailable offline.",
+                detail: packet?.detail ?? "No cached backend /v1/now payload is available yet."
             )
         }
 
         switch intent.kind {
         case .morningBriefing, .currentSchedule:
             if let next = now.schedule.next_event {
-                let detail = next.leave_by_ts.map { "Leave by \(formatUnix($0))." }
-                    ?? embeddedCachedNowSummary(from: now)
+                let leaveBy = next.leave_by_ts.map { "Leave by \(formatUnix($0))." }
+                let packet = voiceCachedQueryPacket(
+                    scenario: "schedule_with_event",
+                    nextTitle: next.title,
+                    leaveBy: leaveBy,
+                    emptyMessage: now.schedule.empty_message,
+                    cachedNowSummary: embeddedCachedNowSummary(from: now)
+                )
                 return VoiceResponse(
-                    summary: "Next event: \(next.title).",
-                    detail: detail ?? now.schedule.empty_message
+                    summary: packet?.summary ?? "Next event: \(next.title).",
+                    detail: packet?.detail ?? leaveBy ?? embeddedCachedNowSummary(from: now) ?? now.schedule.empty_message
                 )
             }
+            let packet = voiceCachedQueryPacket(
+                scenario: "schedule_empty",
+                emptyMessage: now.schedule.empty_message,
+                cachedNowSummary: embeddedCachedNowSummary(from: now),
+                firstReason: now.reasons.first
+            )
             return VoiceResponse(
-                summary: now.schedule.empty_message ?? "No upcoming schedule is cached.",
-                detail: embeddedCachedNowSummary(from: now) ?? now.reasons.first
+                summary: packet?.summary ?? now.schedule.empty_message ?? "No upcoming schedule is cached.",
+                detail: packet?.detail ?? embeddedCachedNowSummary(from: now) ?? now.reasons.first
             )
         case .queryNextCommitment:
             if let next = now.tasks.next_commitment {
+                let packet = voiceCachedQueryPacket(
+                    scenario: "next_commitment",
+                    nextCommitmentText: next.text,
+                    nextCommitmentDueAt: next.due_at,
+                    cachedNowSummary: embeddedCachedNowSummary(from: now)
+                )
                 return VoiceResponse(
-                    summary: "Next commitment: \(next.text).",
-                    detail: next.due_at ?? embeddedCachedNowSummary(from: now)
+                    summary: packet?.summary ?? "Next commitment: \(next.text).",
+                    detail: packet?.detail ?? next.due_at ?? embeddedCachedNowSummary(from: now)
                 )
             }
+            let packet = voiceCachedQueryPacket(
+                scenario: "next_commitment_empty",
+                emptyMessage: now.schedule.empty_message,
+                cachedNowSummary: embeddedCachedNowSummary(from: now)
+            )
             return VoiceResponse(
-                summary: "No next commitment is cached.",
-                detail: embeddedCachedNowSummary(from: now) ?? now.schedule.empty_message
+                summary: packet?.summary ?? "No next commitment is cached.",
+                detail: packet?.detail ?? embeddedCachedNowSummary(from: now) ?? now.schedule.empty_message
             )
         default:
+            let packet = voiceCachedQueryPacket(scenario: "backend_unavailable")
             return VoiceResponse(
-                summary: "Unavailable offline.",
-                detail: "Reconnect to fetch a backend-owned reply."
+                summary: packet?.summary ?? "Unavailable offline.",
+                detail: packet?.detail ?? "Reconnect to fetch a backend-owned reply."
             )
         }
     }
@@ -4868,14 +4921,20 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
 
     private func offlineCachedBehaviorResponse(offlineStore: VelOfflineStore) -> VoiceResponse {
         guard let summary = offlineStore.cachedAppleBehaviorSummary() else {
+            let packet = voiceCachedQueryPacket(scenario: "behavior_missing")
             return VoiceResponse(
-                summary: "Unavailable offline.",
-                detail: "No cached backend behavior summary is available yet."
+                summary: packet?.summary ?? "Unavailable offline.",
+                detail: packet?.detail ?? "No cached backend behavior summary is available yet."
             )
         }
+        let packet = voiceCachedQueryPacket(
+            scenario: "behavior_cached",
+            behaviorHeadline: summary.headline,
+            behaviorReason: summary.reasons.first
+        )
         return VoiceResponse(
-            summary: summary.headline,
-            detail: summary.reasons.first
+            summary: packet?.summary ?? summary.headline,
+            detail: packet?.detail ?? summary.reasons.first
         )
     }
 

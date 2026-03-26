@@ -307,6 +307,29 @@ struct VoiceOfflineResponseOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceCachedQueryResponseInput {
+    scenario: Option<String>,
+    next_title: Option<String>,
+    leave_by: Option<String>,
+    empty_message: Option<String>,
+    cached_now_summary: Option<String>,
+    first_reason: Option<String>,
+    next_commitment_text: Option<String>,
+    next_commitment_due_at: Option<String>,
+    behavior_headline: Option<String>,
+    behavior_reason: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceCachedQueryResponseOutput {
+    summary: Option<String>,
+    detail: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -1050,6 +1073,87 @@ pub extern "C" fn vel_embedded_prepare_voice_offline_response(input_json: *const
             detail: None,
             history_status: "capture_only".to_string(),
             error_prefix: String::new(),
+            ready: false,
+        },
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<VoiceCachedQueryResponseInput>(&raw).unwrap_or(VoiceCachedQueryResponseInput {
+        scenario: None,
+        next_title: None,
+        leave_by: None,
+        empty_message: None,
+        cached_now_summary: None,
+        first_reason: None,
+        next_commitment_text: None,
+        next_commitment_due_at: None,
+        behavior_headline: None,
+        behavior_reason: None,
+    });
+
+    let scenario = trim_text(&decoded.scenario.unwrap_or_default());
+    let next_title = normalized_optional_trimmed(decoded.next_title);
+    let leave_by = normalized_optional_trimmed(decoded.leave_by);
+    let empty_message = normalized_optional_trimmed(decoded.empty_message);
+    let cached_now_summary = normalized_optional_trimmed(decoded.cached_now_summary);
+    let first_reason = normalized_optional_trimmed(decoded.first_reason);
+    let next_commitment_text = normalized_optional_trimmed(decoded.next_commitment_text);
+    let next_commitment_due_at = normalized_optional_trimmed(decoded.next_commitment_due_at);
+    let behavior_headline = normalized_optional_trimmed(decoded.behavior_headline);
+    let behavior_reason = normalized_optional_trimmed(decoded.behavior_reason);
+
+    let output = match scenario.as_str() {
+        "schedule_with_event" => VoiceCachedQueryResponseOutput {
+            summary: next_title.map(|title| format!("Next event: {title}.")),
+            detail: leave_by.or(cached_now_summary).or(empty_message),
+            ready: true,
+        },
+        "schedule_empty" => VoiceCachedQueryResponseOutput {
+            summary: Some(
+                empty_message.unwrap_or_else(|| "No upcoming schedule is cached.".to_string())
+            ),
+            detail: cached_now_summary.or(first_reason),
+            ready: true,
+        },
+        "next_commitment" => VoiceCachedQueryResponseOutput {
+            summary: next_commitment_text.map(|text| format!("Next commitment: {text}.")),
+            detail: next_commitment_due_at.or(cached_now_summary),
+            ready: true,
+        },
+        "next_commitment_empty" => VoiceCachedQueryResponseOutput {
+            summary: Some("No next commitment is cached.".to_string()),
+            detail: cached_now_summary.or(empty_message),
+            ready: true,
+        },
+        "behavior_cached" => VoiceCachedQueryResponseOutput {
+            summary: behavior_headline,
+            detail: behavior_reason,
+            ready: true,
+        },
+        "backend_unavailable" => VoiceCachedQueryResponseOutput {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some("Reconnect to fetch a backend-owned reply.".to_string()),
+            ready: true,
+        },
+        "cached_now_missing" => VoiceCachedQueryResponseOutput {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some("No cached backend /v1/now payload is available yet.".to_string()),
+            ready: true,
+        },
+        "behavior_missing" => VoiceCachedQueryResponseOutput {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some("No cached backend behavior summary is available yet.".to_string()),
+            ready: true,
+        },
+        _ => VoiceCachedQueryResponseOutput {
+            summary: None,
+            detail: None,
             ready: false,
         },
     };
