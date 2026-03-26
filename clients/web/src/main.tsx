@@ -8,12 +8,20 @@ import './index.css'
 import App from './App.tsx'
 import { bootstrapEmbeddedBridgePacketRuntime } from './data/embeddedBridgeWasmRuntime'
 
-async function start() {
-  const runtime = await bootstrapEmbeddedBridgePacketRuntime()
+const root = createRoot(document.getElementById('root')!)
 
-  if (runtime == null) {
-    createRoot(document.getElementById('root')!).render(
-      <StrictMode>
+type BootstrapState =
+  | { kind: 'booting' }
+  | { kind: 'ready' }
+  | { kind: 'missing-runtime' }
+  | { kind: 'error'; message: string }
+
+function render(state: BootstrapState) {
+  root.render(
+    <StrictMode>
+      {state.kind === 'ready' ? (
+        <App />
+      ) : (
         <div
           style={{
             minHeight: '100vh',
@@ -26,23 +34,48 @@ async function start() {
           }}
         >
           <div style={{ maxWidth: '720px', lineHeight: 1.6 }}>
-            <h1 style={{ fontSize: '24px', marginBottom: '12px' }}>Embedded Rust runtime is required</h1>
+            <h1 style={{ fontSize: '24px', marginBottom: '12px' }}>
+              {state.kind === 'booting'
+                ? 'Starting embedded Rust runtime…'
+                : state.kind === 'missing-runtime'
+                  ? 'Embedded Rust runtime is required'
+                  : 'Embedded Rust runtime failed to start'}
+            </h1>
             <p style={{ margin: 0 }}>
-              Set <code>VITE_VEL_EMBEDDED_BRIDGE_WASM_URL</code> to the generated browser module,
-              for example <code>/embedded-bridge/vel-embedded-bridge.js</code>.
+              {state.kind === 'booting'
+                ? 'Loading the browser packet runtime before the application shell mounts.'
+                : state.kind === 'missing-runtime'
+                  ? (
+                    <>
+                      Set <code>VITE_VEL_EMBEDDED_BRIDGE_WASM_URL</code> to the generated browser module,
+                      for example <code>/embedded-bridge/vel-embedded-bridge.js</code>.
+                    </>
+                  )
+                  : state.message}
             </p>
           </div>
         </div>
-      </StrictMode>,
-    )
-    return
-  }
-
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
+      )}
     </StrictMode>,
   )
+}
+
+async function start() {
+  render({ kind: 'booting' })
+
+  try {
+    const runtime = await bootstrapEmbeddedBridgePacketRuntime()
+    if (runtime == null) {
+      render({ kind: 'missing-runtime' })
+      return
+    }
+    render({ kind: 'ready' })
+  } catch (error) {
+    render({
+      kind: 'error',
+      message: error instanceof Error ? error.message : 'Unknown embedded bridge bootstrap failure.',
+    })
+  }
 }
 
 void start()

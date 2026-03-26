@@ -1,4 +1,6 @@
 import { canonicalPatchMutation, canonicalPostMutation, canonicalQuery } from './canonicalTransport';
+import { normalizeTaskDisplayBatchValue } from './embeddedBridgeAdapter';
+import { normalizeTaskDisplayBatchInWorker } from './embeddedBridgeWorker';
 import {
   decodeApiResponse,
   decodeArray,
@@ -26,6 +28,7 @@ import {
   type DailyLoopTurnActionData,
   type DriftExplainData,
   type NowData,
+  type NowTaskData,
   type SyncBootstrapData,
 } from '../types';
 
@@ -40,6 +43,82 @@ export const contextQueryKeys = {
     ['daily-loop', 'active', sessionDate, phase] as const,
 };
 
+async function normalizeNowTasks(tasks: NowTaskData[]): Promise<NowTaskData[]> {
+  const entries = tasks.map((task) => ({
+    tags: task.tags ?? null,
+    project: task.project ?? null,
+  }));
+  const normalizedDisplay = await normalizeTaskDisplayBatchInWorker(entries).catch(
+    () => normalizeTaskDisplayBatchValue(entries),
+  );
+
+  return tasks.map((task, index) => {
+    const display = normalizedDisplay[index] ?? { tags: task.tags ?? [], project: task.project ?? null };
+    return {
+      ...task,
+      tags: display.tags,
+      project: display.project,
+    };
+  });
+}
+
+async function normalizeNowDataPayload(data: NowData): Promise<NowData> {
+  const taskLane = data.task_lane;
+  if (!taskLane) {
+    return data;
+  }
+
+  const [
+    normalizedActiveList,
+    normalizedActiveItems,
+    normalizedNextUp,
+    normalizedPending,
+    normalizedInbox,
+    normalizedLater,
+    normalizedCompleted,
+    normalizedRecentCompleted,
+    normalizedNextUpTasks,
+  ] = await Promise.all([
+    taskLane.active ? normalizeNowTasks([taskLane.active]) : Promise.resolve([]),
+    normalizeNowTasks(taskLane.active_items ?? []),
+    normalizeNowTasks(taskLane.next_up ?? []),
+    normalizeNowTasks(taskLane.pending ?? []),
+    normalizeNowTasks(taskLane.inbox ?? []),
+    normalizeNowTasks(taskLane.if_time_allows ?? []),
+    normalizeNowTasks(taskLane.completed ?? []),
+    normalizeNowTasks(taskLane.recent_completed ?? []),
+    normalizeNowTasks(
+      (data.next_up_items ?? [])
+        .map((item) => item.task)
+        .filter((task): task is NowTaskData => task != null),
+    ),
+  ]);
+
+  let nextUpTaskIndex = 0;
+  const normalizedNextUpItems = (data.next_up_items ?? []).map((item) => ({
+    ...item,
+    task: item.task
+      ? (normalizedNextUpTasks[nextUpTaskIndex++] ?? item.task)
+      : item.task,
+  }));
+
+  return {
+    ...data,
+    task_lane: {
+      ...taskLane,
+      active: normalizedActiveList[0] ?? taskLane.active,
+      active_items: normalizedActiveItems,
+      next_up: normalizedNextUp,
+      pending: normalizedPending,
+      inbox: normalizedInbox,
+      if_time_allows: normalizedLater,
+      completed: normalizedCompleted,
+      recent_completed: normalizedRecentCompleted,
+    },
+    next_up_items: normalizedNextUpItems,
+  };
+}
+
 export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | null>> {
   return canonicalQuery<CurrentContextData | null>(
     '/v1/context/current',
@@ -52,7 +131,15 @@ export function loadNow(): Promise<ApiResponse<NowData>> {
   return canonicalQuery<NowData>(
     '/v1/now',
     (value) => decodeApiResponse(value, decodeNowData),
-  );
+  ).then(async (response) => {
+    if (!response.ok || response.data == null) {
+      return response;
+    }
+    return {
+      ...response,
+      data: await normalizeNowDataPayload(response.data),
+    };
+  });
 }
 
 export function loadSyncBootstrap(): Promise<ApiResponse<SyncBootstrapData>> {

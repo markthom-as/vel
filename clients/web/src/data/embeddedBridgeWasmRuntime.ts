@@ -96,10 +96,27 @@ export interface EmbeddedBridgeWasmModule {
   ): string;
 }
 
-declare global {
-  interface Window {
-    __VEL_EMBEDDED_BRIDGE_WASM__?: EmbeddedBridgeWasmModule;
+type EmbeddedBridgeRuntimeGlobal = typeof globalThis & {
+  __VEL_EMBEDDED_BRIDGE_WASM__?: EmbeddedBridgeWasmModule;
+};
+
+function runtimeGlobal(): EmbeddedBridgeRuntimeGlobal | null {
+  return typeof globalThis !== 'undefined'
+    ? (globalThis as EmbeddedBridgeRuntimeGlobal)
+    : null;
+}
+
+function resolveBrowserModuleUrl(wasmModuleUrl: string): string {
+  const locationOrigin =
+    typeof globalThis !== 'undefined' && 'location' in globalThis
+      ? globalThis.location?.origin
+      : undefined;
+
+  if (locationOrigin && wasmModuleUrl.trim().length > 0) {
+    return new URL(wasmModuleUrl, locationOrigin).href;
   }
+
+  return wasmModuleUrl;
 }
 
 function response(kind: EmbeddedBridgePacketKind, payloadJson: string): EmbeddedBridgePacketResponse {
@@ -292,8 +309,7 @@ export function maybeInstallEmbeddedBridgePacketRuntimeFromGlobal(): EmbeddedBri
   try {
     return getEmbeddedBridgePacketRuntime();
   } catch {
-    const wasm =
-      typeof window !== 'undefined' ? window.__VEL_EMBEDDED_BRIDGE_WASM__ ?? null : null;
+    const wasm = runtimeGlobal()?.__VEL_EMBEDDED_BRIDGE_WASM__ ?? null;
     if (wasm == null) {
       return null;
     }
@@ -312,10 +328,7 @@ export async function bootstrapEmbeddedBridgePacketRuntime(): Promise<EmbeddedBr
     return null;
   }
 
-  const browserModuleUrl =
-    typeof window === 'undefined'
-      ? wasmModuleUrl
-      : new URL(wasmModuleUrl, window.location.origin).href;
+  const browserModuleUrl = resolveBrowserModuleUrl(wasmModuleUrl);
 
   const imported = await import(/* @vite-ignore */ browserModuleUrl);
   if (typeof imported.default === 'function') {
@@ -330,8 +343,9 @@ export async function bootstrapEmbeddedBridgePacketRuntime(): Promise<EmbeddedBr
   }
 
   const wasm = candidate as EmbeddedBridgeWasmModule;
-  if (typeof window !== 'undefined') {
-    window.__VEL_EMBEDDED_BRIDGE_WASM__ = wasm;
+  const globalTarget = runtimeGlobal();
+  if (globalTarget != null) {
+    globalTarget.__VEL_EMBEDDED_BRIDGE_WASM__ = wasm;
   }
   return installEmbeddedBridgePacketRuntimeFromWasm(wasm);
 }

@@ -3,6 +3,7 @@ import { AppShell } from './shell/AppShell';
 import { MainPanel } from './shell/MainPanel';
 import { Navbar } from './shell/Navbar';
 import { NudgeZone } from './shell/NudgeZone';
+import { useShellBootstrap } from './shell/useShellBootstrap';
 import { useViewportSurface } from './core/hooks/useViewportSurface';
 import type { MainView } from './data/operatorSurfaces';
 import type { NowNudgeBarData } from './types';
@@ -47,6 +48,7 @@ function App() {
   const [miniChatOpen, setMiniChatOpen] = useState(false);
   const [miniChatThreadId, setMiniChatThreadId] = useState<string | null>(null);
   const { surface: viewportSurface, isLandscape } = useViewportSurface();
+  const { shellBootLoading } = useShellBootstrap();
   const [tabletLayoutMode, setTabletLayoutMode] = useState<TabletLayoutMode>(() => readTabletLayoutMode());
   const tabletSplitMode =
     viewportSurface === 'tablet' && (tabletLayoutMode === 'split' || (tabletLayoutMode === 'auto' && isLandscape));
@@ -146,7 +148,7 @@ function App() {
           splitModeActive={tabletSplitMode}
         />
       )}
-      nudgeZone={(
+      nudgeZone={shellBootLoading ? undefined : (
         <NudgeZone
           activeView={mainView}
           extraNudges={localNudges}
@@ -179,11 +181,13 @@ function App() {
           onClearNudge={clearLocalNudge}
           shellOwnsNowNudges
           systemTarget={systemTarget}
+          shellBootLoading={shellBootLoading}
         />
       )}
       surface={viewportSurface}
       layoutMode={tabletLayoutMode}
       splitModeActive={tabletSplitMode}
+      fullFrameMain={shellBootLoading}
     />
   );
 }
