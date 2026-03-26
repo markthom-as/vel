@@ -209,16 +209,20 @@ final class VelClientStore: ObservableObject {
     }
 
     func createCommitment(text: String) async {
+        let preparedText = embeddedBridge.configuration.permits(.localQuickActionPreparation)
+            ? embeddedBridge.quickActionBridge.prepareQuickCapture(text)
+            : text
+
         await performAction(
             queuedMessage: "Queued commitment for sync.",
             remote: {
-                _ = try await client.createCommitment(text: text)
+                _ = try await client.createCommitment(text: preparedText)
             },
             queueFallback: {
                 offlineStore.enqueueCommitmentCreate(
                     text: packageOfflineRequestPayload(
                         kind: "commitment.create",
-                        payload: text
+                        payload: preparedText
                     )
                 )
             }
