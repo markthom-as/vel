@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { MainView } from '../../data/operatorSurfaces';
 import type { NowData, NowNudgeBarData } from '../../types';
+import { nudgeOpenSystemTarget } from '../../views/now/nowModel';
 import {
   WarningIcon,
 } from '../../core/Icons';

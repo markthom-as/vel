@@ -468,6 +468,133 @@ describe('NudgeZone', () => {
     })
   })
 
+  it('routes current reflow actions through the dedicated apply/edit endpoints and opens returned threads', async () => {
+    const onOpenThread = vi.fn()
+
+    clearQueryCache()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            nudge_bars: [
+              {
+                id: 'act_reflow_1',
+                kind: 'reflow_proposal',
+                title: 'Day changed',
+                summary: 'A scheduled event appears to have slipped past without the plan being updated.',
+                urgent: true,
+                primary_thread_id: null,
+                actions: [
+                  { kind: 'accept', label: 'Accept' },
+                  { kind: 'edit', label: 'Edit' },
+                ],
+              },
+            ],
+          }),
+          meta: { request_id: 'req_now_reflow' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return { ok: true, data: buildIntegrationsData(), meta: { request_id: 'req_integrations' } } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+    vi.mocked(api.apiPost).mockImplementation(async (path: string) => {
+      if (path === '/v1/now/reflow/apply') {
+        return {
+          ok: true,
+          data: {
+            status: {
+              kind: 'editing',
+              trigger: 'missed_event',
+              severity: 'critical',
+              headline: 'Reflow moved to Threads',
+              detail: 'Vel opened a thread-backed reflow follow-up.',
+              recorded_at: 1710000000,
+              preview_lines: [],
+              thread_id: 'thr_reflow_apply',
+            },
+            now: buildNowData({
+              nudge_bars: [],
+              reflow: null,
+              reflow_status: {
+                kind: 'editing',
+                trigger: 'missed_event',
+                severity: 'critical',
+                headline: 'Reflow moved to Threads',
+                detail: 'Vel opened a thread-backed reflow follow-up.',
+                recorded_at: 1710000000,
+                preview_lines: [],
+                thread_id: 'thr_reflow_apply',
+              },
+            }),
+          },
+          meta: { request_id: 'req_reflow_apply' },
+        } as never
+      }
+      if (path === '/v1/now/reflow/edit') {
+        return {
+          ok: true,
+          data: {
+            status: {
+              kind: 'editing',
+              trigger: 'missed_event',
+              severity: 'critical',
+              headline: 'Reflow moved to Threads',
+              detail: 'Vel opened a thread-backed reflow follow-up.',
+              recorded_at: 1710000001,
+              preview_lines: [],
+              thread_id: 'thr_reflow_edit',
+            },
+            now: buildNowData({
+              nudge_bars: [],
+              reflow: null,
+              reflow_status: {
+                kind: 'editing',
+                trigger: 'missed_event',
+                severity: 'critical',
+                headline: 'Reflow moved to Threads',
+                detail: 'Vel opened a thread-backed reflow follow-up.',
+                recorded_at: 1710000001,
+                preview_lines: [],
+                thread_id: 'thr_reflow_edit',
+              },
+            }),
+          },
+          meta: { request_id: 'req_reflow_edit' },
+        } as never
+      }
+      return { ok: true, data: { id: 'intv_review_1', state: 'acknowledged' }, meta: { request_id: 'req_post' } } as never
+    })
+
+    render(<NudgeZone activeView="now" onOpenThread={onOpenThread} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Day changed')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Accept \(Day changed\) · act_reflow_1/i }))
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/now/reflow/apply',
+        {},
+        expect.any(Function),
+      )
+    })
+    expect(onOpenThread).toHaveBeenCalledWith('thr_reflow_apply')
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit \(Day changed\) · act_reflow_1/i }))
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/now/reflow/edit',
+        {},
+        expect.any(Function),
+      )
+    })
+    expect(onOpenThread).toHaveBeenCalledWith('thr_reflow_edit')
+  })
+
   it('executes local overdue nudge actions from the shared rail', async () => {
     const scrollIntoView = vi.fn()
     const backlogNode = document.createElement('section')

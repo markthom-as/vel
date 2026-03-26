@@ -256,6 +256,14 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::now::reschedule_now_calendar_event),
         )
         .route(
+            "/v1/now/reflow/apply",
+            post(routes::now::apply_current_reflow),
+        )
+        .route(
+            "/v1/now/reflow/edit",
+            post(routes::now::edit_current_reflow),
+        )
+        .route(
             "/v1/commitment-scheduling/proposals/:id/apply",
             post(routes::commitment_scheduling::apply_commitment_scheduling_proposal),
         )
@@ -11512,6 +11520,146 @@ END:VCALENDAR
         assert!(json["data"]["reflow_status"]["thread_id"]
             .as_str()
             .is_some());
+    }
+
+    #[tokio::test]
+    async fn now_reflow_apply_route_returns_thread_backed_status_for_confirm_required_reflow() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Deep work @30m".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_reflow_apply".to_string(),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("Project Atlas".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "labels": ["urgent", "block:focus"]
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now - 60,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now - 60,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    global_risk_level: "high".to_string(),
+                    attention_state: "needs_reflow".to_string(),
+                    attention_reasons: vec![
+                        "Standup slipped past without a day update.".to_string()
+                    ],
+                    next_event_start_ts: Some(now - (20 * 60)),
+                    leave_by_ts: Some(now - (10 * 60)),
+                    next_commitment_id: Some(commitment_id.as_ref().to_string()),
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/now/reflow/apply")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let thread_id = json["data"]["status"]["thread_id"]
+            .as_str()
+            .expect("thread id");
+
+        assert_eq!(json["data"]["status"]["kind"], "editing");
+        assert!(json["data"]["now"]["reflow"].is_null());
+        assert_eq!(json["data"]["now"]["reflow_status"]["kind"], "editing");
+        assert_eq!(json["data"]["now"]["reflow_status"]["thread_id"], thread_id);
+    }
+
+    #[tokio::test]
+    async fn now_reflow_edit_route_returns_thread_backed_status() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now - 60,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now - 60,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    global_risk_level: "high".to_string(),
+                    attention_state: "needs_reflow".to_string(),
+                    attention_reasons: vec!["Morning drift needs manual shaping.".to_string()],
+                    drift_type: Some("morning_drift".to_string()),
+                    drift_severity: Some("medium".to_string()),
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/now/reflow/edit")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let thread_id = json["data"]["status"]["thread_id"]
+            .as_str()
+            .expect("thread id");
+
+        assert_eq!(json["data"]["status"]["kind"], "editing");
+        assert!(json["data"]["now"]["reflow"].is_null());
+        assert_eq!(json["data"]["now"]["reflow_status"]["kind"], "editing");
+        assert_eq!(json["data"]["now"]["reflow_status"]["thread_id"], thread_id);
     }
 
     #[tokio::test]

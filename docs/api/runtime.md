@@ -380,6 +380,15 @@ CLI fallback when the web shell is unavailable:
 - reconstructs the typed proposal from thread metadata, applies canonical commitment mutations, and records `approved`, `applied`, or `failed` continuity back into the proposal thread
 - summary surfaces such as web `Now`, CLI review output, and Apple quick-loop shells should reflect that compact continuity from backend DTOs rather than inventing second planner state
 
+### `POST /v1/now/reflow/apply`
+### `POST /v1/now/reflow/edit`
+
+- explicit current-reflow action lanes for the compact `Now` surface
+- `apply` runs the backend-owned reflow accept path with confirmation semantics already satisfied by the operator action itself
+- when the current reflow still needs bounded manual shaping, the backend returns an `editing` reflow status with a thread id and the refreshed `Now` payload; shells should open that thread instead of inventing local continuation
+- `edit` always moves the current reflow into the thread-backed continuity lane and returns the same typed reflow status plus refreshed `Now`
+- shells should treat the returned `status` and `now` payload as the source of truth for whether the card was applied directly or escalated into `Threads`
+
 ## Explainability and search
 
 ### `GET /v1/explain/context`

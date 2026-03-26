@@ -1259,6 +1259,11 @@ export interface CurrentContextReflowStatusData {
   thread_id: string | null;
 }
 
+export interface CurrentReflowActionResponseData {
+  status: CurrentContextReflowStatusData;
+  now: NowData;
+}
+
 export interface TrustReadinessFacetData {
   level: string;
   label: string;
@@ -3548,6 +3553,16 @@ export function decodeCurrentContextReflowStatusData(
     thread_id: decodeNullable(record.thread_id ?? null, (item) =>
       expectString(item, 'reflow status.thread_id'),
     ),
+  };
+}
+
+export function decodeCurrentReflowActionResponseData(
+  value: unknown,
+): CurrentReflowActionResponseData {
+  const record = expectRecord(value, 'current reflow action response');
+  return {
+    status: decodeCurrentContextReflowStatusData(record.status),
+    now: decodeNowData(record.now),
   };
 }
 

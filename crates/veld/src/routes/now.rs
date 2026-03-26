@@ -6,17 +6,17 @@ use tracing::warn;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
-    DayPlanProposalData, NowAttentionData, NowCalendarEventRescheduleRequestData,
-    NowContextLineData, NowCountDisplayModeData, NowData, NowDebugData, NowDockedInputData,
-    NowDockedInputIntentData, NowEventData, NowFreshnessData, NowFreshnessEntryData,
-    NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData, NowLabelData, NowMeshSummaryData,
-    NowMeshSyncStateData, NowNextUpItemData, NowNudgeActionData, NowNudgeBarData,
-    NowNudgeBarKindData, NowOverviewActionData, NowOverviewData, NowOverviewNudgeData,
-    NowOverviewSuggestionData, NowOverviewTimelineEntryData, NowOverviewWhyStateData,
-    NowProgressData, NowRepairRouteData, NowRepairRouteTargetData, NowRiskSummaryData,
-    NowScheduleData, NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData,
-    NowTaskData, NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData, NowTasksData,
-    NowThreadFilterTargetData, PlanningProfileProposalSummaryData,
+    CurrentReflowActionResponseData, DayPlanProposalData, NowAttentionData,
+    NowCalendarEventRescheduleRequestData, NowContextLineData, NowCountDisplayModeData, NowData,
+    NowDebugData, NowDockedInputData, NowDockedInputIntentData, NowEventData, NowFreshnessData,
+    NowFreshnessEntryData, NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData,
+    NowLabelData, NowMeshSummaryData, NowMeshSyncStateData, NowNextUpItemData, NowNudgeActionData,
+    NowNudgeBarData, NowNudgeBarKindData, NowOverviewActionData, NowOverviewData,
+    NowOverviewNudgeData, NowOverviewSuggestionData, NowOverviewTimelineEntryData,
+    NowOverviewWhyStateData, NowProgressData, NowRepairRouteData, NowRepairRouteTargetData,
+    NowRiskSummaryData, NowScheduleData, NowSourceActivityData, NowSourcesData, NowStatusRowData,
+    NowSummaryData, NowTaskData, NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData,
+    NowTasksData, NowThreadFilterTargetData, PlanningProfileProposalSummaryData,
     PlanningProfileProposalSummaryItemData, ReflowCardData, TrustReadinessData,
     TrustReadinessFacetData, TrustReadinessReviewData,
 };
@@ -28,6 +28,37 @@ pub async fn get_now(
 ) -> Result<Json<ApiResponse<NowData>>, AppError> {
     let data = services::now::get_now_with_state(&state).await?;
     Ok(response::success(data.into()))
+}
+
+pub async fn apply_current_reflow(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<CurrentReflowActionResponseData>>, AppError> {
+    let status = services::reflow::apply_current_reflow(
+        &state.storage,
+        OffsetDateTime::now_utc().unix_timestamp(),
+        true,
+    )
+    .await?;
+    let now = services::now::get_now_with_state(&state).await?;
+    Ok(response::success(CurrentReflowActionResponseData {
+        status: status.into(),
+        now: now.into(),
+    }))
+}
+
+pub async fn edit_current_reflow(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<CurrentReflowActionResponseData>>, AppError> {
+    let status = services::reflow::edit_current_reflow(
+        &state.storage,
+        OffsetDateTime::now_utc().unix_timestamp(),
+    )
+    .await?;
+    let now = services::now::get_now_with_state(&state).await?;
+    Ok(response::success(CurrentReflowActionResponseData {
+        status: status.into(),
+        now: now.into(),
+    }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -112,20 +143,14 @@ pub async fn update_now_task_lane(
                 )
                 .await?;
         }
-    } else if commitment.status == CommitmentStatus::Done {
-        state
-            .storage
-            .update_commitment(
-                commitment_id,
-                None,
-                Some(CommitmentStatus::Open),
-                None,
-                None,
-                None,
-                None,
-            )
-            .await?;
     }
+
+    let (_, mut context) = state
+        .storage
+        .get_current_context()
+        .await?
+        .unwrap_or((0, CurrentContextV1::default()));
+    remove_commitment_from_all_lanes(&mut context, commitment_id);
 
     if lane == "next_up" {
         assign_commitment_to_current_day(&state, &commitment).await?;

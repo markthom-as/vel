@@ -1,5 +1,9 @@
 import type { MainView } from '../../data/operatorSurfaces';
-import { rescheduleNowTasksToToday } from '../../data/context';
+import {
+  applyCurrentReflow,
+  editCurrentReflow,
+  rescheduleNowTasksToToday,
+} from '../../data/context';
 import { acknowledgeInboxItem, snoozeInboxItem } from '../../data/chat';
 import { cn } from '../../core/cn';
 import type { NowNudgeBarData } from '../../types';
@@ -62,6 +66,54 @@ export function NudgeActions({
         const label = nudgeActionButtonLabel(action, bar);
         const ariaLabel = nudgeActionAriaLabel(bar, action, index, bar.actions.length);
         const actionTone = nudgeActionToneClass(action.kind);
+        if (bar.kind === 'reflow_proposal' && action.kind === 'accept') {
+          return (
+            <NudgeActionButton
+              key={actionKey}
+              kind={action.kind}
+              label={label}
+              onClick={() => {
+                void runMutation(actionKey, async () => {
+                  const response = await applyCurrentReflow();
+                  if (!response.ok) {
+                    return;
+                  }
+                  const threadId = response.data?.status.thread_id;
+                  if (threadId) {
+                    onOpenThread?.(threadId);
+                  }
+                });
+              }}
+              disabled={pendingActionKey === actionKey}
+              className={cn(nudgeActionChipClass, actionTone)}
+              aria-label={ariaLabel}
+            />
+          );
+        }
+        if (bar.kind === 'reflow_proposal' && action.kind === 'edit') {
+          return (
+            <NudgeActionButton
+              key={actionKey}
+              kind={action.kind}
+              label={label}
+              onClick={() => {
+                void runMutation(actionKey, async () => {
+                  const response = await editCurrentReflow();
+                  if (!response.ok) {
+                    return;
+                  }
+                  const threadId = response.data?.status.thread_id;
+                  if (threadId) {
+                    onOpenThread?.(threadId);
+                  }
+                });
+              }}
+              disabled={pendingActionKey === actionKey}
+              className={cn(nudgeActionChipClass, actionTone)}
+              aria-label={ariaLabel}
+            />
+          );
+        }
         if (action.kind.startsWith('open_settings')) {
           return (
             <NudgeActionButton

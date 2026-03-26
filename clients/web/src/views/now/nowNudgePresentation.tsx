@@ -201,15 +201,19 @@ export function nudgeActionToneClass(kind: string): string {
 }
 
 /** Visible label next to the action icon (short; deep-link context is encoded in navigation, not API copy). */
-export function nudgeActionButtonLabel(action: { kind: string; label: string }, bar: { id: string }): string {
+export function nudgeActionButtonLabel(
+  action: { kind: string; label: string },
+  bar: { id: string; kind?: string },
+): string {
   if (action.kind.startsWith('open_settings:core_settings:')) {
     return action.label;
   }
   switch (action.kind) {
     case 'open_thread':
     case 'expand':
-    case 'accept':
       return 'Open';
+    case 'accept':
+      return bar.kind === 'reflow_proposal' ? action.label : 'Open';
     case 'open_inbox':
       return 'Inbox';
     case 'open_settings':

@@ -6,6 +6,7 @@ import {
   decodeArray,
   decodeCommitmentData,
   decodeContextExplainData,
+  decodeCurrentReflowActionResponseData,
   decodeCurrentContextData,
   decodeDailyLoopSessionData,
   decodeDriftExplainData,
@@ -17,6 +18,7 @@ import {
   type ApiResponse,
   type CommitmentData,
   type ContextExplainData,
+  type CurrentReflowActionResponseData,
   type CurrentContextData,
   type DailyLoopPhaseData,
   type DailyLoopCheckInSkipRequestData,
@@ -227,6 +229,22 @@ export function rescheduleNowCalendarEvent(
       end_ts: payload.end_ts ?? null,
     },
     (value) => decodeApiResponse(value, decodeNowData),
+  );
+}
+
+export function applyCurrentReflow(): Promise<ApiResponse<CurrentReflowActionResponseData>> {
+  return canonicalPostMutation<CurrentReflowActionResponseData>(
+    '/v1/now/reflow/apply',
+    {},
+    (value) => decodeApiResponse(value, decodeCurrentReflowActionResponseData),
+  );
+}
+
+export function editCurrentReflow(): Promise<ApiResponse<CurrentReflowActionResponseData>> {
+  return canonicalPostMutation<CurrentReflowActionResponseData>(
+    '/v1/now/reflow/edit',
+    {},
+    (value) => decodeApiResponse(value, decodeCurrentReflowActionResponseData),
   );
 }
 

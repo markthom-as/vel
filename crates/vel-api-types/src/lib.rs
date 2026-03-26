@@ -3512,6 +3512,12 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentReflowActionResponseData {
+    pub status: CurrentContextReflowStatusData,
+    pub now: NowData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionItemData {
     pub id: ActionItemId,
     pub surface: ActionSurfaceData,
