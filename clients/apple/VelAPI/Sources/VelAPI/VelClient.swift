@@ -526,6 +526,27 @@ public enum VelClientError: Error, Sendable {
     case decoding(Error)
 }
 
+extension VelClientError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .http(statusCode, message):
+            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Request failed with status \(statusCode)." : "Request failed (\(statusCode)): \(trimmed)"
+        case let .apiError(message):
+            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "The Vel API returned an empty error." : trimmed
+        case let .decoding(error):
+            return "Could not decode Vel API response. \(error.localizedDescription)"
+        }
+    }
+}
+
+extension VelClientError: CustomStringConvertible {
+    public var description: String {
+        errorDescription ?? String(describing: self)
+    }
+}
+
 private struct APIErrorEnvelope: Decodable {
     let error: APIError
     struct APIError: Decodable { let message: String }

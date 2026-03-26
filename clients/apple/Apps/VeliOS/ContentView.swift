@@ -447,6 +447,60 @@ private struct TodayTab: View {
         cachedNow?.task_lane
     }
 
+    private var focusTask: NowTaskLaneItemData? {
+        taskLane?.active ?? taskLane?.pending.first
+    }
+
+    private var focusSummaryText: String {
+        if let contextLine = cachedNow?.context_line?.text, !contextLine.isEmpty {
+            return contextLine
+        }
+        if let contextLabel = cachedNow?.status_row?.context_label, !contextLabel.isEmpty {
+            return contextLabel
+        }
+        return "No backend-ranked focus is cached yet."
+    }
+
+    private var commitmentItems: [NowTaskData] {
+        guard let cachedNow else { return [] }
+
+        var items: [NowTaskData] = []
+        var seen: Set<String> = []
+
+        func append(_ item: NowTaskData?) {
+            guard let item else { return }
+            if seen.insert(item.id).inserted {
+                items.append(item)
+            }
+        }
+
+        append(cachedNow.tasks.next_commitment)
+        cachedNow.tasks.todoist.prefix(4).forEach { append($0) }
+        cachedNow.tasks.other_open.prefix(4).forEach { append($0) }
+
+        return Array(items.prefix(6))
+    }
+
+    private var calendarItems: [NowEventData] {
+        guard let schedule = cachedNow?.schedule else { return [] }
+
+        var items: [NowEventData] = []
+        var seen: Set<String> = []
+
+        func append(_ event: NowEventData?) {
+            guard let event else { return }
+            let key = "\(event.title)|\(event.start_ts)|\(event.end_ts ?? 0)"
+            if seen.insert(key).inserted {
+                items.append(event)
+            }
+        }
+
+        append(schedule.next_event)
+        schedule.upcoming_events.prefix(4).forEach { append($0) }
+
+        return Array(items.prefix(4))
+    }
+
     private var activeNudges: [NudgeData] {
         Array(store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }.prefix(3))
     }
@@ -462,43 +516,22 @@ private struct TodayTab: View {
             LazyVStack(alignment: .leading, spacing: 12) {
                 todayHeader
 
-                if let statusRow = cachedNow?.status_row {
-                    compactNowStatusRow(statusRow)
-                }
-
-                if let contextLine = cachedNow?.context_line {
-                    SurfaceSectionCard("Context") {
-                        Text(contextLine.text)
-                            .font(.caption)
-                            .foregroundStyle(contextLine.fallback_used ? .secondary : .primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-
-                if let meshSummary = cachedNow?.mesh_summary {
-                    compactNowMeshSummary(meshSummary)
-                }
-
-                if !visibleNudgeBars.isEmpty {
-                    SurfaceSectionCard("Nudges") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(visibleNudgeBars) { bar in
-                                compactNowBar(bar)
-                            }
-                        }
-                    }
-                }
-
-                if let taskLane {
-                    compactTaskLane(taskLane)
-                }
-
-                compactTriageSection
-
-                compactDockedInputShell
+                focusSection
+                commitmentsSection
+                calendarSection
+                triageSection
+                captureSection
 
                 DisclosureGroup("More context and controls") {
                     VStack(alignment: .leading, spacing: 12) {
+                        if let meshSummary = cachedNow?.mesh_summary {
+                            compactNowMeshSummary(meshSummary)
+                        }
+
+                        if let statusRow = cachedNow?.status_row {
+                            compactNowStatusRow(statusRow)
+                        }
+
                         if let voiceSummary = voiceModel.continuitySummary(using: store) {
                             todaySection("Voice continuity") {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -711,6 +744,345 @@ private struct TodayTab: View {
     }
 
     @ViewBuilder
+    private var focusSection: some View {
+        SurfaceSectionCard("Focus") {
+            VStack(alignment: .leading, spacing: 12) {
+                if let summary = cachedNow?.summary {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            summaryBadge("Mode", summary.mode.label)
+                            summaryBadge("Phase", summary.phase.label)
+                            summaryBadge("Meds", summary.meds.label)
+                            summaryBadge(summary.risk.label, summary.risk.level.replacingOccurrences(of: "_", with: " ").capitalized)
+                        }
+                    }
+                }
+
+                Text(focusSummaryText)
+                    .font(.body)
+                    .foregroundStyle(cachedNow?.context_line?.fallback_used == true ? .secondary : .primary)
+
+                if let focusTask {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("Current task")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(focusTask.task_kind.rawValue.capitalized)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        Text(focusTask.text)
+                            .font(.headline)
+
+                        if let project = focusTask.project {
+                            Text(project)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack {
+                            if focusTask.task_kind == .commitment && focusTask.state != "completed" {
+                                Button("Mark done") {
+                                    Task { await store.markCommitmentDone(id: focusTask.id) }
+                                }
+                                .velProminentActionButtonStyle()
+                            }
+
+                            Button("Continue in threads") {
+                                onOpenThreads()
+                            }
+                            .velActionButtonStyle()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    Text("No active task is staged right now.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let action = actionItems.first {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Next move")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(action.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(action.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var commitmentsSection: some View {
+        SurfaceSectionCard("Commitments") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let nextCommitment = cachedNow?.tasks.next_commitment {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Next commitment")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        commitmentRow(nextCommitment, prominent: true)
+                    }
+                }
+
+                if commitmentItems.isEmpty {
+                    Text("No current commitments are cached from the backend.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(commitmentItems) { item in
+                        commitmentRow(item, prominent: false)
+                    }
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Capture a new commitment")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("New commitment", text: $commitmentText)
+                        .textInputAutocapitalization(.sentences)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Create commitment") {
+                        let text = commitmentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !text.isEmpty else { return }
+                        Task {
+                            await store.createCommitment(text: text)
+                            commitmentText = ""
+                        }
+                    }
+                    .velProminentActionButtonStyle()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var calendarSection: some View {
+        SurfaceSectionCard("Calendar") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let emptyMessage = cachedNow?.schedule.empty_message,
+                   calendarItems.isEmpty {
+                    Text(emptyMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if calendarItems.isEmpty {
+                    Text("No calendar events are currently staged.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(calendarItems.enumerated()), id: \.offset) { index, event in
+                        calendarRow(event, emphasis: index == 0 ? "Next" : nil)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var triageSection: some View {
+        SurfaceSectionCard("Triage") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(triageActionCount) backend action items are currently tagged for review.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if visibleNudgeBars.isEmpty && activeNudges.isEmpty {
+                    Text("No active nudges or review requests right now.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(visibleNudgeBars) { bar in
+                        compactNowBar(bar)
+                    }
+
+                    ForEach(activeNudges, id: \.nudge_id) { nudge in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(nudge.message)
+                            Text("\(nudge.nudge_type) · \(nudge.level) · \(nudge.state)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+
+                            HStack {
+                                Button("Done") {
+                                    Task { await store.markNudgeDone(id: nudge.nudge_id) }
+                                }
+                                .velProminentActionButtonStyle()
+
+                                Button("Snooze 10m") {
+                                    Task { await store.snoozeNudge(id: nudge.nudge_id, minutes: 10) }
+                                }
+                                .velActionButtonStyle()
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                Button("Open threads") {
+                    onOpenThreads()
+                }
+                .velActionButtonStyle()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var captureSection: some View {
+        SurfaceSectionCard("Capture") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let dockedInput = cachedNow?.docked_input {
+                    Text("Quick entry stays subordinate to the backend-owned day surface.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(dockedInput.supported_intents.map(\.rawValue).joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                HStack {
+                    Button("Open capture") {
+                        onOpenCapture()
+                    }
+                    .velActionButtonStyle()
+
+                    Button("Open voice") {
+                        onOpenVoice()
+                    }
+                    .velActionButtonStyle()
+                }
+
+                TextField("Quick capture", text: $captureText)
+                    .textInputAutocapitalization(.sentences)
+                    .textFieldStyle(.roundedBorder)
+
+                Button("Save capture") {
+                    let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return }
+                    Task {
+                        await store.createCapture(text: text)
+                        captureText = ""
+                    }
+                }
+                .velActionButtonStyle()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func summaryBadge(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased())
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Text(value)
+                .font(.caption)
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func commitmentRow(_ item: NowTaskData, prominent: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: item.commitment_kind == nil ? "tray" : "checklist")
+                .foregroundStyle(prominent ? Color.orange : .secondary)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.text)
+                    .font(prominent ? .headline : .body)
+
+                HStack(spacing: 8) {
+                    Text(item.source_type.replacingOccurrences(of: "_", with: " ").capitalized)
+                    if let project = item.project, !project.isEmpty {
+                        Text(project)
+                    }
+                    if let dueAt = item.due_at, !dueAt.isEmpty {
+                        Text(dueAt)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if item.commitment_kind != nil {
+                Button {
+                    Task { await store.markCommitmentDone(id: item.id) }
+                } label: {
+                    Image(systemName: "checkmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.orange)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(prominent ? Color.orange.opacity(0.08) : Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func calendarRow(_ event: NowEventData, emphasis: String?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let emphasis {
+                    Text(emphasis)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(event.title)
+                    .font(.body.weight(.semibold))
+                Spacer()
+                Text(formatUnix(event.start_ts))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let location = event.location, !location.isEmpty {
+                Text(location)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                if let leaveBy = event.leave_by_ts {
+                    Text("Leave by \(formatUnix(leaveBy))")
+                }
+                if let prep = event.prep_minutes {
+                    Text("Prep \(prep)m")
+                }
+                if let travel = event.travel_minutes {
+                    Text("Travel \(travel)m")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
     private func compactNowStatusRow(_ statusRow: NowStatusRowData) -> some View {
         SurfaceSectionCard("Status") {
             VStack(alignment: .leading, spacing: 8) {
@@ -792,179 +1164,6 @@ private struct TodayTab: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(bar.urgent ? Color.orange.opacity(0.10) : Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    @ViewBuilder
-    private func compactTaskLane(_ taskLane: NowTaskLaneData) -> some View {
-        SurfaceSectionCard("Tasks") {
-            VStack(alignment: .leading, spacing: 8) {
-                if let active = taskLane.active {
-                    compactTaskRow(active, emphasis: "Active")
-                }
-                ForEach(taskLane.pending) { item in
-                    compactTaskRow(item, emphasis: nil)
-                }
-                ForEach(taskLane.recent_completed) { item in
-                    compactTaskRow(item, emphasis: "Done")
-                }
-                if taskLane.overflow_count > 0 {
-                    Text("+\(taskLane.overflow_count) more")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                if taskLane.active == nil && taskLane.pending.isEmpty && taskLane.recent_completed.isEmpty {
-                    Text("No current tasks are surfaced right now.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private func compactTaskRow(_ item: NowTaskLaneItemData, emphasis: String?) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: item.state == "completed" ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(item.state == "completed" ? Color.green : .secondary)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    if let emphasis {
-                        Text(emphasis)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(item.task_kind.rawValue)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Text(item.text)
-                    .strikethrough(item.state == "completed")
-                if let project = item.project {
-                    Text(project)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if item.task_kind == .commitment && item.state != "completed" {
-                Button {
-                    Task {
-                        await store.markCommitmentDone(id: item.id)
-                    }
-                } label: {
-                    Image(systemName: "checkmark.circle")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.orange)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-
-    @ViewBuilder
-    private var compactTriageSection: some View {
-        SurfaceSectionCard("Triage") {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("\(triageActionCount) backend action items are currently tagged for review.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if activeNudges.isEmpty {
-                    Text("No active nudges right now.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(activeNudges, id: \.nudge_id) { nudge in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(nudge.message)
-                            Text("\(nudge.nudge_type) · \(nudge.level) · \(nudge.state)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-
-                            HStack {
-                                Button("Done") {
-                                    Task { await store.markNudgeDone(id: nudge.nudge_id) }
-                                }
-                                .velProminentActionButtonStyle()
-
-                                Button("Snooze 10m") {
-                                    Task { await store.snoozeNudge(id: nudge.nudge_id, minutes: 10) }
-                                }
-                                .velActionButtonStyle()
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-
-                Button("Open threads") {
-                    onOpenThreads()
-                }
-                .velActionButtonStyle()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private var compactDockedInputShell: some View {
-        SurfaceSectionCard("Input") {
-            VStack(alignment: .leading, spacing: 10) {
-                if let dockedInput = cachedNow?.docked_input {
-                    Text("Quick entry and voice stay shell wrappers over backend-owned routing.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(dockedInput.supported_intents.map(\.rawValue).joined(separator: " · "))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack {
-                    Button("Open capture") {
-                        onOpenCapture()
-                    }
-                    .velActionButtonStyle()
-
-                    Button("Open voice") {
-                        onOpenVoice()
-                    }
-                    .velActionButtonStyle()
-
-                    Button("Open threads") {
-                        onOpenThreads()
-                    }
-                    .velActionButtonStyle()
-                }
-
-                TextField("New commitment", text: $commitmentText)
-                    .textInputAutocapitalization(.sentences)
-                    .textFieldStyle(.roundedBorder)
-                Button("Create commitment") {
-                    let text = commitmentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !text.isEmpty else { return }
-                    Task {
-                        await store.createCommitment(text: text)
-                        commitmentText = ""
-                    }
-                }
-                .velProminentActionButtonStyle()
-
-                TextField("Quick capture", text: $captureText)
-                    .textInputAutocapitalization(.sentences)
-                    .textFieldStyle(.roundedBorder)
-                Button("Save capture") {
-                    let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !text.isEmpty else { return }
-                    Task {
-                        await store.createCapture(text: text)
-                        captureText = ""
-                    }
-                }
-                .velActionButtonStyle()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
     }
 }
 
@@ -3151,7 +3350,7 @@ private struct SettingsTab: View {
                 ? (linkingFeedback(scenario: "issue_without_target") ?? "Pair nodes code created.")
                 : (linkingFeedback(scenario: "issue_with_target", nodeDisplayName: target?.node_display_name) ?? "Pair nodes code created. \(target?.node_display_name ?? "Remote client") has been prompted to enter it on that client.")
         } catch {
-            pairingFeedback = error.localizedDescription
+            pairingFeedback = store.userFacingErrorMessage(error, context: "Could not issue a pairing token.")
         }
     }
 
@@ -3174,7 +3373,7 @@ private struct SettingsTab: View {
             pairingToken = nil
             pairingFeedback = linkingFeedback(scenario: "redeem_success", nodeDisplayName: linked.node_display_name) ?? "Linked as \(linked.node_display_name). The link has been saved locally and the issuing client has been notified."
         } catch {
-            pairingFeedback = error.localizedDescription
+            pairingFeedback = store.userFacingErrorMessage(error, context: "Could not redeem the pairing token.")
         }
     }
 
@@ -3190,7 +3389,7 @@ private struct SettingsTab: View {
             pairingToken = token
             pairingFeedback = linkingFeedback(scenario: "renegotiate_success", nodeDisplayName: node.node_display_name) ?? "Pair nodes code created for \(node.node_display_name). That client has been prompted to approve the new access."
         } catch {
-            pairingFeedback = error.localizedDescription
+            pairingFeedback = store.userFacingErrorMessage(error, context: "Could not request updated access.")
         }
     }
 
@@ -3205,7 +3404,7 @@ private struct SettingsTab: View {
             try await store.revokeLinkedNode(nodeID: node.node_id)
             pairingFeedback = linkingFeedback(scenario: "unpair_success", nodeDisplayName: node.node_display_name) ?? "Unpaired \(node.node_display_name)."
         } catch {
-            pairingFeedback = error.localizedDescription
+            pairingFeedback = store.userFacingErrorMessage(error, context: "Could not unpair the linked node.")
         }
     }
 

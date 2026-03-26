@@ -361,9 +361,7 @@ final class VelClientStore: ObservableObject {
         scopes: LinkScopeData,
         targetWorker: WorkerPresenceData?
     ) async throws -> PairingTokenData {
-        guard let bootstrap = clusterBootstrap else {
-            throw VelClientError.apiError("Cluster bootstrap must load before issuing a pairing token.")
-        }
+        let bootstrap = try await ensureLinkingBootstrap()
         let packet = embeddedBridge.linkingRequestBridge.preparePairingTokenIssueRequest(
             issuedByNodeID: bootstrap.node_id,
             targetNodeID: targetWorker?.node_id,
@@ -392,9 +390,7 @@ final class VelClientStore: ObservableObject {
         tokenCode: String,
         requestedScopes: LinkScopeData
     ) async throws -> LinkedNodeData {
-        guard let bootstrap = clusterBootstrap else {
-            throw VelClientError.apiError("Cluster bootstrap must load before redeeming a pairing token.")
-        }
+        let bootstrap = try await ensureLinkingBootstrap()
         let packet = embeddedBridge.linkingRequestBridge.preparePairingTokenRedeemRequest(
             tokenCode: tokenCode,
             nodeID: bootstrap.node_id,
@@ -425,6 +421,32 @@ final class VelClientStore: ObservableObject {
         offlineStore.saveCachedLinkedNodes(updatedLinkedNodes)
         await refresh()
         return linkedNode
+    }
+
+    func userFacingErrorMessage(_ error: Error, context: String? = nil) -> String {
+        let detail: String
+
+        switch error {
+        case let clientError as VelClientError:
+            detail = clientError.errorDescription ?? clientError.description
+        case let urlError as URLError:
+            switch urlError.code {
+            case .cannotConnectToHost:
+                let host = urlError.failingURL?.host ?? activeBaseURL ?? "configured Vel endpoint"
+                detail = "Could not connect to \(host). Make sure `veld` is running and that the Apple client is pointed at a reachable base URL."
+            case .notConnectedToInternet:
+                detail = "This device is offline. Reconnect to the network or point the app at a reachable Vel endpoint."
+            case .timedOut:
+                detail = "The Vel endpoint timed out before responding."
+            default:
+                detail = urlError.localizedDescription
+            }
+        default:
+            detail = error.localizedDescription
+        }
+
+        guard let context, !context.isEmpty else { return detail }
+        return "\(context) \(detail)"
     }
 
     func revokeLinkedNode(nodeID: String) async throws {
@@ -570,5 +592,25 @@ final class VelClientStore: ObservableObject {
             lanBaseURL: lanBaseURL,
             publicBaseURL: publicBaseURL
         ).first?.baseURL
+    }
+
+    private func ensureLinkingBootstrap() async throws -> ClusterBootstrapData {
+        if let clusterBootstrap, isReachable {
+            return clusterBootstrap
+        }
+
+        await refresh()
+
+        if let clusterBootstrap, isReachable {
+            return clusterBootstrap
+        }
+
+        if let errorMessage, !errorMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw VelClientError.apiError(errorMessage)
+        }
+
+        throw VelClientError.apiError(
+            "Vel is not reachable. Pairing requires a live daemon connection before it can issue or redeem a token."
+        )
     }
 }
