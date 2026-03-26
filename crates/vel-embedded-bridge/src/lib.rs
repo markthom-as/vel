@@ -6,8 +6,8 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 use portable_core::{
-    normalize_domain_hint, normalize_pairing_token_input, normalize_payload,
-    normalized_optional_trimmed, normalize_positive_minutes,
+    collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
+    normalize_payload, normalized_optional_trimmed, normalize_positive_minutes,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
     prepare_queued_action_packet, prepare_quick_capture_text,
     prepare_voice_quick_action_packet, trim_text,
@@ -708,32 +708,18 @@ pub extern "C" fn vel_embedded_collect_remote_routes(input_json: *const c_char) 
         public_base_url: None,
     });
 
-    let entries = [
-        ("primary", decoded.sync_base_url),
-        ("tailscale", decoded.tailscale_base_url),
-        ("lan", decoded.lan_base_url),
-        ("public", decoded.public_base_url),
-    ];
-
-    let mut seen: Vec<String> = Vec::new();
-    let mut routes: Vec<RemoteRouteOutput> = Vec::new();
-
-    for (label, value) in entries {
-        let Some(trimmed) = normalized_optional_trimmed(value) else {
-            continue;
-        };
-        if trimmed.contains("127.0.0.1")
-            || trimmed.contains("localhost")
-            || seen.iter().any(|existing| existing == &trimmed)
-        {
-            continue;
-        }
-        seen.push(trimmed.clone());
-        routes.push(RemoteRouteOutput {
-            label: label.to_string(),
-            base_url: trimmed,
-        });
-    }
+    let routes = collect_remote_routes(
+        decoded.sync_base_url,
+        decoded.tailscale_base_url,
+        decoded.lan_base_url,
+        decoded.public_base_url,
+    )
+    .into_iter()
+    .map(|route| RemoteRouteOutput {
+        label: route.label,
+        base_url: route.base_url,
+    })
+    .collect::<Vec<_>>();
 
     let json = serde_json::to_string(&routes).unwrap_or_else(|_| "[]".to_string());
     to_owned_c_string(&json)

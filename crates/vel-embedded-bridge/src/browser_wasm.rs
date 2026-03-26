@@ -5,10 +5,10 @@
 //! to browser code without the native Apple FFI loader path.
 
 use crate::portable_core::{
-    normalize_domain_hint, normalize_pairing_token_input, normalized_optional_trimmed,
-    normalize_positive_minutes, prepare_assistant_entry_fallback_payload,
-    prepare_capture_metadata_payload, prepare_queued_action_packet,
-    prepare_voice_quick_action_packet, trim_text,
+    collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
+    normalized_optional_trimmed, normalize_positive_minutes,
+    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_queued_action_packet, prepare_voice_quick_action_packet, trim_text,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,6 +140,38 @@ impl BrowserWasmScaffold {
         BrowserPacketResponse {
             kind: "capture_metadata_packaging",
             payload_json: format!("{{\"payload\":{}}}", string_json(&payload)),
+        }
+    }
+
+    pub fn remote_routes_packet(
+        sync_base_url: Option<String>,
+        tailscale_base_url: Option<String>,
+        lan_base_url: Option<String>,
+        public_base_url: Option<String>,
+    ) -> BrowserPacketResponse {
+        let routes = collect_remote_routes(
+            sync_base_url,
+            tailscale_base_url,
+            lan_base_url,
+            public_base_url,
+        );
+
+        let payload_json = format!(
+            "[{}]",
+            routes
+                .into_iter()
+                .map(|route| format!(
+                    "{{\"label\":{},\"baseUrl\":{}}}",
+                    string_json(&route.label),
+                    string_json(&route.base_url)
+                ))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
+        BrowserPacketResponse {
+            kind: "linking_settings_normalization",
+            payload_json,
         }
     }
 }

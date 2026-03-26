@@ -79,6 +79,12 @@ pub struct PortableVoiceQuickActionPacket {
     pub ready: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableRemoteRoute {
+    pub label: String,
+    pub base_url: String,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
 }
@@ -211,4 +217,40 @@ pub fn prepare_capture_metadata_payload(
         ]
         .join("\n")
     }
+}
+
+pub fn collect_remote_routes(
+    sync_base_url: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
+    public_base_url: Option<String>,
+) -> Vec<PortableRemoteRoute> {
+    let entries = [
+        ("primary", sync_base_url),
+        ("tailscale", tailscale_base_url),
+        ("lan", lan_base_url),
+        ("public", public_base_url),
+    ];
+
+    let mut seen: Vec<String> = Vec::new();
+    let mut routes: Vec<PortableRemoteRoute> = Vec::new();
+
+    for (label, value) in entries {
+        let Some(trimmed) = normalized_optional_trimmed(value) else {
+            continue;
+        };
+        if trimmed.contains("127.0.0.1")
+            || trimmed.contains("localhost")
+            || seen.iter().any(|existing| existing == &trimmed)
+        {
+            continue;
+        }
+        seen.push(trimmed.clone());
+        routes.push(PortableRemoteRoute {
+            label: label.to_string(),
+            base_url: trimmed,
+        });
+    }
+
+    routes
 }
