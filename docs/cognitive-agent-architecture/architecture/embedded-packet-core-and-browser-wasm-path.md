@@ -20,6 +20,7 @@ related_files:
   - crates/vel-embedded-bridge/src/portable_core.rs
   - crates/vel-embedded-bridge/src/browser_wasm.rs
   - clients/web/src/data/embeddedBridgePackets.ts
+  - clients/web/src/data/embeddedBridgeAdapter.ts
   - clients/web/src/data/embeddedBridgePackets.example.ts
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - docs/cognitive-agent-architecture/apple/apple-rust-integration-path.md
@@ -130,6 +131,7 @@ Current truth of that scaffold:
   - voice offline response packet shaping
   - voice cached query packet shaping
 - `embeddedBridgePackets.ts` mirrors that packet vocabulary on the web side as a non-live adapter scaffold inside the browser data layer.
+- `embeddedBridgeAdapter.ts` is the next seam up: it parses packet JSON into typed browser-facing values so future callers do not depend directly on raw packet JSON strings.
 - `embeddedBridgePackets.example.ts` is a checked-in usage reference for future browser callers so the scaffold has a concrete packet-consumption example.
 - those helpers are still scaffold-only and are not yet wired into the shipped web client as a live runtime path.
 
