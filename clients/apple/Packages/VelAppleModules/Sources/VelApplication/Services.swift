@@ -124,7 +124,8 @@ public struct VelAppEnvironment {
                     .localCaptureMetadataPackaging,
                     .localVoiceContinuitySummaryPackaging,
                     .localVoiceOfflineResponsePackaging,
-                    .localVoiceCachedQueryPackaging
+                    .localVoiceCachedQueryPackaging,
+                    .localLinkingFeedbackPackaging
                 ]
                 : []
         )

@@ -330,6 +330,20 @@ struct VoiceCachedQueryResponseOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LinkingFeedbackInput {
+    scenario: Option<String>,
+    node_display_name: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LinkingFeedbackOutput {
+    message: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -1154,6 +1168,64 @@ pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(input_json: *
         _ => VoiceCachedQueryResponseOutput {
             summary: None,
             detail: None,
+            ready: false,
+        },
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_linking_feedback(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<LinkingFeedbackInput>(&raw).unwrap_or(LinkingFeedbackInput {
+        scenario: None,
+        node_display_name: None,
+    });
+
+    let scenario = trim_text(&decoded.scenario.unwrap_or_default());
+    let node_display_name = normalized_optional_trimmed(decoded.node_display_name);
+
+    let output = match scenario.as_str() {
+        "issue_without_target" => LinkingFeedbackOutput {
+            message: Some("Pair nodes code created.".to_string()),
+            ready: true,
+        },
+        "issue_with_target" => LinkingFeedbackOutput {
+            message: Some(format!(
+                "Pair nodes code created. {} has been prompted to enter it on that client.",
+                node_display_name.unwrap_or_else(|| "Remote client".to_string())
+            )),
+            ready: true,
+        },
+        "redeem_empty_token" => LinkingFeedbackOutput {
+            message: Some("Enter the pairing token shown on the issuing node.".to_string()),
+            ready: true,
+        },
+        "redeem_success" => LinkingFeedbackOutput {
+            message: Some(format!(
+                "Linked as {}. The link has been saved locally and the issuing client has been notified.",
+                node_display_name.unwrap_or_else(|| "linked node".to_string())
+            )),
+            ready: true,
+        },
+        "renegotiate_success" => LinkingFeedbackOutput {
+            message: Some(format!(
+                "Pair nodes code created for {}. That client has been prompted to approve the new access.",
+                node_display_name.unwrap_or_else(|| "linked node".to_string())
+            )),
+            ready: true,
+        },
+        "unpair_success" => LinkingFeedbackOutput {
+            message: Some(format!(
+                "Unpaired {}.",
+                node_display_name.unwrap_or_else(|| "linked node".to_string())
+            )),
+            ready: true,
+        },
+        _ => LinkingFeedbackOutput {
+            message: None,
             ready: false,
         },
     };

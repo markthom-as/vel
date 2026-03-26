@@ -2642,6 +2642,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local voice continuity summary packaging", value: configuration.permits(.localVoiceContinuitySummaryPackaging))
             BoolStatusRow(label: "Local voice offline response packaging", value: configuration.permits(.localVoiceOfflineResponsePackaging))
             BoolStatusRow(label: "Local voice cached query packaging", value: configuration.permits(.localVoiceCachedQueryPackaging))
+            BoolStatusRow(label: "Local linking feedback packaging", value: configuration.permits(.localLinkingFeedbackPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2659,6 +2660,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Voice continuity summary symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuitySummaryPackaging))
             BoolStatusRow(label: "Voice offline response symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceOfflineResponsePackaging))
             BoolStatusRow(label: "Voice cached query symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCachedQueryPackaging))
+            BoolStatusRow(label: "Linking feedback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingFeedbackPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -3080,8 +3082,8 @@ private struct SettingsTab: View {
             let target = store.discoveredWorkers.first(where: { $0.node_id == selectedDiscoveredNodeID })
             pairingToken = try await store.issuePairingToken(scopes: pairingScopes, targetWorker: target)
             pairingFeedback = target == nil
-                ? "Pair nodes code created."
-                : "Pair nodes code created. \(target?.node_display_name ?? "Remote client") has been prompted to enter it on that client."
+                ? (linkingFeedback(scenario: "issue_without_target") ?? "Pair nodes code created.")
+                : (linkingFeedback(scenario: "issue_with_target", nodeDisplayName: target?.node_display_name) ?? "Pair nodes code created. \(target?.node_display_name ?? "Remote client") has been prompted to enter it on that client.")
         } catch {
             pairingFeedback = error.localizedDescription
         }
@@ -3090,7 +3092,7 @@ private struct SettingsTab: View {
     private func redeemPairingToken(using prompt: LinkingPromptData) async {
         let normalized = store.normalizeDomainHint(store.normalizePairingTokenInput(pairingCodeInput)).uppercased()
         guard !normalized.isEmpty else {
-            pairingFeedback = "Enter the pairing token shown on the issuing node."
+            pairingFeedback = linkingFeedback(scenario: "redeem_empty_token") ?? "Enter the pairing token shown on the issuing node."
             return
         }
 
@@ -3104,7 +3106,7 @@ private struct SettingsTab: View {
             )
             pairingCodeInput = ""
             pairingToken = nil
-            pairingFeedback = "Linked as \(linked.node_display_name). The link has been saved locally and the issuing client has been notified."
+            pairingFeedback = linkingFeedback(scenario: "redeem_success", nodeDisplayName: linked.node_display_name) ?? "Linked as \(linked.node_display_name). The link has been saved locally and the issuing client has been notified."
         } catch {
             pairingFeedback = error.localizedDescription
         }
@@ -3120,7 +3122,7 @@ private struct SettingsTab: View {
                 targetWorker: store.clusterWorkers?.workers.first(where: { $0.node_id == node.node_id })
             )
             pairingToken = token
-            pairingFeedback = "Pair nodes code created for \(node.node_display_name). That client has been prompted to approve the new access."
+            pairingFeedback = linkingFeedback(scenario: "renegotiate_success", nodeDisplayName: node.node_display_name) ?? "Pair nodes code created for \(node.node_display_name). That client has been prompted to approve the new access."
         } catch {
             pairingFeedback = error.localizedDescription
         }
@@ -3135,7 +3137,7 @@ private struct SettingsTab: View {
 
         do {
             try await store.revokeLinkedNode(nodeID: node.node_id)
-            pairingFeedback = "Unpaired \(node.node_display_name)."
+            pairingFeedback = linkingFeedback(scenario: "unpair_success", nodeDisplayName: node.node_display_name) ?? "Unpaired \(node.node_display_name)."
         } catch {
             pairingFeedback = error.localizedDescription
         }
@@ -4773,6 +4775,16 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             behaviorHeadline: behaviorHeadline,
             behaviorReason: behaviorReason
         )
+    }
+
+    private func linkingFeedback(
+        scenario: String,
+        nodeDisplayName: String? = nil
+    ) -> String? {
+        appEnvironment.embeddedBridge.linkingFeedbackBridge.prepareLinkingFeedback(
+            scenario: scenario,
+            nodeDisplayName: nodeDisplayName
+        )?.message
     }
 
     private func applyVoiceQuickActionPacket(_ packet: EmbeddedVoiceQuickActionPacket, using offlineStore: VelOfflineStore) {
