@@ -84,6 +84,25 @@ struct VoiceCaptureInput {
     intent_storage_token: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceQuickActionInput {
+    intent_storage_token: Option<String>,
+    primary_text: Option<String>,
+    target_id: Option<String>,
+    minutes: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceQuickActionOutput {
+    queue_kind: String,
+    target_id: Option<String>,
+    text: Option<String>,
+    minutes: Option<i64>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -266,6 +285,78 @@ pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const 
     .join("\n");
 
     to_owned_c_string(&payload)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_package_voice_quick_action(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<VoiceQuickActionInput>(&raw).unwrap_or(VoiceQuickActionInput {
+        intent_storage_token: Some("capture_create".to_string()),
+        primary_text: Some(raw.clone()),
+        target_id: None,
+        minutes: None,
+    });
+
+    let intent_storage_token = decoded.intent_storage_token.unwrap_or_else(|| "capture_create".to_string());
+    let primary_text = decoded.primary_text.unwrap_or_default();
+    let target_id = decoded.target_id.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() { nil } else { Some(trimmed) }
+    });
+    let minutes = decoded.minutes.map(|value| value.max(1));
+
+    let output = if intent_storage_token == "capture_create" {
+        VoiceQuickActionOutput {
+            queue_kind: "capture.create".to_string(),
+            target_id: None,
+            text: Some(normalize_payload(&primary_text)),
+            minutes: None,
+            ready: true,
+        }
+    } else if intent_storage_token == "commitment_create" {
+        VoiceQuickActionOutput {
+            queue_kind: "commitment.create".to_string(),
+            target_id: None,
+            text: Some(normalize_payload(&primary_text)),
+            minutes: None,
+            ready: true,
+        }
+    } else if intent_storage_token == "commitment_done" {
+        VoiceQuickActionOutput {
+            queue_kind: "commitment.done".to_string(),
+            target_id,
+            text: None,
+            minutes: None,
+            ready: true,
+        }
+    } else if intent_storage_token == "nudge_done" {
+        VoiceQuickActionOutput {
+            queue_kind: "nudge.done".to_string(),
+            target_id,
+            text: None,
+            minutes: None,
+            ready: true,
+        }
+    } else if intent_storage_token.starts_with("nudge_snooze_") {
+        VoiceQuickActionOutput {
+            queue_kind: "nudge.snooze".to_string(),
+            target_id,
+            text: None,
+            minutes,
+            ready: true,
+        }
+    } else {
+        VoiceQuickActionOutput {
+            queue_kind: "capture.create".to_string(),
+            target_id: None,
+            text: Some(normalize_payload(&primary_text)),
+            minutes: None,
+            ready: false,
+        }
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
 }
 
 #[no_mangle]

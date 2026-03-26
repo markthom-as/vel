@@ -2625,6 +2625,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Domain helpers", value: configuration.permits(.deterministicDomainHelpers))
             BoolStatusRow(label: "Local thread draft packaging", value: configuration.permits(.localThreadDraftPackaging))
             BoolStatusRow(label: "Local voice capture packaging", value: configuration.permits(.localVoiceCapturePackaging))
+            BoolStatusRow(label: "Local voice quick action packaging", value: configuration.permits(.localVoiceQuickActionPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2632,6 +2633,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Domain helper symbol loaded", value: runtimeStatus.symbolAvailable(for: .deterministicDomainHelpers))
             BoolStatusRow(label: "Thread draft symbol loaded", value: runtimeStatus.symbolAvailable(for: .localThreadDraftPackaging))
             BoolStatusRow(label: "Voice capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCapturePackaging))
+            BoolStatusRow(label: "Voice quick action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceQuickActionPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -4519,7 +4521,12 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 errorMessage: store.isReachable ? nil : "Voice transcript queued for sync."
             )
         case .commitmentCreate:
-            await store.createCommitment(text: primaryText)
+            let packet = voiceQuickActionPacket(
+                intent: intent,
+                primaryText: primaryText,
+                targetID: nil
+            )
+            await store.createCommitment(text: packet?.text ?? primaryText)
             setResponse(
                 summary: store.isReachable ? "Created commitment." : "Commitment queued for sync.",
                 detail: primaryText
@@ -4601,7 +4608,15 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                     errorMessage: fallbackErrorMessage(prefix: "Commitment target was ambiguous.", underlyingError: underlyingError)
                 )
             }
-            store.offlineStore.enqueueCommitmentDone(id: best.id)
+            if let packet = voiceQuickActionPacket(
+                intent: intent,
+                primaryText: primaryText,
+                targetID: best.id
+            ) {
+                applyVoiceQuickActionPacket(packet, using: store.offlineStore)
+            } else {
+                store.offlineStore.enqueueCommitmentDone(id: best.id)
+            }
             await store.refresh()
             setResponse(summary: "Commitment completion queued.", detail: best.text)
             return VoiceSubmitResult(
@@ -4620,7 +4635,15 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                     errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
                 )
             }
-            store.offlineStore.enqueueNudgeDone(id: nudgeID)
+            if let packet = voiceQuickActionPacket(
+                intent: intent,
+                primaryText: primaryText,
+                targetID: nudgeID
+            ) {
+                applyVoiceQuickActionPacket(packet, using: store.offlineStore)
+            } else {
+                store.offlineStore.enqueueNudgeDone(id: nudgeID)
+            }
             await store.refresh()
             setResponse(summary: "Top nudge resolution queued.", detail: nil)
             return VoiceSubmitResult(
@@ -4640,7 +4663,15 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 )
             }
             let minutes = intent.minutes ?? 10
-            store.offlineStore.enqueueNudgeSnooze(id: nudgeID, minutes: minutes)
+            if let packet = voiceQuickActionPacket(
+                intent: intent,
+                primaryText: primaryText,
+                targetID: nudgeID
+            ) {
+                applyVoiceQuickActionPacket(packet, using: store.offlineStore)
+            } else {
+                store.offlineStore.enqueueNudgeSnooze(id: nudgeID, minutes: minutes)
+            }
             await store.refresh()
             setResponse(summary: "Top nudge snooze queued.", detail: "\(minutes) minutes")
             return VoiceSubmitResult(
@@ -4685,6 +4716,39 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 primaryText: primaryText,
                 intent: intent
             )
+        }
+    }
+
+    private func voiceQuickActionPacket(
+        intent: VoiceIntent,
+        primaryText: String,
+        targetID: String?
+    ) -> EmbeddedVoiceQuickActionPacket? {
+        appEnvironment.embeddedBridge.voiceQuickActionBridge.packageVoiceQuickAction(
+            intentStorageToken: intent.storageToken,
+            primaryText: primaryText,
+            targetID: targetID,
+            minutes: intent.minutes
+        )
+    }
+
+    private func applyVoiceQuickActionPacket(_ packet: EmbeddedVoiceQuickActionPacket, using offlineStore: VelOfflineStore) {
+        guard let kind = QueuedAction.Kind(rawValue: packet.queueKind) else { return }
+
+        switch kind {
+        case .captureCreate:
+            offlineStore.enqueueCaptureCreate(text: packet.text ?? "")
+        case .commitmentCreate:
+            offlineStore.enqueueCommitmentCreate(text: packet.text ?? "")
+        case .commitmentDone:
+            guard let targetID = packet.targetID else { return }
+            offlineStore.enqueueCommitmentDone(id: targetID)
+        case .nudgeDone:
+            guard let targetID = packet.targetID else { return }
+            offlineStore.enqueueNudgeDone(id: targetID)
+        case .nudgeSnooze:
+            guard let targetID = packet.targetID else { return }
+            offlineStore.enqueueNudgeSnooze(id: targetID, minutes: packet.minutes ?? 10)
         }
     }
 
