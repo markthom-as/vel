@@ -115,7 +115,8 @@ public struct VelAppEnvironment {
                     .deterministicDomainHelpers,
                     .localThreadDraftPackaging,
                     .localVoiceCapturePackaging,
-                    .localVoiceQuickActionPackaging
+                    .localVoiceQuickActionPackaging,
+                    .localVoiceContinuityPackaging
                 ]
                 : []
         )

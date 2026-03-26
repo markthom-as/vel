@@ -103,6 +103,44 @@ struct VoiceQuickActionOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceDraftInput {
+    transcript: Option<String>,
+    suggested_intent_storage_token: Option<String>,
+    suggested_text: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceDraftOutput {
+    transcript: String,
+    suggested_intent_storage_token: String,
+    suggested_text: String,
+    ready: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceContinuityEntryInput {
+    transcript: Option<String>,
+    suggested_intent_storage_token: Option<String>,
+    committed_intent_storage_token: Option<String>,
+    status: Option<String>,
+    thread_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceContinuityEntryOutput {
+    transcript: String,
+    suggested_intent_storage_token: String,
+    committed_intent_storage_token: Option<String>,
+    status: String,
+    thread_id: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -264,6 +302,10 @@ fn normalize_payload(value: &str) -> String {
         .join(" ")
 }
 
+fn trim_text(value: &str) -> String {
+    value.trim().to_string()
+}
+
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const c_char) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
@@ -353,6 +395,77 @@ pub extern "C" fn vel_embedded_package_voice_quick_action(input_json: *const c_c
             minutes: None,
             ready: false,
         }
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_voice_draft(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<VoiceDraftInput>(&raw).unwrap_or(VoiceDraftInput {
+        transcript: Some(raw.clone()),
+        suggested_intent_storage_token: Some("capture".to_string()),
+        suggested_text: Some(String::new()),
+    });
+
+    let output = VoiceDraftOutput {
+        transcript: trim_text(&decoded.transcript.unwrap_or_default()),
+        suggested_intent_storage_token: trim_text(
+            &decoded
+                .suggested_intent_storage_token
+                .unwrap_or_else(|| "capture".to_string()),
+        ),
+        suggested_text: trim_text(&decoded.suggested_text.unwrap_or_default()),
+        ready: true,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_voice_continuity_entry(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded =
+        serde_json::from_str::<VoiceContinuityEntryInput>(&raw).unwrap_or(VoiceContinuityEntryInput {
+            transcript: Some(raw.clone()),
+            suggested_intent_storage_token: Some("capture".to_string()),
+            committed_intent_storage_token: None,
+            status: Some("pending_review".to_string()),
+            thread_id: None,
+        });
+
+    let thread_id = decoded.thread_id.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    let committed_intent_storage_token = decoded.committed_intent_storage_token.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    let output = VoiceContinuityEntryOutput {
+        transcript: trim_text(&decoded.transcript.unwrap_or_default()),
+        suggested_intent_storage_token: trim_text(
+            &decoded
+                .suggested_intent_storage_token
+                .unwrap_or_else(|| "capture".to_string()),
+        ),
+        committed_intent_storage_token,
+        status: trim_text(&decoded.status.unwrap_or_else(|| "pending_review".to_string())),
+        thread_id,
+        ready: true,
     };
 
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());

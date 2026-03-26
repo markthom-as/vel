@@ -2626,6 +2626,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local thread draft packaging", value: configuration.permits(.localThreadDraftPackaging))
             BoolStatusRow(label: "Local voice capture packaging", value: configuration.permits(.localVoiceCapturePackaging))
             BoolStatusRow(label: "Local voice quick action packaging", value: configuration.permits(.localVoiceQuickActionPackaging))
+            BoolStatusRow(label: "Local voice continuity packaging", value: configuration.permits(.localVoiceContinuityPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2634,6 +2635,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Thread draft symbol loaded", value: runtimeStatus.symbolAvailable(for: .localThreadDraftPackaging))
             BoolStatusRow(label: "Voice capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCapturePackaging))
             BoolStatusRow(label: "Voice quick action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceQuickActionPackaging))
+            BoolStatusRow(label: "Voice continuity symbols loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuityPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -4973,14 +4975,21 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
 
     private func saveHistory() {
         let persisted = history.map { entry in
+            let packet = appEnvironment.embeddedBridge.voiceContinuityBridge.prepareVoiceContinuityEntry(
+                transcript: entry.transcript,
+                suggestedIntentStorageToken: entry.suggestedIntent.storageToken,
+                committedIntentStorageToken: entry.committedIntent?.storageToken,
+                status: entry.status,
+                threadID: entry.threadID
+            )
             AppleVoiceContinuityEntryData(
                 id: entry.id,
                 created_at: entry.createdAt,
-                transcript: entry.transcript,
-                suggested_intent: entry.suggestedIntent.storageToken,
-                committed_intent: entry.committedIntent?.storageToken,
-                status: entry.status,
-                thread_id: entry.threadID,
+                transcript: packet.transcript,
+                suggested_intent: packet.suggestedIntentStorageToken,
+                committed_intent: packet.committedIntentStorageToken,
+                status: packet.status,
+                thread_id: packet.threadID,
                 merged_at: entry.mergedAt
             )
         }
@@ -5068,11 +5077,17 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return
         }
 
+        let packet = appEnvironment.embeddedBridge.voiceContinuityBridge.prepareVoiceDraft(
+            transcript: cleanTranscript,
+            suggestedIntentStorageToken: suggestedIntent.storageToken,
+            suggestedText: suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+
         offlineStore.saveVoiceDraft(
             AppleVoiceDraftData(
-                transcript: cleanTranscript,
-                suggested_intent: suggestedIntent.storageToken,
-                suggested_text: suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                transcript: packet.transcript,
+                suggested_intent: packet.suggestedIntentStorageToken,
+                suggested_text: packet.suggestedText
             )
         )
     }
