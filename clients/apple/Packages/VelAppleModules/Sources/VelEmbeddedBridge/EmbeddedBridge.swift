@@ -10,6 +10,7 @@ public enum EmbeddedAppleFlow: String, Sendable, CaseIterable {
     case localQuickActionPreparation = "local_quick_action_preparation"
     case offlineRequestPackaging = "offline_request_packaging"
     case deterministicDomainHelpers = "deterministic_domain_helpers"
+    case localThreadDraftPackaging = "local_thread_draft_packaging"
 }
 
 public struct EmbeddedBridgeRuntimeStatus: Sendable {
@@ -20,6 +21,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     public let localQuickActionPreparationSymbolAvailable: Bool
     public let offlineRequestPackagingSymbolAvailable: Bool
     public let deterministicDomainHelpersSymbolAvailable: Bool
+    public let localThreadDraftPackagingSymbolAvailable: Bool
 
     public init(
         resolvedSource: String?,
@@ -28,7 +30,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         cachedNowHydrationSymbolAvailable: Bool,
         localQuickActionPreparationSymbolAvailable: Bool,
         offlineRequestPackagingSymbolAvailable: Bool,
-        deterministicDomainHelpersSymbolAvailable: Bool
+        deterministicDomainHelpersSymbolAvailable: Bool,
+        localThreadDraftPackagingSymbolAvailable: Bool
     ) {
         self.resolvedSource = resolvedSource
         self.attemptedPaths = attemptedPaths
@@ -37,6 +40,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         self.localQuickActionPreparationSymbolAvailable = localQuickActionPreparationSymbolAvailable
         self.offlineRequestPackagingSymbolAvailable = offlineRequestPackagingSymbolAvailable
         self.deterministicDomainHelpersSymbolAvailable = deterministicDomainHelpersSymbolAvailable
+        self.localThreadDraftPackagingSymbolAvailable = localThreadDraftPackagingSymbolAvailable
     }
 
     public static let unavailable = EmbeddedBridgeRuntimeStatus(
@@ -46,7 +50,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         cachedNowHydrationSymbolAvailable: false,
         localQuickActionPreparationSymbolAvailable: false,
         offlineRequestPackagingSymbolAvailable: false,
-        deterministicDomainHelpersSymbolAvailable: false
+        deterministicDomainHelpersSymbolAvailable: false,
+        localThreadDraftPackagingSymbolAvailable: false
     )
 
     public var isBridgeLoaded: Bool {
@@ -58,6 +63,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             || localQuickActionPreparationSymbolAvailable
             || offlineRequestPackagingSymbolAvailable
             || deterministicDomainHelpersSymbolAvailable
+            || localThreadDraftPackagingSymbolAvailable
     }
 
     public var isOperational: Bool {
@@ -65,7 +71,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     }
 
     public var discoveredSymbolCount: Int {
-        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable]
+        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable]
             .filter(\.self)
             .count
     }
@@ -80,6 +86,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             offlineRequestPackagingSymbolAvailable
         case .deterministicDomainHelpers:
             deterministicDomainHelpersSymbolAvailable
+        case .localThreadDraftPackaging:
+            localThreadDraftPackagingSymbolAvailable
         }
     }
 }
@@ -135,6 +143,20 @@ public protocol EmbeddedDomainHelpersBridge: Sendable {
     func normalizeDomainHint(_ input: String) -> String
 }
 
+public struct EmbeddedThreadDraftPacket: Sendable {
+    public let payload: String
+    public let requestedConversationID: String?
+
+    public init(payload: String, requestedConversationID: String?) {
+        self.payload = payload
+        self.requestedConversationID = requestedConversationID
+    }
+}
+
+public protocol EmbeddedThreadDraftBridge: Sendable {
+    func prepareThreadDraft(_ text: String, conversationID: String?) -> EmbeddedThreadDraftPacket
+}
+
 private struct OfflineBridgeEnvelope: Decodable {
     let kind: String?
     let payload: String?
@@ -147,6 +169,7 @@ public protocol EmbeddedBridgeSurface: Sendable {
     var quickActionBridge: any EmbeddedQuickActionBridge { get }
     var offlineRequestBridge: any EmbeddedOfflineRequestBridge { get }
     var domainHelpersBridge: any EmbeddedDomainHelpersBridge { get }
+    var threadDraftBridge: any EmbeddedThreadDraftBridge { get }
 }
 
 public struct NoopEmbeddedNowBridge: EmbeddedNowBridge {
@@ -192,6 +215,19 @@ public struct NoopEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge {
     }
 }
 
+public struct NoopEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge {
+    public init() {}
+
+    public func prepareThreadDraft(_ text: String, conversationID: String?) -> EmbeddedThreadDraftPacket {
+        let normalizedConversationID = conversationID?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return EmbeddedThreadDraftPacket(
+            payload: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            requestedConversationID: normalizedConversationID?.isEmpty == true ? nil : normalizedConversationID
+        )
+    }
+}
+
 public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -199,6 +235,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let quickActionBridge: any EmbeddedQuickActionBridge
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
+    public let threadDraftBridge: any EmbeddedThreadDraftBridge
 
     public init(configuration: EmbeddedBridgeConfiguration = .daemonBackedDefault()) {
         self.configuration = configuration
@@ -207,6 +244,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
         self.quickActionBridge = NoopEmbeddedQuickActionBridge()
         self.offlineRequestBridge = NoopEmbeddedOfflineRequestBridge()
         self.domainHelpersBridge = NoopEmbeddedDomainHelpersBridge()
+        self.threadDraftBridge = NoopEmbeddedThreadDraftBridge()
     }
 }
 
@@ -215,6 +253,7 @@ private typealias VelEmbeddedCachedNowSummaryFn = @convention(c) (UnsafePointer<
 private typealias VelEmbeddedPrepareQuickCaptureFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedPackageOfflineRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedNormalizeDomainHelpersFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPrepareThreadDraftFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedFreeBufferFn = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
 private struct VelEmbeddedRustBindings: @unchecked Sendable {
@@ -223,6 +262,7 @@ private struct VelEmbeddedRustBindings: @unchecked Sendable {
     let prepareQuickCapture: VelEmbeddedPrepareQuickCaptureFn?
     let packageOfflineRequest: VelEmbeddedPackageOfflineRequestFn?
     let normalizeDomainHelpers: VelEmbeddedNormalizeDomainHelpersFn?
+    let prepareThreadDraft: VelEmbeddedPrepareThreadDraftFn?
     let freeBuffer: VelEmbeddedFreeBufferFn
 }
 
@@ -232,6 +272,7 @@ private enum VelEmbeddedRustBridge {
         prepareQuickCapture: "vel_embedded_prepare_quick_capture",
         packageOfflineRequest: "vel_embedded_package_offline_request",
         normalizeDomainHelpers: "vel_embedded_normalize_domain_helpers",
+        prepareThreadDraft: "vel_embedded_prepare_thread_draft",
         freeBuffer: "vel_embedded_free_buffer"
     )
 
@@ -250,7 +291,8 @@ private enum VelEmbeddedRustBridge {
             cachedNowSummary: VelEmbeddedCachedNowSummaryFn?,
             prepareQuickCapture: VelEmbeddedPrepareQuickCaptureFn?,
             packageOfflineRequest: VelEmbeddedPackageOfflineRequestFn?,
-            normalizeDomainHelpers: VelEmbeddedNormalizeDomainHelpersFn?
+            normalizeDomainHelpers: VelEmbeddedNormalizeDomainHelpersFn?,
+            prepareThreadDraft: VelEmbeddedPrepareThreadDraftFn?
         ) -> EmbeddedBridgeRuntimeStatus {
             EmbeddedBridgeRuntimeStatus(
                 resolvedSource: source,
@@ -259,7 +301,8 @@ private enum VelEmbeddedRustBridge {
                 cachedNowHydrationSymbolAvailable: cachedNowSummary != nil,
                 localQuickActionPreparationSymbolAvailable: prepareQuickCapture != nil,
                 offlineRequestPackagingSymbolAvailable: packageOfflineRequest != nil,
-                deterministicDomainHelpersSymbolAvailable: normalizeDomainHelpers != nil
+                deterministicDomainHelpersSymbolAvailable: normalizeDomainHelpers != nil,
+                localThreadDraftPackagingSymbolAvailable: prepareThreadDraft != nil
             )
         }
 
@@ -284,6 +327,10 @@ private enum VelEmbeddedRustBridge {
                 candidate: symbolNames.normalizeDomainHelpers,
                 from: handle
             )
+            let prepareThreadDraft: VelEmbeddedPrepareThreadDraftFn? = lookup(
+                candidate: symbolNames.prepareThreadDraft,
+                from: handle
+            )
 
             let status = makeStatus(
                 source: freeBuffer == nil ? nil : source,
@@ -291,14 +338,20 @@ private enum VelEmbeddedRustBridge {
                 cachedNowSummary: cachedNowSummary,
                 prepareQuickCapture: prepareQuickCapture,
                 packageOfflineRequest: packageOfflineRequest,
-                normalizeDomainHelpers: normalizeDomainHelpers
+                normalizeDomainHelpers: normalizeDomainHelpers,
+                prepareThreadDraft: prepareThreadDraft
             )
 
             guard freeBuffer != nil else {
                 return (nil, status)
             }
 
-            if cachedNowSummary == nil && prepareQuickCapture == nil && packageOfflineRequest == nil && normalizeDomainHelpers == nil {
+            if cachedNowSummary == nil
+                && prepareQuickCapture == nil
+                && packageOfflineRequest == nil
+                && normalizeDomainHelpers == nil
+                && prepareThreadDraft == nil
+            {
                 return (nil, status)
             }
 
@@ -309,6 +362,7 @@ private enum VelEmbeddedRustBridge {
                     prepareQuickCapture: prepareQuickCapture,
                     packageOfflineRequest: packageOfflineRequest,
                     normalizeDomainHelpers: normalizeDomainHelpers,
+                    prepareThreadDraft: prepareThreadDraft,
                     freeBuffer: freeBuffer
                 ),
                 status
@@ -350,7 +404,8 @@ private enum VelEmbeddedRustBridge {
                 cachedNowHydrationSymbolAvailable: false,
                 localQuickActionPreparationSymbolAvailable: false,
                 offlineRequestPackagingSymbolAvailable: false,
-                deterministicDomainHelpersSymbolAvailable: false
+                deterministicDomainHelpersSymbolAvailable: false,
+                localThreadDraftPackagingSymbolAvailable: false
             )
         )
     }()
@@ -442,6 +497,17 @@ private enum VelEmbeddedRustBridge {
         return String(cString: result)
     }
 
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPrepareThreadDraftFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
     @inline(__always)
     static func encodeContextPayload(_ context: VelContextSnapshot) -> String {
         let encoder = JSONEncoder()
@@ -468,6 +534,28 @@ private enum VelEmbeddedRustBridge {
         let ready: Bool?
     }
 
+    struct ThreadDraftInput: Encodable {
+        let text: String
+        let requestedConversationID: String?
+
+        enum CodingKeys: String, CodingKey {
+            case text
+            case requestedConversationID = "requestedConversationId"
+        }
+    }
+
+    struct ThreadDraftPacket: Decodable {
+        let payload: String
+        let requestedConversationID: String?
+        let ready: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case payload
+            case requestedConversationID = "requestedConversationId"
+            case ready
+        }
+    }
+
     static func decodeOfflineRequest(_ value: String) -> OfflineRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
@@ -476,6 +564,23 @@ private enum VelEmbeddedRustBridge {
     static func decodeDomainHint(_ value: String) -> DomainHintPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(DomainHintPacket.self, from: data)
+    }
+
+    static func encodeThreadDraftPayload(text: String, conversationID: String?) -> String {
+        let payload = ThreadDraftInput(
+            text: text,
+            requestedConversationID: conversationID
+        )
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{\"text\":\"\"}"
+        }
+        return value
+    }
+
+    static func decodeThreadDraft(_ value: String) -> ThreadDraftPacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(ThreadDraftPacket.self, from: data)
     }
 }
 
@@ -571,6 +676,32 @@ public struct RustEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge, @unc
     }
 }
 
+public struct RustEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge, @unchecked Sendable {
+    private let bindings: VelEmbeddedRustBindings
+
+    public init?(bindings: VelEmbeddedRustBindings) {
+        guard bindings.prepareThreadDraft != nil else { return nil }
+        self.bindings = bindings
+    }
+
+    public func prepareThreadDraft(_ text: String, conversationID: String?) -> EmbeddedThreadDraftPacket {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareThreadDraft,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeThreadDraftPayload(text: text, conversationID: conversationID)
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeThreadDraft(output),
+        parsed.ready else {
+            return NoopEmbeddedThreadDraftBridge().prepareThreadDraft(text, conversationID: conversationID)
+        }
+
+        return EmbeddedThreadDraftPacket(
+            payload: parsed.payload,
+            requestedConversationID: parsed.requestedConversationID
+        )
+    }
+}
+
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -578,6 +709,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let quickActionBridge: any EmbeddedQuickActionBridge
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
+    public let threadDraftBridge: any EmbeddedThreadDraftBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         guard let bindings = VelEmbeddedRustBridge.bindings else {
@@ -611,10 +743,17 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             self.domainHelpersBridge = NoopEmbeddedDomainHelpersBridge()
         }
 
+        if let rustThreadDraft = RustEmbeddedThreadDraftBridge(bindings: bindings), configuration.permits(.localThreadDraftPackaging) {
+            self.threadDraftBridge = rustThreadDraft
+        } else {
+            self.threadDraftBridge = NoopEmbeddedThreadDraftBridge()
+        }
+
         let isEmbedded = configuration.permits(.cachedNowHydration)
             || configuration.permits(.localQuickActionPreparation)
             || configuration.permits(.offlineRequestPackaging)
             || configuration.permits(.deterministicDomainHelpers)
+            || configuration.permits(.localThreadDraftPackaging)
 
         guard isEmbedded else { return nil }
     }
@@ -653,6 +792,13 @@ public struct RustEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge, @unc
     }
 }
 
+public struct RustEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge, @unchecked Sendable {
+    public init?(bindings: ()) { return nil }
+    public func prepareThreadDraft(_ text: String, conversationID: String?) -> EmbeddedThreadDraftPacket {
+        NoopEmbeddedThreadDraftBridge().prepareThreadDraft(text, conversationID: conversationID)
+    }
+}
+
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -660,10 +806,16 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let quickActionBridge: any EmbeddedQuickActionBridge
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
+    public let threadDraftBridge: any EmbeddedThreadDraftBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         self.configuration = configuration
         self.runtimeStatus = .unavailable
+        self.nowBridge = NoopEmbeddedNowBridge()
+        self.quickActionBridge = NoopEmbeddedQuickActionBridge()
+        self.offlineRequestBridge = NoopEmbeddedOfflineRequestBridge()
+        self.domainHelpersBridge = NoopEmbeddedDomainHelpersBridge()
+        self.threadDraftBridge = NoopEmbeddedThreadDraftBridge()
         return nil
     }
 }

@@ -38,6 +38,20 @@ struct DomainHintInputDecoded {
     input: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ThreadDraftInput {
+    text: Option<String>,
+    requested_conversation_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ThreadDraftInputDecoded {
+    text: String,
+    requested_conversation_id: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct OfflineRequestOutput {
@@ -52,6 +66,14 @@ struct OfflineRequestOutput {
 struct DomainHintOutput {
     kind: String,
     normalized: String,
+    ready: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ThreadDraftOutput {
+    payload: String,
+    requested_conversation_id: Option<String>,
     ready: bool,
 }
 
@@ -185,6 +207,19 @@ fn parse_domain_input(raw_json: &str) -> DomainHintInputDecoded {
         })
 }
 
+fn parse_thread_draft(raw_json: Option<&str>) -> Result<ThreadDraftInputDecoded, serde_json::Error> {
+    let input = raw_json.unwrap_or("{}");
+    let decoded: ThreadDraftInput = serde_json::from_str(input)?;
+
+    Ok(ThreadDraftInputDecoded {
+        text: decoded.text.unwrap_or_default(),
+        requested_conversation_id: decoded.requested_conversation_id.and_then(|value| {
+            let trimmed = value.trim().to_string();
+            if trimmed.is_empty() { nil } else { Some(trimmed) }
+        }),
+    })
+}
+
 fn normalize_domain_hint(value: String) -> String {
     value
         .trim()
@@ -201,6 +236,24 @@ fn normalize_payload(value: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_thread_draft(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let parsed = parse_thread_draft(Some(&raw)).unwrap_or(ThreadDraftInputDecoded {
+        text: raw.clone(),
+        requested_conversation_id: None,
+    });
+
+    let output = ThreadDraftOutput {
+        payload: normalize_payload(&parsed.text),
+        requested_conversation_id: parsed.requested_conversation_id,
+        ready: true,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
 }
 
 #[no_mangle]

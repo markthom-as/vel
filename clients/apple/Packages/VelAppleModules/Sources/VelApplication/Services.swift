@@ -112,7 +112,8 @@ public struct VelAppEnvironment {
                     .cachedNowHydration,
                     .localQuickActionPreparation,
                     .offlineRequestPackaging,
-                    .deterministicDomainHelpers
+                    .deterministicDomainHelpers,
+                    .localThreadDraftPackaging
                 ]
                 : []
         )

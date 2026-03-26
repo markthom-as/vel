@@ -2623,11 +2623,13 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local quick capture", value: configuration.permits(.localQuickActionPreparation))
             BoolStatusRow(label: "Offline request packaging", value: configuration.permits(.offlineRequestPackaging))
             BoolStatusRow(label: "Domain helpers", value: configuration.permits(.deterministicDomainHelpers))
+            BoolStatusRow(label: "Local thread draft packaging", value: configuration.permits(.localThreadDraftPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
             BoolStatusRow(label: "Offline packaging symbol loaded", value: runtimeStatus.symbolAvailable(for: .offlineRequestPackaging))
             BoolStatusRow(label: "Domain helper symbol loaded", value: runtimeStatus.symbolAvailable(for: .deterministicDomainHelpers))
+            BoolStatusRow(label: "Thread draft symbol loaded", value: runtimeStatus.symbolAvailable(for: .localThreadDraftPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
