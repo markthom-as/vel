@@ -116,10 +116,13 @@ Current truth of that scaffold:
 - `browser_wasm.rs` now exposes scaffold-level browser packet helpers for a first low-risk set:
   - pairing-token normalization
   - domain-hint normalization
+  - thread-draft packet shaping
+  - voice-capture packet shaping
   - queued-action packet shaping
   - voice quick-action packet shaping
   - assistant-entry fallback packet shaping
   - capture-metadata packet shaping
+  - linking-request packet shaping
 - `embeddedBridgePackets.ts` mirrors that packet vocabulary on the web side as a non-live adapter scaffold inside the browser data layer.
 - those helpers are still scaffold-only and are not yet wired into the shipped web client as a live runtime path.
 

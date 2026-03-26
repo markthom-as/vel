@@ -8,7 +8,9 @@ use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
     normalized_optional_trimmed, normalize_positive_minutes,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
-    prepare_queued_action_packet, prepare_voice_quick_action_packet, trim_text,
+    prepare_linking_request_packet, prepare_queued_action_packet,
+    prepare_thread_draft_packet, prepare_voice_capture_payload,
+    prepare_voice_quick_action_packet, trim_text,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,6 +142,50 @@ impl BrowserWasmScaffold {
         BrowserPacketResponse {
             kind: "capture_metadata_packaging",
             payload_json: format!("{{\"payload\":{}}}", string_json(&payload)),
+        }
+    }
+
+    pub fn thread_draft_packet(
+        text: String,
+        requested_conversation_id: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_thread_draft_packet(&text, requested_conversation_id);
+
+        BrowserPacketResponse {
+            kind: "thread_draft_packaging",
+            payload_json: format!(
+                "{{\"payload\":{},\"requestedConversationId\":{}}}",
+                string_json(&packet.payload),
+                option_json(packet.requested_conversation_id)
+            ),
+        }
+    }
+
+    pub fn voice_capture_packet(
+        transcript: String,
+        intent_storage_token: String,
+    ) -> BrowserPacketResponse {
+        let payload = prepare_voice_capture_payload(&transcript, &intent_storage_token);
+
+        BrowserPacketResponse {
+            kind: "voice_capture_packaging",
+            payload_json: format!("{{\"payload\":{}}}", string_json(&payload)),
+        }
+    }
+
+    pub fn linking_request_packet(
+        token_code: Option<String>,
+        target_base_url: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_linking_request_packet(token_code, target_base_url);
+
+        BrowserPacketResponse {
+            kind: "linking_request_packaging",
+            payload_json: format!(
+                "{{\"tokenCode\":{},\"targetBaseUrl\":{}}}",
+                option_json(packet.token_code),
+                option_json(packet.target_base_url)
+            ),
         }
     }
 

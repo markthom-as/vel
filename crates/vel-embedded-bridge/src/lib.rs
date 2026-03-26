@@ -9,7 +9,8 @@ use portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
     normalize_payload, normalized_optional_trimmed, normalize_positive_minutes,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
-    prepare_queued_action_packet, prepare_quick_capture_text,
+    prepare_linking_request_packet, prepare_queued_action_packet, prepare_quick_capture_text,
+    prepare_thread_draft_packet, prepare_voice_capture_payload,
     prepare_voice_quick_action_packet, trim_text,
 };
 
@@ -529,22 +530,12 @@ pub extern "C" fn vel_embedded_prepare_voice_capture_payload(
         intent_storage_token: Some("capture".to_string()),
     });
 
-    let transcript = decoded.transcript.unwrap_or_default().trim().to_string();
-    let intent_storage_token = decoded
-        .intent_storage_token
-        .unwrap_or_else(|| "capture".to_string());
-
-    let payload = [
-        "voice_transcript:".to_string(),
-        transcript,
-        String::new(),
-        format!(
-            "intent_candidate: {}",
-            normalize_payload(&intent_storage_token)
-        ),
-        "client_surface: ios_voice".to_string(),
-    ]
-    .join("\n");
+    let payload = prepare_voice_capture_payload(
+        &decoded.transcript.unwrap_or_default(),
+        &decoded
+            .intent_storage_token
+            .unwrap_or_else(|| "capture".to_string()),
+    );
 
     to_owned_c_string(&payload)
 }
@@ -758,10 +749,11 @@ pub extern "C" fn vel_embedded_prepare_linking_request(input_json: *const c_char
             token_code: None,
             target_base_url: None,
         });
+    let packet = prepare_linking_request_packet(decoded.token_code, decoded.target_base_url);
 
     let output = LinkingRequestOutput {
-        token_code: normalized_optional_trimmed(decoded.token_code),
-        target_base_url: normalized_optional_trimmed(decoded.target_base_url),
+        token_code: packet.token_code,
+        target_base_url: packet.target_base_url,
         ready: true,
     };
 
@@ -1273,10 +1265,11 @@ pub extern "C" fn vel_embedded_prepare_thread_draft(input_json: *const c_char) -
         text: raw.clone(),
         requested_conversation_id: None,
     });
+    let packet = prepare_thread_draft_packet(&parsed.text, parsed.requested_conversation_id);
 
     let output = ThreadDraftOutput {
-        payload: normalize_payload(&parsed.text),
-        requested_conversation_id: parsed.requested_conversation_id,
+        payload: packet.payload,
+        requested_conversation_id: packet.requested_conversation_id,
         ready: true,
     };
 

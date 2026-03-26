@@ -85,6 +85,18 @@ pub struct PortableRemoteRoute {
     pub base_url: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableThreadDraftPacket {
+    pub payload: String,
+    pub requested_conversation_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableLinkingRequestPacket {
+    pub token_code: Option<String>,
+    pub target_base_url: Option<String>,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
 }
@@ -216,6 +228,40 @@ pub fn prepare_capture_metadata_payload(
             text,
         ]
         .join("\n")
+    }
+}
+
+pub fn prepare_thread_draft_packet(
+    text: &str,
+    requested_conversation_id: Option<String>,
+) -> PortableThreadDraftPacket {
+    PortableThreadDraftPacket {
+        payload: normalize_payload(text),
+        requested_conversation_id: normalized_optional_trimmed(requested_conversation_id),
+    }
+}
+
+pub fn prepare_voice_capture_payload(
+    transcript: &str,
+    intent_storage_token: &str,
+) -> String {
+    [
+        "voice_transcript:".to_string(),
+        trim_text(transcript),
+        String::new(),
+        format!("intent_candidate: {}", normalize_payload(intent_storage_token)),
+        "client_surface: ios_voice".to_string(),
+    ]
+    .join("\n")
+}
+
+pub fn prepare_linking_request_packet(
+    token_code: Option<String>,
+    target_base_url: Option<String>,
+) -> PortableLinkingRequestPacket {
+    PortableLinkingRequestPacket {
+        token_code: normalized_optional_trimmed(token_code),
+        target_base_url: normalized_optional_trimmed(target_base_url),
     }
 }
 

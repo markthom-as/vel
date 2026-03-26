@@ -1,7 +1,10 @@
 export type EmbeddedBridgePacketKind =
   | 'deterministic_domain_helpers'
   | 'linking_settings_normalization'
+  | 'linking_request_packaging'
   | 'queued_action_packaging'
+  | 'thread_draft_packaging'
+  | 'voice_capture_packaging'
   | 'voice_quick_action_packaging'
   | 'assistant_entry_fallback_packaging'
   | 'capture_metadata_packaging';
@@ -192,6 +195,50 @@ export function captureMetadataPacket(
   return {
     kind: 'capture_metadata_packaging',
     payloadJson: JSON.stringify({ payload }),
+  };
+}
+
+export function threadDraftPacket(
+  text: string,
+  requestedConversationId?: string | null,
+): EmbeddedBridgePacketResponse {
+  return {
+    kind: 'thread_draft_packaging',
+    payloadJson: JSON.stringify({
+      payload: normalizePayload(text),
+      requestedConversationId: normalizeOptionalTrimmed(requestedConversationId),
+    }),
+  };
+}
+
+export function voiceCapturePacket(
+  transcript: string,
+  intentStorageToken: string,
+): EmbeddedBridgePacketResponse {
+  const payload = [
+    'voice_transcript:',
+    trimText(transcript),
+    '',
+    `intent_candidate: ${normalizePayload(intentStorageToken)}`,
+    'client_surface: ios_voice',
+  ].join('\n');
+
+  return {
+    kind: 'voice_capture_packaging',
+    payloadJson: JSON.stringify({ payload }),
+  };
+}
+
+export function linkingRequestPacket(
+  tokenCode?: string | null,
+  targetBaseUrl?: string | null,
+): EmbeddedBridgePacketResponse {
+  return {
+    kind: 'linking_request_packaging',
+    payloadJson: JSON.stringify({
+      tokenCode: normalizeOptionalTrimmed(tokenCode),
+      targetBaseUrl: normalizeOptionalTrimmed(targetBaseUrl),
+    }),
   };
 }
 
