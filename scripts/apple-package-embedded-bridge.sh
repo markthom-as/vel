@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_PATH="${APPLE_EMBEDDED_BRIDGE_APP_PATH:-}"
 PLATFORM="${APPLE_EMBEDDED_BRIDGE_PLATFORM:-auto}"
 BUILD_PROFILE="${APPLE_EMBEDDED_BRIDGE_PROFILE:-Debug}"
+CODESIGN_IDENTITY="${APPLE_EMBEDDED_BRIDGE_CODESIGN_IDENTITY:-${CODESIGN_IDENTITY:-}}"
 CARGO_PROFILE="$(printf '%s' "$BUILD_PROFILE" | tr '[:upper:]' '[:lower:]')"
 LIB_NAME="libvel_embedded_bridge.dylib"
 ENABLE="${APPLE_EMBEDDED_BRIDGE_ENABLE:-1}"
@@ -73,5 +74,16 @@ BRIDGE_DST_DIR="$APP_PATH/Frameworks"
 mkdir -p "$BRIDGE_DST_DIR"
 cp "$BRIDGE_SRC" "$BRIDGE_DST_DIR/$LIB_NAME"
 chmod 755 "$BRIDGE_DST_DIR/$LIB_NAME"
+
+if [[ "$PLATFORM" == "device" && -n "$CODESIGN_IDENTITY" ]]; then
+  if ! command -v codesign >/dev/null 2>&1; then
+    echo "apple-package-embedded-bridge: codesign requested but unavailable; skipping embedded re-sign." >&2
+  else
+    echo "apple-package-embedded-bridge: signing embedded bridge with '$CODESIGN_IDENTITY'"
+    codesign --force --sign "$CODESIGN_IDENTITY" --timestamp=none "$BRIDGE_DST_DIR/$LIB_NAME"
+    echo "apple-package-embedded-bridge: re-signing app bundle with '$CODESIGN_IDENTITY'"
+    codesign --force --sign "$CODESIGN_IDENTITY" --timestamp=none "$APP_PATH"
+  fi
+fi
 
 echo "apple-package-embedded-bridge: copied bridge to $BRIDGE_DST_DIR/$LIB_NAME"
