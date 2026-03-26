@@ -6,12 +6,12 @@
 
 use crate::portable_core::{
     collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
-    normalized_optional_trimmed, normalize_positive_minutes,
-    prepare_app_shell_feedback_packet, prepare_assistant_entry_fallback_payload,
-    prepare_capture_metadata_payload, prepare_linking_feedback_packet,
-    prepare_linking_request_packet, prepare_queued_action_packet,
-    prepare_thread_draft_packet, prepare_voice_capture_payload,
-    prepare_voice_quick_action_packet, trim_text,
+    normalize_positive_minutes, normalized_optional_trimmed, prepare_app_shell_feedback_packet,
+    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
+    prepare_thread_draft_packet, prepare_voice_cached_query_response_packet,
+    prepare_voice_capture_payload, prepare_voice_continuity_summary_packet,
+    prepare_voice_offline_response_packet, prepare_voice_quick_action_packet, trim_text,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +43,7 @@ impl BrowserWasmScaffold {
             "voice_offline_response_packaging",
             "voice_cached_query_packaging",
             "linking_feedback_packaging",
+            "app_shell_feedback_packaging",
         ]
     }
 
@@ -216,6 +217,98 @@ impl BrowserWasmScaffold {
         }
     }
 
+    pub fn voice_continuity_summary_packet(
+        draft_exists: Option<bool>,
+        threaded_transcript: Option<String>,
+        pending_recovery_count: Option<i64>,
+        is_reachable: Option<bool>,
+        merged_transcript: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_voice_continuity_summary_packet(
+            draft_exists,
+            threaded_transcript,
+            pending_recovery_count,
+            is_reachable,
+            merged_transcript,
+        );
+
+        BrowserPacketResponse {
+            kind: "voice_continuity_summary_packaging",
+            payload_json: format!(
+                "{{\"headline\":{},\"detail\":{},\"ready\":{}}}",
+                option_json(packet.headline),
+                option_json(packet.detail),
+                bool_json(packet.ready)
+            ),
+        }
+    }
+
+    pub fn voice_offline_response_packet(
+        scenario: String,
+        primary_text: Option<String>,
+        matched_text: Option<String>,
+        options: Option<String>,
+        minutes: Option<i64>,
+        is_reachable: Option<bool>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_voice_offline_response_packet(
+            &scenario,
+            primary_text,
+            matched_text,
+            options,
+            minutes,
+            is_reachable,
+        );
+
+        BrowserPacketResponse {
+            kind: "voice_offline_response_packaging",
+            payload_json: format!(
+                "{{\"summary\":{},\"detail\":{},\"historyStatus\":{},\"errorPrefix\":{},\"ready\":{}}}",
+                option_json(packet.summary),
+                option_json(packet.detail),
+                string_json(&packet.history_status),
+                string_json(&packet.error_prefix),
+                bool_json(packet.ready)
+            ),
+        }
+    }
+
+    pub fn voice_cached_query_response_packet(
+        scenario: String,
+        next_title: Option<String>,
+        leave_by: Option<String>,
+        empty_message: Option<String>,
+        cached_now_summary: Option<String>,
+        first_reason: Option<String>,
+        next_commitment_text: Option<String>,
+        next_commitment_due_at: Option<String>,
+        behavior_headline: Option<String>,
+        behavior_reason: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = prepare_voice_cached_query_response_packet(
+            &scenario,
+            next_title,
+            leave_by,
+            empty_message,
+            cached_now_summary,
+            first_reason,
+            next_commitment_text,
+            next_commitment_due_at,
+            behavior_headline,
+            behavior_reason,
+        );
+
+        BrowserPacketResponse {
+            kind: "voice_cached_query_packaging",
+            payload_json: format!(
+                "{{\"summary\":{},\"detail\":{},\"ready\":{}}}",
+                option_json(packet.summary),
+                option_json(packet.detail),
+                bool_json(packet.ready)
+            ),
+        }
+    }
+
     pub fn remote_routes_packet(
         sync_base_url: Option<String>,
         tailscale_base_url: Option<String>,
@@ -250,17 +343,31 @@ impl BrowserWasmScaffold {
 }
 
 fn string_json(value: &str) -> String {
-    format!("\"{}\"", value.replace('\\', "\\\\").replace('\"', "\\\"").replace('\n', "\\n"))
+    format!(
+        "\"{}\"",
+        value
+            .replace('\\', "\\\\")
+            .replace('\"', "\\\"")
+            .replace('\n', "\\n")
+    )
 }
 
 fn option_json(value: Option<String>) -> String {
-    value.map(|value| string_json(&value)).unwrap_or_else(|| "null".to_string())
+    value
+        .map(|value| string_json(&value))
+        .unwrap_or_else(|| "null".to_string())
 }
 
 fn option_number_json(value: Option<i64>) -> String {
-    value.map(|value| value.to_string()).unwrap_or_else(|| "null".to_string())
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_string())
 }
 
 fn bool_json(value: bool) -> &'static str {
-    if value { "true" } else { "false" }
+    if value {
+        "true"
+    } else {
+        "false"
+    }
 }

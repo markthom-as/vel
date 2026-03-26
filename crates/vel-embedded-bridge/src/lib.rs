@@ -6,13 +6,13 @@ use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
 use portable_core::{
-    collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
-    normalize_payload, normalized_optional_trimmed, normalize_positive_minutes,
-    prepare_app_shell_feedback_packet, prepare_assistant_entry_fallback_payload,
-    prepare_capture_metadata_payload, prepare_linking_feedback_packet,
-    prepare_linking_request_packet, prepare_queued_action_packet, prepare_quick_capture_text,
-    prepare_thread_draft_packet, prepare_voice_capture_payload,
-    prepare_voice_quick_action_packet, trim_text,
+    collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input, normalize_payload,
+    normalize_positive_minutes, normalized_optional_trimmed, prepare_app_shell_feedback_packet,
+    prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
+    prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
+    prepare_quick_capture_text, prepare_thread_draft_packet, prepare_voice_capture_payload,
+    prepare_voice_cached_query_response_packet, prepare_voice_continuity_summary_packet,
+    prepare_voice_offline_response_packet, prepare_voice_quick_action_packet, trim_text,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -863,45 +863,17 @@ pub extern "C" fn vel_embedded_prepare_voice_continuity_summary(
         },
     );
 
-    let output = if decoded.draft_exists.unwrap_or(false) {
-        VoiceContinuitySummaryOutput {
-            headline: Some("Voice draft ready to resume.".to_string()),
-            detail: Some("Your latest local transcript is still on device and can be resumed without reopening a separate thread.".to_string()),
-            ready: true,
-        }
-    } else if let Some(threaded) = normalized_optional_trimmed(decoded.threaded_transcript) {
-        VoiceContinuitySummaryOutput {
-            headline: Some("Voice follow-up saved in Threads.".to_string()),
-            detail: Some(threaded),
-            ready: true,
-        }
-    } else if decoded.pending_recovery_count.unwrap_or(0) > 0 {
-        let count = decoded.pending_recovery_count.unwrap_or(0);
-        let detail = if decoded.is_reachable.unwrap_or(false) {
-            "Local voice recovery is waiting on canonical replay.".to_string()
-        } else {
-            format!(
-                "Reconnect to merge {count} local voice entr{} back into canonical state.",
-                if count == 1 { "y" } else { "ies" }
-            )
-        };
-        VoiceContinuitySummaryOutput {
-            headline: Some("Voice recovery pending.".to_string()),
-            detail: Some(detail),
-            ready: true,
-        }
-    } else if let Some(merged) = normalized_optional_trimmed(decoded.merged_transcript) {
-        VoiceContinuitySummaryOutput {
-            headline: Some("Local voice recovery merged.".to_string()),
-            detail: Some(merged),
-            ready: true,
-        }
-    } else {
-        VoiceContinuitySummaryOutput {
-            headline: None,
-            detail: None,
-            ready: false,
-        }
+    let packet = prepare_voice_continuity_summary_packet(
+        decoded.draft_exists,
+        decoded.threaded_transcript,
+        decoded.pending_recovery_count,
+        decoded.is_reachable,
+        decoded.merged_transcript,
+    );
+    let output = VoiceContinuitySummaryOutput {
+        headline: packet.headline,
+        detail: packet.detail,
+        ready: packet.ready,
     };
 
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
@@ -924,121 +896,20 @@ pub extern "C" fn vel_embedded_prepare_voice_offline_response(
         },
     );
 
-    let scenario = trim_text(&decoded.scenario.unwrap_or_default());
-    let primary_text = normalized_optional_trimmed(decoded.primary_text);
-    let matched_text = normalized_optional_trimmed(decoded.matched_text);
-    let options = normalized_optional_trimmed(decoded.options);
-    let minutes = decoded.minutes.unwrap_or(10).max(1);
-    let is_reachable = decoded.is_reachable.unwrap_or(false);
-
-    let output = match scenario.as_str() {
-        "capture_shell" => VoiceOfflineResponseOutput {
-            summary: Some(if is_reachable {
-                "Saved voice capture.".to_string()
-            } else {
-                "Voice capture queued for sync.".to_string()
-            }),
-            detail: primary_text,
-            history_status: if is_reachable { "submitted" } else { "queued" }.to_string(),
-            error_prefix: if is_reachable {
-                String::new()
-            } else {
-                "Voice transcript queued for sync.".to_string()
-            },
-            ready: true,
-        },
-        "commitment_create_shell" => VoiceOfflineResponseOutput {
-            summary: Some(if is_reachable {
-                "Created commitment.".to_string()
-            } else {
-                "Commitment queued for sync.".to_string()
-            }),
-            detail: primary_text,
-            history_status: if is_reachable { "submitted" } else { "queued" }.to_string(),
-            error_prefix: if is_reachable {
-                String::new()
-            } else {
-                "Commitment request queued for sync.".to_string()
-            },
-            ready: true,
-        },
-        "backend_required_shell" => VoiceOfflineResponseOutput {
-            summary: Some("This voice action now requires the backend Apple route.".to_string()),
-            detail: Some("Reconnect to Vel so the server can interpret and answer it.".to_string()),
-            history_status: "backend_required".to_string(),
-            error_prefix: "Transcript capture was preserved, but the action needs the backend-owned Apple route.".to_string(),
-            ready: true,
-        },
-        "capture_offline" => VoiceOfflineResponseOutput {
-            summary: Some("Voice capture queued for sync.".to_string()),
-            detail: primary_text,
-            history_status: "queued".to_string(),
-            error_prefix: "Transcript capture queued for sync.".to_string(),
-            ready: true,
-        },
-        "commitment_target_missing" => VoiceOfflineResponseOutput {
-            summary: Some("Commitment target is missing.".to_string()),
-            detail: Some("Try phrasing like \"mark meds done.\"".to_string()),
-            history_status: "needs_clarification".to_string(),
-            error_prefix: "Commitment target missing.".to_string(),
-            ready: true,
-        },
-        "commitment_no_match" => VoiceOfflineResponseOutput {
-            summary: Some("No open commitment matched.".to_string()),
-            detail: Some("Transcript capture was queued for sync.".to_string()),
-            history_status: "capture_only".to_string(),
-            error_prefix: "No local commitment match for offline queueing.".to_string(),
-            ready: true,
-        },
-        "commitment_ambiguous" => VoiceOfflineResponseOutput {
-            summary: Some("Ambiguous commitment target.".to_string()),
-            detail: options.map(|value| format!("Could match: {value}")),
-            history_status: "needs_clarification".to_string(),
-            error_prefix: "Commitment target was ambiguous.".to_string(),
-            ready: true,
-        },
-        "commitment_done_queued" => VoiceOfflineResponseOutput {
-            summary: Some("Commitment completion queued.".to_string()),
-            detail: matched_text,
-            history_status: "queued".to_string(),
-            error_prefix: "Commitment completion queued for backend replay.".to_string(),
-            ready: true,
-        },
-        "nudge_missing" => VoiceOfflineResponseOutput {
-            summary: Some("No active nudge found.".to_string()),
-            detail: Some("Transcript capture was queued for sync.".to_string()),
-            history_status: "capture_only".to_string(),
-            error_prefix: "No active nudge available for offline queueing.".to_string(),
-            ready: true,
-        },
-        "nudge_done_queued" => VoiceOfflineResponseOutput {
-            summary: Some("Top nudge resolution queued.".to_string()),
-            detail: None,
-            history_status: "queued".to_string(),
-            error_prefix: "Top nudge resolution queued for backend replay.".to_string(),
-            ready: true,
-        },
-        "nudge_snooze_queued" => VoiceOfflineResponseOutput {
-            summary: Some("Top nudge snooze queued.".to_string()),
-            detail: Some(format!("{minutes} minutes")),
-            history_status: "queued".to_string(),
-            error_prefix: "Top nudge snooze queued for backend replay.".to_string(),
-            ready: true,
-        },
-        "backend_required_offline" => VoiceOfflineResponseOutput {
-            summary: Some("Unavailable offline.".to_string()),
-            detail: Some("This reply is backend-owned and is not synthesized from local Swift cache.".to_string()),
-            history_status: "backend_required".to_string(),
-            error_prefix: "Transcript capture queued, but this voice reply requires the backend route.".to_string(),
-            ready: true,
-        },
-        _ => VoiceOfflineResponseOutput {
-            summary: None,
-            detail: None,
-            history_status: "capture_only".to_string(),
-            error_prefix: String::new(),
-            ready: false,
-        },
+    let packet = prepare_voice_offline_response_packet(
+        &decoded.scenario.unwrap_or_default(),
+        decoded.primary_text,
+        decoded.matched_text,
+        decoded.options,
+        decoded.minutes,
+        decoded.is_reachable,
+    );
+    let output = VoiceOfflineResponseOutput {
+        summary: packet.summary,
+        detail: packet.detail,
+        history_status: packet.history_status,
+        error_prefix: packet.error_prefix,
+        ready: packet.ready,
     };
 
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
@@ -1065,65 +936,22 @@ pub extern "C" fn vel_embedded_prepare_voice_cached_query_response(
         },
     );
 
-    let scenario = trim_text(&decoded.scenario.unwrap_or_default());
-    let next_title = normalized_optional_trimmed(decoded.next_title);
-    let leave_by = normalized_optional_trimmed(decoded.leave_by);
-    let empty_message = normalized_optional_trimmed(decoded.empty_message);
-    let cached_now_summary = normalized_optional_trimmed(decoded.cached_now_summary);
-    let first_reason = normalized_optional_trimmed(decoded.first_reason);
-    let next_commitment_text = normalized_optional_trimmed(decoded.next_commitment_text);
-    let next_commitment_due_at = normalized_optional_trimmed(decoded.next_commitment_due_at);
-    let behavior_headline = normalized_optional_trimmed(decoded.behavior_headline);
-    let behavior_reason = normalized_optional_trimmed(decoded.behavior_reason);
-
-    let output = match scenario.as_str() {
-        "schedule_with_event" => VoiceCachedQueryResponseOutput {
-            summary: next_title.map(|title| format!("Next event: {title}.")),
-            detail: leave_by.or(cached_now_summary).or(empty_message),
-            ready: true,
-        },
-        "schedule_empty" => VoiceCachedQueryResponseOutput {
-            summary: Some(
-                empty_message.unwrap_or_else(|| "No upcoming schedule is cached.".to_string()),
-            ),
-            detail: cached_now_summary.or(first_reason),
-            ready: true,
-        },
-        "next_commitment" => VoiceCachedQueryResponseOutput {
-            summary: next_commitment_text.map(|text| format!("Next commitment: {text}.")),
-            detail: next_commitment_due_at.or(cached_now_summary),
-            ready: true,
-        },
-        "next_commitment_empty" => VoiceCachedQueryResponseOutput {
-            summary: Some("No next commitment is cached.".to_string()),
-            detail: cached_now_summary.or(empty_message),
-            ready: true,
-        },
-        "behavior_cached" => VoiceCachedQueryResponseOutput {
-            summary: behavior_headline,
-            detail: behavior_reason,
-            ready: true,
-        },
-        "backend_unavailable" => VoiceCachedQueryResponseOutput {
-            summary: Some("Unavailable offline.".to_string()),
-            detail: Some("Reconnect to fetch a backend-owned reply.".to_string()),
-            ready: true,
-        },
-        "cached_now_missing" => VoiceCachedQueryResponseOutput {
-            summary: Some("Unavailable offline.".to_string()),
-            detail: Some("No cached backend /v1/now payload is available yet.".to_string()),
-            ready: true,
-        },
-        "behavior_missing" => VoiceCachedQueryResponseOutput {
-            summary: Some("Unavailable offline.".to_string()),
-            detail: Some("No cached backend behavior summary is available yet.".to_string()),
-            ready: true,
-        },
-        _ => VoiceCachedQueryResponseOutput {
-            summary: None,
-            detail: None,
-            ready: false,
-        },
+    let packet = prepare_voice_cached_query_response_packet(
+        &decoded.scenario.unwrap_or_default(),
+        decoded.next_title,
+        decoded.leave_by,
+        decoded.empty_message,
+        decoded.cached_now_summary,
+        decoded.first_reason,
+        decoded.next_commitment_text,
+        decoded.next_commitment_due_at,
+        decoded.behavior_headline,
+        decoded.behavior_reason,
+    );
+    let output = VoiceCachedQueryResponseOutput {
+        summary: packet.summary,
+        detail: packet.detail,
+        ready: packet.ready,
     };
 
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());

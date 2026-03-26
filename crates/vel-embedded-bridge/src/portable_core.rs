@@ -107,6 +107,29 @@ pub struct PortableAppShellFeedbackPacket {
     pub message: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableVoiceContinuitySummaryPacket {
+    pub headline: Option<String>,
+    pub detail: Option<String>,
+    pub ready: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableVoiceOfflineResponsePacket {
+    pub summary: Option<String>,
+    pub detail: Option<String>,
+    pub history_status: String,
+    pub error_prefix: String,
+    pub ready: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableVoiceCachedQueryResponsePacket {
+    pub summary: Option<String>,
+    pub detail: Option<String>,
+    pub ready: bool,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
 }
@@ -251,15 +274,15 @@ pub fn prepare_thread_draft_packet(
     }
 }
 
-pub fn prepare_voice_capture_payload(
-    transcript: &str,
-    intent_storage_token: &str,
-) -> String {
+pub fn prepare_voice_capture_payload(transcript: &str, intent_storage_token: &str) -> String {
     [
         "voice_transcript:".to_string(),
         trim_text(transcript),
         String::new(),
-        format!("intent_candidate: {}", normalize_payload(intent_storage_token)),
+        format!(
+            "intent_candidate: {}",
+            normalize_payload(intent_storage_token)
+        ),
         "client_surface: ios_voice".to_string(),
     ]
     .join("\n")
@@ -330,6 +353,264 @@ pub fn prepare_app_shell_feedback_packet(
     };
 
     Some(PortableAppShellFeedbackPacket { message })
+}
+
+pub fn prepare_voice_continuity_summary_packet(
+    draft_exists: Option<bool>,
+    threaded_transcript: Option<String>,
+    pending_recovery_count: Option<i64>,
+    is_reachable: Option<bool>,
+    merged_transcript: Option<String>,
+) -> PortableVoiceContinuitySummaryPacket {
+    if draft_exists.unwrap_or(false) {
+        return PortableVoiceContinuitySummaryPacket {
+            headline: Some("Voice draft ready to resume.".to_string()),
+            detail: Some("Your latest local transcript is still on device and can be resumed without reopening a separate thread.".to_string()),
+            ready: true,
+        };
+    }
+
+    if let Some(threaded) = normalized_optional_trimmed(threaded_transcript) {
+        return PortableVoiceContinuitySummaryPacket {
+            headline: Some("Voice follow-up saved in Threads.".to_string()),
+            detail: Some(threaded),
+            ready: true,
+        };
+    }
+
+    if pending_recovery_count.unwrap_or(0) > 0 {
+        let count = pending_recovery_count.unwrap_or(0);
+        let detail = if is_reachable.unwrap_or(false) {
+            "Local voice recovery is waiting on canonical replay.".to_string()
+        } else {
+            format!(
+                "Reconnect to merge {count} local voice entr{} back into canonical state.",
+                if count == 1 { "y" } else { "ies" }
+            )
+        };
+        return PortableVoiceContinuitySummaryPacket {
+            headline: Some("Voice recovery pending.".to_string()),
+            detail: Some(detail),
+            ready: true,
+        };
+    }
+
+    if let Some(merged) = normalized_optional_trimmed(merged_transcript) {
+        return PortableVoiceContinuitySummaryPacket {
+            headline: Some("Local voice recovery merged.".to_string()),
+            detail: Some(merged),
+            ready: true,
+        };
+    }
+
+    PortableVoiceContinuitySummaryPacket {
+        headline: None,
+        detail: None,
+        ready: false,
+    }
+}
+
+pub fn prepare_voice_offline_response_packet(
+    scenario: &str,
+    primary_text: Option<String>,
+    matched_text: Option<String>,
+    options: Option<String>,
+    minutes: Option<i64>,
+    is_reachable: Option<bool>,
+) -> PortableVoiceOfflineResponsePacket {
+    let primary_text = normalized_optional_trimmed(primary_text);
+    let matched_text = normalized_optional_trimmed(matched_text);
+    let options = normalized_optional_trimmed(options);
+    let minutes = minutes.unwrap_or(10).max(1);
+    let is_reachable = is_reachable.unwrap_or(false);
+
+    match trim_text(scenario).as_str() {
+        "capture_shell" => PortableVoiceOfflineResponsePacket {
+            summary: Some(if is_reachable {
+                "Saved voice capture.".to_string()
+            } else {
+                "Voice capture queued for sync.".to_string()
+            }),
+            detail: primary_text,
+            history_status: if is_reachable { "submitted" } else { "queued" }.to_string(),
+            error_prefix: if is_reachable {
+                String::new()
+            } else {
+                "Voice transcript queued for sync.".to_string()
+            },
+            ready: true,
+        },
+        "commitment_create_shell" => PortableVoiceOfflineResponsePacket {
+            summary: Some(if is_reachable {
+                "Created commitment.".to_string()
+            } else {
+                "Commitment queued for sync.".to_string()
+            }),
+            detail: primary_text,
+            history_status: if is_reachable { "submitted" } else { "queued" }.to_string(),
+            error_prefix: if is_reachable {
+                String::new()
+            } else {
+                "Commitment request queued for sync.".to_string()
+            },
+            ready: true,
+        },
+        "backend_required_shell" => PortableVoiceOfflineResponsePacket {
+            summary: Some("This voice action now requires the backend Apple route.".to_string()),
+            detail: Some("Reconnect to Vel so the server can interpret and answer it.".to_string()),
+            history_status: "backend_required".to_string(),
+            error_prefix: "Transcript capture was preserved, but the action needs the backend-owned Apple route.".to_string(),
+            ready: true,
+        },
+        "capture_offline" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Voice capture queued for sync.".to_string()),
+            detail: primary_text,
+            history_status: "queued".to_string(),
+            error_prefix: "Transcript capture queued for sync.".to_string(),
+            ready: true,
+        },
+        "commitment_target_missing" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Commitment target is missing.".to_string()),
+            detail: Some("Try phrasing like \"mark meds done.\"".to_string()),
+            history_status: "needs_clarification".to_string(),
+            error_prefix: "Commitment target missing.".to_string(),
+            ready: true,
+        },
+        "commitment_no_match" => PortableVoiceOfflineResponsePacket {
+            summary: Some("No open commitment matched.".to_string()),
+            detail: Some("Transcript capture was queued for sync.".to_string()),
+            history_status: "capture_only".to_string(),
+            error_prefix: "No local commitment match for offline queueing.".to_string(),
+            ready: true,
+        },
+        "commitment_ambiguous" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Ambiguous commitment target.".to_string()),
+            detail: options.map(|value| format!("Could match: {value}")),
+            history_status: "needs_clarification".to_string(),
+            error_prefix: "Commitment target was ambiguous.".to_string(),
+            ready: true,
+        },
+        "commitment_done_queued" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Commitment completion queued.".to_string()),
+            detail: matched_text,
+            history_status: "queued".to_string(),
+            error_prefix: "Commitment completion queued for backend replay.".to_string(),
+            ready: true,
+        },
+        "nudge_missing" => PortableVoiceOfflineResponsePacket {
+            summary: Some("No active nudge found.".to_string()),
+            detail: Some("Transcript capture was queued for sync.".to_string()),
+            history_status: "capture_only".to_string(),
+            error_prefix: "No active nudge available for offline queueing.".to_string(),
+            ready: true,
+        },
+        "nudge_done_queued" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Top nudge resolution queued.".to_string()),
+            detail: None,
+            history_status: "queued".to_string(),
+            error_prefix: "Top nudge resolution queued for backend replay.".to_string(),
+            ready: true,
+        },
+        "nudge_snooze_queued" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Top nudge snooze queued.".to_string()),
+            detail: Some(format!("{minutes} minutes")),
+            history_status: "queued".to_string(),
+            error_prefix: "Top nudge snooze queued for backend replay.".to_string(),
+            ready: true,
+        },
+        "backend_required_offline" => PortableVoiceOfflineResponsePacket {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some(
+                "This reply is backend-owned and is not synthesized from local Swift cache."
+                    .to_string(),
+            ),
+            history_status: "backend_required".to_string(),
+            error_prefix:
+                "Transcript capture queued, but this voice reply requires the backend route."
+                    .to_string(),
+            ready: true,
+        },
+        _ => PortableVoiceOfflineResponsePacket {
+            summary: None,
+            detail: None,
+            history_status: "capture_only".to_string(),
+            error_prefix: String::new(),
+            ready: false,
+        },
+    }
+}
+
+pub fn prepare_voice_cached_query_response_packet(
+    scenario: &str,
+    next_title: Option<String>,
+    leave_by: Option<String>,
+    empty_message: Option<String>,
+    cached_now_summary: Option<String>,
+    first_reason: Option<String>,
+    next_commitment_text: Option<String>,
+    next_commitment_due_at: Option<String>,
+    behavior_headline: Option<String>,
+    behavior_reason: Option<String>,
+) -> PortableVoiceCachedQueryResponsePacket {
+    let next_title = normalized_optional_trimmed(next_title);
+    let leave_by = normalized_optional_trimmed(leave_by);
+    let empty_message = normalized_optional_trimmed(empty_message);
+    let cached_now_summary = normalized_optional_trimmed(cached_now_summary);
+    let first_reason = normalized_optional_trimmed(first_reason);
+    let next_commitment_text = normalized_optional_trimmed(next_commitment_text);
+    let next_commitment_due_at = normalized_optional_trimmed(next_commitment_due_at);
+    let behavior_headline = normalized_optional_trimmed(behavior_headline);
+    let behavior_reason = normalized_optional_trimmed(behavior_reason);
+
+    match trim_text(scenario).as_str() {
+        "schedule_with_event" => PortableVoiceCachedQueryResponsePacket {
+            summary: next_title.map(|title| format!("Next event: {title}.")),
+            detail: leave_by.or(cached_now_summary).or(empty_message),
+            ready: true,
+        },
+        "schedule_empty" => PortableVoiceCachedQueryResponsePacket {
+            summary: Some(
+                empty_message.unwrap_or_else(|| "No upcoming schedule is cached.".to_string()),
+            ),
+            detail: cached_now_summary.or(first_reason),
+            ready: true,
+        },
+        "next_commitment" => PortableVoiceCachedQueryResponsePacket {
+            summary: next_commitment_text.map(|text| format!("Next commitment: {text}.")),
+            detail: next_commitment_due_at.or(cached_now_summary),
+            ready: true,
+        },
+        "next_commitment_empty" => PortableVoiceCachedQueryResponsePacket {
+            summary: Some("No next commitment is cached.".to_string()),
+            detail: cached_now_summary.or(empty_message),
+            ready: true,
+        },
+        "behavior_cached" => PortableVoiceCachedQueryResponsePacket {
+            summary: behavior_headline,
+            detail: behavior_reason,
+            ready: true,
+        },
+        "backend_unavailable" => PortableVoiceCachedQueryResponsePacket {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some("Reconnect to fetch a backend-owned reply.".to_string()),
+            ready: true,
+        },
+        "cached_now_missing" => PortableVoiceCachedQueryResponsePacket {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some("No cached backend /v1/now payload is available yet.".to_string()),
+            ready: true,
+        },
+        "behavior_missing" => PortableVoiceCachedQueryResponsePacket {
+            summary: Some("Unavailable offline.".to_string()),
+            detail: Some("No cached backend behavior summary is available yet.".to_string()),
+            ready: true,
+        },
+        _ => PortableVoiceCachedQueryResponsePacket {
+            summary: None,
+            detail: None,
+            ready: false,
+        },
+    }
 }
 
 pub fn collect_remote_routes(

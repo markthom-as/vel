@@ -9,7 +9,10 @@ export type EmbeddedBridgePacketKind =
   | 'voice_capture_packaging'
   | 'voice_quick_action_packaging'
   | 'assistant_entry_fallback_packaging'
-  | 'capture_metadata_packaging';
+  | 'capture_metadata_packaging'
+  | 'voice_continuity_summary_packaging'
+  | 'voice_offline_response_packaging'
+  | 'voice_cached_query_packaging';
 
 export type EmbeddedBridgePacketResponse = {
   kind: EmbeddedBridgePacketKind;
@@ -352,5 +355,294 @@ export function collectRemoteRoutesPacket(
   return {
     kind: 'linking_settings_normalization',
     payloadJson: JSON.stringify(routes),
+  };
+}
+
+export function voiceContinuitySummaryPacket(
+  draftExists?: boolean | null,
+  threadedTranscript?: string | null,
+  pendingRecoveryCount?: number | null,
+  isReachable?: boolean | null,
+  mergedTranscript?: string | null,
+): EmbeddedBridgePacketResponse {
+  let payload: Record<string, unknown>;
+
+  if (draftExists) {
+    payload = {
+      headline: 'Voice draft ready to resume.',
+      detail:
+        'Your latest local transcript is still on device and can be resumed without reopening a separate thread.',
+      ready: true,
+    };
+  } else if (normalizeOptionalTrimmed(threadedTranscript)) {
+    payload = {
+      headline: 'Voice follow-up saved in Threads.',
+      detail: normalizeOptionalTrimmed(threadedTranscript),
+      ready: true,
+    };
+  } else if ((pendingRecoveryCount ?? 0) > 0) {
+    const count = Math.max(0, Math.trunc(pendingRecoveryCount ?? 0));
+    payload = {
+      headline: 'Voice recovery pending.',
+      detail:
+        isReachable
+          ? 'Local voice recovery is waiting on canonical replay.'
+          : `Reconnect to merge ${count} local voice entr${count === 1 ? 'y' : 'ies'} back into canonical state.`,
+      ready: true,
+    };
+  } else if (normalizeOptionalTrimmed(mergedTranscript)) {
+    payload = {
+      headline: 'Local voice recovery merged.',
+      detail: normalizeOptionalTrimmed(mergedTranscript),
+      ready: true,
+    };
+  } else {
+    payload = {
+      headline: null,
+      detail: null,
+      ready: false,
+    };
+  }
+
+  return {
+    kind: 'voice_continuity_summary_packaging',
+    payloadJson: JSON.stringify(payload),
+  };
+}
+
+export function voiceOfflineResponsePacket(
+  scenario: string,
+  primaryText?: string | null,
+  matchedText?: string | null,
+  options?: string | null,
+  minutes?: number | null,
+  isReachable?: boolean | null,
+): EmbeddedBridgePacketResponse {
+  const cleanPrimaryText = normalizeOptionalTrimmed(primaryText);
+  const cleanMatchedText = normalizeOptionalTrimmed(matchedText);
+  const cleanOptions = normalizeOptionalTrimmed(options);
+  const cleanMinutes = normalizePositiveMinutes(minutes) ?? 10;
+  let payload: Record<string, unknown>;
+
+  switch (trimText(scenario)) {
+    case 'capture_shell':
+      payload = {
+        summary: isReachable ? 'Saved voice capture.' : 'Voice capture queued for sync.',
+        detail: cleanPrimaryText,
+        historyStatus: isReachable ? 'submitted' : 'queued',
+        errorPrefix: isReachable ? '' : 'Voice transcript queued for sync.',
+        ready: true,
+      };
+      break;
+    case 'commitment_create_shell':
+      payload = {
+        summary: isReachable ? 'Created commitment.' : 'Commitment queued for sync.',
+        detail: cleanPrimaryText,
+        historyStatus: isReachable ? 'submitted' : 'queued',
+        errorPrefix: isReachable ? '' : 'Commitment request queued for sync.',
+        ready: true,
+      };
+      break;
+    case 'backend_required_shell':
+      payload = {
+        summary: 'This voice action now requires the backend Apple route.',
+        detail: 'Reconnect to Vel so the server can interpret and answer it.',
+        historyStatus: 'backend_required',
+        errorPrefix:
+          'Transcript capture was preserved, but the action needs the backend-owned Apple route.',
+        ready: true,
+      };
+      break;
+    case 'capture_offline':
+      payload = {
+        summary: 'Voice capture queued for sync.',
+        detail: cleanPrimaryText,
+        historyStatus: 'queued',
+        errorPrefix: 'Transcript capture queued for sync.',
+        ready: true,
+      };
+      break;
+    case 'commitment_target_missing':
+      payload = {
+        summary: 'Commitment target is missing.',
+        detail: 'Try phrasing like "mark meds done."',
+        historyStatus: 'needs_clarification',
+        errorPrefix: 'Commitment target missing.',
+        ready: true,
+      };
+      break;
+    case 'commitment_no_match':
+      payload = {
+        summary: 'No open commitment matched.',
+        detail: 'Transcript capture was queued for sync.',
+        historyStatus: 'capture_only',
+        errorPrefix: 'No local commitment match for offline queueing.',
+        ready: true,
+      };
+      break;
+    case 'commitment_ambiguous':
+      payload = {
+        summary: 'Ambiguous commitment target.',
+        detail: cleanOptions ? `Could match: ${cleanOptions}` : null,
+        historyStatus: 'needs_clarification',
+        errorPrefix: 'Commitment target was ambiguous.',
+        ready: true,
+      };
+      break;
+    case 'commitment_done_queued':
+      payload = {
+        summary: 'Commitment completion queued.',
+        detail: cleanMatchedText,
+        historyStatus: 'queued',
+        errorPrefix: 'Commitment completion queued for backend replay.',
+        ready: true,
+      };
+      break;
+    case 'nudge_missing':
+      payload = {
+        summary: 'No active nudge found.',
+        detail: 'Transcript capture was queued for sync.',
+        historyStatus: 'capture_only',
+        errorPrefix: 'No active nudge available for offline queueing.',
+        ready: true,
+      };
+      break;
+    case 'nudge_done_queued':
+      payload = {
+        summary: 'Top nudge resolution queued.',
+        detail: null,
+        historyStatus: 'queued',
+        errorPrefix: 'Top nudge resolution queued for backend replay.',
+        ready: true,
+      };
+      break;
+    case 'nudge_snooze_queued':
+      payload = {
+        summary: 'Top nudge snooze queued.',
+        detail: `${cleanMinutes} minutes`,
+        historyStatus: 'queued',
+        errorPrefix: 'Top nudge snooze queued for backend replay.',
+        ready: true,
+      };
+      break;
+    case 'backend_required_offline':
+      payload = {
+        summary: 'Unavailable offline.',
+        detail: 'This reply is backend-owned and is not synthesized from local Swift cache.',
+        historyStatus: 'backend_required',
+        errorPrefix:
+          'Transcript capture queued, but this voice reply requires the backend route.',
+        ready: true,
+      };
+      break;
+    default:
+      payload = {
+        summary: null,
+        detail: null,
+        historyStatus: 'capture_only',
+        errorPrefix: '',
+        ready: false,
+      };
+      break;
+  }
+
+  return {
+    kind: 'voice_offline_response_packaging',
+    payloadJson: JSON.stringify(payload),
+  };
+}
+
+export function voiceCachedQueryResponsePacket(
+  scenario: string,
+  nextTitle?: string | null,
+  leaveBy?: string | null,
+  emptyMessage?: string | null,
+  cachedNowSummary?: string | null,
+  firstReason?: string | null,
+  nextCommitmentText?: string | null,
+  nextCommitmentDueAt?: string | null,
+  behaviorHeadline?: string | null,
+  behaviorReason?: string | null,
+): EmbeddedBridgePacketResponse {
+  const cleanNextTitle = normalizeOptionalTrimmed(nextTitle);
+  const cleanLeaveBy = normalizeOptionalTrimmed(leaveBy);
+  const cleanEmptyMessage = normalizeOptionalTrimmed(emptyMessage);
+  const cleanCachedNowSummary = normalizeOptionalTrimmed(cachedNowSummary);
+  const cleanFirstReason = normalizeOptionalTrimmed(firstReason);
+  const cleanNextCommitmentText = normalizeOptionalTrimmed(nextCommitmentText);
+  const cleanNextCommitmentDueAt = normalizeOptionalTrimmed(nextCommitmentDueAt);
+  const cleanBehaviorHeadline = normalizeOptionalTrimmed(behaviorHeadline);
+  const cleanBehaviorReason = normalizeOptionalTrimmed(behaviorReason);
+  let payload: Record<string, unknown>;
+
+  switch (trimText(scenario)) {
+    case 'schedule_with_event':
+      payload = {
+        summary: cleanNextTitle ? `Next event: ${cleanNextTitle}.` : null,
+        detail: cleanLeaveBy ?? cleanCachedNowSummary ?? cleanEmptyMessage,
+        ready: true,
+      };
+      break;
+    case 'schedule_empty':
+      payload = {
+        summary: cleanEmptyMessage ?? 'No upcoming schedule is cached.',
+        detail: cleanCachedNowSummary ?? cleanFirstReason,
+        ready: true,
+      };
+      break;
+    case 'next_commitment':
+      payload = {
+        summary: cleanNextCommitmentText ? `Next commitment: ${cleanNextCommitmentText}.` : null,
+        detail: cleanNextCommitmentDueAt ?? cleanCachedNowSummary,
+        ready: true,
+      };
+      break;
+    case 'next_commitment_empty':
+      payload = {
+        summary: 'No next commitment is cached.',
+        detail: cleanCachedNowSummary ?? cleanEmptyMessage,
+        ready: true,
+      };
+      break;
+    case 'behavior_cached':
+      payload = {
+        summary: cleanBehaviorHeadline,
+        detail: cleanBehaviorReason,
+        ready: true,
+      };
+      break;
+    case 'backend_unavailable':
+      payload = {
+        summary: 'Unavailable offline.',
+        detail: 'Reconnect to fetch a backend-owned reply.',
+        ready: true,
+      };
+      break;
+    case 'cached_now_missing':
+      payload = {
+        summary: 'Unavailable offline.',
+        detail: 'No cached backend /v1/now payload is available yet.',
+        ready: true,
+      };
+      break;
+    case 'behavior_missing':
+      payload = {
+        summary: 'Unavailable offline.',
+        detail: 'No cached backend behavior summary is available yet.',
+        ready: true,
+      };
+      break;
+    default:
+      payload = {
+        summary: null,
+        detail: null,
+        ready: false,
+      };
+      break;
+  }
+
+  return {
+    kind: 'voice_cached_query_packaging',
+    payloadJson: JSON.stringify(payload),
   };
 }

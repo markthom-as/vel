@@ -20,6 +20,7 @@ related_files:
   - crates/vel-embedded-bridge/src/portable_core.rs
   - crates/vel-embedded-bridge/src/browser_wasm.rs
   - clients/web/src/data/embeddedBridgePackets.ts
+  - clients/web/src/data/embeddedBridgePackets.example.ts
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - docs/cognitive-agent-architecture/apple/apple-rust-integration-path.md
 summary: Defines the future extraction path from the current Apple-native embedded bridge into a cross-surface portable packet core with a browser/WASM adapter.
@@ -125,7 +126,11 @@ Current truth of that scaffold:
   - linking-request packet shaping
   - linking-feedback packet shaping
   - app-shell feedback packet shaping
+  - voice continuity summary packet shaping
+  - voice offline response packet shaping
+  - voice cached query packet shaping
 - `embeddedBridgePackets.ts` mirrors that packet vocabulary on the web side as a non-live adapter scaffold inside the browser data layer.
+- `embeddedBridgePackets.example.ts` is a checked-in usage reference for future browser callers so the scaffold has a concrete packet-consumption example.
 - those helpers are still scaffold-only and are not yet wired into the shipped web client as a live runtime path.
 
 # Next Implementation Sequence
