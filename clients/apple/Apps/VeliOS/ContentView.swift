@@ -2640,6 +2640,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local linking request packaging", value: configuration.permits(.localLinkingRequestPackaging))
             BoolStatusRow(label: "Local capture metadata packaging", value: configuration.permits(.localCaptureMetadataPackaging))
             BoolStatusRow(label: "Local voice continuity summary packaging", value: configuration.permits(.localVoiceContinuitySummaryPackaging))
+            BoolStatusRow(label: "Local voice offline response packaging", value: configuration.permits(.localVoiceOfflineResponsePackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2655,6 +2656,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Linking request symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingRequestPackaging))
             BoolStatusRow(label: "Capture metadata symbol loaded", value: runtimeStatus.symbolAvailable(for: .localCaptureMetadataPackaging))
             BoolStatusRow(label: "Voice continuity summary symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuitySummaryPackaging))
+            BoolStatusRow(label: "Voice offline response symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceOfflineResponsePackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -4496,15 +4498,17 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
 
         switch intent.kind {
         case .captureCreate:
-            setResponse(
-                summary: store.isReachable ? "Saved voice capture." : "Voice capture queued for sync.",
-                detail: primaryText
+            let packet = voiceOfflineResponsePacket(
+                scenario: "capture_shell",
+                primaryText: primaryText,
+                isReachable: store.isReachable
             )
+            setResponse(summary: packet?.summary ?? (store.isReachable ? "Saved voice capture." : "Voice capture queued for sync."), detail: packet?.detail ?? primaryText)
             return VoiceSubmitResult(
                 committedIntent: .capture,
-                historyStatus: historyStatus(for: intent, isReachable: store.isReachable),
+                historyStatus: packet?.historyStatus ?? historyStatus(for: intent, isReachable: store.isReachable),
                 threadID: nil,
-                errorMessage: store.isReachable ? nil : "Voice transcript queued for sync."
+                errorMessage: store.isReachable ? nil : (packet?.errorPrefix ?? "Voice transcript queued for sync.")
             )
         case .commitmentCreate:
             let packet = voiceQuickActionPacket(
@@ -4513,26 +4517,26 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 targetID: nil
             )
             await store.createCommitment(text: packet?.text ?? primaryText)
-            setResponse(
-                summary: store.isReachable ? "Created commitment." : "Commitment queued for sync.",
-                detail: primaryText
+            let responsePacket = voiceOfflineResponsePacket(
+                scenario: "commitment_create_shell",
+                primaryText: primaryText,
+                isReachable: store.isReachable
             )
+            setResponse(summary: responsePacket?.summary ?? (store.isReachable ? "Created commitment." : "Commitment queued for sync."), detail: responsePacket?.detail ?? primaryText)
             return VoiceSubmitResult(
                 committedIntent: .commitment,
-                historyStatus: historyStatus(for: intent, isReachable: store.isReachable),
+                historyStatus: responsePacket?.historyStatus ?? historyStatus(for: intent, isReachable: store.isReachable),
                 threadID: nil,
-                errorMessage: store.isReachable ? nil : "Commitment request queued for sync."
+                errorMessage: store.isReachable ? nil : (responsePacket?.errorPrefix ?? "Commitment request queued for sync.")
             )
         case .commitmentDone, .nudgeDone, .nudgeSnooze, .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
-            setResponse(
-                summary: "This voice action now requires the backend Apple route.",
-                detail: "Reconnect to Vel so the server can interpret and answer it."
-            )
+            let packet = voiceOfflineResponsePacket(scenario: "backend_required_shell")
+            setResponse(summary: packet?.summary ?? "This voice action now requires the backend Apple route.", detail: packet?.detail ?? "Reconnect to Vel so the server can interpret and answer it.")
             return VoiceSubmitResult(
                 committedIntent: nil,
-                historyStatus: "backend_required",
+                historyStatus: packet?.historyStatus ?? "backend_required",
                 threadID: nil,
-                errorMessage: "Transcript capture was preserved, but the action needs the backend-owned Apple route."
+                errorMessage: packet?.errorPrefix ?? "Transcript capture was preserved, but the action needs the backend-owned Apple route."
             )
         }
     }
@@ -4553,22 +4557,24 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
 
         switch intent.kind {
         case .captureCreate:
-            setResponse(summary: "Voice capture queued for sync.", detail: primaryText)
+            let packet = voiceOfflineResponsePacket(scenario: "capture_offline", primaryText: primaryText)
+            setResponse(summary: packet?.summary ?? "Voice capture queued for sync.", detail: packet?.detail ?? primaryText)
             return VoiceSubmitResult(
                 committedIntent: .capture,
-                historyStatus: "queued",
+                historyStatus: packet?.historyStatus ?? "queued",
                 threadID: nil,
-                errorMessage: fallbackErrorMessage(prefix: "Transcript capture queued for sync.", underlyingError: underlyingError)
+                errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Transcript capture queued for sync.", underlyingError: underlyingError)
             )
         case .commitmentDone:
             let target = primaryText.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !target.isEmpty else {
-                setResponse(summary: "Commitment target is missing.", detail: "Try phrasing like “mark meds done.”")
+                let packet = voiceOfflineResponsePacket(scenario: "commitment_target_missing")
+                setResponse(summary: packet?.summary ?? "Commitment target is missing.", detail: packet?.detail ?? "Try phrasing like \"mark meds done.\"")
                 return VoiceSubmitResult(
                     committedIntent: nil,
-                    historyStatus: "needs_clarification",
+                    historyStatus: packet?.historyStatus ?? "needs_clarification",
                     threadID: nil,
-                    errorMessage: fallbackErrorMessage(prefix: "Commitment target missing.", underlyingError: underlyingError)
+                    errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Commitment target missing.", underlyingError: underlyingError)
                 )
             }
             let matches = rankedCommitmentMatches(
@@ -4576,22 +4582,24 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 in: store.commitments.filter { $0.status == "open" }
             )
             guard let best = matches.first?.commitment else {
-                setResponse(summary: "No open commitment matched.", detail: "Transcript capture was queued for sync.")
+                let packet = voiceOfflineResponsePacket(scenario: "commitment_no_match")
+                setResponse(summary: packet?.summary ?? "No open commitment matched.", detail: packet?.detail ?? "Transcript capture was queued for sync.")
                 return VoiceSubmitResult(
                     committedIntent: nil,
-                    historyStatus: "capture_only",
+                    historyStatus: packet?.historyStatus ?? "capture_only",
                     threadID: nil,
-                    errorMessage: fallbackErrorMessage(prefix: "No local commitment match for offline queueing.", underlyingError: underlyingError)
+                    errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "No local commitment match for offline queueing.", underlyingError: underlyingError)
                 )
             }
             if isAmbiguousTopMatch(matches) {
                 let options = matches.prefix(3).map { $0.commitment.text }.joined(separator: " | ")
-                setResponse(summary: "Ambiguous commitment target.", detail: "Could match: \(options)")
+                let packet = voiceOfflineResponsePacket(scenario: "commitment_ambiguous", options: options)
+                setResponse(summary: packet?.summary ?? "Ambiguous commitment target.", detail: packet?.detail ?? "Could match: \(options)")
                 return VoiceSubmitResult(
                     committedIntent: nil,
-                    historyStatus: "needs_clarification",
+                    historyStatus: packet?.historyStatus ?? "needs_clarification",
                     threadID: nil,
-                    errorMessage: fallbackErrorMessage(prefix: "Commitment target was ambiguous.", underlyingError: underlyingError)
+                    errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Commitment target was ambiguous.", underlyingError: underlyingError)
                 )
             }
             if let packet = voiceQuickActionPacket(
@@ -4604,21 +4612,23 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 store.offlineStore.enqueueCommitmentDone(id: best.id)
             }
             await store.refresh()
-            setResponse(summary: "Commitment completion queued.", detail: best.text)
+            let packet = voiceOfflineResponsePacket(scenario: "commitment_done_queued", matchedText: best.text)
+            setResponse(summary: packet?.summary ?? "Commitment completion queued.", detail: packet?.detail ?? best.text)
             return VoiceSubmitResult(
                 committedIntent: .commitmentDone,
-                historyStatus: "queued",
+                historyStatus: packet?.historyStatus ?? "queued",
                 threadID: nil,
-                errorMessage: fallbackErrorMessage(prefix: "Commitment completion queued for backend replay.", underlyingError: underlyingError)
+                errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Commitment completion queued for backend replay.", underlyingError: underlyingError)
             )
         case .nudgeDone:
             guard let nudgeID = firstActionableNudgeID(from: store.nudges) else {
-                setResponse(summary: "No active nudge found.", detail: "Transcript capture was queued for sync.")
+                let packet = voiceOfflineResponsePacket(scenario: "nudge_missing")
+                setResponse(summary: packet?.summary ?? "No active nudge found.", detail: packet?.detail ?? "Transcript capture was queued for sync.")
                 return VoiceSubmitResult(
                     committedIntent: nil,
-                    historyStatus: "capture_only",
+                    historyStatus: packet?.historyStatus ?? "capture_only",
                     threadID: nil,
-                    errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
+                    errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "No active nudge available for offline queueing.", underlyingError: underlyingError)
                 )
             }
             if let packet = voiceQuickActionPacket(
@@ -4631,21 +4641,23 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 store.offlineStore.enqueueNudgeDone(id: nudgeID)
             }
             await store.refresh()
-            setResponse(summary: "Top nudge resolution queued.", detail: nil)
+            let packet = voiceOfflineResponsePacket(scenario: "nudge_done_queued")
+            setResponse(summary: packet?.summary ?? "Top nudge resolution queued.", detail: packet?.detail)
             return VoiceSubmitResult(
                 committedIntent: .nudgeDone,
-                historyStatus: "queued",
+                historyStatus: packet?.historyStatus ?? "queued",
                 threadID: nil,
-                errorMessage: fallbackErrorMessage(prefix: "Top nudge resolution queued for backend replay.", underlyingError: underlyingError)
+                errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Top nudge resolution queued for backend replay.", underlyingError: underlyingError)
             )
         case .nudgeSnooze:
             guard let nudgeID = firstActionableNudgeID(from: store.nudges) else {
-                setResponse(summary: "No active nudge found.", detail: "Transcript capture was queued for sync.")
+                let packet = voiceOfflineResponsePacket(scenario: "nudge_missing")
+                setResponse(summary: packet?.summary ?? "No active nudge found.", detail: packet?.detail ?? "Transcript capture was queued for sync.")
                 return VoiceSubmitResult(
                     committedIntent: nil,
-                    historyStatus: "capture_only",
+                    historyStatus: packet?.historyStatus ?? "capture_only",
                     threadID: nil,
-                    errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
+                    errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "No active nudge available for offline queueing.", underlyingError: underlyingError)
                 )
             }
             let minutes = intent.minutes ?? 10
@@ -4659,12 +4671,13 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 store.offlineStore.enqueueNudgeSnooze(id: nudgeID, minutes: minutes)
             }
             await store.refresh()
-            setResponse(summary: "Top nudge snooze queued.", detail: "\(minutes) minutes")
+            let packet = voiceOfflineResponsePacket(scenario: "nudge_snooze_queued", minutes: minutes)
+            setResponse(summary: packet?.summary ?? "Top nudge snooze queued.", detail: packet?.detail ?? "\(minutes) minutes")
             return VoiceSubmitResult(
                 committedIntent: .nudgeSnooze(minutes),
-                historyStatus: "queued",
+                historyStatus: packet?.historyStatus ?? "queued",
                 threadID: nil,
-                errorMessage: fallbackErrorMessage(prefix: "Top nudge snooze queued for backend replay.", underlyingError: underlyingError)
+                errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Top nudge snooze queued for backend replay.", underlyingError: underlyingError)
             )
         case .morningBriefing, .currentSchedule, .queryNextCommitment:
             let cached = offlineCachedScheduleResponse(for: intent, offlineStore: store.offlineStore)
@@ -4685,15 +4698,13 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 errorMessage: fallbackErrorMessage(prefix: "Showing cached backend behavior summary only.", underlyingError: underlyingError)
             )
         case .queryNudges, .explainWhy:
-            setResponse(
-                summary: "Unavailable offline.",
-                detail: "This reply is backend-owned and is not synthesized from local Swift cache."
-            )
+            let packet = voiceOfflineResponsePacket(scenario: "backend_required_offline")
+            setResponse(summary: packet?.summary ?? "Unavailable offline.", detail: packet?.detail ?? "This reply is backend-owned and is not synthesized from local Swift cache.")
             return VoiceSubmitResult(
                 committedIntent: nil,
-                historyStatus: "backend_required",
+                historyStatus: packet?.historyStatus ?? "backend_required",
                 threadID: nil,
-                errorMessage: fallbackErrorMessage(prefix: "Transcript capture queued, but this voice reply requires the backend route.", underlyingError: underlyingError)
+                errorMessage: fallbackErrorMessage(prefix: packet?.errorPrefix ?? "Transcript capture queued, but this voice reply requires the backend route.", underlyingError: underlyingError)
             )
         case .commitmentCreate:
             return await submitViaQueuedShell(
@@ -4715,6 +4726,24 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             primaryText: primaryText,
             targetID: targetID,
             minutes: intent.minutes
+        )
+    }
+
+    private func voiceOfflineResponsePacket(
+        scenario: String,
+        primaryText: String? = nil,
+        matchedText: String? = nil,
+        options: String? = nil,
+        minutes: Int? = nil,
+        isReachable: Bool = false
+    ) -> EmbeddedVoiceOfflineResponsePacket? {
+        appEnvironment.embeddedBridge.voiceOfflineResponseBridge.prepareVoiceOfflineResponse(
+            scenario: scenario,
+            primaryText: primaryText,
+            matchedText: matchedText,
+            options: options,
+            minutes: minutes,
+            isReachable: isReachable
         )
     }
 

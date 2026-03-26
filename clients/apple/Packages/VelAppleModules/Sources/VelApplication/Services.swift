@@ -122,7 +122,8 @@ public struct VelAppEnvironment {
                     .localAssistantEntryFallbackPackaging,
                     .localLinkingRequestPackaging,
                     .localCaptureMetadataPackaging,
-                    .localVoiceContinuitySummaryPackaging
+                    .localVoiceContinuitySummaryPackaging,
+                    .localVoiceOfflineResponsePackaging
                 ]
                 : []
         )

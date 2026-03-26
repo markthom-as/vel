@@ -20,6 +20,7 @@ public enum EmbeddedAppleFlow: String, Sendable, CaseIterable {
     case localLinkingRequestPackaging = "local_linking_request_packaging"
     case localCaptureMetadataPackaging = "local_capture_metadata_packaging"
     case localVoiceContinuitySummaryPackaging = "local_voice_continuity_summary_packaging"
+    case localVoiceOfflineResponsePackaging = "local_voice_offline_response_packaging"
 }
 
 public struct EmbeddedBridgeRuntimeStatus: Sendable {
@@ -40,6 +41,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     public let localLinkingRequestPackagingSymbolAvailable: Bool
     public let localCaptureMetadataPackagingSymbolAvailable: Bool
     public let localVoiceContinuitySummaryPackagingSymbolAvailable: Bool
+    public let localVoiceOfflineResponsePackagingSymbolAvailable: Bool
 
     public init(
         resolvedSource: String?,
@@ -58,7 +60,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localAssistantEntryFallbackPackagingSymbolAvailable: Bool,
         localLinkingRequestPackagingSymbolAvailable: Bool,
         localCaptureMetadataPackagingSymbolAvailable: Bool,
-        localVoiceContinuitySummaryPackagingSymbolAvailable: Bool
+        localVoiceContinuitySummaryPackagingSymbolAvailable: Bool,
+        localVoiceOfflineResponsePackagingSymbolAvailable: Bool
     ) {
         self.resolvedSource = resolvedSource
         self.attemptedPaths = attemptedPaths
@@ -77,6 +80,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         self.localLinkingRequestPackagingSymbolAvailable = localLinkingRequestPackagingSymbolAvailable
         self.localCaptureMetadataPackagingSymbolAvailable = localCaptureMetadataPackagingSymbolAvailable
         self.localVoiceContinuitySummaryPackagingSymbolAvailable = localVoiceContinuitySummaryPackagingSymbolAvailable
+        self.localVoiceOfflineResponsePackagingSymbolAvailable = localVoiceOfflineResponsePackagingSymbolAvailable
     }
 
     public static let unavailable = EmbeddedBridgeRuntimeStatus(
@@ -96,7 +100,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localAssistantEntryFallbackPackagingSymbolAvailable: false,
         localLinkingRequestPackagingSymbolAvailable: false,
         localCaptureMetadataPackagingSymbolAvailable: false,
-        localVoiceContinuitySummaryPackagingSymbolAvailable: false
+        localVoiceContinuitySummaryPackagingSymbolAvailable: false,
+        localVoiceOfflineResponsePackagingSymbolAvailable: false
     )
 
     public var isBridgeLoaded: Bool {
@@ -118,6 +123,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             || localLinkingRequestPackagingSymbolAvailable
             || localCaptureMetadataPackagingSymbolAvailable
             || localVoiceContinuitySummaryPackagingSymbolAvailable
+            || localVoiceOfflineResponsePackagingSymbolAvailable
     }
 
     public var isOperational: Bool {
@@ -136,7 +142,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     }
 
     public var discoveredSymbolCount: Int {
-        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable, localAssistantEntryFallbackPackagingSymbolAvailable, localLinkingRequestPackagingSymbolAvailable, localCaptureMetadataPackagingSymbolAvailable, localVoiceContinuitySummaryPackagingSymbolAvailable]
+        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable, localVoiceQuickActionPackagingSymbolAvailable, localVoiceContinuityPackagingSymbolAvailable, localQueuedActionPackagingSymbolAvailable, localLinkingSettingsNormalizationSymbolAvailable, localAssistantEntryFallbackPackagingSymbolAvailable, localLinkingRequestPackagingSymbolAvailable, localCaptureMetadataPackagingSymbolAvailable, localVoiceContinuitySummaryPackagingSymbolAvailable, localVoiceOfflineResponsePackagingSymbolAvailable]
             .filter(\.self)
             .count
     }
@@ -171,6 +177,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             localCaptureMetadataPackagingSymbolAvailable
         case .localVoiceContinuitySummaryPackaging:
             localVoiceContinuitySummaryPackagingSymbolAvailable
+        case .localVoiceOfflineResponsePackaging:
+            localVoiceOfflineResponsePackagingSymbolAvailable
         }
     }
 }
@@ -468,6 +476,20 @@ public struct EmbeddedVoiceContinuitySummaryPacket: Sendable {
     }
 }
 
+public struct EmbeddedVoiceOfflineResponsePacket: Sendable {
+    public let summary: String
+    public let detail: String?
+    public let historyStatus: String
+    public let errorPrefix: String
+
+    public init(summary: String, detail: String?, historyStatus: String, errorPrefix: String) {
+        self.summary = summary
+        self.detail = detail
+        self.historyStatus = historyStatus
+        self.errorPrefix = errorPrefix
+    }
+}
+
 public protocol EmbeddedVoiceContinuitySummaryBridge: Sendable {
     func prepareVoiceContinuitySummary(
         draftExists: Bool,
@@ -476,6 +498,17 @@ public protocol EmbeddedVoiceContinuitySummaryBridge: Sendable {
         isReachable: Bool,
         mergedTranscript: String?
     ) -> EmbeddedVoiceContinuitySummaryPacket?
+}
+
+public protocol EmbeddedVoiceOfflineResponseBridge: Sendable {
+    func prepareVoiceOfflineResponse(
+        scenario: String,
+        primaryText: String?,
+        matchedText: String?,
+        options: String?,
+        minutes: Int?,
+        isReachable: Bool
+    ) -> EmbeddedVoiceOfflineResponsePacket?
 }
 
 private struct OfflineBridgeEnvelope: Decodable {
@@ -500,6 +533,7 @@ public protocol EmbeddedBridgeSurface: Sendable {
     var linkingRequestBridge: any EmbeddedLinkingRequestBridge { get }
     var captureMetadataBridge: any EmbeddedCaptureMetadataBridge { get }
     var voiceContinuitySummaryBridge: any EmbeddedVoiceContinuitySummaryBridge { get }
+    var voiceOfflineResponseBridge: any EmbeddedVoiceOfflineResponseBridge { get }
 }
 
 public struct NoopEmbeddedNowBridge: EmbeddedNowBridge {
@@ -866,6 +900,108 @@ public struct NoopEmbeddedVoiceContinuitySummaryBridge: EmbeddedVoiceContinuityS
     }
 }
 
+public struct NoopEmbeddedVoiceOfflineResponseBridge: EmbeddedVoiceOfflineResponseBridge {
+    public init() {}
+
+    public func prepareVoiceOfflineResponse(
+        scenario: String,
+        primaryText: String?,
+        matchedText: String?,
+        options: String?,
+        minutes: Int?,
+        isReachable: Bool
+    ) -> EmbeddedVoiceOfflineResponsePacket? {
+        switch scenario {
+        case "capture_shell":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: isReachable ? "Saved voice capture." : "Voice capture queued for sync.",
+                detail: primaryText,
+                historyStatus: isReachable ? "submitted" : "queued",
+                errorPrefix: isReachable ? "" : "Voice transcript queued for sync."
+            )
+        case "commitment_create_shell":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: isReachable ? "Created commitment." : "Commitment queued for sync.",
+                detail: primaryText,
+                historyStatus: isReachable ? "submitted" : "queued",
+                errorPrefix: isReachable ? "" : "Commitment request queued for sync."
+            )
+        case "backend_required_shell":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "This voice action now requires the backend Apple route.",
+                detail: "Reconnect to Vel so the server can interpret and answer it.",
+                historyStatus: "backend_required",
+                errorPrefix: "Transcript capture was preserved, but the action needs the backend-owned Apple route."
+            )
+        case "capture_offline":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Voice capture queued for sync.",
+                detail: primaryText,
+                historyStatus: "queued",
+                errorPrefix: "Transcript capture queued for sync."
+            )
+        case "commitment_target_missing":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Commitment target is missing.",
+                detail: "Try phrasing like \"mark meds done.\"",
+                historyStatus: "needs_clarification",
+                errorPrefix: "Commitment target missing."
+            )
+        case "commitment_no_match":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "No open commitment matched.",
+                detail: "Transcript capture was queued for sync.",
+                historyStatus: "capture_only",
+                errorPrefix: "No local commitment match for offline queueing."
+            )
+        case "commitment_ambiguous":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Ambiguous commitment target.",
+                detail: options.map { "Could match: \($0)" },
+                historyStatus: "needs_clarification",
+                errorPrefix: "Commitment target was ambiguous."
+            )
+        case "commitment_done_queued":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Commitment completion queued.",
+                detail: matchedText,
+                historyStatus: "queued",
+                errorPrefix: "Commitment completion queued for backend replay."
+            )
+        case "nudge_missing":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "No active nudge found.",
+                detail: "Transcript capture was queued for sync.",
+                historyStatus: "capture_only",
+                errorPrefix: "No active nudge available for offline queueing."
+            )
+        case "nudge_done_queued":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Top nudge resolution queued.",
+                detail: nil,
+                historyStatus: "queued",
+                errorPrefix: "Top nudge resolution queued for backend replay."
+            )
+        case "nudge_snooze_queued":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Top nudge snooze queued.",
+                detail: "\(minutes ?? 10) minutes",
+                historyStatus: "queued",
+                errorPrefix: "Top nudge snooze queued for backend replay."
+            )
+        case "backend_required_offline":
+            return EmbeddedVoiceOfflineResponsePacket(
+                summary: "Unavailable offline.",
+                detail: "This reply is backend-owned and is not synthesized from local Swift cache.",
+                historyStatus: "backend_required",
+                errorPrefix: "Transcript capture queued, but this voice reply requires the backend route."
+            )
+        default:
+            return nil
+        }
+    }
+}
+
 public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -883,6 +1019,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
     public let captureMetadataBridge: any EmbeddedCaptureMetadataBridge
     public let voiceContinuitySummaryBridge: any EmbeddedVoiceContinuitySummaryBridge
+    public let voiceOfflineResponseBridge: any EmbeddedVoiceOfflineResponseBridge
 
     public init(configuration: EmbeddedBridgeConfiguration = .daemonBackedDefault()) {
         self.configuration = configuration
@@ -901,6 +1038,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
         self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
         self.captureMetadataBridge = NoopEmbeddedCaptureMetadataBridge()
         self.voiceContinuitySummaryBridge = NoopEmbeddedVoiceContinuitySummaryBridge()
+        self.voiceOfflineResponseBridge = NoopEmbeddedVoiceOfflineResponseBridge()
     }
 }
 
@@ -923,6 +1061,7 @@ private typealias VelEmbeddedPrepareCaptureMetadataFn = @convention(c) (UnsafePo
 private typealias VelEmbeddedPreparePairingTokenIssueRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedPreparePairingTokenRedeemRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedPrepareVoiceContinuitySummaryFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPrepareVoiceOfflineResponseFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedFreeBufferFn = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
 private struct VelEmbeddedRustBindings: @unchecked Sendable {
@@ -945,6 +1084,7 @@ private struct VelEmbeddedRustBindings: @unchecked Sendable {
     let preparePairingTokenIssueRequest: VelEmbeddedPreparePairingTokenIssueRequestFn?
     let preparePairingTokenRedeemRequest: VelEmbeddedPreparePairingTokenRedeemRequestFn?
     let prepareVoiceContinuitySummary: VelEmbeddedPrepareVoiceContinuitySummaryFn?
+    let prepareVoiceOfflineResponse: VelEmbeddedPrepareVoiceOfflineResponseFn?
     let freeBuffer: VelEmbeddedFreeBufferFn
 }
 
@@ -968,6 +1108,7 @@ private enum VelEmbeddedRustBridge {
         preparePairingTokenIssueRequest: "vel_embedded_prepare_pairing_token_issue_request",
         preparePairingTokenRedeemRequest: "vel_embedded_prepare_pairing_token_redeem_request",
         prepareVoiceContinuitySummary: "vel_embedded_prepare_voice_continuity_summary",
+        prepareVoiceOfflineResponse: "vel_embedded_prepare_voice_offline_response",
         freeBuffer: "vel_embedded_free_buffer"
     )
 
@@ -1000,7 +1141,8 @@ private enum VelEmbeddedRustBridge {
             prepareCaptureMetadata: VelEmbeddedPrepareCaptureMetadataFn?,
             preparePairingTokenIssueRequest: VelEmbeddedPreparePairingTokenIssueRequestFn?,
             preparePairingTokenRedeemRequest: VelEmbeddedPreparePairingTokenRedeemRequestFn?,
-            prepareVoiceContinuitySummary: VelEmbeddedPrepareVoiceContinuitySummaryFn?
+            prepareVoiceContinuitySummary: VelEmbeddedPrepareVoiceContinuitySummaryFn?,
+            prepareVoiceOfflineResponse: VelEmbeddedPrepareVoiceOfflineResponseFn?
         ) -> EmbeddedBridgeRuntimeStatus {
             EmbeddedBridgeRuntimeStatus(
                 resolvedSource: source,
@@ -1019,7 +1161,8 @@ private enum VelEmbeddedRustBridge {
                 localAssistantEntryFallbackPackagingSymbolAvailable: prepareAssistantEntryFallback != nil,
                 localLinkingRequestPackagingSymbolAvailable: prepareLinkingRequest != nil && preparePairingTokenIssueRequest != nil && preparePairingTokenRedeemRequest != nil,
                 localCaptureMetadataPackagingSymbolAvailable: prepareCaptureMetadata != nil,
-                localVoiceContinuitySummaryPackagingSymbolAvailable: prepareVoiceContinuitySummary != nil
+                localVoiceContinuitySummaryPackagingSymbolAvailable: prepareVoiceContinuitySummary != nil,
+                localVoiceOfflineResponsePackagingSymbolAvailable: prepareVoiceOfflineResponse != nil
             )
         }
 
@@ -1100,6 +1243,10 @@ private enum VelEmbeddedRustBridge {
                 candidate: symbolNames.prepareVoiceContinuitySummary,
                 from: handle
             )
+            let prepareVoiceOfflineResponse: VelEmbeddedPrepareVoiceOfflineResponseFn? = lookup(
+                candidate: symbolNames.prepareVoiceOfflineResponse,
+                from: handle
+            )
 
             let status = makeStatus(
                 source: freeBuffer == nil ? nil : source,
@@ -1121,7 +1268,8 @@ private enum VelEmbeddedRustBridge {
                 prepareCaptureMetadata: prepareCaptureMetadata,
                 preparePairingTokenIssueRequest: preparePairingTokenIssueRequest,
                 preparePairingTokenRedeemRequest: preparePairingTokenRedeemRequest,
-                prepareVoiceContinuitySummary: prepareVoiceContinuitySummary
+                prepareVoiceContinuitySummary: prepareVoiceContinuitySummary,
+                prepareVoiceOfflineResponse: prepareVoiceOfflineResponse
             )
 
             guard freeBuffer != nil else {
@@ -1146,6 +1294,7 @@ private enum VelEmbeddedRustBridge {
                 && preparePairingTokenIssueRequest == nil
                 && preparePairingTokenRedeemRequest == nil
                 && prepareVoiceContinuitySummary == nil
+                && prepareVoiceOfflineResponse == nil
             {
                 return (nil, status)
             }
@@ -1171,6 +1320,7 @@ private enum VelEmbeddedRustBridge {
                     preparePairingTokenIssueRequest: preparePairingTokenIssueRequest,
                     preparePairingTokenRedeemRequest: preparePairingTokenRedeemRequest,
                     prepareVoiceContinuitySummary: prepareVoiceContinuitySummary,
+                    prepareVoiceOfflineResponse: prepareVoiceOfflineResponse,
                     freeBuffer: freeBuffer
                 ),
                 status
@@ -1222,7 +1372,8 @@ private enum VelEmbeddedRustBridge {
                 localAssistantEntryFallbackPackagingSymbolAvailable: false,
                 localLinkingRequestPackagingSymbolAvailable: false,
                 localCaptureMetadataPackagingSymbolAvailable: false,
-                localVoiceContinuitySummaryPackagingSymbolAvailable: false
+                localVoiceContinuitySummaryPackagingSymbolAvailable: false,
+                localVoiceOfflineResponsePackagingSymbolAvailable: false
             )
         )
     }()
@@ -1826,6 +1977,32 @@ private enum VelEmbeddedRustBridge {
         let ready: Bool
     }
 
+    struct VoiceOfflineResponseInput: Encodable {
+        let scenario: String
+        let primaryText: String?
+        let matchedText: String?
+        let options: String?
+        let minutes: Int?
+        let isReachable: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case scenario
+            case primaryText = "primaryText"
+            case matchedText = "matchedText"
+            case options
+            case minutes
+            case isReachable = "isReachable"
+        }
+    }
+
+    struct VoiceOfflineResponsePacket: Decodable {
+        let summary: String?
+        let detail: String?
+        let historyStatus: String
+        let errorPrefix: String
+        let ready: Bool
+    }
+
     static func decodeOfflineRequest(_ value: String) -> OfflineRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
@@ -2099,6 +2276,34 @@ private enum VelEmbeddedRustBridge {
     static func decodeVoiceContinuitySummary(_ value: String) -> VoiceContinuitySummaryPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(VoiceContinuitySummaryPacket.self, from: data)
+    }
+
+    static func encodeVoiceOfflineResponsePayload(
+        scenario: String,
+        primaryText: String?,
+        matchedText: String?,
+        options: String?,
+        minutes: Int?,
+        isReachable: Bool
+    ) -> String {
+        let payload = VoiceOfflineResponseInput(
+            scenario: scenario,
+            primaryText: primaryText,
+            matchedText: matchedText,
+            options: options,
+            minutes: minutes,
+            isReachable: isReachable
+        )
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return value
+    }
+
+    static func decodeVoiceOfflineResponse(_ value: String) -> VoiceOfflineResponsePacket? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(VoiceOfflineResponsePacket.self, from: data)
     }
 }
 
@@ -2677,6 +2882,56 @@ public struct RustEmbeddedVoiceContinuitySummaryBridge: EmbeddedVoiceContinuityS
     }
 }
 
+public struct RustEmbeddedVoiceOfflineResponseBridge: EmbeddedVoiceOfflineResponseBridge, @unchecked Sendable {
+    private let bindings: VelEmbeddedRustBindings
+
+    public init?(bindings: VelEmbeddedRustBindings) {
+        guard bindings.prepareVoiceOfflineResponse != nil else { return nil }
+        self.bindings = bindings
+    }
+
+    public func prepareVoiceOfflineResponse(
+        scenario: String,
+        primaryText: String?,
+        matchedText: String?,
+        options: String?,
+        minutes: Int?,
+        isReachable: Bool
+    ) -> EmbeddedVoiceOfflineResponsePacket? {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareVoiceOfflineResponse,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeVoiceOfflineResponsePayload(
+                scenario: scenario,
+                primaryText: primaryText,
+                matchedText: matchedText,
+                options: options,
+                minutes: minutes,
+                isReachable: isReachable
+            )
+        ),
+        let parsed = VelEmbeddedRustBridge.decodeVoiceOfflineResponse(output),
+        parsed.ready,
+        let summary = parsed.summary else {
+            return NoopEmbeddedVoiceOfflineResponseBridge().prepareVoiceOfflineResponse(
+                scenario: scenario,
+                primaryText: primaryText,
+                matchedText: matchedText,
+                options: options,
+                minutes: minutes,
+                isReachable: isReachable
+            )
+        }
+
+        return EmbeddedVoiceOfflineResponsePacket(
+            summary: summary,
+            detail: parsed.detail,
+            historyStatus: parsed.historyStatus,
+            errorPrefix: parsed.errorPrefix
+        )
+    }
+}
+
 public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge, @unchecked Sendable {
     public init?(bindings: ()) { return nil }
     public func prepareAssistantEntryFallback(
@@ -2762,6 +3017,27 @@ public struct RustEmbeddedVoiceContinuitySummaryBridge: EmbeddedVoiceContinuityS
     }
 }
 
+public struct RustEmbeddedVoiceOfflineResponseBridge: EmbeddedVoiceOfflineResponseBridge, @unchecked Sendable {
+    public init?(bindings: ()) { return nil }
+    public func prepareVoiceOfflineResponse(
+        scenario: String,
+        primaryText: String?,
+        matchedText: String?,
+        options: String?,
+        minutes: Int?,
+        isReachable: Bool
+    ) -> EmbeddedVoiceOfflineResponsePacket? {
+        NoopEmbeddedVoiceOfflineResponseBridge().prepareVoiceOfflineResponse(
+            scenario: scenario,
+            primaryText: primaryText,
+            matchedText: matchedText,
+            options: options,
+            minutes: minutes,
+            isReachable: isReachable
+        )
+    }
+}
+
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -2779,7 +3055,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
     public let captureMetadataBridge: any EmbeddedCaptureMetadataBridge
     public let voiceContinuitySummaryBridge: any EmbeddedVoiceContinuitySummaryBridge
-    public let voiceContinuitySummaryBridge: any EmbeddedVoiceContinuitySummaryBridge
+    public let voiceOfflineResponseBridge: any EmbeddedVoiceOfflineResponseBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         guard let bindings = VelEmbeddedRustBridge.bindings else {
@@ -2873,6 +3149,12 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             self.voiceContinuitySummaryBridge = NoopEmbeddedVoiceContinuitySummaryBridge()
         }
 
+        if let rustVoiceOfflineResponse = RustEmbeddedVoiceOfflineResponseBridge(bindings: bindings), configuration.permits(.localVoiceOfflineResponsePackaging) {
+            self.voiceOfflineResponseBridge = rustVoiceOfflineResponse
+        } else {
+            self.voiceOfflineResponseBridge = NoopEmbeddedVoiceOfflineResponseBridge()
+        }
+
         let isEmbedded = configuration.permits(.cachedNowHydration)
             || configuration.permits(.localQuickActionPreparation)
             || configuration.permits(.offlineRequestPackaging)
@@ -2887,6 +3169,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             || configuration.permits(.localLinkingRequestPackaging)
             || configuration.permits(.localCaptureMetadataPackaging)
             || configuration.permits(.localVoiceContinuitySummaryPackaging)
+            || configuration.permits(.localVoiceOfflineResponsePackaging)
 
         guard isEmbedded else { return nil }
     }
@@ -3043,6 +3326,8 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let assistantEntryFallbackBridge: any EmbeddedAssistantEntryFallbackBridge
     public let linkingRequestBridge: any EmbeddedLinkingRequestBridge
     public let captureMetadataBridge: any EmbeddedCaptureMetadataBridge
+    public let voiceContinuitySummaryBridge: any EmbeddedVoiceContinuitySummaryBridge
+    public let voiceOfflineResponseBridge: any EmbeddedVoiceOfflineResponseBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         self.configuration = configuration
@@ -3061,6 +3346,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
         self.linkingRequestBridge = NoopEmbeddedLinkingRequestBridge()
         self.captureMetadataBridge = NoopEmbeddedCaptureMetadataBridge()
         self.voiceContinuitySummaryBridge = NoopEmbeddedVoiceContinuitySummaryBridge()
+        self.voiceOfflineResponseBridge = NoopEmbeddedVoiceOfflineResponseBridge()
         return nil
     }
 }
