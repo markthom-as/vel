@@ -13,11 +13,29 @@ if ! command -v wasm-pack >/dev/null 2>&1; then
   exit 1
 fi
 
-wasm-pack build \
-  "$CRATE_DIR" \
-  --target web \
-  --out-dir "$OUT_DIR" \
-  --out-name vel-embedded-bridge \
-  --no-pack \
-  -- \
-  --features browser-wasm
+build_wasm() {
+  wasm-pack build \
+    "$CRATE_DIR" \
+    --target web \
+    --out-dir "$OUT_DIR" \
+    --out-name vel-embedded-bridge \
+    --no-pack \
+    -- \
+    --features browser-wasm
+}
+
+if command -v lld >/dev/null 2>&1; then
+  build_wasm
+  exit 0
+fi
+
+if ! command -v nix-shell >/dev/null 2>&1; then
+  echo "lld is required to link the wasm artifact, and nix-shell is unavailable to supply it." >&2
+  exit 1
+fi
+
+echo "lld not found; rebuilding inside nix-shell -p lld." >&2
+nix-shell -p lld --run "
+  export PATH=\$PATH
+  $(printf '%q ' wasm-pack build "$CRATE_DIR" --target web --out-dir "$OUT_DIR" --out-name vel-embedded-bridge --no-pack -- --features browser-wasm)
+"

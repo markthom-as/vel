@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { buildCoreSetupStatus } from '../../data/operator';
+import { buildCoreSetupStatus, maybeBuildEmbeddedLinkingRequestDraft } from '../../data/operator';
 import type { IntegrationsData, SettingsData } from '../../types';
 import { Button } from '../../core/Button';
 import { cn } from '../../core/cn';
@@ -236,6 +236,20 @@ export function CoreSettingsDetail({
     || hasMeaningfulText(coreSettings?.agent_profile?.constraints)
     || hasMeaningfulText(coreSettings?.agent_profile?.freeform),
   );
+  const embeddedRoutePreview = useMemo(
+    () => maybeBuildEmbeddedLinkingRequestDraft({
+      sync_base_url: settings?.sync_base_url ?? null,
+      tailscale_base_url: settings?.tailscale_base_url ?? null,
+      lan_base_url: settings?.lan_base_url ?? null,
+      public_base_url: settings?.public_base_url ?? null,
+    }),
+    [
+      settings?.sync_base_url,
+      settings?.tailscale_base_url,
+      settings?.lan_base_url,
+      settings?.public_base_url,
+    ],
+  );
 
   useEffect(() => {
     if (hasMeaningfulText(settings?.node_display_name) || !inferredNodeName || nodeInferenceCommitted.current) {
@@ -331,9 +345,9 @@ export function CoreSettingsDetail({
         )}
 
         <SystemDocumentItem
-          id={systemChildAnchor('core_settings', 'identity')}
-          title="Identity"
-          subtitle="Required identity fields for a usable single-node Vel."
+          id={systemChildAnchor('core_settings', 'user-info')}
+          title="User info"
+          subtitle="About the person using this Vel node."
         >
           <>
             <SystemDocumentField
@@ -343,6 +357,23 @@ export function CoreSettingsDetail({
               placeholder="Required before Vel can operate normally"
               onCommit={(value) => onUpdateCoreSettings({ user_display_name: value })}
             />
+            <SystemDocumentField
+              label="What Vel should know about you *"
+              fieldId={SYSTEM_CORE_SETTING_ANCHORS.agentProfileFreeform}
+              value={coreSettings?.agent_profile?.freeform ?? ''}
+              multiline
+              placeholder="What should every provider know about you by default?"
+              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { freeform: value } })}
+            />
+          </>
+        </SystemDocumentItem>
+
+        <SystemDocumentItem
+          id={systemChildAnchor('core_settings', 'node-client')}
+          title="Node / client"
+          subtitle="About this authority node, client context, and local routing."
+        >
+          <>
             <SystemDocumentField
               label="Node name *"
               fieldId={SYSTEM_CORE_SETTING_ANCHORS.nodeDisplayName}
@@ -357,49 +388,6 @@ export function CoreSettingsDetail({
               placeholder={inferredTimezone ?? 'Auto-inferred from host when available'}
               onCommit={(value) => onCommitSettingField('timezone', value)}
             />
-          </>
-        </SystemDocumentItem>
-
-        <SystemDocumentItem
-          id={systemChildAnchor('core_settings', 'agent-profile')}
-          title="Agent profile"
-          subtitle="Required. Fill at least one field so Vel knows how to work with you."
-        >
-          <>
-            <SystemDocumentField
-              label="Agent role"
-              fieldId="core-settings-agent-profile-role"
-              value={coreSettings?.agent_profile?.role ?? ''}
-              placeholder="Required somewhere in this section"
-              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { role: value } })}
-            />
-            <SystemDocumentField
-              label="Working preferences"
-              value={coreSettings?.agent_profile?.preferences ?? ''}
-              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { preferences: value } })}
-            />
-            <SystemDocumentField
-              label="Constraints"
-              value={coreSettings?.agent_profile?.constraints ?? ''}
-              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { constraints: value } })}
-            />
-            <SystemDocumentField
-              label="What Vel should know about you *"
-              fieldId={SYSTEM_CORE_SETTING_ANCHORS.agentProfileFreeform}
-              value={coreSettings?.agent_profile?.freeform ?? ''}
-              multiline
-              placeholder="What should every provider know about you by default?"
-              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { freeform: value } })}
-            />
-          </>
-        </SystemDocumentItem>
-
-        <SystemDocumentItem
-          id={systemChildAnchor('core_settings', 'optional-context')}
-          title="Optional host context"
-          subtitle="Helpful setup Vel can infer or enrich from this device."
-        >
-          <>
             <SystemDocumentField
               label="Client location"
               value={coreSettings?.client_location_label ?? ''}
@@ -431,15 +419,6 @@ export function CoreSettingsDetail({
                 </p>
               ) : null}
             </div>
-          </>
-        </SystemDocumentItem>
-
-        <SystemDocumentItem
-          id={systemChildAnchor('core_settings', 'runtime')}
-          title="Runtime identity"
-          subtitle="Authority transport preferences and host routing."
-        >
-          <>
             <SystemDocumentField
               label="Tailscale base URL"
               value={settings?.tailscale_base_url ?? ''}
@@ -449,6 +428,44 @@ export function CoreSettingsDetail({
               label="LAN base URL"
               value={settings?.lan_base_url ?? ''}
               onCommit={(value) => onCommitSettingField('lan_base_url', value)}
+            />
+            {embeddedRoutePreview?.route_candidates.length ? (
+              <div className="border-b border-[var(--vel-color-border)] py-1.5">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--vel-color-muted)]">
+                  Embedded route preview
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[var(--vel-color-muted)]">
+                  {embeddedRoutePreview.route_candidates
+                    .map((route) => `${route.label}: ${route.baseUrl}`)
+                    .join(' | ')}
+                </p>
+              </div>
+            ) : null}
+          </>
+        </SystemDocumentItem>
+
+        <SystemDocumentItem
+          id={systemChildAnchor('core_settings', 'about-agent')}
+          title="About agent"
+          subtitle="How Vel should interpret your role and work with you."
+        >
+          <>
+            <SystemDocumentField
+              label="Agent role"
+              fieldId="core-settings-agent-profile-role"
+              value={coreSettings?.agent_profile?.role ?? ''}
+              placeholder="Required somewhere in this section"
+              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { role: value } })}
+            />
+            <SystemDocumentField
+              label="Working preferences"
+              value={coreSettings?.agent_profile?.preferences ?? ''}
+              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { preferences: value } })}
+            />
+            <SystemDocumentField
+              label="Constraints"
+              value={coreSettings?.agent_profile?.constraints ?? ''}
+              onCommit={(value) => onUpdateCoreSettings({ agent_profile: { constraints: value } })}
             />
           </>
         </SystemDocumentItem>

@@ -10,9 +10,10 @@ use portable_core::{
     normalize_positive_minutes, normalized_optional_trimmed, prepare_app_shell_feedback_packet,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
     prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
-    prepare_quick_capture_text, prepare_thread_draft_packet, prepare_voice_capture_payload,
-    prepare_voice_cached_query_response_packet, prepare_voice_continuity_summary_packet,
-    prepare_voice_offline_response_packet, prepare_voice_quick_action_packet, trim_text,
+    prepare_quick_capture_text, prepare_thread_draft_packet,
+    prepare_voice_cached_query_response_packet, prepare_voice_capture_payload,
+    prepare_voice_continuity_summary_packet, prepare_voice_offline_response_packet,
+    prepare_voice_quick_action_packet, trim_text,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -436,11 +437,8 @@ pub extern "C" fn vel_embedded_package_offline_request(payload_json: *const c_ch
 
     let (kind, payload, ready, reason) = match request {
         Ok(request) => {
-            let kind = request.kind.unwrap_or_else(|| "unknown".to_string());
-            let payload = request
-                .payload
-                .map(|value| normalize_payload(&value))
-                .unwrap_or_else(String::new);
+            let kind = request.kind;
+            let payload = normalize_payload(&request.payload);
 
             (kind, payload, true, None)
         }

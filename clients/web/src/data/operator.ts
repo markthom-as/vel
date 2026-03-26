@@ -607,6 +607,21 @@ export function buildEmbeddedLinkingRequestDraft(input: {
   };
 }
 
+export function maybeBuildEmbeddedLinkingRequestDraft(input: {
+  token_code?: string | null;
+  target_base_url?: string | null;
+  sync_base_url?: string | null;
+  tailscale_base_url?: string | null;
+  lan_base_url?: string | null;
+  public_base_url?: string | null;
+}): EmbeddedLinkingRequestDraftData | null {
+  try {
+    return buildEmbeddedLinkingRequestDraft(input);
+  } catch {
+    return null;
+  }
+}
+
 export function redeemPairingToken(payload: {
   token_code: string;
   node_id: string;
