@@ -22,6 +22,30 @@ npm run build:web   # from root
 npm run build       # from clients/web
 ```
 
+## Embedded bridge WASM
+
+The web client now expects Rust to be the canonical authority for deterministic embedded packet shaping.
+
+Build the browser artifact from `crates/vel-embedded-bridge` with:
+
+```bash
+npm run build:embedded-bridge-wasm
+```
+
+That emits a browser-targeted module under:
+
+```bash
+clients/web/public/embedded-bridge/
+```
+
+To make the app install that runtime at startup, point Vite at the generated module:
+
+```bash
+VITE_VEL_EMBEDDED_BRIDGE_WASM_URL=/embedded-bridge/vel-embedded-bridge.js npm run dev
+```
+
+If that env var is unset, the web client fails closed when embedded packet calls are attempted instead of silently falling back to duplicated TypeScript shaping.
+
 ## Stack
 
 - React 19

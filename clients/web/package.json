@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:embedded-bridge-wasm": "bash scripts/build-embedded-bridge-wasm.sh",
     "lint": "eslint .",
     "preview": "vite preview",
     "seed": "bash scripts/seed.sh",

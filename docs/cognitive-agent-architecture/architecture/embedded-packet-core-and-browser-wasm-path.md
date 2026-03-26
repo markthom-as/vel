@@ -22,6 +22,8 @@ related_files:
   - clients/web/src/data/embeddedBridgePackets.ts
   - clients/web/src/data/embeddedBridgeAdapter.ts
   - clients/web/src/data/embeddedBridgeWasmRuntime.ts
+  - clients/web/scripts/build-embedded-bridge-wasm.sh
+  - clients/web/src/env.d.ts
   - clients/web/src/data/embeddedBridgePackets.example.ts
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - docs/cognitive-agent-architecture/apple/apple-rust-integration-path.md
@@ -136,15 +138,17 @@ Current truth of that scaffold:
 - `embeddedBridgeAdapter.ts` is the next seam up: it parses packet JSON into typed browser-facing values so future callers do not depend directly on raw packet JSON strings.
 - `embeddedBridgeWasmRuntime.ts` is the installer seam that adapts JS/WASM exports into the packet runtime interface used by web data code.
 - `main.tsx` now attempts startup installation from `VITE_VEL_EMBEDDED_BRIDGE_WASM_URL` and also supports a preloaded `window.__VEL_EMBEDDED_BRIDGE_WASM__`.
+- `build-embedded-bridge-wasm.sh` is the checked-in browser artifact build path for the Rust packet runtime.
+- `env.d.ts` records the expected Vite env contract for runtime installation.
 - `embeddedBridgePackets.example.ts` is a checked-in usage reference for future browser callers so the scaffold has a concrete packet-consumption example.
 - until the WASM runtime is installed, browser packet calls fail closed instead of silently using a duplicated TypeScript implementation.
 
 # Next Implementation Sequence
 
 1. continue moving deterministic helpers from `lib.rs` into `portable_core.rs`
-2. build the actual browser-targeted artifact for `browser_wasm`
-3. point `VITE_VEL_EMBEDDED_BRIDGE_WASM_URL` at that generated module or preload it onto `window`
-4. keep Apple native FFI as a thin adapter over the same portable core
+2. point `VITE_VEL_EMBEDDED_BRIDGE_WASM_URL` at the generated module or preload it onto `window`
+3. keep Apple native FFI as a thin adapter over the same portable core
+4. wire more real callers through the installed runtime now that startup/bootstrap exists
 5. avoid widening browser-local logic into authority-runtime policy
 
 # Acceptance Criteria
