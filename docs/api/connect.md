@@ -1,22 +1,26 @@
 # Connect API
 
-## Status: Reserved (Phase 2 SP2)
+The live operator-authenticated connect runtime surface is documented in [runtime.md](runtime.md#connect-runtime-lifecycle).
 
-The `/v1/connect` endpoint family is reserved for the agent connect protocol
-(ticket 006 — Connect: Agent Launch Protocol & Supervision).
+Current mounted routes:
 
-Current behavior: all `/v1/connect/*` routes return 403 Forbidden until
-ticket 006 SP2 implementation is complete.
+- `GET /v1/connect/instances`
+- `POST /v1/connect/instances`
+- `GET /v1/connect/instances/:id`
+- `GET /v1/connect/instances/:id/attach`
+- `GET /v1/connect/instances/:id/events`
+- `GET /v1/connect/instances/:id/events/stream`
+- `POST /v1/connect/instances/:id/heartbeat`
+- `POST /v1/connect/instances/:id/stdin`
+- `POST /v1/connect/instances/:id/terminate`
 
-## Planned Endpoints (SP2)
+Current role:
 
-- `POST /v1/connect/launch` — Launch a supervised agent runtime
-- `POST /v1/connect/heartbeat` — Renew execution lease
-- `POST /v1/connect/terminate` — Terminate a running agent
-- `GET /v1/connect/status` — List active connect instances with lifecycle state
+- supervised local coding/runtime transport for `local_command` and `wasm_guest`
+- persisted event stream over `stdin` / `stdout` / `stderr` / `system`
+- attachable from CLI and linkable from execution-review threads after a handoff-backed launch
 
-## Current Alternative
+Related CLI surfaces:
 
-Use `GET /v1/sync/cluster` to list registered worker nodes and their capabilities.
-
-The CLI equivalent is `vel sync status`.
+- `vel connect ...` for direct runtime inspection and control
+- `vel thread follow <thread_id>` and `vel thread reply <thread_id> ...` when a launched runtime is already attached to a continuity thread

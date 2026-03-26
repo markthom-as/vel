@@ -125,6 +125,8 @@ pub async fn launch_approved_handoff(
     )
     .await?;
 
+    sync_threads_for_launched_runtime(state, handoff_id, &launched.id).await?;
+
     let now = OffsetDateTime::now_utc();
     state
         .storage
@@ -141,6 +143,49 @@ pub async fn launch_approved_handoff(
         .ok_or_else(|| AppError::not_found("execution handoff not found during launch"))?;
 
     Ok(launched)
+}
+
+async fn sync_threads_for_launched_runtime(
+    state: &AppState,
+    handoff_id: &str,
+    run_id: &str,
+) -> Result<(), AppError> {
+    let thread_ids = state
+        .storage
+        .list_threads_linking_entity("execution_handoff", handoff_id, "approves")
+        .await?;
+
+    for thread_id in thread_ids {
+        let _ = state
+            .storage
+            .insert_thread_link(&thread_id, "connect_run", run_id, "attached")
+            .await?;
+
+        let Some((_, _, _, _, metadata_json, _, _)) =
+            state.storage.get_thread_by_id(&thread_id).await?
+        else {
+            continue;
+        };
+        let mut metadata = serde_json::from_str::<serde_json::Value>(&metadata_json)
+            .unwrap_or_else(|_| serde_json::json!({}));
+        let Some(object) = metadata.as_object_mut() else {
+            continue;
+        };
+        object.insert(
+            "active_connect_run_id".to_string(),
+            serde_json::Value::String(run_id.to_string()),
+        );
+        object.insert(
+            "connect_attach_path".to_string(),
+            serde_json::Value::String(format!("/v1/connect/instances/{run_id}/attach")),
+        );
+        state
+            .storage
+            .update_thread_metadata(&thread_id, &metadata.to_string())
+            .await?;
+    }
+
+    Ok(())
 }
 
 fn path_within_scope(value: &str, scope: &str) -> bool {
