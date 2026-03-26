@@ -280,6 +280,16 @@ async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers()
         Some("safe_mode_enabled")
     );
 
+    let todoist_entry = mutation_entries
+        .iter()
+        .find(|entry| entry["key"] == "todoist_task_writeback")
+        .expect("todoist task writeback entry");
+    assert_eq!(todoist_entry["available"], false);
+    assert_eq!(
+        todoist_entry["blocked_reason"]["code"].as_str(),
+        Some("safe_mode_enabled")
+    );
+
     let repo_entry = mutation_entries
         .iter()
         .find(|entry| entry["key"] == "repo_local_write_scope")
@@ -295,6 +305,21 @@ async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers()
         .unwrap()
         .iter()
         .any(|blocker| blocker["code"] == "writeback_disabled"));
+
+    let read_entries = data["capabilities"]["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["kind"] == "read_context")
+        .expect("read group")["entries"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let task_calendar_read = read_entries
+        .iter()
+        .find(|entry| entry["key"] == "read_task_calendar_details")
+        .expect("task/calendar detail read entry");
+    assert_eq!(task_calendar_read["available"], true);
 }
 
 #[tokio::test]

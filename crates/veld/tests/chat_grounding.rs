@@ -123,8 +123,17 @@ impl LlmProvider for MockChatProvider {
                 assert!(req
                     .tools
                     .iter()
+                    .any(|tool| tool.name == "vel_list_calendar_events"));
+                assert!(req.tools.iter().any(|tool| tool.name == "vel_list_tasks"));
+                assert!(req
+                    .tools
+                    .iter()
                     .any(|tool| tool.name == "vel_get_daily_loop_status"));
                 assert!(req.tools.iter().any(|tool| tool.name == "vel_list_threads"));
+                assert!(req
+                    .tools
+                    .iter()
+                    .any(|tool| tool.name == "vel_create_todoist_task"));
                 Ok(LlmResponse {
                     text: None,
                     tool_calls: vec![ToolCall {
