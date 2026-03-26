@@ -37,6 +37,7 @@ export interface EmbeddedBridgePacketRuntime {
     threadId?: string | null,
     threadLabel?: string | null,
   ): EmbeddedBridgePacketResponse;
+  actionItemDedupeBatchPacket(entriesJson: string): EmbeddedBridgePacketResponse;
   queuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -173,6 +174,10 @@ export function actionItemDedupeKeyPacket(
     threadId,
     threadLabel,
   );
+}
+
+export function actionItemDedupeBatchPacket(entriesJson: string): EmbeddedBridgePacketResponse {
+  return getEmbeddedBridgePacketRuntime().actionItemDedupeBatchPacket(entriesJson);
 }
 
 export function queuedActionPacket(

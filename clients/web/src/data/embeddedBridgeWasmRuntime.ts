@@ -22,6 +22,7 @@ export interface EmbeddedBridgeWasmModule {
     threadId?: string | null,
     threadLabel?: string | null,
   ): string;
+  velEmbeddedActionItemDedupeBatchPacket(entriesJson: string): string;
   velEmbeddedQueuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -150,6 +151,12 @@ export function createEmbeddedBridgePacketRuntimeFromWasm(
           threadId,
           threadLabel,
         ),
+      );
+    },
+    actionItemDedupeBatchPacket(entriesJson) {
+      return response(
+        'deterministic_domain_helpers',
+        wasm.velEmbeddedActionItemDedupeBatchPacket(entriesJson),
       );
     },
     queuedActionPacket(kind, targetId, text, minutes) {

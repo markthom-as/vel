@@ -8,7 +8,7 @@ import type {
   WorkerPresenceData,
 } from '../../types';
 import {
-  actionItemDedupeKeyValue,
+  actionItemDedupeKeysValue,
   shortClientKindLabelValue,
 } from '../../data/embeddedBridgeAdapter';
 import {
@@ -75,15 +75,18 @@ export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTa
 
 export function dedupeActionItems(items: ActionItemData[]): ActionItemData[] {
   const seen = new Set<string>();
-  return items.filter((item) => {
-    const dedupeKey = actionItemDedupeKeyValue(
-      item.kind,
-      item.title,
-      item.summary,
-      item.project_label ?? null,
-      item.thread_route?.thread_id ?? null,
-      item.thread_route?.label ?? null,
-    ).key;
+  const dedupeKeys = actionItemDedupeKeysValue(
+    items.map((item) => ({
+      kind: item.kind,
+      title: item.title,
+      summary: item.summary,
+      projectLabel: item.project_label ?? null,
+      threadId: item.thread_route?.thread_id ?? null,
+      threadLabel: item.thread_route?.label ?? null,
+    })),
+  );
+  return items.filter((item, index) => {
+    const dedupeKey = dedupeKeys[index] ?? item.id;
     if (seen.has(dedupeKey)) {
       return false;
     }

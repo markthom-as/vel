@@ -5,9 +5,9 @@
 //! native Apple FFI loader path.
 
 use crate::portable_core::{
-    collect_remote_routes, normalize_domain_hint, normalize_pairing_token_input,
-    normalize_positive_minutes, normalize_semantic_label, normalize_task_display_packet,
-    normalize_task_display_batch_packet,
+    action_item_dedupe_batch_packet, action_item_dedupe_key_packet, collect_remote_routes,
+    normalize_domain_hint, normalize_pairing_token_input, normalize_positive_minutes,
+    normalize_semantic_label, normalize_task_display_packet, normalize_task_display_batch_packet,
     normalized_optional_trimmed, prepare_app_shell_feedback_packet,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
     prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,
@@ -143,6 +143,64 @@ impl BrowserWasmScaffold {
         BrowserPacketResponse {
             kind: "deterministic_domain_helpers",
             payload_json: format!("{{\"shortLabel\":{}}}", option_json(packet.short_label)),
+        }
+    }
+
+    pub fn action_item_dedupe_key_packet(
+        kind: String,
+        title: String,
+        summary: String,
+        project_label: Option<String>,
+        thread_id: Option<String>,
+        thread_label: Option<String>,
+    ) -> BrowserPacketResponse {
+        let packet = action_item_dedupe_key_packet(
+            kind,
+            title,
+            summary,
+            project_label,
+            thread_id,
+            thread_label,
+        );
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!("{{\"key\":{}}}", string_json(&packet.key)),
+        }
+    }
+
+    pub fn action_item_dedupe_batch_packet(entries_json: String) -> BrowserPacketResponse {
+        let entries = serde_json::from_str::<Vec<serde_json::Value>>(&entries_json)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|value| {
+                let get_string = |key: &str| {
+                    value
+                        .get(key)
+                        .and_then(|value| value.as_str())
+                        .map(|value| value.to_string())
+                };
+                (
+                    get_string("kind").unwrap_or_default(),
+                    get_string("title").unwrap_or_default(),
+                    get_string("summary").unwrap_or_default(),
+                    get_string("projectLabel"),
+                    get_string("threadId"),
+                    get_string("threadLabel"),
+                )
+            })
+            .collect::<Vec<_>>();
+        let packet = action_item_dedupe_batch_packet(entries);
+        BrowserPacketResponse {
+            kind: "deterministic_domain_helpers",
+            payload_json: format!(
+                "{{\"keys\":[{}]}}",
+                packet
+                    .keys
+                    .into_iter()
+                    .map(|key| string_json(&key))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         }
     }
 
@@ -494,6 +552,33 @@ pub fn vel_embedded_normalize_task_display_batch_packet(entries_json: String) ->
 #[wasm_bindgen(js_name = velEmbeddedShortClientKindLabelPacket)]
 pub fn vel_embedded_short_client_kind_label_packet(client_kind: Option<String>) -> String {
     BrowserWasmScaffold::short_client_kind_label_packet(client_kind).payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedActionItemDedupeKeyPacket)]
+pub fn vel_embedded_action_item_dedupe_key_packet(
+    kind: String,
+    title: String,
+    summary: String,
+    project_label: Option<String>,
+    thread_id: Option<String>,
+    thread_label: Option<String>,
+) -> String {
+    BrowserWasmScaffold::action_item_dedupe_key_packet(
+        kind,
+        title,
+        summary,
+        project_label,
+        thread_id,
+        thread_label,
+    )
+    .payload_json
+}
+
+#[cfg(feature = "browser-wasm")]
+#[wasm_bindgen(js_name = velEmbeddedActionItemDedupeBatchPacket)]
+pub fn vel_embedded_action_item_dedupe_batch_packet(entries_json: String) -> String {
+    BrowserWasmScaffold::action_item_dedupe_batch_packet(entries_json).payload_json
 }
 
 #[cfg(feature = "browser-wasm")]

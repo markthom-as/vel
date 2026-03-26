@@ -1,4 +1,5 @@
 import {
+  actionItemDedupeBatchPacket,
   actionItemDedupeKeyPacket,
   appShellFeedbackPacket,
   assistantEntryFallbackPacket,
@@ -86,6 +87,10 @@ export type EmbeddedBridgeActionItemDedupeKeyPacket = {
 
 type EmbeddedBridgeTaskDisplayBatchPacket = {
   items: EmbeddedBridgeTaskDisplayPacket[];
+};
+
+type EmbeddedBridgeActionItemDedupeBatchPacket = {
+  keys: string[];
 };
 
 const semanticLabelCache = new Map<string, { normalized: string }>();
@@ -206,6 +211,35 @@ export function actionItemDedupeKeyValue(
   );
   actionItemDedupeKeyCache.set(cacheKey, parsed);
   return parsed;
+}
+
+export function actionItemDedupeKeysValue(
+  entries: Array<{
+    kind: string;
+    title: string;
+    summary: string;
+    projectLabel?: string | null;
+    threadId?: string | null;
+    threadLabel?: string | null;
+  }>,
+): string[] {
+  ensureEmbeddedBridgeRuntime();
+  const response = actionItemDedupeBatchPacket(
+    JSON.stringify(
+      entries.map((entry) => ({
+        kind: entry.kind,
+        title: entry.title,
+        summary: entry.summary,
+        projectLabel: entry.projectLabel ?? null,
+        threadId: entry.threadId ?? null,
+        threadLabel: entry.threadLabel ?? null,
+      })),
+    ),
+  );
+  return parsePacket<EmbeddedBridgeActionItemDedupeBatchPacket>(
+    response.kind,
+    response.payloadJson,
+  ).keys;
 }
 
 export function buildQueuedActionValue(

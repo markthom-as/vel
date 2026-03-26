@@ -155,6 +155,16 @@ pub struct PortableClientKindLabelPacket {
     pub short_label: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableActionItemDedupeKeyPacket {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortableActionItemDedupeBatchPacket {
+    pub keys: Vec<String>,
+}
+
 pub fn normalize_positive_minutes(value: Option<i64>) -> Option<i64> {
     value.map(|value| value.max(1))
 }
@@ -234,6 +244,57 @@ pub fn short_client_kind_label_packet(
     };
 
     PortableClientKindLabelPacket { short_label }
+}
+
+pub fn action_item_dedupe_key_packet(
+    kind: String,
+    title: String,
+    summary: String,
+    project_label: Option<String>,
+    thread_id: Option<String>,
+    thread_label: Option<String>,
+) -> PortableActionItemDedupeKeyPacket {
+    let key = [
+        normalize_semantic_label(&kind),
+        normalize_payload(&title),
+        normalize_payload(&summary),
+        normalized_optional_trimmed(project_label).unwrap_or_default(),
+        normalized_optional_trimmed(thread_id).unwrap_or_default(),
+        normalized_optional_trimmed(thread_label).unwrap_or_default(),
+    ]
+    .join("::");
+
+    PortableActionItemDedupeKeyPacket { key }
+}
+
+pub fn action_item_dedupe_batch_packet(
+    entries: Vec<(
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )>,
+) -> PortableActionItemDedupeBatchPacket {
+    PortableActionItemDedupeBatchPacket {
+        keys: entries
+            .into_iter()
+            .map(
+                |(kind, title, summary, project_label, thread_id, thread_label)| {
+                    action_item_dedupe_key_packet(
+                        kind,
+                        title,
+                        summary,
+                        project_label,
+                        thread_id,
+                        thread_label,
+                    )
+                    .key
+                },
+            )
+            .collect(),
+    }
 }
 
 pub fn prepare_voice_quick_action_packet(
