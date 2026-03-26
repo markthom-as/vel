@@ -67,9 +67,15 @@ const providerSemanticEntries: Record<string, SemanticEntry & { glyphClassName: 
   default: { icon: 'server', label: 'Provider', glyphClassName: 'bg-zinc-700 text-zinc-200' },
   google_calendar: { icon: 'calendar', label: 'Google Calendar', glyphClassName: 'bg-[#b96e3a] text-[#ffd7bf]' },
   todoist: { icon: 'tag', label: 'Todoist', glyphClassName: 'bg-[#8d4a35] text-[#ffd8c9]' },
+  github: { icon: 'folder', label: 'GitHub', glyphClassName: 'bg-[#535d72] text-[#e0e8ff]' },
   git: { icon: 'folder', label: 'Git', glyphClassName: 'bg-[#73553a] text-[#f7d0af]' },
   activity: { icon: 'warning', label: 'Activity', glyphClassName: 'bg-zinc-700 text-zinc-200' },
   health: { icon: 'warning', label: 'Health', glyphClassName: 'bg-zinc-700 text-zinc-200' },
+  email: { icon: 'threads', label: 'Email', glyphClassName: 'bg-[#5a5368] text-[#f2e6ff]' },
+  messaging: { icon: 'threads', label: 'Messaging', glyphClassName: 'bg-[#5b556f] text-[#e7deff]' },
+  reminders: { icon: 'tag', label: 'Reminders', glyphClassName: 'bg-[#5e643d] text-[#eef6bd]' },
+  notes: { icon: 'folder', label: 'Notes', glyphClassName: 'bg-[#64513d] text-[#ffe0bf]' },
+  transcripts: { icon: 'open_thread', label: 'Transcripts', glyphClassName: 'bg-[#4a5b69] text-[#d7ebff]' },
 };
 
 export function resolveProjectSemantic(label: string): SemanticEntry & { tagClassName: string } {

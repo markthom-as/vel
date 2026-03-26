@@ -57,6 +57,7 @@ import {
   resolveStateStatusSemantic,
 } from '../../core/Theme/semanticRegistry';
 import { SemanticIcon } from '../../core/Icons/SemanticIcon';
+import { SemanticAliasesEditor } from './SemanticAliasesEditor';
 import systemSurfaceDoc from '../../../../../docs/user/system.md?raw';
 
 export type SystemSectionKey = 'core' | 'overview' | 'operations' | 'integrations' | 'control' | 'preferences';
@@ -437,14 +438,14 @@ function systemChildAnchor(subsection: SystemSubsectionKey, key: string): string
 }
 
 function providerSummaries(integrations: IntegrationsData): IntegrationProviderSummary[] {
-  const locals: Array<{ key: Exclude<IntegrationProviderKey, 'google_calendar' | 'todoist'>; label: string; data: LocalIntegrationData }> = [
-    { key: 'activity', label: 'Activity', data: integrations.activity },
-    { key: 'health', label: 'Health', data: integrations.health },
-    { key: 'git', label: 'Git', data: integrations.git },
-    { key: 'messaging', label: 'Messaging', data: integrations.messaging },
-    { key: 'reminders', label: 'Reminders', data: integrations.reminders },
-    { key: 'notes', label: 'Notes', data: integrations.notes },
-    { key: 'transcripts', label: 'Transcripts', data: integrations.transcripts },
+  const locals: Array<{ key: Exclude<IntegrationProviderKey, 'google_calendar' | 'todoist'>; data: LocalIntegrationData }> = [
+    { key: 'activity', data: integrations.activity },
+    { key: 'health', data: integrations.health },
+    { key: 'git', data: integrations.git },
+    { key: 'messaging', data: integrations.messaging },
+    { key: 'reminders', data: integrations.reminders },
+    { key: 'notes', data: integrations.notes },
+    { key: 'transcripts', data: integrations.transcripts },
   ];
 
   return [
@@ -498,6 +499,25 @@ function providerSummaries(integrations: IntegrationsData): IntegrationProviderS
       ],
     })),
   ];
+}
+
+function normalizeSemanticLabel(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function resolveConnectionTitle(connection: IntegrationConnectionData): string {
+  const providerSemantic = resolveProviderSemantic(connection.provider_key);
+  const normalizedDisplayName = normalizeSemanticLabel(connection.display_name);
+  const normalizedProviderKey = normalizeSemanticLabel(connection.provider_key);
+  if (
+    normalizedDisplayName.length === 0
+    || normalizedDisplayName === 'provider'
+    || normalizedDisplayName === 'account'
+    || normalizedDisplayName === normalizedProviderKey
+  ) {
+    return providerSemantic.label;
+  }
+  return connection.display_name;
 }
 
 function llmRoutingProfiles(settings: SettingsData | null | undefined): LlmRoutingProfileSummary[] {
@@ -2506,25 +2526,25 @@ function IntegrationsAccountsDetail({
         const providerSemantic = resolveProviderSemantic(connection.provider_key);
         const statusSemantic = resolveProviderStatusSemantic(connection.status);
         return (
-        <SystemDocumentItem
-          key={connection.id}
-          id={systemChildAnchor('accounts', connection.id)}
-          title={connection.display_name}
-          subtitle={providerSemantic.label}
-          trailing={<SystemDocumentStatusChip tone={statusSemantic.tone}>{statusSemantic.label}</SystemDocumentStatusChip>}
-        >
-          <>
-            <SystemDocumentStatsGrid className="gap-x-6">
-              <SystemDocumentField label="Family" value={connection.family} />
-              <SystemDocumentField label="Provider" value={providerSemantic.label} />
-              <SystemDocumentField label="Account ref" value={connection.account_ref ?? 'Unavailable'} />
-              <SystemDocumentField label="Updated" value={formatMaybeTimestamp(connection.updated_at)} />
-            </SystemDocumentStatsGrid>
-            {connection.setting_refs.map((setting) => (
-              <SystemDocumentField key={`${setting.setting_key}-${setting.created_at}`} label={setting.setting_key} value={setting.setting_value} />
-            ))}
-          </>
-        </SystemDocumentItem>
+          <SystemDocumentItem
+            key={connection.id}
+            id={systemChildAnchor('accounts', connection.id)}
+            title={resolveConnectionTitle(connection)}
+            subtitle={providerSemantic.label}
+            trailing={<SystemDocumentStatusChip tone={statusSemantic.tone}>{statusSemantic.label}</SystemDocumentStatusChip>}
+          >
+            <>
+              <SystemDocumentStatsGrid className="gap-x-6">
+                <SystemDocumentField label="Family" value={connection.family} />
+                <SystemDocumentField label="Provider" value={providerSemantic.label} />
+                <SystemDocumentField label="Account ref" value={connection.account_ref ?? 'Unavailable'} />
+                <SystemDocumentField label="Updated" value={formatMaybeTimestamp(connection.updated_at)} />
+              </SystemDocumentStatsGrid>
+              {connection.setting_refs.map((setting) => (
+                <SystemDocumentField key={`${setting.setting_key}-${setting.created_at}`} label={setting.setting_key} value={setting.setting_value} />
+              ))}
+            </>
+          </SystemDocumentItem>
         );
       })}
     </SystemDocumentList>
@@ -2625,8 +2645,6 @@ function PreferencesAppearanceDetail({
   onToggle: (key: 'denseRows' | 'tabularNumbers' | 'reducedMotion' | 'strongFocus' | 'dockedActionBar') => void;
   onUpdateSemanticAliases: (aliases: SemanticAliasOverridesData) => void | Promise<void>;
 }) {
-  const semanticAliasesJson = JSON.stringify(preferences.semanticAliases ?? {}, null, 2);
-
   return (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -2658,30 +2676,7 @@ function PreferencesAppearanceDetail({
 
       <div className="space-y-3">
         <SystemDocumentSectionLabel>Semantic aliases</SystemDocumentSectionLabel>
-        <SystemDocumentField
-          label="Alias overrides JSON"
-          fieldId="appearance-semantic-aliases"
-          value={semanticAliasesJson}
-          multiline
-          placeholder={`{
-  "provider": { "google_calendar": "Calendar" }
-}`}
-          onCommit={(value) => {
-            const trimmed = value.trim();
-            let parsed: SemanticAliasOverridesData = {};
-            if (trimmed.length > 0) {
-              const candidate = JSON.parse(trimmed);
-              if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-                throw new Error('Semantic aliases must be a JSON object.');
-              }
-              parsed = candidate as SemanticAliasOverridesData;
-            }
-            return onUpdateSemanticAliases(parsed);
-          }}
-        />
-        <p className="text-xs leading-5 text-[var(--vel-color-muted)]">
-          Override shared labels for providers, projects, calendars, nudges, alerts, and modes. Use canonical snake_case keys.
-        </p>
+        <SemanticAliasesEditor value={preferences.semanticAliases} onSave={onUpdateSemanticAliases} />
       </div>
     </div>
   );
@@ -3068,7 +3063,7 @@ function CapabilityRow({ entry }: { entry: AgentCapabilityEntryData }) {
   );
 }
 
-function ProviderGlyph({ provider }: { provider: IntegrationProviderKey }) {
+function ProviderGlyph({ provider }: { provider: string }) {
   const semantic = resolveProviderSemantic(provider);
 
   return (
