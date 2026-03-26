@@ -22,6 +22,7 @@ related_files:
   - docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
+  - docs/cognitive-agent-architecture/architecture/embedded-packet-core-and-browser-wasm-path.md
 summary: Current Apple integration truth and the future migration path from today's HTTP-first model to optional embedded Rust / FFI usage.
 ---
 
@@ -120,6 +121,20 @@ FFI is an integration boundary choice, not permission for shell-owned product se
 3. Introduce one narrow Apple adapter seam for that feature only.
 4. Prove that the embedded path still preserves Rust-owned semantics and does not fork product logic.
 5. Expand only if the benefits are clear and repeatable.
+
+# Browser/WASM Follow-On
+
+If future work needs browser reuse of the same packet-shaping logic, do not reuse the Apple-native FFI boundary directly.
+
+Instead:
+
+1. extract deterministic helpers into a portable Rust packet core
+2. keep Apple native FFI as one adapter over that core
+3. add a separate browser/WASM adapter for JS-friendly exports
+
+The checked-in authority for that follow-on is:
+
+- [embedded-packet-core-and-browser-wasm-path.md](../architecture/embedded-packet-core-and-browser-wasm-path.md)
 
 # Anti-Patterns
 

@@ -1,6 +1,13 @@
+mod browser_wasm;
+mod portable_core;
+
 use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+
+use portable_core::{
+    normalize_domain_hint, normalize_payload, normalized_optional_trimmed, trim_text,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -487,38 +494,6 @@ fn parse_thread_draft(raw_json: Option<&str>) -> Result<ThreadDraftInputDecoded,
     })
 }
 
-fn normalize_domain_hint(value: String) -> String {
-    value
-        .trim()
-        .to_lowercase()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn normalize_payload(value: &str) -> String {
-    value
-        .trim()
-        .replace("\n", " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn trim_text(value: &str) -> String {
-    value.trim().to_string()
-}
-
-fn normalized_optional_trimmed(value: Option<String>) -> Option<String> {
-    value.and_then(|value| {
-        let trimmed = value.trim().to_string();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
-    })
-}
 
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const c_char) -> *mut c_char {
