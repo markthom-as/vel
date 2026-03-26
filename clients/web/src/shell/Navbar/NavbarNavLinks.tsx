@@ -8,7 +8,7 @@ import {
   ThreadsIcon,
 } from '../../core/Icons';
 import { uiTheme } from '../../core/Theme';
-import type { SystemNavigationTarget } from '../../views/system';
+import { systemDocumentationDeepLink, type SystemNavigationTarget } from '../../views/system';
 import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 const ACCENT = uiTheme.brandText;
@@ -82,13 +82,7 @@ export function NavbarNavLinks({ activeView, onSelectView, onDeepLink, surface =
       ))}
       <button
         type="button"
-        onClick={() =>
-          onDeepLink?.({
-            view: 'system',
-            systemTarget: { section: 'overview', subsection: 'trust' },
-            anchor: 'system-docs',
-          }) ?? onSelectView('system')
-        }
+        onClick={() => onDeepLink?.(systemDocumentationDeepLink()) ?? onSelectView('system')}
         aria-label="System documentation"
         title="Open system documentation"
         className={cn(

@@ -93,7 +93,7 @@ describe('Navbar', () => {
     expect(onDeepLink).toHaveBeenCalledWith({
       view: 'system',
       systemTarget: { section: 'overview', subsection: 'trust' },
-      anchor: 'system-docs',
+      anchor: 'system-documentation',
     })
   })
 

@@ -6,7 +6,7 @@ import { NudgeZone } from './shell/NudgeZone';
 import { useViewportSurface } from './core/hooks/useViewportSurface';
 import type { MainView } from './data/operatorSurfaces';
 import type { NowNudgeBarData } from './types';
-import type { SystemNavigationTarget } from './views/system';
+import { systemTargetForCoreSetting, type SystemNavigationTarget } from './views/system';
 
 type TabletLayoutMode = 'auto' | 'single' | 'split';
 
@@ -93,10 +93,11 @@ function App() {
       setSystemTarget(target.systemTarget);
     }
     setMainView(target.view);
-    if (!target.anchor) return;
+    const focusAnchor = target.anchor ?? target.systemTarget?.anchor;
+    if (!focusAnchor) return;
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        focusDeepLinkedNode(target.anchor!);
+        focusDeepLinkedNode(focusAnchor);
       });
     });
   }, []);
@@ -172,11 +173,7 @@ function App() {
           onOpenMiniComposer={openMiniComposer}
           onVoiceUnavailable={() => {
             raiseVoiceUnavailableNudge();
-            openSystem({
-              section: 'core',
-              subsection: 'core_settings',
-              anchor: 'core-settings-required-setup',
-            });
+            openSystem(systemTargetForCoreSetting('required_setup'));
           }}
           onRaiseNudge={pushLocalNudge}
           onClearNudge={clearLocalNudge}

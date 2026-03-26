@@ -33,7 +33,7 @@ export function SystemSidebarNav({
   onSelectSubsection: (subsection: SystemSubsectionKey, anchor?: string | null) => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--vel-color-border)] bg-[rgba(255,255,255,0.02)] px-4 py-4">
+    <div className="px-1 py-1">
       <SearchField
         aria-label="Filter system sections"
         value={sidebarFilter}
@@ -41,50 +41,41 @@ export function SystemSidebarNav({
         placeholder="Filter system"
       />
       {groupedNav.length === 0 ? (
-        <p className="mt-4 text-sm leading-6 text-[var(--vel-color-muted)]">
+        <p className="mt-2 px-1 text-[11px] leading-5 text-[var(--vel-color-muted)]">
           No system sections match that filter.
         </p>
       ) : (
-        <nav className="mt-4 space-y-4" aria-label="System sections">
+        <nav className="mt-2 space-y-2" aria-label="System sections">
           {groupedNav.map((group) => (
-            <div key={group.key} className="space-y-2">
-              <div className="border-b border-[var(--vel-color-border)] pb-2">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--vel-color-muted)]">
-                  {group.label}
-                </p>
-              </div>
-              <div className="space-y-1">
+            <div key={group.key} className="space-y-0.5">
+              <p className="px-1 text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--vel-color-muted)]">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const itemActive = activeSubsection === item.key;
                   const children = subsectionChildren[item.key] ?? [];
-                  const showChildren = itemActive || children.some((child) => child.id === activeChildAnchor);
+                  const showChildren = children.length > 1 && (itemActive || children.some((child) => child.id === activeChildAnchor));
                   return (
-                    <div key={item.key} className="space-y-1.5">
+                    <div key={item.key} className="space-y-0.5">
                       <button
                         type="button"
                         onClick={() => onSelectSubsection(item.key)}
-                        aria-pressed={itemActive}
+                        aria-current={itemActive ? 'page' : undefined}
+                        aria-label={`${item.label}. ${item.description}`}
                         className={cn(
-                          'block w-full rounded-[18px] border px-3 py-2 text-left transition',
+                          'block w-full rounded-[9px] px-2 py-1 text-left transition',
                           itemActive
-                            ? 'border-[var(--vel-color-accent-border)] bg-[rgba(255,255,255,0.045)]'
-                            : 'border-[var(--vel-color-border)] bg-transparent hover:border-[var(--vel-color-accent-border)]/70 hover:bg-[rgba(255,255,255,0.025)]',
+                            ? 'bg-[rgba(255,255,255,0.045)] text-[var(--vel-color-text)] ring-1 ring-[var(--vel-color-accent-border)]'
+                            : 'bg-transparent text-[var(--vel-color-muted)] hover:bg-[rgba(255,255,255,0.025)] hover:text-[var(--vel-color-text)]',
                         )}
                       >
-                        <p
-                          className={cn(
-                            'text-[13px] font-medium leading-5',
-                            itemActive ? 'text-[var(--vel-color-text)]' : 'text-[var(--vel-color-muted)]',
-                          )}
-                        >
+                        <p className="text-[12px] font-medium leading-4">
                           {item.label}
-                        </p>
-                        <p className="mt-1 text-[12px] leading-5 text-[var(--vel-color-dim)]">
-                          {item.description}
                         </p>
                       </button>
                       {showChildren && children.length > 0 ? (
-                        <div className="space-y-1 pl-3">
+                        <div className="space-y-0.5 border-l border-[var(--vel-color-border-subtle)] pl-3.5 ml-2">
                           {children.map((child) => {
                             const childActive = child.id === activeChildAnchor;
                             return (
@@ -92,15 +83,18 @@ export function SystemSidebarNav({
                                 key={child.id}
                                 type="button"
                                 onClick={() => onSelectSubsection(item.key, child.id)}
-                                aria-pressed={childActive}
+                                aria-current={childActive ? 'location' : undefined}
                                 className={cn(
-                                  'block w-full rounded-full border px-3 py-1.5 text-left text-[11px] uppercase tracking-[0.14em] transition',
+                                  'flex w-full items-center gap-1 rounded-[8px] px-1.5 py-0.5 text-left text-[8px] leading-[1.1] tracking-normal transition',
                                   childActive
-                                    ? 'border-[var(--vel-color-accent-border)] bg-[rgba(255,255,255,0.045)] text-[var(--vel-color-text)]'
-                                    : 'border-[var(--vel-color-border)] text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)]/70 hover:text-[var(--vel-color-text)]',
+                                    ? 'bg-[rgba(255,255,255,0.03)] text-[var(--vel-color-muted)]'
+                                    : 'text-[var(--vel-color-dim)] hover:bg-[rgba(255,255,255,0.015)] hover:text-[var(--vel-color-muted)]',
                                 )}
                               >
-                                {child.label}
+                                <span aria-hidden="true" className="text-[var(--vel-color-border)]">·</span>
+                                <span className="text-[8px] leading-[1.1] tracking-normal">
+                                  {child.label}
+                                </span>
                               </button>
                             );
                           })}

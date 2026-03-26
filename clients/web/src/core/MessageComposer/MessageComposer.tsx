@@ -1,9 +1,10 @@
 import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
-import { submitAssistantEntry } from '../../data/chat';
+import { loadCommandCompletion, submitAssistantEntry } from '../../data/chat';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import {
   type AssistantEntryAttachmentData,
   type AssistantEntryResponse,
+  type CommandCompleteResponseData,
   type NowDockedInputIntentData,
   type AssistantEntryVoiceProvenanceData,
 } from '../../types';
@@ -22,6 +23,7 @@ import { uiTheme } from '../Theme';
 
 /** Browser STT session cap — pie + auto-stop use this as the full ring. */
 const FLOATING_VOICE_MAX_MS = 120_000;
+const COMMAND_HISTORY_STORAGE_KEY = 'vel.web.commandHistory.v1';
 
 function trimIntentToken(token: string): string {
   return token.trim().replace(/^[('"`[{<]+|[)'"`}\].,;:!?]+$/g, '');
@@ -55,19 +57,124 @@ function inferImplicitIntent(text: string): NowDockedInputIntentData | null {
   return hasUrlOrPath ? 'url' : null;
 }
 
-function inferSlashCommandIntent(text: string): NowDockedInputIntentData | null {
-  const [firstToken = ''] = text.trim().split(/\s+/, 1);
-  if (!firstToken.startsWith('/')) {
+type ExplicitCommandParse =
+  | {
+      mode: 'slash' | 'vel' | 'spoken_slash';
+      rawText: string;
+      canonicalText: string;
+      tokens: string[];
+      displayTokens: string[];
+    }
+  | null;
+
+function canonicalizeCommandTokens(tokens: string[]): string[] {
+  if (tokens.length >= 2) {
+    const [first, second, ...rest] = tokens;
+    if (first === 'check' && second === 'in') {
+      return ['checkin', ...rest];
+    }
+  }
+  return tokens.map((token, index) => {
+    if (index === 0 && (token === 'check-in' || token === 'check_in')) {
+      return 'checkin';
+    }
+    return token;
+  });
+}
+
+function formatCanonicalCommand(tokens: string[]): string {
+  return tokens.length ? `vel ${tokens.join(' ')}` : 'vel';
+}
+
+function parseExplicitCommandInput(text: string): ExplicitCommandParse {
+  const trimmed = text.trim();
+  if (!trimmed) {
     return null;
   }
-  const commandToken = firstToken.slice(1);
-  if (!commandToken || commandToken.includes('/')) {
+
+  if (trimmed.startsWith('/')) {
+    const tokens = trimmed.split(/\s+/).filter(Boolean);
+    const [firstToken = ''] = tokens;
+    if (firstToken === '/') {
+      return { mode: 'slash', tokens: [] };
+    }
+    const commandToken = firstToken.slice(1);
+    if (!commandToken || commandToken.includes('/')) {
+      return null;
+    }
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(commandToken)) {
+      return null;
+    }
+    const canonicalTokens = canonicalizeCommandTokens([commandToken, ...tokens.slice(1)]);
+    return {
+      mode: 'slash',
+      rawText: trimmed,
+      canonicalText: formatCanonicalCommand(canonicalTokens),
+      tokens: canonicalTokens,
+      displayTokens: [commandToken, ...tokens.slice(1)],
+    };
+  }
+
+  if (trimmed === 'slash') {
+    return {
+      mode: 'spoken_slash',
+      rawText: trimmed,
+      canonicalText: 'vel',
+      tokens: [],
+      displayTokens: [],
+    };
+  }
+
+  if (trimmed.startsWith('slash ')) {
+    const tokens = trimmed.split(/\s+/).filter(Boolean).slice(1);
+    if (tokens.length === 0) {
+      return null;
+    }
+    const [commandToken] = tokens;
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(commandToken)) {
+      return null;
+    }
+    const canonicalTokens = canonicalizeCommandTokens(tokens);
+    return {
+      mode: 'spoken_slash',
+      rawText: trimmed,
+      canonicalText: formatCanonicalCommand(canonicalTokens),
+      tokens: canonicalTokens,
+      displayTokens: tokens,
+    };
+  }
+
+  if (trimmed === 'vel') {
+    return {
+      mode: 'vel',
+      rawText: trimmed,
+      canonicalText: 'vel',
+      tokens: [],
+      displayTokens: [],
+    };
+  }
+
+  if (!trimmed.startsWith('vel ')) {
     return null;
   }
-  if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(commandToken)) {
+
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens[0] !== 'vel') {
     return null;
   }
-  return 'command';
+  const displayTokens = tokens.slice(1);
+  const canonicalTokens = canonicalizeCommandTokens(displayTokens);
+  return {
+    mode: 'vel',
+    rawText: trimmed,
+    canonicalText: formatCanonicalCommand(canonicalTokens),
+    tokens: canonicalTokens,
+    displayTokens,
+  };
+}
+
+function inferExplicitCommandIntent(text: string): NowDockedInputIntentData | null {
+  return parseExplicitCommandInput(text) ? 'command' : null;
 }
 
 function formatVoiceClock(ms: number): string {
@@ -192,6 +299,12 @@ export function MessageComposer({
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [queuedAttachments, setQueuedAttachments] = useState<AttachmentDraft[]>([]);
   const [selectedIntent, setSelectedIntent] = useState<NowDockedInputIntentData | null>(null);
+  const [commandCompletion, setCommandCompletion] = useState<CommandCompleteResponseData | null>(null);
+  const [commandCompletionLoading, setCommandCompletionLoading] = useState(false);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [commandHistoryIndex, setCommandHistoryIndex] = useState<number | null>(null);
+  const [completionSelectionIndex, setCompletionSelectionIndex] = useState(0);
+  const commandDraftBeforeHistoryRef = useRef('');
   const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -230,6 +343,35 @@ export function MessageComposer({
     stop: stopVoice,
     interimTranscript,
   } = voiceRecognition;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(COMMAND_HISTORY_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        setCommandHistory(parsed.filter((item): item is string => typeof item === 'string'));
+      }
+    } catch {
+      // ignore malformed local history
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(COMMAND_HISTORY_STORAGE_KEY, JSON.stringify(commandHistory.slice(0, 50)));
+    } catch {
+      // ignore storage failures
+    }
+  }, [commandHistory]);
 
   const stopVoiceSession = useCallback(() => {
     voicePressActiveRef.current = false;
@@ -337,14 +479,55 @@ export function MessageComposer({
       : null,
     [queuedAttachments],
   );
+  const explicitCommand = useMemo(() => parseExplicitCommandInput(text), [text]);
+  const commandCompletionTokens = explicitCommand?.tokens ?? null;
+
+  useEffect(() => {
+    setCompletionSelectionIndex(0);
+  }, [text]);
+
+  useEffect(() => {
+    if (disabled || sending || !commandCompletionTokens) {
+      setCommandCompletion(null);
+      setCommandCompletionLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      setCommandCompletionLoading(true);
+      try {
+        const response = await loadCommandCompletion(commandCompletionTokens);
+        if (cancelled) {
+          return;
+        }
+        setCommandCompletion(response.ok ? (response.data ?? null) : null);
+      } catch {
+        if (!cancelled) {
+          setCommandCompletion(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setCommandCompletionLoading(false);
+        }
+      }
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [commandCompletionTokens, disabled, sending]);
 
   const send = useCallback(async () => {
     const trimmed = mergedMessage.trim();
     if (!trimmed || sending) return;
-    const slashCommandIntent = inferSlashCommandIntent(trimmed);
+    const normalizedCommand = parseExplicitCommandInput(trimmed);
+    const sendText = normalizedCommand?.canonicalText ?? trimmed;
+    const explicitCommandIntent = normalizedCommand ? 'command' : inferExplicitCommandIntent(trimmed);
     if (trimmed.startsWith('/') && onCommand) {
       const commandResult = onCommand(trimmed);
-      if (!commandResult && !slashCommandIntent) {
+      if (!commandResult && !explicitCommandIntent) {
         setCommandMessage('Unknown command. Type /help for available commands.');
         setCommandMessageError(true);
         return;
@@ -365,11 +548,11 @@ export function MessageComposer({
         setPendingVoice(null);
         return;
       }
-      if (!slashCommandIntent && commandResult?.error) {
+      if (!explicitCommandIntent && commandResult?.error) {
         setError(commandResult.message ?? 'Unknown command. Type /help for available commands.');
         return;
       }
-      if (!slashCommandIntent && !commandResult?.message) {
+      if (!explicitCommandIntent && !commandResult?.message) {
         setError('Unknown command. Type /help for available commands.');
         return;
       }
@@ -386,10 +569,10 @@ export function MessageComposer({
     setCommandMessage(null);
     setCommandMessageError(false);
     setSending(true);
-    const intent = slashCommandIntent ?? selectedIntent ?? inferImplicitIntent(trimmed);
-    const clientMessageId = onOptimisticSend?.(trimmed);
+    const intent = explicitCommandIntent ?? selectedIntent ?? inferImplicitIntent(sendText);
+    const clientMessageId = onOptimisticSend?.(sendText);
     const submittedPayload: SubmittedAssistantEntryPayload = {
-      text: trimmed,
+      text: sendText,
       conversationId: conversationId ?? null,
       intent,
       voice: pendingVoiceRef.current,
@@ -397,7 +580,7 @@ export function MessageComposer({
     };
     try {
       const res = await submitAssistantEntry(
-        trimmed,
+        sendText,
         conversationId,
         pendingVoiceRef.current,
         intent,
@@ -405,6 +588,16 @@ export function MessageComposer({
       );
       if (res.ok && res.data) {
         onSent(clientMessageId, res.data, submittedPayload);
+        if (normalizedCommand?.canonicalText) {
+          setCommandHistory((current) => {
+            const next = [
+              normalizedCommand.canonicalText,
+              ...current.filter((item) => item !== normalizedCommand.canonicalText),
+            ];
+            return next.slice(0, 50);
+          });
+          setCommandHistoryIndex(null);
+        }
         setText('');
         setQueuedAttachments([]);
         setSelectedIntent(null);
@@ -465,7 +658,118 @@ export function MessageComposer({
     }, 0);
   }, []);
 
+  const applyCommandHint = useCallback((hint: string) => {
+    setText((current) => {
+      const parsed = parseExplicitCommandInput(current);
+      if (!parsed) {
+        return `vel ${hint}`;
+      }
+      const nextTokens = [...parsed.tokens, hint];
+      return formatCanonicalCommand(nextTokens);
+    });
+    setCommandHistoryIndex(null);
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const completionHints = commandCompletion?.completion_hints ?? [];
+  const commandHintSuggestions = commandCompletion?.intent_hints?.suggestions ?? [];
+  const selectedCompletionHint = completionHints[Math.min(completionSelectionIndex, Math.max(0, completionHints.length - 1))] ?? null;
+  const commandModeLabel =
+    explicitCommand?.mode === 'vel'
+      ? 'vel command'
+      : explicitCommand?.mode === 'slash'
+        ? 'slash alias'
+        : explicitCommand?.mode === 'spoken_slash'
+          ? 'spoken alias'
+          : null;
+  const showCommandHints = Boolean(
+    explicitCommand
+      && (
+        completionHints.length
+        || commandHintSuggestions.length
+        || commandCompletionLoading
+        || (commandCompletion?.parse_error && commandCompletionTokens.length > 0)
+      ),
+  );
+  const commandGhostText = explicitCommand && selectedCompletionHint
+    ? ` ${selectedCompletionHint}`
+    : '';
+
+  const cycleCommandHistory = useCallback((step: -1 | 1) => {
+    if (commandHistory.length === 0) {
+      return;
+    }
+    setCommandHistoryIndex((current) => {
+      if (current === null) {
+        commandDraftBeforeHistoryRef.current = text;
+      }
+      const nextIndex = current === null
+        ? (step < 0 ? 0 : commandHistory.length - 1)
+        : Math.min(commandHistory.length - 1, Math.max(0, current + (step < 0 ? 1 : -1)));
+      const nextValue = commandHistory[nextIndex];
+      if (nextValue) {
+        setText(nextValue);
+      }
+      return nextIndex;
+    });
+  }, [commandHistory, text]);
+
+  const acceptSelectedCompletion = useCallback(() => {
+    if (!completionHints.length) {
+      return false;
+    }
+    applyCommandHint(completionHints[Math.min(completionSelectionIndex, completionHints.length - 1)]!);
+    return true;
+  }, [applyCommandHint, completionHints, completionSelectionIndex]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const textarea = textareaRef.current;
+    const selectionAtEnd = Boolean(
+      textarea
+        && textarea.selectionStart === textarea.value.length
+        && textarea.selectionEnd === textarea.value.length,
+    );
+    if (e.key === 'Tab' && explicitCommand && completionHints.length > 0) {
+      e.preventDefault();
+      if (completionHints.length === 1) {
+        acceptSelectedCompletion();
+      } else {
+        setCompletionSelectionIndex((current) => (current + 1) % completionHints.length);
+      }
+      return;
+    }
+    if (
+      e.key === 'ArrowRight'
+      && completionHints.length > 0
+      && selectionAtEnd
+    ) {
+      e.preventDefault();
+      acceptSelectedCompletion();
+      return;
+    }
+    if (e.key === 'ArrowUp' && (explicitCommand || text.trim().length === 0)) {
+      e.preventDefault();
+      cycleCommandHistory(-1);
+      return;
+    }
+    if (e.key === 'ArrowDown' && commandHistoryIndex !== null) {
+      e.preventDefault();
+      if (commandHistoryIndex <= 0) {
+        setCommandHistoryIndex(null);
+        setText(commandDraftBeforeHistoryRef.current);
+      } else {
+        cycleCommandHistory(1);
+      }
+      return;
+    }
+    if (e.key === 'Escape' && (showCommandHints || commandHistoryIndex !== null)) {
+      e.preventDefault();
+      setCommandHistoryIndex(null);
+      setCompletionSelectionIndex(0);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -847,6 +1151,66 @@ export function MessageComposer({
       : 'w-full resize-none rounded-full border-0 bg-zinc-800/30 px-3 py-1 leading-4 text-[11px] placeholder-zinc-500 transition-colors duration-150 focus:bg-zinc-700/55 focus:outline-none'
     : 'w-full resize-none rounded-full border-0 bg-zinc-800/30 px-4 py-2 text-zinc-100 placeholder-zinc-500 transition-colors duration-150 focus:bg-zinc-700/55 focus:outline-none';
 
+  const commandHintPanel = showCommandHints ? (
+    <div
+      className={cn(
+        'mt-1.5 rounded-2xl border border-[var(--vel-color-border)]/70 bg-[color:var(--vel-color-panel)]/88 px-3 py-2 text-[11px] text-[var(--vel-color-text)] backdrop-blur',
+        compactTui ? 'mx-0.5' : null,
+      )}
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">
+        <span>{commandModeLabel ?? 'command'}</span>
+        {commandCompletionLoading ? <span>Loading…</span> : null}
+        {commandCompletion?.parsed ? (
+          <span>
+            {commandCompletion.parsed.family} {commandCompletion.parsed.verb}
+          </span>
+        ) : null}
+        {commandCompletion?.intent_hints ? (
+          <span>{commandCompletion.intent_hints.target_kind}</span>
+        ) : null}
+        {explicitCommand && explicitCommand.rawText !== explicitCommand.canonicalText ? (
+          <span>{explicitCommand.canonicalText}</span>
+        ) : null}
+      </div>
+      {completionHints.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {completionHints.map((hint, index) => (
+            <button
+              key={hint}
+              type="button"
+              onClick={() => applyCommandHint(hint)}
+              className={cn(
+                'rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.1em] transition hover:bg-white/5',
+                index === completionSelectionIndex
+                  ? 'border-[var(--vel-color-accent-border)] bg-white/8 text-[var(--vel-color-text)]'
+                  : 'border-[var(--vel-color-border)] text-[var(--vel-color-text)]',
+              )}
+            >
+              {hint}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {selectedCompletionHint ? (
+        <p className="mt-2 text-[11px] leading-5 text-[var(--vel-color-muted)]">
+          `Tab` cycles, `Right Arrow` accepts, `Up/Down` recalls command history.
+        </p>
+      ) : null}
+      {commandHintSuggestions.length ? (
+        <p className="mt-2 text-[11px] leading-5 text-[var(--vel-color-muted)]">
+          Intent hints: {commandHintSuggestions.join(', ')}
+        </p>
+      ) : null}
+      {!commandCompletionLoading && !completionHints.length && commandCompletion?.parse_error ? (
+        <p className="mt-2 text-[11px] leading-5 text-[var(--vel-color-muted)]">
+          {commandCompletion.parse_error}
+        </p>
+      ) : null}
+    </div>
+  ) : null;
+
   return (
       <div className={containerClass}>
       {(error ?? commandMessage) && (
@@ -873,7 +1237,8 @@ export function MessageComposer({
           />
         ) : null}
         {floating ? (
-          <div className={cn('vel-composer-gradient-border min-w-0 w-full flex-1 rounded-full p-px transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
+          <div className="min-w-0 w-full flex-1">
+          <div className={cn('vel-composer-gradient-border min-w-0 w-full rounded-full p-px transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
           <div className={cn('flex items-center gap-2 rounded-full bg-zinc-950/95 py-2 pl-2 pr-2 backdrop-blur transition-[opacity,filter] duration-150', disabled ? 'opacity-80 saturate-0 grayscale' : null)}>
             {attachmentButtonEl}
             {queuedAttachments.length ? (
@@ -913,26 +1278,46 @@ export function MessageComposer({
                 </button>
               </span>
             ) : null}
-            <textarea
-              ref={textareaRef}
-              id="floating-message-composer-input"
-              name="floating-message-composer-input"
-              aria-label="Message composer"
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                setCommandMessage(null);
-                setCommandMessageError(false);
-                setError(null);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask, capture, or talk to Vel…"
-              data-vel-composer-input="true"
-              rows={1}
-              className="vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-6 focus:outline-none focus:ring-0 disabled:opacity-60"
-              disabled={interactionDisabled}
-              style={{ scrollbarWidth: 'none', height: '1.5rem', maxHeight: '1.5rem' }}
-            />
+            {commandModeLabel ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-[var(--vel-color-border)] bg-white/5 px-2 py-1 font-['JetBrainsMono_Nerd_Font',_'JetBrains_Mono',_monospace] text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--vel-color-muted)]">
+                {explicitCommand?.canonicalText === 'vel' ? 'vel>' : 'vel>'}
+              </span>
+            ) : null}
+            <div className="relative min-w-0 flex-1">
+              {explicitCommand && commandGhostText ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 left-0 right-0 overflow-hidden py-0 text-[13px] leading-6"
+                >
+                  <span className="invisible whitespace-pre-wrap">{text}</span>
+                  <span className="whitespace-pre-wrap text-[var(--vel-color-muted)]/45">{commandGhostText}</span>
+                </div>
+              ) : null}
+              <textarea
+                ref={textareaRef}
+                id="floating-message-composer-input"
+                name="floating-message-composer-input"
+                aria-label="Message composer"
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setCommandHistoryIndex(null);
+                  setCommandMessage(null);
+                  setCommandMessageError(false);
+                  setError(null);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask, capture, or talk to Vel…"
+                data-vel-composer-input="true"
+                rows={1}
+                className={cn(
+                  'vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-6 focus:outline-none focus:ring-0 disabled:opacity-60',
+                  explicitCommand ? "font-['JetBrainsMono_Nerd_Font',_'JetBrains_Mono',_monospace]" : null,
+                )}
+                disabled={interactionDisabled}
+                style={{ scrollbarWidth: 'none', height: '1.5rem', maxHeight: '1.5rem' }}
+              />
+            </div>
             {voiceStatusLabel ? (
               <span
                 className={cn(
@@ -976,6 +1361,8 @@ export function MessageComposer({
             </div>
           </div>
           </div>
+          {commandHintPanel}
+          </div>
         ) : (
           <>
             <div className={cn('flex min-w-0 flex-1 flex-col gap-1 transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
@@ -987,6 +1374,7 @@ export function MessageComposer({
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value);
+                    setCommandHistoryIndex(null);
                     setCommandMessage(null);
                     setCommandMessageError(false);
                     setError(null);
@@ -994,7 +1382,11 @@ export function MessageComposer({
                   onKeyDown={handleKeyDown}
                   placeholder={compactTui ? 'Type a message…' : 'Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)'}
                   rows={1}
-                  className={cn(compactFieldClass, compactTui ? 'pr-7' : null)}
+                  className={cn(
+                    compactFieldClass,
+                    compactTui ? 'pr-7' : null,
+                    explicitCommand ? "font-['JetBrainsMono_Nerd_Font',_'JetBrains_Mono',_monospace]" : null,
+                  )}
                   disabled={interactionDisabled}
                   style={compactTui ? { scrollbarWidth: 'none', minHeight: '2rem' } : { scrollbarWidth: 'none' }}
                 />
@@ -1030,6 +1422,7 @@ export function MessageComposer({
                   {voiceHint}
                 </p>
               ) : null}
+              {commandHintPanel}
             </div>
           </>
         )}

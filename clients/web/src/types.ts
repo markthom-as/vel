@@ -186,6 +186,38 @@ export interface AssistantEntryResponse {
   end_of_day?: EndOfDayData | null;
 }
 
+export interface CommandParsedData {
+  family: string;
+  verb: string;
+  target_tokens: string[];
+  source_text: string;
+}
+
+export interface CommandIntentHintsData {
+  target_kind: string;
+  mode: string;
+  suggestions: string[];
+}
+
+export interface CommandRegistryEntryData {
+  kind: string;
+  aliases: string[];
+  selectors: string[];
+  operations: string[];
+}
+
+export interface CommandCompleteResponseData {
+  input: string[];
+  completion_hints: string[];
+  registry: CommandRegistryEntryData[];
+  parsed?: CommandParsedData | null;
+  resolved_command?: JsonValue | null;
+  local_preview?: string | null;
+  local_explanation?: string | null;
+  intent_hints?: CommandIntentHintsData | null;
+  parse_error?: string | null;
+}
+
 export interface AssistantEntryFollowUpData {
   intervention_id: string;
   message_id: string;
@@ -2454,6 +2486,86 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
       record.end_of_day === undefined
         ? undefined
         : decodeNullable(record.end_of_day, decodeEndOfDayData),
+  };
+}
+
+export function decodeCommandParsedData(value: unknown): CommandParsedData {
+  const record = expectRecord(value, 'command parsed');
+  return {
+    family: expectString(record.family, 'command parsed.family'),
+    verb: expectString(record.verb, 'command parsed.verb'),
+    target_tokens: decodeArray(
+      record.target_tokens ?? [],
+      (item) => expectString(item, 'command parsed.target_tokens[]'),
+    ),
+    source_text: expectString(record.source_text, 'command parsed.source_text'),
+  };
+}
+
+export function decodeCommandIntentHintsData(value: unknown): CommandIntentHintsData {
+  const record = expectRecord(value, 'command intent hints');
+  return {
+    target_kind: expectString(record.target_kind, 'command intent hints.target_kind'),
+    mode: expectString(record.mode, 'command intent hints.mode'),
+    suggestions: decodeArray(
+      record.suggestions ?? [],
+      (item) => expectString(item, 'command intent hints.suggestions[]'),
+    ),
+  };
+}
+
+export function decodeCommandRegistryEntryData(value: unknown): CommandRegistryEntryData {
+  const record = expectRecord(value, 'command registry entry');
+  return {
+    kind: expectString(record.kind, 'command registry entry.kind'),
+    aliases: decodeArray(
+      record.aliases ?? [],
+      (item) => expectString(item, 'command registry entry.aliases[]'),
+    ),
+    selectors: decodeArray(
+      record.selectors ?? [],
+      (item) => expectString(item, 'command registry entry.selectors[]'),
+    ),
+    operations: decodeArray(
+      record.operations ?? [],
+      (item) => expectString(item, 'command registry entry.operations[]'),
+    ),
+  };
+}
+
+export function decodeCommandCompleteResponseData(value: unknown): CommandCompleteResponseData {
+  const record = expectRecord(value, 'command complete response');
+  return {
+    input: decodeArray(record.input ?? [], (item) => expectString(item, 'command complete response.input[]')),
+    completion_hints: decodeArray(
+      record.completion_hints ?? [],
+      (item) => expectString(item, 'command complete response.completion_hints[]'),
+    ),
+    registry: decodeArray(record.registry ?? [], decodeCommandRegistryEntryData),
+    parsed:
+      record.parsed === undefined
+        ? undefined
+        : decodeNullable(record.parsed, decodeCommandParsedData),
+    resolved_command:
+      record.resolved_command === undefined
+        ? undefined
+        : decodeNullable(record.resolved_command, decodeJsonValue),
+    local_preview:
+      record.local_preview === undefined
+        ? undefined
+        : expectNullableString(record.local_preview, 'command complete response.local_preview'),
+    local_explanation:
+      record.local_explanation === undefined
+        ? undefined
+        : expectNullableString(record.local_explanation, 'command complete response.local_explanation'),
+    intent_hints:
+      record.intent_hints === undefined
+        ? undefined
+        : decodeNullable(record.intent_hints, decodeCommandIntentHintsData),
+    parse_error:
+      record.parse_error === undefined
+        ? undefined
+        : expectNullableString(record.parse_error, 'command complete response.parse_error'),
   };
 }
 

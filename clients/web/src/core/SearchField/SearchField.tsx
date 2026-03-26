@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes } from 'react';
 import { SearchIcon } from '../Icons';
 import { cn } from '../cn';
 
@@ -11,11 +11,17 @@ export function SearchField({
   inputClassName?: string;
   iconClassName?: string;
 }) {
+  const fallbackId = useId();
+  const inputId = props.id ?? `search-field-${fallbackId.replace(/[:]/g, '')}`;
+  const inputName = props.name ?? inputId;
+
   return (
     <label className={cn('relative block', className)}>
       <input
         type="text"
         {...props}
+        id={inputId}
+        name={inputName}
         className={cn(
           'w-full rounded-xl border border-[var(--vel-color-border)] bg-transparent px-3 py-2 pr-9 text-sm text-[var(--vel-color-text)] placeholder:text-[var(--vel-color-dim)]',
           inputClassName,

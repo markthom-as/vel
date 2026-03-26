@@ -48,6 +48,14 @@ pub struct CommandPlanRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandCompleteRequest {
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub input: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecuteRequest {
     pub command: ResolvedCommand,
     #[serde(default)]
@@ -99,6 +107,44 @@ pub struct CommandIntentHintsData {
     pub target_kind: String,
     pub mode: String,
     pub suggestions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandParsedData {
+    pub family: String,
+    pub verb: String,
+    #[serde(default)]
+    pub target_tokens: Vec<String>,
+    pub source_text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandRegistryEntryData {
+    pub kind: String,
+    pub aliases: Vec<String>,
+    pub selectors: Vec<String>,
+    pub operations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandCompleteResponseData {
+    pub input: Vec<String>,
+    #[serde(default)]
+    pub completion_hints: Vec<String>,
+    #[serde(default)]
+    pub registry: Vec<CommandRegistryEntryData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parsed: Option<CommandParsedData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_command: Option<ResolvedCommand>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_preview: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_explanation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_hints: Option<CommandIntentHintsData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parse_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -29,6 +29,18 @@ function normalizeSemanticKey(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, '_');
 }
 
+function humanizeSemanticKey(value: string): string {
+  const normalized = normalizeSemanticKey(value);
+  if (!normalized) {
+    return 'Provider';
+  }
+  return normalized
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function resolveSemanticAlias(family: SemanticFamily, key: string, fallback: string): string {
   return resolveSemanticAliasOverride(family, key) ?? fallback;
 }
@@ -131,7 +143,7 @@ export function resolveProviderSemantic(provider: string): SemanticEntry & { gly
   const entry = providerSemanticEntries[key] ?? providerSemanticEntries.default;
   return {
     ...entry,
-    label: resolveSemanticAlias('provider', provider, entry.label),
+    label: resolveSemanticAlias('provider', provider, entry === providerSemanticEntries.default ? humanizeSemanticKey(provider) : entry.label),
   };
 }
 

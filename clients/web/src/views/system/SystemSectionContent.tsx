@@ -11,6 +11,7 @@ import {
   OperationsRecoveryDetail,
 } from './SystemOperationsSections';
 import {
+  SystemDocumentationDetail,
   OverviewHorizonDetail,
   OverviewTrustDetail,
 } from './SystemOverviewSections';
@@ -19,6 +20,7 @@ import {
   ControlProjectsDetail,
   PreferencesAccessibilityDetail,
 } from './SystemSupportSections';
+import { IntegrationPrimitiveDetail } from './SystemIntegrationPrimitiveSection';
 import { IntegrationsAccountsDetail } from './SystemAccountsSection';
 import {
   IntegrationsProvidersDetail,
@@ -30,6 +32,8 @@ import type {
   SystemNavigationTarget,
   SystemSubsectionKey,
 } from './systemNavigation';
+import { SYSTEM_DOCUMENTATION_ANCHOR } from './systemNavigation';
+import systemSurfaceDoc from '../../../../../docs/user/system.md?raw';
 
 function providerNeedsRecovery(provider: IntegrationProviderSummary): boolean {
   const status = provider.status.toLowerCase();
@@ -159,6 +163,63 @@ export function renderSystemSubsection({
       />
     );
   }
+  if (subsection === 'models') {
+    return (
+      <IntegrationsProvidersDetail
+        subsectionKey="models"
+        providers={[]}
+        settings={settings}
+        integrations={integrations}
+        pendingAction={pendingAction}
+        onRunIntegrationAction={onRunIntegrationAction}
+        onUpdateLlmSettings={onUpdateLlmSettings}
+        onPatchGoogleCalendar={onPatchGoogleCalendar}
+        onPatchTodoist={onPatchTodoist}
+        onStartGoogleAuth={onStartGoogleAuth}
+        showPostureSummary={false}
+      />
+    );
+  }
+  if (subsection === 'sources') {
+    return (
+      <IntegrationsAccountsDetail
+        subsectionKey="sources"
+        summaryTitle="All sources"
+        summarySubtitle="All linked source accounts across Vel primitives."
+        connections={connections}
+      />
+    );
+  }
+  if (
+    subsection === 'calendar'
+    || subsection === 'tasks'
+    || subsection === 'messages'
+    || subsection === 'calls'
+    || subsection === 'media'
+    || subsection === 'storage'
+    || subsection === 'notes'
+    || subsection === 'reminders'
+    || subsection === 'transcripts'
+    || subsection === 'git'
+    || subsection === 'home'
+    || subsection === 'user_activity'
+  ) {
+    return (
+      <IntegrationPrimitiveDetail
+        subsection={subsection}
+        providers={providers}
+        settings={settings}
+        integrations={integrations}
+        connections={connections}
+        pendingAction={pendingAction}
+        onRunIntegrationAction={onRunIntegrationAction}
+        onUpdateLlmSettings={onUpdateLlmSettings}
+        onPatchGoogleCalendar={onPatchGoogleCalendar}
+        onPatchTodoist={onPatchTodoist}
+        onStartGoogleAuth={onStartGoogleAuth}
+      />
+    );
+  }
   if (subsection === 'projects') {
     return (
       <ControlProjectsDetail
@@ -184,6 +245,13 @@ export function renderSystemSubsection({
         preferences={preferences}
         onToggle={onTogglePreference}
       />
+    );
+  }
+  if (subsection === 'documentation') {
+    return (
+      <div id={SYSTEM_DOCUMENTATION_ANCHOR} className="scroll-mt-24">
+        <SystemDocumentationDetail doc={systemSurfaceDoc} />
+      </div>
     );
   }
   return null;

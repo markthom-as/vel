@@ -1,5 +1,4 @@
 import { PanelEmptyRow } from '../../core/PanelChrome';
-import { normalizeSemanticLabelValue } from '../../data/embeddedBridgeAdapter';
 import type {
   IntegrationConnectionData,
   IntegrationsData,
@@ -11,75 +10,14 @@ import {
   type IntegrationActionId,
   type IntegrationProviderSummary,
 } from './SystemProvidersSection';
-
-type IntegrationPrimitiveSubsection =
-  | 'calendar'
-  | 'tasks'
-  | 'messages'
-  | 'notes'
-  | 'reminders'
-  | 'transcripts'
-  | 'git';
+import {
+  integrationPrimitiveDescriptor,
+  normalizeIntegrationPrimitiveValue,
+  type IntegrationPrimitiveKey,
+} from './SystemIntegrationTaxonomy';
 
 function normalizeIntegrationKey(value: string): string {
-  return normalizeSemanticLabelValue(value).normalized;
-}
-
-function primitiveProviderKeys(subsection: IntegrationPrimitiveSubsection): string[] {
-  switch (subsection) {
-    case 'calendar':
-      return ['google_calendar'];
-    case 'tasks':
-      return ['todoist'];
-    case 'messages':
-      return ['messaging'];
-    case 'notes':
-      return ['notes'];
-    case 'reminders':
-      return ['reminders'];
-    case 'transcripts':
-      return ['transcripts'];
-    case 'git':
-      return ['git'];
-  }
-}
-
-function primitiveFamilies(subsection: IntegrationPrimitiveSubsection): string[] {
-  switch (subsection) {
-    case 'calendar':
-      return ['calendar'];
-    case 'tasks':
-      return ['tasks', 'todoist'];
-    case 'messages':
-      return ['messages', 'messaging'];
-    case 'notes':
-      return ['notes'];
-    case 'reminders':
-      return ['reminders'];
-    case 'transcripts':
-      return ['transcripts'];
-    case 'git':
-      return ['git'];
-  }
-}
-
-function primitiveLabel(subsection: IntegrationPrimitiveSubsection): string {
-  switch (subsection) {
-    case 'calendar':
-      return 'Calendar';
-    case 'tasks':
-      return 'Tasks';
-    case 'messages':
-      return 'Messages';
-    case 'notes':
-      return 'Notes';
-    case 'reminders':
-      return 'Reminders';
-    case 'transcripts':
-      return 'Transcripts';
-    case 'git':
-      return 'Git';
-  }
+  return normalizeIntegrationPrimitiveValue(value);
 }
 
 export function IntegrationPrimitiveDetail({
@@ -95,7 +33,7 @@ export function IntegrationPrimitiveDetail({
   onPatchTodoist,
   onStartGoogleAuth,
 }: {
-  subsection: IntegrationPrimitiveSubsection;
+  subsection: Exclude<IntegrationPrimitiveKey, 'models' | 'sources'>;
   providers: IntegrationProviderSummary[];
   settings: SettingsData | null;
   integrations: IntegrationsData;
@@ -107,8 +45,9 @@ export function IntegrationPrimitiveDetail({
   onPatchTodoist: (patch: Record<string, unknown>) => Promise<void>;
   onStartGoogleAuth: () => Promise<void>;
 }) {
-  const allowedProviderKeys = new Set(primitiveProviderKeys(subsection).map(normalizeIntegrationKey));
-  const allowedFamilies = new Set(primitiveFamilies(subsection).map(normalizeIntegrationKey));
+  const primitive = integrationPrimitiveDescriptor(subsection);
+  const allowedProviderKeys = new Set(primitive.providerKeys.map(normalizeIntegrationKey));
+  const allowedFamilies = new Set(primitive.families.map(normalizeIntegrationKey));
   const filteredProviders = providers.filter((provider) => allowedProviderKeys.has(normalizeIntegrationKey(provider.key)));
   const filteredConnections = connections.filter((connection) => {
     const family = normalizeIntegrationKey(connection.family);
@@ -119,7 +58,7 @@ export function IntegrationPrimitiveDetail({
   if (filteredProviders.length === 0 && filteredConnections.length === 0) {
     return (
       <PanelEmptyRow>
-        No {primitiveLabel(subsection).toLowerCase()} sources are configured yet.
+        No {primitive.label.toLowerCase()} sources are configured yet.
       </PanelEmptyRow>
     );
   }
@@ -144,8 +83,8 @@ export function IntegrationPrimitiveDetail({
       {filteredConnections.length > 0 ? (
         <IntegrationsAccountsDetail
           subsectionKey={subsection}
-          summaryTitle={`${primitiveLabel(subsection)} sources`}
-          summarySubtitle={`Linked source accounts currently feeding ${primitiveLabel(subsection).toLowerCase()} into Vel.`}
+          summaryTitle={`${primitive.label} sources`}
+          summarySubtitle={`Linked source accounts currently feeding ${primitive.label.toLowerCase()} into Vel.`}
           connections={filteredConnections}
         />
       ) : null}

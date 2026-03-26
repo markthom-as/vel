@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../Button';
 import { cn } from '../cn';
 import { systemStatusChipAppearance, type SystemStatusTone } from '../Theme/semanticAppearance';
@@ -99,6 +99,8 @@ export function SystemDocumentField({
   placeholder?: string;
   fieldId?: string;
 }) {
+  const fallbackId = useId();
+  const normalizedFieldId = (fieldId ?? `system-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || fallbackId.replace(/[:]/g, '')}`).replace(/[:]/g, '');
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
   const lastSubmittedDraft = useRef<string | null>(null);
@@ -168,8 +170,8 @@ export function SystemDocumentField({
       <span className="text-xs uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">{label}</span>
       {multiline ? (
         <textarea
-          id={fieldId}
-          name={fieldId}
+          id={normalizedFieldId}
+          name={normalizedFieldId}
           aria-label={label}
           value={draft}
           placeholder={placeholder}
@@ -185,8 +187,8 @@ export function SystemDocumentField({
         />
       ) : (
         <input
-          id={fieldId}
-          name={fieldId}
+          id={normalizedFieldId}
+          name={normalizedFieldId}
           aria-label={label}
           value={draft}
           placeholder={placeholder}

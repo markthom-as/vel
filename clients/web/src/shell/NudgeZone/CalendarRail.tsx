@@ -294,6 +294,8 @@ export function CalendarRail({
         {visibleFollowingDayEvents.length > 0 ? (
           <label className="inline-flex cursor-pointer items-center gap-1.5 select-none">
             <input
+              id="calendar-next-day-toggle"
+              name="calendar_next_day_toggle"
               type="checkbox"
               checked={showFollowingDay}
               onChange={() => setShowFollowingDay((current) => !current)}

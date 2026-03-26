@@ -18,7 +18,11 @@ import { formatNavbarDateTime } from './formatNavbarDateTime';
 import { findActiveEvent } from '../../views/now/nowModel';
 import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
-import type { SystemNavigationTarget } from '../../views/system';
+import {
+  systemSurfaceDeepLink,
+  systemTrustStatusTarget,
+  type SystemNavigationTarget,
+} from '../../views/system';
 
 type TabletLayoutMode = 'auto' | 'single' | 'split';
 
@@ -148,7 +152,7 @@ export function Navbar({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onDeepLink?.({ view: 'system', systemTarget: { section: 'overview', subsection: 'trust' }, anchor: 'trust' }) ?? onSelectView('system')}
+                  onClick={() => onDeepLink?.(systemSurfaceDeepLink(systemTrustStatusTarget(), 'trust')) ?? onSelectView('system')}
                   aria-label={`Sync status ${syncTone}`}
                   className={cn('inline-flex min-h-[1.15rem] items-center justify-center rounded-full border px-1.5 py-[0.18rem] transition', syncBadgeClassName)}
                 >

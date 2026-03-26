@@ -27,7 +27,7 @@ import {
   resolveProviderStatusSemantic,
 } from '../../core/Theme/semanticRegistry';
 import { formatMaybeTimestamp, ProviderGlyph } from './SystemSupportSections';
-import { systemChildAnchor } from './systemNavigation';
+import { systemChildAnchor, type SystemSubsectionKey } from './systemNavigation';
 
 export type IntegrationActionId = 'google-disconnect' | 'google-refresh' | 'todoist-disconnect' | 'todoist-refresh';
 
@@ -197,22 +197,10 @@ function openAiApiDraftsEqual(left: OpenAiApiProfileDraft[], right: OpenAiApiPro
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function ProviderSnapshot({
-  provider,
-}: {
-  provider: IntegrationProviderSummary;
-}) {
-  return (
-    <SystemDocumentStatsGrid className="gap-x-6">
-      <SystemDocumentMetaRow label="Status" value={provider.status} />
-      <SystemDocumentMetaRow label="Configured" value={provider.configured ? 'Yes' : 'No'} />
-      <SystemDocumentMetaRow label="Last sync" value={formatMaybeTimestamp(provider.lastSyncAt)} />
-      <SystemDocumentMetaRow label="Details" value={provider.meta[0]?.value ?? 'Unavailable'} />
-    </SystemDocumentStatsGrid>
-  );
-}
-
 export function IntegrationsProvidersDetail({
+  subsectionKey = 'providers',
+  includeLlmRouting = true,
+  showPostureSummary = true,
   providers,
   settings,
   integrations,
@@ -223,6 +211,9 @@ export function IntegrationsProvidersDetail({
   onPatchTodoist,
   onStartGoogleAuth,
 }: {
+  subsectionKey?: SystemSubsectionKey;
+  includeLlmRouting?: boolean;
+  showPostureSummary?: boolean;
   providers: IntegrationProviderSummary[];
   settings: SettingsData | null;
   integrations: IntegrationsData;
@@ -602,25 +593,30 @@ export function IntegrationsProvidersDetail({
 
   return (
     <SystemDocumentList>
-      <SystemDocumentItem
-        id={systemChildAnchor('providers', 'provider-summary')}
-        title="Integration posture"
-        subtitle="Scan configured providers, live connections, and routing inventory before editing individual records."
-        trailing={<SystemDocumentStatusChip tone="neutral">{`${providers.length} providers`}</SystemDocumentStatusChip>}
-      >
-        <SystemDocumentStatsGrid className="gap-x-6">
-          <SystemDocumentMetaRow label="Configured" value={`${configuredProviders}`} />
-          <SystemDocumentMetaRow label="Connected" value={`${connectedProviders}`} />
-          <SystemDocumentMetaRow label="Local sources" value={`${localOnlyProviders}`} />
-          <SystemDocumentMetaRow label="LLM profiles" value={`${llmProfiles.length}`} />
-        </SystemDocumentStatsGrid>
-      </SystemDocumentItem>
+      {showPostureSummary ? (
+        <SystemDocumentItem
+          id={systemChildAnchor(subsectionKey, 'provider-summary')}
+          title="Integration posture"
+          subtitle="Scan configured providers, live connections, and routing inventory before editing individual records."
+          trailing={<SystemDocumentStatusChip tone="neutral">{`${providers.length} providers`}</SystemDocumentStatusChip>}
+        >
+          <SystemDocumentStatsGrid className="gap-x-6">
+            <SystemDocumentMetaRow label="Configured" value={`${configuredProviders}`} />
+            <SystemDocumentMetaRow label="Connected" value={`${connectedProviders}`} />
+            <SystemDocumentMetaRow label="Local sources" value={`${localOnlyProviders}`} />
+            <SystemDocumentMetaRow label="LLM profiles" value={`${llmProfiles.length}`} />
+          </SystemDocumentStatsGrid>
+        </SystemDocumentItem>
+      ) : null}
       {providers.map((provider) => {
         const collapseUnavailable = provider.key !== 'google_calendar' && provider.key !== 'todoist' && !provider.configured;
         const providerFields = (
           <>
-            <ProviderSnapshot provider={provider} />
-            {provider.meta.map((item) => <SystemDocumentField key={`${provider.key}-${item.label}`} label={item.label} value={item.value} />)}
+            <SystemDocumentStatsGrid className="gap-x-6">
+              {provider.meta.map((item) => (
+                <SystemDocumentMetaRow key={`${provider.key}-${item.label}`} label={item.label} value={item.value} />
+              ))}
+            </SystemDocumentStatsGrid>
             {provider.key === 'google_calendar' ? (
               <>
                 <SystemDocumentField
@@ -702,6 +698,8 @@ export function IntegrationsProvidersDetail({
                                 <label className="inline-flex cursor-pointer items-center justify-center rounded-md px-2 py-1">
                                   <input
                                     type="checkbox"
+                                    id={`calendar-sync-${calendar.id}`}
+                                    name={`calendar-sync-${calendar.id}`}
                                     aria-label={`${calendar.summary} sync`}
                                     className="h-4 w-4 cursor-pointer accent-[var(--vel-color-accent-strong)]"
                                     checked={calendar.sync_enabled}
@@ -726,6 +724,8 @@ export function IntegrationsProvidersDetail({
                                 >
                                   <input
                                     type="checkbox"
+                                    id={`calendar-visible-${calendar.id}`}
+                                    name={`calendar-visible-${calendar.id}`}
                                     aria-label={`${calendar.summary} visible`}
                                     className="h-4 w-4 cursor-pointer accent-[var(--vel-color-accent-strong)] disabled:cursor-not-allowed"
                                     checked={calendar.display_enabled}
@@ -825,10 +825,10 @@ export function IntegrationsProvidersDetail({
         return (
           <SystemDocumentItem
             key={provider.key}
-            id={systemChildAnchor('providers', provider.key)}
+            id={systemChildAnchor(subsectionKey, provider.key)}
             leading={<ProviderGlyph provider={provider.key} />}
             title={resolveProviderSemantic(provider.key).label}
-            subtitle={`${provider.guidance}${provider.lastSyncAt ? ` · Last sync ${formatMaybeTimestamp(provider.lastSyncAt)}` : ''}`}
+            subtitle={provider.guidance}
             trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(provider.status).tone}>{resolveProviderStatusSemantic(provider.status).label}</SystemDocumentStatusChip>}
           >
             {collapseUnavailable ? (
@@ -844,9 +844,9 @@ export function IntegrationsProvidersDetail({
           </SystemDocumentItem>
         );
       })}
-      {settings?.llm ? (
+      {settings?.llm && includeLlmRouting ? (
         <SystemDocumentItem
-          id={systemChildAnchor('providers', 'llm-routing')}
+          id={systemChildAnchor(subsectionKey, 'llm-routing')}
           title="LLM routing"
           subtitle="Choose the default local/remote chat profile and optional fallback from the discovered model registry."
           trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(activeDefaultId ? 'configured' : 'not configured').tone}>{resolveProviderStatusSemantic(activeDefaultId ? 'configured' : 'not configured').label}</SystemDocumentStatusChip>}
@@ -866,7 +866,7 @@ export function IntegrationsProvidersDetail({
               llmProfiles.map((profile) => (
                 <SystemDocumentItem
                   key={profile.id}
-                  id={systemChildAnchor('providers', `llm-${profile.id}`)}
+                  id={systemChildAnchor(subsectionKey, `llm-${profile.id}`)}
                   className="ml-3"
                   title={profile.id}
                   subtitle={`${profile.provider} · ${profile.model}`}
