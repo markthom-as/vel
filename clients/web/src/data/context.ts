@@ -9,12 +9,18 @@ import {
   decodeDriftExplainData,
   decodeNowData,
   decodeNullable,
+  decodeDailyLoopCheckInSkipResponseData,
+  decodeDailyLoopCheckInEventData,
   decodeSyncBootstrapData,
   type ApiResponse,
   type CommitmentData,
   type ContextExplainData,
   type CurrentContextData,
   type DailyLoopPhaseData,
+  type DailyLoopCheckInSkipRequestData,
+  type DailyLoopCheckInSkipResponseData,
+  type DailyLoopCheckInEventData,
+  type DailyLoopCheckInEventsQueryData,
   type DailyLoopSessionData,
   type DailyLoopStartRequestData,
   type DailyLoopTurnActionData,
@@ -148,6 +154,44 @@ export function loadActiveDailyLoopSession(
   return canonicalQuery<DailyLoopSessionData | null>(
     `/v1/daily-loop/sessions/active?${params.toString()}`,
     (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeDailyLoopSessionData)),
+  );
+}
+
+export function listSessionDailyLoopCheckIns(
+  sessionId: string,
+  query?: DailyLoopCheckInEventsQueryData,
+): Promise<ApiResponse<DailyLoopCheckInEventData[]>> {
+  const params = new URLSearchParams();
+  if (query?.check_in_type) {
+    params.append('check_in_type', query.check_in_type);
+  }
+  if (query?.session_phase) {
+    params.append('session_phase', query.session_phase);
+  }
+  if (query?.include_skipped) {
+    params.append('include_skipped', 'true');
+  }
+  if (query?.limit !== undefined) {
+    params.append('limit', query.limit.toString());
+  }
+  const qs = params.toString();
+  return canonicalQuery<DailyLoopCheckInEventData[]>(
+    `/v1/daily-loop/sessions/${encodeURIComponent(sessionId.trim())}/check-ins${
+      qs ? `?${qs}` : ''
+    }`,
+    (value) =>
+      decodeApiResponse(value, (data) => decodeArray(data, decodeDailyLoopCheckInEventData)),
+  );
+}
+
+export function skipDailyLoopCheckIn(
+  checkInEventId: string,
+  request: DailyLoopCheckInSkipRequestData,
+): Promise<ApiResponse<DailyLoopCheckInSkipResponseData>> {
+  return canonicalPostMutation<DailyLoopCheckInSkipResponseData>(
+    `/v1/daily-loop/check-ins/${encodeURIComponent(checkInEventId.trim())}/skip`,
+    request,
+    (value) => decodeApiResponse(value, decodeDailyLoopCheckInSkipResponseData),
   );
 }
 

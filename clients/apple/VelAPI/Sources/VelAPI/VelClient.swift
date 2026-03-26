@@ -367,6 +367,16 @@ public final class VelClient {
         )
     }
 
+    public func skipDailyLoopCheckIn(
+        checkInEventID: String,
+        request: DailyLoopCheckInSkipRequestData
+    ) async throws -> DailyLoopCheckInSkipResponseData {
+        try await post(
+            "/v1/daily-loop/check-ins/\(checkInEventID)/skip",
+            body: request
+        )
+    }
+
     // MARK: - Private
 
     private func get<T: Decodable>(_ path: String) async throws -> T {

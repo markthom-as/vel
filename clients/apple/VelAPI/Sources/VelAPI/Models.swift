@@ -399,6 +399,49 @@ public struct DailyLoopTurnRequestData: Codable, Sendable {
     }
 }
 
+public enum DailyLoopCheckInSkipSourceData: String, Codable, Sendable {
+    case user
+    case inferred
+}
+
+public struct DailyLoopCheckInSkipRequestData: Codable, Sendable {
+    public let source: DailyLoopCheckInSkipSourceData?
+    public let answered_at: Int?
+    public let reason_code: String?
+    public let reason_text: String?
+
+    public init(
+        source: DailyLoopCheckInSkipSourceData? = nil,
+        answered_at: Int? = nil,
+        reason_code: String? = nil,
+        reason_text: String? = nil
+    ) {
+        self.source = source
+        self.answered_at = answered_at
+        self.reason_code = reason_code
+        self.reason_text = reason_text
+    }
+}
+
+public struct DailyLoopCheckInSkipResponseData: Codable, Sendable {
+    public let check_in_event_id: String
+    public let session_id: String
+    public let status: String
+    public let supersedes_event_id: String?
+
+    public init(
+        check_in_event_id: String,
+        session_id: String,
+        status: String,
+        supersedes_event_id: String?
+    ) {
+        self.check_in_event_id = check_in_event_id
+        self.session_id = session_id
+        self.status = status
+        self.supersedes_event_id = supersedes_event_id
+    }
+}
+
 public struct DailyLoopPromptData: Codable, Sendable {
     public let prompt_id: String
     public let kind: DailyLoopPromptKindData

@@ -173,6 +173,31 @@ final class DailyLoopTests: XCTestCase {
                 return (response, Data(mockSessionEnvelopeJSON(id: "dls_2", phase: "standup", status: "completed").utf8))
             }
 
+            if path == "/v1/daily-loop/check-ins/dci_2/skip" {
+                XCTAssertEqual(request.httpMethod, "POST")
+                XCTAssertTrue(body.contains("\"reason_code\":\"not_applicable\""))
+                XCTAssertTrue(body.contains("\"reason_text\":\"in a meeting\""))
+                XCTAssertTrue(body.contains("\"source\":\"user\""))
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "ok": true,
+                          "data": {
+                            "check_in_event_id": "dci_2",
+                            "session_id": "dls_2",
+                            "status": "applied",
+                            "supersedes_event_id": "dci_1"
+                          },
+                          "meta": { "request_id": "req_skip" }
+                        }
+                        """
+                        .utf8
+                    )
+                )
+            }
+
             XCTFail("Unexpected request path: \(path)")
             return (response, Data())
         }
@@ -186,8 +211,17 @@ final class DailyLoopTests: XCTestCase {
         )
         _ = try await client.activeDailyLoopSession(sessionDate: "2026-03-19", phase: .standup)
         _ = try await client.submitDailyLoopTurn(sessionID: "dls_2", action: .skip)
+        _ = try await client.skipDailyLoopCheckIn(
+            checkInEventID: "dci_2",
+            request: DailyLoopCheckInSkipRequestData(
+                source: .user,
+                answered_at: nil,
+                reason_code: "not_applicable",
+                reason_text: "in a meeting"
+            )
+        )
 
-        XCTAssertEqual(requests.count, 3)
+        XCTAssertEqual(requests.count, 4)
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "x-vel-operator-token"), "operator-secret")
     }
 }
