@@ -148,9 +148,14 @@ final class VelClientStore: ObservableObject {
         applyCachedState()
 
         if let lastError {
-            errorMessage = "Offline cache in use. \(lastError.localizedDescription)"
+            errorMessage = appShellFeedback(
+                scenario: "offline_cache_in_use",
+                detail: lastError.localizedDescription
+            ) ?? "Offline cache in use. \(lastError.localizedDescription)"
         } else {
-            errorMessage = "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url."
+            errorMessage = appShellFeedback(
+                scenario: "no_reachable_endpoint"
+            ) ?? "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url."
         }
     }
 
@@ -168,13 +173,16 @@ final class VelClientStore: ObservableObject {
             errorMessage = nil
         } catch {
             signals = offlineStore.cachedSignals()
-            errorMessage = "Could not refresh activity feed. \(error.localizedDescription)"
+            errorMessage = appShellFeedback(
+                scenario: "refresh_signals_failed",
+                detail: error.localizedDescription
+            ) ?? "Could not refresh activity feed. \(error.localizedDescription)"
         }
     }
 
     func markNudgeDone(id: String) async {
         await performAction(
-            queuedMessage: "Queued nudge completion for sync.",
+            queuedMessage: appShellFeedback(scenario: "queued_nudge_done") ?? "Queued nudge completion for sync.",
             remote: {
                 _ = try await client.nudgeDone(id: id)
             },
@@ -186,7 +194,7 @@ final class VelClientStore: ObservableObject {
 
     func snoozeNudge(id: String, minutes: Int = 10) async {
         await performAction(
-            queuedMessage: "Queued nudge snooze for sync.",
+            queuedMessage: appShellFeedback(scenario: "queued_nudge_snooze") ?? "Queued nudge snooze for sync.",
             remote: {
                 _ = try await client.nudgeSnooze(id: id, minutes: minutes)
             },
@@ -198,7 +206,7 @@ final class VelClientStore: ObservableObject {
 
     func markCommitmentDone(id: String) async {
         await performAction(
-            queuedMessage: "Queued commitment completion for sync.",
+            queuedMessage: appShellFeedback(scenario: "queued_commitment_done") ?? "Queued commitment completion for sync.",
             remote: {
                 _ = try await client.markCommitmentDone(id: id)
             },
@@ -214,7 +222,7 @@ final class VelClientStore: ObservableObject {
             : text
 
         await performAction(
-            queuedMessage: "Queued commitment for sync.",
+            queuedMessage: appShellFeedback(scenario: "queued_commitment_create") ?? "Queued commitment for sync.",
             remote: {
                 _ = try await client.createCommitment(text: preparedText)
             },
@@ -253,7 +261,7 @@ final class VelClientStore: ObservableObject {
         )
 
         await performAction(
-            queuedMessage: "Queued capture for sync.",
+            queuedMessage: appShellFeedback(scenario: "queued_capture_create") ?? "Queued capture for sync.",
             remote: {
                 _ = try await client.createCapture(text: preparedText, type: type, source: source)
             },
@@ -303,7 +311,9 @@ final class VelClientStore: ObservableObject {
                 )
             )
             pendingActionCount = offlineStore.pendingActionCount()
-            errorMessage = "Assistant message queued for sync."
+            errorMessage = appShellFeedback(
+                scenario: "assistant_entry_queued"
+            ) ?? "Assistant message queued for sync."
             await refresh()
             return nil
         }
@@ -463,6 +473,13 @@ final class VelClientStore: ObservableObject {
         morningDailyLoop = offlineStore.cachedDailyLoopSession(phase: .morningOverview)
         standupDailyLoop = offlineStore.cachedDailyLoopSession(phase: .standup)
         pendingActionCount = offlineStore.pendingActionCount()
+    }
+
+    private func appShellFeedback(scenario: String, detail: String? = nil) -> String? {
+        embeddedBridge.appShellFeedbackBridge.prepareAppShellFeedback(
+            scenario: scenario,
+            detail: detail
+        )?.message
     }
 
     private func currentDailyLoopSessionDate() -> String {

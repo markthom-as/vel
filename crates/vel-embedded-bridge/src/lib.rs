@@ -351,6 +351,20 @@ struct LinkingFeedbackOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppShellFeedbackInput {
+    scenario: Option<String>,
+    detail: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppShellFeedbackOutput {
+    message: Option<String>,
+    ready: bool,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -1200,6 +1214,70 @@ pub extern "C" fn vel_embedded_prepare_linking_feedback(input_json: *const c_cha
             ready: true,
         },
         _ => LinkingFeedbackOutput {
+            message: None,
+            ready: false,
+        },
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_app_shell_feedback(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<AppShellFeedbackInput>(&raw).unwrap_or(AppShellFeedbackInput {
+        scenario: None,
+        detail: None,
+    });
+
+    let scenario = trim_text(&decoded.scenario.unwrap_or_default());
+    let detail = normalized_optional_trimmed(decoded.detail);
+
+    let output = match scenario.as_str() {
+        "offline_cache_in_use" => AppShellFeedbackOutput {
+            message: Some(match detail {
+                Some(value) => format!("Offline cache in use. {value}"),
+                None => "Offline cache in use.".to_string(),
+            }),
+            ready: true,
+        },
+        "no_reachable_endpoint" => AppShellFeedbackOutput {
+            message: Some("No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url.".to_string()),
+            ready: true,
+        },
+        "refresh_signals_failed" => AppShellFeedbackOutput {
+            message: Some(match detail {
+                Some(value) => format!("Could not refresh activity feed. {value}"),
+                None => "Could not refresh activity feed.".to_string(),
+            }),
+            ready: true,
+        },
+        "queued_nudge_done" => AppShellFeedbackOutput {
+            message: Some("Queued nudge completion for sync.".to_string()),
+            ready: true,
+        },
+        "queued_nudge_snooze" => AppShellFeedbackOutput {
+            message: Some("Queued nudge snooze for sync.".to_string()),
+            ready: true,
+        },
+        "queued_commitment_done" => AppShellFeedbackOutput {
+            message: Some("Queued commitment completion for sync.".to_string()),
+            ready: true,
+        },
+        "queued_commitment_create" => AppShellFeedbackOutput {
+            message: Some("Queued commitment for sync.".to_string()),
+            ready: true,
+        },
+        "queued_capture_create" => AppShellFeedbackOutput {
+            message: Some("Queued capture for sync.".to_string()),
+            ready: true,
+        },
+        "assistant_entry_queued" => AppShellFeedbackOutput {
+            message: Some("Assistant message queued for sync.".to_string()),
+            ready: true,
+        },
+        _ => AppShellFeedbackOutput {
             message: None,
             ready: false,
         },

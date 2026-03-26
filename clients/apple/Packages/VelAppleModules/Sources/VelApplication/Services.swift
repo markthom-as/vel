@@ -125,7 +125,8 @@ public struct VelAppEnvironment {
                     .localVoiceContinuitySummaryPackaging,
                     .localVoiceOfflineResponsePackaging,
                     .localVoiceCachedQueryPackaging,
-                    .localLinkingFeedbackPackaging
+                    .localLinkingFeedbackPackaging,
+                    .localAppShellFeedbackPackaging
                 ]
                 : []
         )

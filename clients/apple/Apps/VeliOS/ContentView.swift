@@ -2643,6 +2643,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local voice offline response packaging", value: configuration.permits(.localVoiceOfflineResponsePackaging))
             BoolStatusRow(label: "Local voice cached query packaging", value: configuration.permits(.localVoiceCachedQueryPackaging))
             BoolStatusRow(label: "Local linking feedback packaging", value: configuration.permits(.localLinkingFeedbackPackaging))
+            BoolStatusRow(label: "Local app shell feedback packaging", value: configuration.permits(.localAppShellFeedbackPackaging))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2661,6 +2662,7 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Voice offline response symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceOfflineResponsePackaging))
             BoolStatusRow(label: "Voice cached query symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCachedQueryPackaging))
             BoolStatusRow(label: "Linking feedback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingFeedbackPackaging))
+            BoolStatusRow(label: "App shell feedback symbol loaded", value: runtimeStatus.symbolAvailable(for: .localAppShellFeedbackPackaging))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
