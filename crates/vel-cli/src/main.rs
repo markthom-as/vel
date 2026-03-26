@@ -468,6 +468,24 @@ enum ThreadCommand {
     Reopen {
         id: String,
     },
+    Follow {
+        id: String,
+        #[arg(long)]
+        after_id: Option<i64>,
+        #[arg(long, default_value = "200")]
+        limit: u32,
+        #[arg(long, default_value = "500")]
+        poll_ms: u64,
+        #[arg(long)]
+        once: bool,
+    },
+    Reply {
+        id: String,
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        input: Vec<String>,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -1691,6 +1709,16 @@ async fn main() -> anyhow::Result<()> {
             ThreadCommand::Inspect { id } => commands::threads::run_inspect(&client, &id).await,
             ThreadCommand::Close { id } => commands::threads::run_close(&client, &id).await,
             ThreadCommand::Reopen { id } => commands::threads::run_reopen(&client, &id).await,
+            ThreadCommand::Follow {
+                id,
+                after_id,
+                limit,
+                poll_ms,
+                once,
+            } => commands::threads::run_follow(&client, &id, after_id, limit, poll_ms, once).await,
+            ThreadCommand::Reply { id, input, json } => {
+                commands::threads::run_reply(&client, &id, input, json).await
+            }
         },
         Command::Risk { id, json } => match id {
             Some(ref id) => commands::risk::run_commitment(&client, id, json).await,

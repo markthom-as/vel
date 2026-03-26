@@ -95,6 +95,16 @@ cargo run -p vel-cli -- connect stream <run_id> --poll-ms 500
 cargo run -p vel-cli -- run inspect <run_id>
 ```
 
+If the launch came from a handoff-backed continuity thread, you can stay in the thread lane instead of switching to raw run ids:
+
+```bash
+cargo run -p vel-cli -- thread inspect <thread_id>
+cargo run -p vel-cli -- thread follow <thread_id> --poll-ms 500
+cargo run -p vel-cli -- thread reply <thread_id> "status"
+```
+
+`thread follow` resolves the latest attached runtime from the thread links and tails its persisted connect events. `thread reply` sends bounded stdin to that same linked runtime. If the thread only has an execution handoff and no attached runtime yet, the CLI fails closed and tells you the runtime has not been launched.
+
 ## 5. Guest-runtime limits
 
 `wasm_guest` stays inside the same supervised sandbox boundary as other delegated work.

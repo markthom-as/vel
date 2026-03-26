@@ -174,12 +174,15 @@ CLI inspection surface:
 - `vel connect events <run_id> --limit 200`
 - `vel connect tail <run_id> --after-id 0 --poll-ms 500`
 - `vel connect stream <run_id> --after-id 0 --poll-ms 500`
+- `vel thread follow <thread_id> --poll-ms 500` once a launched runtime is attached to that thread
+- `vel thread reply <thread_id> "<text>"` to send bounded stdin back through the thread-linked runtime
 
 Repo-local supervised workflow:
 
 - persist/export context with `vel exec save|preview|export`
 - review persisted handoffs with `vel exec review`, `vel exec launch-preview`, `vel exec approve`, and `vel exec reject`
 - launch the approved runtime through authenticated `POST /v1/execution/handoffs/:id/launch` (or raw `POST /v1/connect/instances` when you need direct connect control)
+- approved handoff launches now back-link any originating execution-review thread to the launched `connect_run`, so operator CLI flows can follow and reply from the thread lane instead of resolving the runtime manually
 - `vel exec preview|export` now includes `agent-grounding.md` and `agent-inspect.json` under the bounded `.planning/vel` output directory so repo-local agents receive the same backend-owned grounding contract exposed by `GET /v1/agent/inspect`
 
 ## Execution handoff review
