@@ -12,6 +12,78 @@ public enum EmbeddedAppleFlow: String, Sendable, CaseIterable {
     case deterministicDomainHelpers = "deterministic_domain_helpers"
 }
 
+public struct EmbeddedBridgeRuntimeStatus: Sendable {
+    public let resolvedSource: String?
+    public let attemptedPaths: [String]
+    public let freeBufferAvailable: Bool
+    public let cachedNowHydrationSymbolAvailable: Bool
+    public let localQuickActionPreparationSymbolAvailable: Bool
+    public let offlineRequestPackagingSymbolAvailable: Bool
+    public let deterministicDomainHelpersSymbolAvailable: Bool
+
+    public init(
+        resolvedSource: String?,
+        attemptedPaths: [String],
+        freeBufferAvailable: Bool,
+        cachedNowHydrationSymbolAvailable: Bool,
+        localQuickActionPreparationSymbolAvailable: Bool,
+        offlineRequestPackagingSymbolAvailable: Bool,
+        deterministicDomainHelpersSymbolAvailable: Bool
+    ) {
+        self.resolvedSource = resolvedSource
+        self.attemptedPaths = attemptedPaths
+        self.freeBufferAvailable = freeBufferAvailable
+        self.cachedNowHydrationSymbolAvailable = cachedNowHydrationSymbolAvailable
+        self.localQuickActionPreparationSymbolAvailable = localQuickActionPreparationSymbolAvailable
+        self.offlineRequestPackagingSymbolAvailable = offlineRequestPackagingSymbolAvailable
+        self.deterministicDomainHelpersSymbolAvailable = deterministicDomainHelpersSymbolAvailable
+    }
+
+    public static let unavailable = EmbeddedBridgeRuntimeStatus(
+        resolvedSource: nil,
+        attemptedPaths: [],
+        freeBufferAvailable: false,
+        cachedNowHydrationSymbolAvailable: false,
+        localQuickActionPreparationSymbolAvailable: false,
+        offlineRequestPackagingSymbolAvailable: false,
+        deterministicDomainHelpersSymbolAvailable: false
+    )
+
+    public var isBridgeLoaded: Bool {
+        resolvedSource != nil && freeBufferAvailable
+    }
+
+    public var hasUsableSymbols: Bool {
+        cachedNowHydrationSymbolAvailable
+            || localQuickActionPreparationSymbolAvailable
+            || offlineRequestPackagingSymbolAvailable
+            || deterministicDomainHelpersSymbolAvailable
+    }
+
+    public var isOperational: Bool {
+        isBridgeLoaded && hasUsableSymbols
+    }
+
+    public var discoveredSymbolCount: Int {
+        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable]
+            .filter(\.self)
+            .count
+    }
+
+    public func symbolAvailable(for flow: EmbeddedAppleFlow) -> Bool {
+        switch flow {
+        case .cachedNowHydration:
+            cachedNowHydrationSymbolAvailable
+        case .localQuickActionPreparation:
+            localQuickActionPreparationSymbolAvailable
+        case .offlineRequestPackaging:
+            offlineRequestPackagingSymbolAvailable
+        case .deterministicDomainHelpers:
+            deterministicDomainHelpersSymbolAvailable
+        }
+    }
+}
+
 public struct EmbeddedBridgeConfiguration: Sendable {
     public let isBridgeAvailableInBuild: Bool
     public let mode: EmbeddedRuntimeMode
@@ -70,6 +142,7 @@ private struct OfflineBridgeEnvelope: Decodable {
 
 public protocol EmbeddedBridgeSurface: Sendable {
     var configuration: EmbeddedBridgeConfiguration { get }
+    var runtimeStatus: EmbeddedBridgeRuntimeStatus { get }
     var nowBridge: any EmbeddedNowBridge { get }
     var quickActionBridge: any EmbeddedQuickActionBridge { get }
     var offlineRequestBridge: any EmbeddedOfflineRequestBridge { get }
@@ -121,6 +194,7 @@ public struct NoopEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge {
 
 public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let configuration: EmbeddedBridgeConfiguration
+    public let runtimeStatus: EmbeddedBridgeRuntimeStatus
     public let nowBridge: any EmbeddedNowBridge
     public let quickActionBridge: any EmbeddedQuickActionBridge
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
@@ -128,6 +202,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
 
     public init(configuration: EmbeddedBridgeConfiguration = .daemonBackedDefault()) {
         self.configuration = configuration
+        self.runtimeStatus = .unavailable
         self.nowBridge = NoopEmbeddedNowBridge()
         self.quickActionBridge = NoopEmbeddedQuickActionBridge()
         self.offlineRequestBridge = NoopEmbeddedOfflineRequestBridge()
@@ -160,14 +235,39 @@ private enum VelEmbeddedRustBridge {
         freeBuffer: "vel_embedded_free_buffer"
     )
 
-    static let bindings: VelEmbeddedRustBindings? = {
+    private typealias BindingResolution = (
+        bindings: VelEmbeddedRustBindings?,
+        status: EmbeddedBridgeRuntimeStatus
+    )
+
+    static let resolution: BindingResolution = {
         let flags = RTLD_NOW | RTLD_LOCAL
+        var attemptedPaths: [String] = []
 
-        if let handle = dlopen(nil, flags) {
-            guard let freeBuffer = lookup(candidate: symbolNames.freeBuffer, from: handle) else {
-                return nil
-            }
+        func makeStatus(
+            source: String?,
+            freeBuffer: VelEmbeddedFreeBufferFn?,
+            cachedNowSummary: VelEmbeddedCachedNowSummaryFn?,
+            prepareQuickCapture: VelEmbeddedPrepareQuickCaptureFn?,
+            packageOfflineRequest: VelEmbeddedPackageOfflineRequestFn?,
+            normalizeDomainHelpers: VelEmbeddedNormalizeDomainHelpersFn?
+        ) -> EmbeddedBridgeRuntimeStatus {
+            EmbeddedBridgeRuntimeStatus(
+                resolvedSource: source,
+                attemptedPaths: attemptedPaths,
+                freeBufferAvailable: freeBuffer != nil,
+                cachedNowHydrationSymbolAvailable: cachedNowSummary != nil,
+                localQuickActionPreparationSymbolAvailable: prepareQuickCapture != nil,
+                offlineRequestPackagingSymbolAvailable: packageOfflineRequest != nil,
+                deterministicDomainHelpersSymbolAvailable: normalizeDomainHelpers != nil
+            )
+        }
 
+        func bindingsIfUsable(
+            from handle: UnsafeMutableRawPointer,
+            source: String
+        ) -> BindingResolution {
+            let freeBuffer = lookup(candidate: symbolNames.freeBuffer, from: handle)
             let cachedNowSummary: VelEmbeddedCachedNowSummaryFn? = lookup(
                 candidate: symbolNames.cachedNowSummary,
                 from: handle
@@ -185,51 +285,83 @@ private enum VelEmbeddedRustBridge {
                 from: handle
             )
 
-            if cachedNowSummary != nil || prepareQuickCapture != nil || packageOfflineRequest != nil || normalizeDomainHelpers != nil {
-                return VelEmbeddedRustBindings(
+            let status = makeStatus(
+                source: freeBuffer == nil ? nil : source,
+                freeBuffer: freeBuffer,
+                cachedNowSummary: cachedNowSummary,
+                prepareQuickCapture: prepareQuickCapture,
+                packageOfflineRequest: packageOfflineRequest,
+                normalizeDomainHelpers: normalizeDomainHelpers
+            )
+
+            guard freeBuffer != nil else {
+                return (nil, status)
+            }
+
+            if cachedNowSummary == nil && prepareQuickCapture == nil && packageOfflineRequest == nil && normalizeDomainHelpers == nil {
+                return (nil, status)
+            }
+
+            return (
+                VelEmbeddedRustBindings(
                     handle: handle,
                     cachedNowSummary: cachedNowSummary,
                     prepareQuickCapture: prepareQuickCapture,
                     packageOfflineRequest: packageOfflineRequest,
                     normalizeDomainHelpers: normalizeDomainHelpers,
                     freeBuffer: freeBuffer
-                )
-            }
+                ),
+                status
+            )
         }
 
-        let candidates = resolveRustLibraryPaths()
-        for candidate in candidates {
-            guard let handle = dlopen(candidate, flags) else {
-                continue
-            }
-
-            guard let freeBuffer = lookup(candidate: symbolNames.freeBuffer, from: handle) else {
-                _ = dlclose(handle)
-                continue
-            }
-
-            let bindings = VelEmbeddedRustBindings(
-                handle: handle,
-                cachedNowSummary: lookup(candidate: symbolNames.cachedNowSummary, from: handle),
-                prepareQuickCapture: lookup(candidate: symbolNames.prepareQuickCapture, from: handle),
-                packageOfflineRequest: lookup(candidate: symbolNames.packageOfflineRequest, from: handle),
-                normalizeDomainHelpers: lookup(candidate: symbolNames.normalizeDomainHelpers, from: handle),
-                freeBuffer: freeBuffer
-            )
-
-            if bindings.cachedNowSummary != nil
-                || bindings.prepareQuickCapture != nil
-                || bindings.packageOfflineRequest != nil
-                || bindings.normalizeDomainHelpers != nil
-            {
-                return bindings
+        if let handle = dlopen(nil, flags) {
+            attemptedPaths.append("main process")
+            let primary = bindingsIfUsable(from: handle, source: "main process")
+            if let primaryBindings = primary.bindings {
+                return (primaryBindings, primary.status)
             }
 
             _ = dlclose(handle)
         }
 
-        return nil
+        let candidates = resolveRustLibraryPaths()
+        for candidate in candidates {
+            attemptedPaths.append(candidate)
+            guard let handle = dlopen(candidate, flags) else {
+                continue
+            }
+
+            let discovered = bindingsIfUsable(from: handle, source: candidate)
+            guard let rustBindings = discovered.bindings else {
+                _ = dlclose(handle)
+                continue
+            }
+
+            return (rustBindings, discovered.status)
+        }
+
+        return (
+            nil,
+            EmbeddedBridgeRuntimeStatus(
+                resolvedSource: nil,
+                attemptedPaths: attemptedPaths,
+                freeBufferAvailable: false,
+                cachedNowHydrationSymbolAvailable: false,
+                localQuickActionPreparationSymbolAvailable: false,
+                offlineRequestPackagingSymbolAvailable: false,
+                deterministicDomainHelpersSymbolAvailable: false
+            )
+        )
     }()
+
+    static var bindings: VelEmbeddedRustBindings? {
+        resolution.bindings
+    }
+
+    static var runtimeStatus: EmbeddedBridgeRuntimeStatus {
+        resolution.status
+    }
 
     static func resolveRustLibraryPaths() -> [String] {
         var candidates = [
@@ -441,6 +573,7 @@ public struct RustEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge, @unc
 
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
+    public let runtimeStatus: EmbeddedBridgeRuntimeStatus
     public let nowBridge: any EmbeddedNowBridge
     public let quickActionBridge: any EmbeddedQuickActionBridge
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
@@ -452,6 +585,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
         }
 
         self.configuration = configuration
+        self.runtimeStatus = VelEmbeddedRustBridge.runtimeStatus
 
         if let rustNow = RustEmbeddedNowBridge(bindings: bindings), configuration.permits(.cachedNowHydration) {
             self.nowBridge = rustNow
@@ -521,12 +655,15 @@ public struct RustEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge, @unc
 
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
+    public let runtimeStatus: EmbeddedBridgeRuntimeStatus
     public let nowBridge: any EmbeddedNowBridge
     public let quickActionBridge: any EmbeddedQuickActionBridge
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
+        self.configuration = configuration
+        self.runtimeStatus = .unavailable
         return nil
     }
 }

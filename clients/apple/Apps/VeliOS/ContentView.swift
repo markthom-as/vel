@@ -2579,6 +2579,7 @@ private struct SettingsTab: View {
 
     private var embeddedBridgeSection: some View {
         let configuration = appEnvironment.embeddedBridge.configuration
+        let runtimeStatus = appEnvironment.embeddedBridge.runtimeStatus
 
         return Section("Embedded Rust bridge") {
             if appEnvironment.featureCapabilities.supportsEmbeddedRustBridge {
@@ -2597,14 +2598,36 @@ private struct SettingsTab: View {
             Text("Target: \(configuration.target.rawValue)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            Text("Runtime status: \(runtimeStatus.isOperational ? "operational" : "not operational")")
+                .font(.caption2)
+                .foregroundStyle(runtimeStatus.isOperational ? .green : .secondary)
             Text("Library in build: \(configuration.isBridgeAvailableInBuild ? "yes" : "no")")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            if let source = runtimeStatus.resolvedSource {
+                Text("Runtime source: \(source)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Runtime source: unresolved")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if !runtimeStatus.attemptedPaths.isEmpty {
+                Text("Lookup attempts: \(runtimeStatus.attemptedPaths.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
 
             BoolStatusRow(label: "Cached now hydration", value: configuration.permits(.cachedNowHydration))
             BoolStatusRow(label: "Local quick capture", value: configuration.permits(.localQuickActionPreparation))
             BoolStatusRow(label: "Offline request packaging", value: configuration.permits(.offlineRequestPackaging))
             BoolStatusRow(label: "Domain helpers", value: configuration.permits(.deterministicDomainHelpers))
+
+            BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
+            BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
+            BoolStatusRow(label: "Offline packaging symbol loaded", value: runtimeStatus.symbolAvailable(for: .offlineRequestPackaging))
+            BoolStatusRow(label: "Domain helper symbol loaded", value: runtimeStatus.symbolAvailable(for: .deterministicDomainHelpers))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
