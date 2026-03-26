@@ -15,7 +15,7 @@ npm run gallery:web
 npm run dev
 ```
 
-`npm run dev` now builds the embedded Rust bridge artifact first and starts Vite with:
+`npm run dev` now builds the embedded Rust bridge artifact first, watches `crates/vel-embedded-bridge` plus workspace Cargo manifests for Rust changes, and starts Vite with:
 
 ```bash
 VITE_VEL_EMBEDDED_BRIDGE_WASM_URL=/embedded-bridge/vel-embedded-bridge.js
@@ -59,7 +59,7 @@ If that env var is unset, the web client fails closed when embedded packet calls
 - Vite 8
 - Tailwind CSS v4 (@tailwindcss/postcss)
 
-Base styling and Tailwind are configured. The app talks to veld via `VITE_API_URL` (default `http://localhost:4130`). From the repo root, `make dev` runs veld and this dev server together.
+Base styling and Tailwind are configured. In the default dev flow, Vite proxies `/api`, `/v1`, and `/ws` to veld using `VELD_URL` (default `http://127.0.0.1:4130`). Set `VITE_API_URL` only when you intentionally want the browser to call an explicit API base directly instead of using the dev proxy. From the repo root, `make dev` runs veld and this dev server together.
 
 ## Seed data
 

@@ -62,9 +62,9 @@ Vel uses Nix for a reproducible toolchain. Ensure you are in the `nix-shell` bef
 | Command | Description |
 |--------|-------------|
 | `make build` | Build veld and the web client. |
-| `make dev` | Start **veld** and the **web dev server** (Vite UI at http://localhost:5173). |
-| `make dev-api` | Start only `veld` for runtime and API work. Fails early if active chat routing requires a missing localhost OpenAI OAuth proxy. |
-| `make dev-web` | Start only the web dev server against an existing daemon. |
+| `make dev` | Start **veld** and the **web dev server** (Vite UI at http://localhost:5173), with Rust-source watching for daemon restarts and embedded bridge rebuilds. |
+| `make dev-api` | Start only `veld` for runtime and API work, with Rust-source watching. Fails early if active chat routing requires a missing localhost OpenAI OAuth proxy. |
+| `make dev-web` | Start only the web dev server against an existing daemon, with embedded bridge Rust rebuild watching. |
 | `make dev-openai-oauth` | Start the checked-in localhost OpenAI OAuth proxy on `127.0.0.1:8014`. |
 | `make check-llm-setup` | Inspect local model paths, `llama-server`, GPU visibility, and localhost OpenAI OAuth readiness. |
 | `make verify` | Run Rust fmt/clippy and full test suite. |
