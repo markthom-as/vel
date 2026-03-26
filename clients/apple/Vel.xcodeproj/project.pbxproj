@@ -3,13 +3,13 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		00B5AC987F8525DF9C2AA62B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D12A2C3F21A62D45BBD2887 /* ContentView.swift */; };
 		244D54B575F7D235B550B5CD /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5C02F5CF71715FF7A67D762 /* Foundation.framework */; };
-		31243AEB80130EC9C5EE0915 /* VelWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 99467C4C1BB572376E41478A /* VelWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		31243AEB80130EC9C5EE0915 /* VelWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 99467C4C1BB572376E41478A /* VelWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		33C52BB7C3DF563C28480FB1 /* VelMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD39BFC29EDCE76294704F0 /* VelMacApp.swift */; };
 		3A445CA0D43ED308B3DFB073 /* VelApplication in Frameworks */ = {isa = PBXBuildFile; productRef = 42D170C4DCE09F2BEBC3FD70 /* VelApplication */; };
 		3F42EA6E2C37BB5F2002EED2 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 52B7EDDB75F3D82CD5C63E94 /* VelAPI */; };
@@ -22,7 +22,7 @@
 		85FBA1CF1073359D9BAA15E5 /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 18FDB7835B8174136A15625B /* VelApplePlatform */; };
 		879B596172E4D735284E8BF3 /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 60D0707FE6BCEA83D9F9B73C /* VelApplePlatform */; };
 		8C9F6A7B1D2E3F4051627384 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8C9F6A7B1D2E3F4051627383 /* LaunchScreen.storyboard */; };
-		9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B2C3D40000000400000001 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000A00000001 /* VelAPI */; };
 		A1B2C3D40000000400000002 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000A00000002 /* VelAPI */; };
 		A1B2C3D40000000400000003 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000100000004 /* XCTest.framework */; };
@@ -62,16 +62,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		ED2C3B24F037133873ADEC7A /* Embed App Extensions */ = {
+		ED2C3B24F037133873ADEC7A /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				31243AEB80130EC9C5EE0915 /* VelWidgetExtension.appex in Embed App Extensions */,
-				9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed App Extensions */,
+				31243AEB80130EC9C5EE0915 /* VelWidgetExtension.appex in Embed Foundation Extensions */,
+				9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -174,7 +174,6 @@
 				5DD39BFC29EDCE76294704F0 /* VelMacApp.swift */,
 				0D12A2C3F21A62D45BBD2887 /* ContentView.swift */,
 			);
-			name = VelMac;
 			path = VelMac;
 			sourceTree = "<group>";
 		};
@@ -186,12 +185,21 @@
 			name = iOS;
 			sourceTree = "<group>";
 		};
+		9E5BC5A42F74FCEE00402AEA /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D40000000100000004 /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		A1B2C3D40000000500000001 = {
 			isa = PBXGroup;
 			children = (
 				A1B2C3D40000000500000002 /* Apps */,
 				A1B2C3D40000000500000003 /* Products */,
 				DFBE52423526212B08878998 /* Frameworks */,
+				9E5BC5A42F74FCEE00402AEA /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -253,7 +261,6 @@
 			children = (
 				2366CE73F9869E4F5200512E /* VelIntentsExtension.swift */,
 			);
-			name = VelIntentsExtension;
 			path = VelIntentsExtension;
 			sourceTree = "<group>";
 		};
@@ -271,7 +278,6 @@
 			children = (
 				C013C0C0BEA444F7A8324FFE /* VelWidgetBundle.swift */,
 			);
-			name = VelWidgetExtension;
 			path = VelWidgetExtension;
 			sourceTree = "<group>";
 		};
@@ -319,7 +325,7 @@
 				A1B2C3D40000000800000001 /* Sources */,
 				A1B2C3D40000000300000001 /* Frameworks */,
 				A1B2C3D40000000900000001 /* Resources */,
-				ED2C3B24F037133873ADEC7A /* Embed App Extensions */,
+				ED2C3B24F037133873ADEC7A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -410,7 +416,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2640;
 			};
 			buildConfigurationList = A1B2C3D40000000C00000001 /* Build configuration list for PBXProject "Vel" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -423,7 +429,7 @@
 			mainGroup = A1B2C3D40000000500000001;
 			packageReferences = (
 				A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */,
-				1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */,
+				1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */,
 			);
 			productRefGroup = A1B2C3D40000000500000003 /* Products */;
 			projectDirPath = "";
@@ -567,7 +573,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = XSG3QYM364;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/VelIntentsExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Vel Intents";
@@ -595,7 +601,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = XSG3QYM364;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/VelWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Vel Widgets";
@@ -622,7 +628,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = XSG3QYM364;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/VelWidgetExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Vel Widgets";
@@ -650,7 +656,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = XSG3QYM364;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/VelIntentsExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Vel Intents";
@@ -678,21 +684,48 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -706,15 +739,42 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -727,7 +787,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = XSG3QYM364;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Vel;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vel uses microphone input for push-to-talk voice capture.";
@@ -754,7 +814,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = XSG3QYM364;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Vel;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vel uses microphone input for push-to-talk voice capture.";
@@ -878,6 +938,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Vel;
@@ -903,6 +964,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Vel;
@@ -989,7 +1051,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */ = {
+		1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VelAppleModules;
 		};
@@ -1002,22 +1064,22 @@
 /* Begin XCSwiftPackageProductDependency section */
 		1540F86A57FF0448634D712B /* VelFeatureFlags */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelFeatureFlags;
 		};
 		18FDB7835B8174136A15625B /* VelApplePlatform */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelApplePlatform;
 		};
 		23CFAEDA22312639C2DA485F /* VelFeatureFlags */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelFeatureFlags;
 		};
 		42D170C4DCE09F2BEBC3FD70 /* VelApplication */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelApplication;
 		};
 		52B7EDDB75F3D82CD5C63E94 /* VelAPI */ = {
@@ -1027,12 +1089,12 @@
 		};
 		60D0707FE6BCEA83D9F9B73C /* VelApplePlatform */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelApplePlatform;
 		};
 		954914EDE83BB2D29EB70BC8 /* VelApplePlatform */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelApplePlatform;
 		};
 		A1B2C3D40000000A00000001 /* VelAPI */ = {
@@ -1047,17 +1109,17 @@
 		};
 		CD1291169AA14C4AB3501265 /* VelApplication */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelApplication;
 		};
 		D3597DFF0575EEDA9B5662FA /* VelApplication */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelApplication;
 		};
 		E2040467AF961B056AD728D9 /* VelFeatureFlags */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "Packages/VelAppleModules" */;
 			productName = VelFeatureFlags;
 		};
 /* End XCSwiftPackageProductDependency section */
