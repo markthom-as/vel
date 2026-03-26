@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadAgentInspect } from '../../data/agent-grounding';
 import {
+  buildCoreSetupStatus,
+  buildEmbeddedLinkingRequestDraft,
   disconnectGoogleCalendar,
   disconnectTodoist,
   loadIntegrationConnections,
@@ -21,32 +23,19 @@ import type {
   IntegrationCalendarData,
   IntegrationConnectionData,
   IntegrationsData,
-  SemanticAliasOverridesData,
   SettingsData,
 } from '../../types';
 import { SettingsIcon } from '../../core/Icons';
-import {
-  SystemDocumentSectionLabel,
-} from '../../core/SystemDocument';
 import { SurfaceState } from '../../core/SurfaceState';
 import { uiFonts } from '../../core/Theme';
 import {
   buildGroupedSystemNav,
-  buildSystemGroupSummaries,
   buildSystemSubsectionChildren,
   resolveNavigableSystemAnchor,
   type SystemSidebarChild,
 } from './SystemNavigationModel';
-import {
-  SystemDocumentationDetail,
-} from './SystemOverviewSections';
 import { renderSystemSubsection } from './SystemSectionContent';
 import { SystemSidebarNav } from './SystemSidebarNav';
-import {
-  SystemAnchorStrip,
-  SystemGroupCard,
-  SystemSubsectionHero,
-} from './SystemSurfaceChrome';
 import { SystemSurfaceLayout } from './SystemSurfaceLayout';
 import {
   llmRoutingProfiles,
@@ -56,18 +45,13 @@ import {
 } from './SystemProvidersSection';
 import {
   defaultSubsectionForSystemSection as defaultSubsection,
-  groupForSystemSubsection as groupForSubsection,
   resolveSystemTarget,
-  SYSTEM_DOCUMENTATION_ANCHOR,
-  SYSTEM_GROUP_ORDER,
   SYSTEM_SECTION_BY_SUBSECTION as SECTION_BY_SUBSECTION,
   SYSTEM_SECTION_ORDER as SECTION_ORDER,
-  type SystemGroupKey,
   type SystemNavigationTarget,
   type SystemSectionKey,
   type SystemSubsectionKey,
 } from './systemNavigation';
-import systemSurfaceDoc from '../../../../../docs/user/system.md?raw';
 
 interface SystemViewProps {
   target?: SystemNavigationTarget;
@@ -406,19 +390,6 @@ export function SystemView({ target }: SystemViewProps) {
   const subsectionMeta = sectionOrder.flatMap((section) => section.items).find((item) => item.key === activeSubsection)
     ?? sectionOrder[0]?.items[0]
     ?? SECTION_ORDER[0].items[0];
-  const activeGroup = groupForSubsection(activeSubsection);
-  const activeChildren = subsectionChildren[activeSubsection] ?? [];
-  const groupSummaries: Record<SystemGroupKey, string> = buildSystemGroupSummaries({
-    filteredBlockers,
-    projectsCount: projects.length,
-    providersCount: providers.length,
-    connectionsCount: connections.length,
-  });
-  const activeSectionKey = SECTION_BY_SUBSECTION.get(subsectionMeta.key) ?? activeSection;
-  const activeSectionMeta = sectionOrder.find((section) => section.key === activeSectionKey)
-    ?? sectionOrder[0]
-    ?? SECTION_ORDER[0];
-  const activeGroupMeta = SYSTEM_GROUP_ORDER.find((group) => group.key === activeGroup) ?? SYSTEM_GROUP_ORDER[0];
   const activeSubsectionContent = renderSystemSubsection({
     subsection: subsectionMeta.key,
     inspect,
@@ -458,7 +429,19 @@ export function SystemView({ target }: SystemViewProps) {
       applyReturnedSettings(settingsKey, response);
     },
     onCommitSettingField: async (key, value) => {
-      const response = await updateSettings({ [key]: value });
+      let patch: Record<string, unknown> = { [key]: value };
+      if (key === 'tailscale_base_url' || key === 'lan_base_url') {
+        const routeLabel = key === 'tailscale_base_url' ? 'tailscale' : 'lan';
+        const draft = buildEmbeddedLinkingRequestDraft({
+          sync_base_url: settings?.sync_base_url ?? null,
+          tailscale_base_url: key === 'tailscale_base_url' ? value : settings?.tailscale_base_url ?? null,
+          lan_base_url: key === 'lan_base_url' ? value : settings?.lan_base_url ?? null,
+          public_base_url: settings?.public_base_url ?? null,
+        });
+        const normalizedRoute = draft.route_candidates.find((route) => route.label === routeLabel);
+        patch = { [key]: normalizedRoute?.baseUrl ?? '' };
+      }
+      const response = await updateSettings(patch);
       if (!response.ok) {
         throw new Error(response.error?.message ?? 'Failed to update settings');
       }
@@ -537,6 +520,17 @@ export function SystemView({ target }: SystemViewProps) {
     },
     onJumpToTarget: jumpToTarget,
   });
+  const topStats = [
+    { label: 'Node', value: settings?.node_display_name?.trim() || inspect.diagnostics?.node_display_name || 'Unset' },
+    { label: 'Client', value: settings?.core_settings?.client_location_label?.trim() || 'Unset' },
+    { label: 'Timezone', value: settings?.timezone?.trim() || 'Unset' },
+    { label: 'Mode', value: inspect.grounding.current_context?.mode ?? 'Unknown' },
+    { label: 'Sync', value: inspect.diagnostics?.sync_status ?? 'Unknown' },
+    { label: 'Workers', value: `${inspect.diagnostics?.active_workers ?? 0}` },
+    { label: 'Providers', value: `${providers.length}` },
+    { label: 'Accounts', value: `${connections.length}` },
+    { label: 'Blockers', value: `${filteredBlockers.length}` },
+  ];
 
   function selectSubsection(subsection: SystemSubsectionKey, anchor?: string | null) {
     const nextSection = SECTION_BY_SUBSECTION.get(subsection) ?? activeSection;
@@ -594,22 +588,21 @@ export function SystemView({ target }: SystemViewProps) {
           </p>
         </div>
       )}
-      groupCards={(
-        <div className="grid gap-3 lg:grid-cols-3">
-          {SYSTEM_GROUP_ORDER.map((group) => {
-            const firstItem = groupedNav.find((entry) => entry.key === group.key)?.items[0];
-            return (
-              <SystemGroupCard
-                key={group.key}
-                title={group.label}
-                description={group.description}
-                summary={groupSummaries[group.key]}
-                tone={group.key}
-                active={group.key === activeGroup}
-                onClick={firstItem ? () => selectSubsection(firstItem.key) : undefined}
-              />
-            );
-          })}
+      stats={(
+        <div className="flex flex-wrap gap-2">
+          {topStats.map((item) => (
+            <div
+              key={item.label}
+              className="min-w-[8rem] rounded-[14px] border border-[var(--vel-color-border)] bg-[rgba(255,255,255,0.02)] px-3 py-2"
+            >
+              <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--vel-color-dim)]">
+                {item.label}
+              </p>
+              <p className="mt-1 text-[12px] font-medium leading-4 text-[var(--vel-color-text)]">
+                {item.value}
+              </p>
+            </div>
+          ))}
         </div>
       )}
       sidebar={(
@@ -625,16 +618,6 @@ export function SystemView({ target }: SystemViewProps) {
       )}
       content={(
         <>
-          <SystemSubsectionHero
-            eyebrow={`${activeGroupMeta.label} / ${activeSectionMeta.label}`}
-            title={subsectionMeta.label}
-            description={subsectionMeta.description}
-          />
-          <SystemAnchorStrip
-            items={activeChildren}
-            activeId={activeChildAnchor}
-            onSelect={(anchor) => selectSubsection(subsectionMeta.key, anchor)}
-          />
           {actionMessage ? (
             <div className="rounded-[18px] border border-[var(--vel-color-border)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-[13px] leading-5 text-[var(--vel-color-text)]">
               {actionMessage}
@@ -644,14 +627,10 @@ export function SystemView({ target }: SystemViewProps) {
           <section
             id={subsectionMeta.key}
             className="scroll-mt-24 rounded-[24px] border border-[var(--vel-color-border)] bg-[rgba(255,255,255,0.02)] px-5 py-5"
+            aria-label={subsectionMeta.label}
           >
+            <h1 className="sr-only">{subsectionMeta.label}</h1>
             {activeSubsectionContent}
-          </section>
-          <section id={SYSTEM_DOCUMENTATION_ANCHOR} className="scroll-mt-24 rounded-[24px] border border-[var(--vel-color-border)] bg-[rgba(255,255,255,0.02)] px-5 py-5">
-            <div className="mb-3">
-              <SystemDocumentSectionLabel>Documentation</SystemDocumentSectionLabel>
-            </div>
-            <SystemDocumentationDetail doc={systemSurfaceDoc} />
           </section>
         </>
       )}
