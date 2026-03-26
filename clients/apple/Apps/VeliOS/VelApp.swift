@@ -262,9 +262,10 @@ final class VelClientStore: ObservableObject {
     ) async -> AssistantEntryResponseData? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+        let preparedText = embeddedBridge.quickActionBridge.prepareQuickCapture(trimmed)
 
         do {
-            let response = try await client.submitAssistantEntry(text: trimmed, conversationID: conversationID)
+            let response = try await client.submitAssistantEntry(text: preparedText, conversationID: conversationID)
             pendingActionCount = offlineStore.pendingActionCount()
             await refresh()
             errorMessage = nil
@@ -274,7 +275,7 @@ final class VelClientStore: ObservableObject {
                 "queued_assistant_entry:",
                 conversationID.map { "requested_conversation_id: \($0)" },
                 "",
-                trimmed
+                preparedText
             ]
                 .compactMap { $0 }
                 .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
