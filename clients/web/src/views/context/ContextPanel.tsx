@@ -3,6 +3,7 @@ import type { ContextExplainData, DriftExplainData, JsonObject, JsonValue, Signa
 import { contextQueryKeys, loadContextExplain, loadDriftExplain } from '../../data/context';
 import { useQuery } from '../../data/query';
 import { Button } from '../../core/Button';
+import { SemanticIcon } from '../../core/Icons/SemanticIcon';
 import {
   PanelDebugBlock,
   PanelDenseRow,
@@ -14,6 +15,7 @@ import {
 } from '../../core/PanelChrome';
 import { PanelItemSectionLabel } from '../../core/PanelItem';
 import { SurfaceState } from '../../core/SurfaceState';
+import { resolveModeSemantic } from '../../core/Theme/semanticRegistry';
 
 type ContextMode = 'state' | 'why' | 'debug';
 
@@ -70,17 +72,17 @@ export function ContextPanel() {
         </div>
         <div className="flex gap-2">
           <ModeButton
-            label="State"
+            mode="state"
             active={mode === 'state'}
             onClick={() => setMode('state')}
           />
           <ModeButton
-            label="Why"
+            mode="why"
             active={mode === 'why'}
             onClick={() => setMode('why')}
           />
           <ModeButton
-            label="Debug"
+            mode="debug"
             active={mode === 'debug'}
             onClick={() => setMode('debug')}
           />
@@ -91,7 +93,7 @@ export function ContextPanel() {
         <>
           <section className="grid gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <PanelStatTile density="compact" label="Mode" value={context.mode ?? 'unknown'} />
+              <PanelStatTile density="compact" label="Mode" value={resolveModeSemantic(context.mode ?? 'unknown').label} />
               <PanelStatTile density="compact" label="Morning state" value={context.morning_state ?? 'unknown'} />
             </div>
             {drift && hasDriftData(drift) && (
@@ -226,14 +228,16 @@ export function ContextPanel() {
 }
 
 function ModeButton({
-  label,
+  mode,
   active,
   onClick,
 }: {
-  label: string;
+  mode: ContextMode;
   active: boolean;
   onClick: () => void;
 }) {
+  const semantic = resolveModeSemantic(mode);
+
   return (
     <Button
       variant={active ? 'secondary' : 'outline'}
@@ -242,7 +246,10 @@ function ModeButton({
       aria-pressed={active}
       className={active ? '' : 'border-zinc-800 bg-zinc-900/55 text-zinc-400 hover:text-zinc-200'}
     >
-      {label}
+      <span className="inline-flex items-center gap-1.5">
+        <SemanticIcon icon={semantic.icon} size={12} />
+        <span>{semantic.label}</span>
+      </span>
     </Button>
   );
 }

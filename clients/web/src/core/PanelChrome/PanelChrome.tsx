@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { uiFonts } from '../Theme';
 import { cn } from '../cn';
+import {
+  panelStatusChipAppearance,
+  panelStatusToneForComponent,
+  panelStatusToneForSync,
+  type PanelStatusTone,
+} from '../Theme/semanticAppearance';
 import { ObjectCard } from '../ObjectCard';
 import { ObjectRowFrame } from '../ObjectRow';
 import { objectRowFrameClass } from '../ObjectRow/objectRowFrameClass';
@@ -261,35 +267,20 @@ export function PanelDetailShell({ children, className }: { children: ReactNode;
   );
 }
 
-type StatusTone = 'ok' | 'warn' | 'bad' | 'neutral';
-
-const STATUS_CHIP: Record<StatusTone, string> = {
-  ok: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30',
-  warn: 'bg-amber-500/20 text-amber-200 border-amber-500/30',
-  bad: 'bg-rose-500/20 text-rose-200 border-rose-500/30',
-  neutral: 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50',
-};
-
-export function PanelStatusChip({ tone, children }: { tone: StatusTone; children: ReactNode }) {
+export function PanelStatusChip({ tone, children }: { tone: PanelStatusTone; children: ReactNode }) {
   return (
-    <SurfaceTagChip square className={cn('rounded-full border px-2 py-1 text-[11px]', STATUS_CHIP[tone])}>
+    <SurfaceTagChip square className={cn('rounded-full border px-2 py-1 text-[11px]', panelStatusChipAppearance(tone))}>
       {children}
     </SurfaceTagChip>
   );
 }
 
-export function syncStatusTone(status: string | null): StatusTone {
-  if (status === 'ok' || status === 'success') return 'ok';
-  if (status === 'error' || status === 'failed') return 'bad';
-  if (status === 'stale' || status === 'warning') return 'warn';
-  return 'neutral';
+export function syncStatusTone(status: string | null): PanelStatusTone {
+  return panelStatusToneForSync(status);
 }
 
-export function componentHealthTone(status: string): StatusTone {
-  if (status === 'healthy' || status === 'running') return 'ok';
-  if (status === 'degraded') return 'warn';
-  if (status === 'failed' || status === 'error') return 'bad';
-  return 'neutral';
+export function componentHealthTone(status: string): PanelStatusTone {
+  return panelStatusToneForComponent(status);
 }
 
 export function PanelKeyValueRow({ label, value }: { label: string; value: string }) {

@@ -1,31 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../Button';
 import { cn } from '../cn';
+import { systemStatusChipAppearance, type SystemStatusTone } from '../Theme/semanticAppearance';
 
-export type SystemDocumentStatusTone =
-  | 'active'
-  | 'warning'
-  | 'degraded'
-  | 'offline'
-  | 'done'
-  | 'neutral';
-
-function systemDocumentStatusChipClass(tone: SystemDocumentStatusTone) {
-  switch (tone) {
-    case 'active':
-      return 'border-[#b96e3a]/50 bg-[#2d1608] text-[#ffd4b8]';
-    case 'warning':
-      return 'border-amber-500/40 bg-amber-950/50 text-amber-100';
-    case 'degraded':
-      return 'border-orange-500/40 bg-orange-950/50 text-orange-100';
-    case 'offline':
-      return 'border-slate-500/40 bg-slate-950/60 text-slate-200';
-    case 'done':
-      return 'border-emerald-500/35 bg-emerald-950/40 text-emerald-100';
-    default:
-      return 'border-zinc-700 bg-zinc-900/80 text-zinc-300';
-  }
-}
+export type SystemDocumentStatusTone = SystemStatusTone;
 
 export function SystemDocumentList({
   children,
@@ -274,7 +252,7 @@ export function SystemDocumentStatusChip({
     <span
       className={cn(
         'inline-flex min-h-[1.1rem] items-center rounded-full border px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em]',
-        systemDocumentStatusChipClass(tone),
+        systemStatusChipAppearance(tone),
         className,
       )}
     >

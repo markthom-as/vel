@@ -4,16 +4,13 @@ import { cn } from '../../core/cn';
 import { FloatingPill } from '../../core/FloatingPill';
 import { uiFonts } from '../../core/Theme';
 import type { NowNudgeBarData } from '../../types';
-import {
-  NudgeLeadOrb,
-  nudgeLeadKindForBar,
-  type NudgeSurfaceTone,
-} from '../../views/now/nowNudgePresentation';
+import { NudgeLeadOrb } from '../../views/now/nowNudgePresentation';
+import type { NudgeViewModel } from '../../views/now/nudgeViewModel';
 import { NudgeActionRail } from './NudgeActionRail';
 
 export function NudgeCard({
   bar,
-  tone,
+  viewModel,
   isExpanded,
   isFlashing,
   timestampLabel,
@@ -22,7 +19,7 @@ export function NudgeCard({
   onToggle,
 }: {
   bar: NowNudgeBarData;
-  tone: NudgeSurfaceTone;
+  viewModel: NudgeViewModel;
   isExpanded: boolean;
   isFlashing: boolean;
   timestampLabel: string | null;
@@ -35,9 +32,9 @@ export function NudgeCard({
       decoration={
         <NudgeLeadOrb
           kind={bar.kind}
-          iconKind={nudgeLeadKindForBar(bar)}
+          iconKind={viewModel.leadKind}
           urgent={bar.urgent}
-          warmSurface={tone.warmSurface}
+          warmSurface={viewModel.warmSurface}
           isPrimary={bar.urgent}
         />
       }
@@ -46,8 +43,8 @@ export function NudgeCard({
       onPress={onToggle}
       contentClassName={cn(
         isExpanded ? 'items-stretch gap-3 py-3' : 'items-stretch',
-        tone.shell,
-        isExpanded ? tone.activeOutline : null,
+        viewModel.surfaceTone.shell,
+        isExpanded ? viewModel.surfaceTone.activeOutline : null,
         isFlashing
           ? 'ring-2 ring-[var(--vel-color-accent-strong)] ring-offset-2 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(255,107,0,0.42),0_0_32px_rgba(255,107,0,0.28)] animate-[pulse_0.38s_ease-in-out_4]'
           : null,

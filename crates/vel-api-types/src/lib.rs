@@ -7168,6 +7168,9 @@ pub struct WebSettingsData {
     pub strong_focus: bool,
     #[serde(default = "default_web_settings_docked_action_bar")]
     pub docked_action_bar: bool,
+    #[serde(default)]
+    pub semantic_aliases:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
 }
 
 impl Default for WebSettingsData {
@@ -7178,6 +7181,7 @@ impl Default for WebSettingsData {
             reduced_motion: false,
             strong_focus: default_web_settings_strong_focus(),
             docked_action_bar: default_web_settings_docked_action_bar(),
+            semantic_aliases: std::collections::BTreeMap::new(),
         }
     }
 }

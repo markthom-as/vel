@@ -2,11 +2,11 @@ import type { ActionItemData, NowData } from '../../../types';
 import { FilterDenseTag, NudgeKindTag, ProjectTag } from '../../../core/FilterToggleTag';
 import { TagIcon } from '../../../core/Icons';
 import { NowItemRowShell } from '../../../core/NowItemRow';
-import { findBarProjectTags, formatNowBarKind, formatRelativeMinutes } from '../nowModel';
+import { formatRelativeMinutes } from '../nowModel';
+import { buildNudgeDisplayModel } from '../nudgeDisplayModel';
 import {
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
-  nudgeLeadKindForBar,
   NudgeLeadOrb,
   nudgeKindTagIcon,
 } from '../nowNudgePresentation';
@@ -33,14 +33,15 @@ export function NowNudgeStrip({
   return (
     <div className="space-y-2">
       {bars.map((bar) => {
-        const warmUrgent = bar.urgent || bar.kind === 'trust_warning' || bar.kind === 'freshness_warning';
+        const displayModel = buildNudgeDisplayModel(bar, actionItems);
+        const { viewModel } = displayModel;
         /** Outside the rounded card; `compact` shell uses `overflow-hidden` unless overridden. */
         const isPrimary = bars[0]?.id === bar.id || bar.urgent;
 
         return (
         <NowItemRowShell
           key={bar.id}
-          surface={warmUrgent ? 'warm' : 'brand'}
+          surface={viewModel.warmSurface ? 'warm' : 'brand'}
           shell="compact"
           className="!overflow-visible"
         >
@@ -50,9 +51,9 @@ export function NowNudgeStrip({
           >
             <NudgeLeadOrb
               kind={bar.kind}
-              iconKind={nudgeLeadKindForBar(bar)}
+              iconKind={viewModel.leadKind}
               urgent={bar.urgent}
-              warmSurface={warmUrgent}
+              warmSurface={viewModel.warmSurface}
               isPrimary={isPrimary}
             />
           </div>
@@ -67,14 +68,14 @@ export function NowNudgeStrip({
                     {formatRelativeMinutes(nowTs)}
                   </FilterDenseTag>
                   <span className="shrink-0">
-                    <NudgeKindTag urgent={bar.urgent || bar.kind === 'trust_warning' || bar.kind === 'freshness_warning'}>
+                    <NudgeKindTag urgent={displayModel.kindUrgent}>
                       <span aria-hidden className="inline-flex shrink-0 items-center">
-                        {nudgeKindTagIcon(bar.kind)}
+                        {nudgeKindTagIcon(displayModel.kindIconKind)}
                       </span>
-                      {formatNowBarKind(bar.kind)}
+                      {displayModel.kindLabel}
                     </NudgeKindTag>
                   </span>
-                  {findBarProjectTags(bar, actionItems).map((tag) => (
+                  {displayModel.projectTags.map((tag) => (
                     <ProjectTag key={`${bar.id}-${tag}`} label={tag}>
                       <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
                         <TagIcon size={10} />

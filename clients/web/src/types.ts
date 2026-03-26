@@ -510,6 +510,16 @@ export interface WebSettingsData {
   reduced_motion: boolean;
   strong_focus: boolean;
   docked_action_bar: boolean;
+  semantic_aliases?: SemanticAliasOverridesData;
+}
+
+export interface SemanticAliasOverridesData {
+  project?: Record<string, string>;
+  calendar?: Record<string, string>;
+  nudge?: Record<string, string>;
+  alert?: Record<string, string>;
+  mode?: Record<string, string>;
+  provider?: Record<string, string>;
 }
 
 export interface AgentProfileSettingsData {
@@ -1930,6 +1940,52 @@ export interface DailyLoopCheckInResolutionData {
   kind: DailyLoopCheckInResolutionKindData;
   response_text: string | null;
   note_text: string | null;
+}
+
+export interface DailyLoopCheckInEventData {
+  event_id: string;
+  session_id: string;
+  prompt_id: string;
+  check_in_type: string;
+  session_phase: string;
+  source: string;
+  answered_at: UnixSeconds | null;
+  text: string | null;
+  scale: number | null;
+  scale_min: number;
+  scale_max: number;
+  keywords_json: JsonValue;
+  confidence: number | null;
+  schema_version: number;
+  skipped: boolean;
+  skip_reason_code: string | null;
+  skip_reason_text: string | null;
+  replaced_by_event_id: string | null;
+  meta_json: JsonValue;
+  created_at: UnixSeconds;
+  updated_at: UnixSeconds;
+  run_id: string | null;
+}
+
+export interface DailyLoopCheckInEventsQueryData {
+  check_in_type?: string;
+  session_phase?: string;
+  include_skipped?: boolean;
+  limit?: number;
+}
+
+export interface DailyLoopCheckInSkipRequestData {
+  source?: string;
+  answered_at?: UnixSeconds;
+  reason_code?: string;
+  reason_text?: string;
+}
+
+export interface DailyLoopCheckInSkipResponseData {
+  check_in_event_id: string;
+  session_id: string;
+  status: string;
+  supersedes_event_id: string | null;
 }
 
 export interface MorningOverviewStateData {
@@ -4282,7 +4338,32 @@ function decodeWebSettingsData(value: unknown): WebSettingsData {
     reduced_motion: expectBoolean(record.reduced_motion, 'web settings.reduced_motion'),
     strong_focus: expectBoolean(record.strong_focus, 'web settings.strong_focus'),
     docked_action_bar: expectBoolean(record.docked_action_bar, 'web settings.docked_action_bar'),
+    semantic_aliases: decodeNullableRecordOfStringRecords(record.semantic_aliases ?? null, 'web settings.semantic_aliases') ?? undefined,
   };
+}
+
+function decodeNullableRecordOfStringRecords(
+  value: unknown,
+  label: string,
+): Record<string, Record<string, string>> | null {
+  if (value == null) {
+    return null;
+  }
+  const record = expectRecord(value, label);
+  return Object.fromEntries(
+    Object.entries(record).map(([key, entry]) => {
+      const entryRecord = expectRecord(entry, `${label}.${key}`);
+      return [
+        key,
+        Object.fromEntries(
+          Object.entries(entryRecord).map(([entryKey, entryValue]) => [
+            entryKey,
+            expectString(entryValue, `${label}.${key}.${entryKey}`),
+          ]),
+        ),
+      ];
+    }),
+  );
 }
 
 function decodeAgentProfileSettingsData(value: unknown): AgentProfileSettingsData {
@@ -4640,6 +4721,64 @@ export function decodeDailyLoopCheckInResolutionData(
     note_text: expectNullableString(
       record.note_text ?? null,
       'daily loop check-in resolution.note_text',
+    ),
+  };
+}
+
+export function decodeDailyLoopCheckInEventData(value: unknown): DailyLoopCheckInEventData {
+  const record = expectRecord(value, 'daily loop check-in event');
+  return {
+    event_id: expectString(record.event_id, 'daily loop check-in event.event_id'),
+    session_id: expectString(record.session_id, 'daily loop check-in event.session_id'),
+    prompt_id: expectString(record.prompt_id, 'daily loop check-in event.prompt_id'),
+    check_in_type: expectString(record.check_in_type, 'daily loop check-in event.check_in_type'),
+    session_phase: expectString(record.session_phase, 'daily loop check-in event.session_phase'),
+    source: expectString(record.source, 'daily loop check-in event.source'),
+    answered_at: expectNullableNumber(
+      record.answered_at ?? null,
+      'daily loop check-in event.answered_at',
+    ),
+    text: expectNullableString(record.text ?? null, 'daily loop check-in event.text'),
+    scale: expectNullableNumber(record.scale ?? null, 'daily loop check-in event.scale'),
+    scale_min: expectNumber(record.scale_min, 'daily loop check-in event.scale_min'),
+    scale_max: expectNumber(record.scale_max, 'daily loop check-in event.scale_max'),
+    keywords_json: decodeJsonValue(record.keywords_json),
+    confidence: expectNullableNumber(record.confidence ?? null, 'daily loop check-in event.confidence'),
+    schema_version: expectNumber(record.schema_version, 'daily loop check-in event.schema_version'),
+    skipped: expectBoolean(record.skipped, 'daily loop check-in event.skipped'),
+    skip_reason_code: expectNullableString(
+      record.skip_reason_code ?? null,
+      'daily loop check-in event.skip_reason_code',
+    ),
+    skip_reason_text: expectNullableString(
+      record.skip_reason_text ?? null,
+      'daily loop check-in event.skip_reason_text',
+    ),
+    replaced_by_event_id: expectNullableString(
+      record.replaced_by_event_id ?? null,
+      'daily loop check-in event.replaced_by_event_id',
+    ),
+    meta_json: decodeJsonValue(record.meta_json),
+    created_at: expectNumber(record.created_at, 'daily loop check-in event.created_at'),
+    updated_at: expectNumber(record.updated_at, 'daily loop check-in event.updated_at'),
+    run_id: expectNullableString(record.run_id ?? null, 'daily loop check-in event.run_id'),
+  };
+}
+
+export function decodeDailyLoopCheckInSkipResponseData(
+  value: unknown,
+): DailyLoopCheckInSkipResponseData {
+  const record = expectRecord(value, 'daily loop check-in skip response');
+  return {
+    check_in_event_id: expectString(
+      record.check_in_event_id,
+      'daily loop check-in skip.response.check_in_event_id',
+    ),
+    session_id: expectString(record.session_id, 'daily loop check-in skip.response.session_id'),
+    status: expectString(record.status, 'daily loop check-in skip.response.status'),
+    supersedes_event_id: expectNullableString(
+      record.supersedes_event_id ?? null,
+      'daily loop check-in skip.response.supersedes_event_id',
     ),
   };
 }

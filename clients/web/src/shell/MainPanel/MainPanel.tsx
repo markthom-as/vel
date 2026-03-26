@@ -5,6 +5,10 @@ import { contextQueryKeys } from '../../data/context';
 import { buildCoreSetupStatus, loadIntegrations, loadSettings, operatorQueryKeys } from '../../data/operator';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
+import {
+  resetSemanticAliasRuntimeOverrides,
+  setSemanticAliasRuntimeOverrides,
+} from '../../core/Theme/semanticAliases';
 import type { MainView } from '../../data/operatorSurfaces';
 import type { AssistantEntryResponse, MessageData, NowDockedInputIntentData, NowNudgeBarData } from '../../types';
 import { submitAssistantEntry } from '../../data/chat';
@@ -180,6 +184,13 @@ export function MainPanel({
   const composerDisabledReason = coreSetupStatus.ready
     ? null
     : 'Core setup is incomplete. Use the nudge to open Core settings and finish setup.';
+
+  useEffect(() => {
+    setSemanticAliasRuntimeOverrides(settings?.web_settings?.semantic_aliases ?? null);
+    return () => {
+      resetSemanticAliasRuntimeOverrides();
+    };
+  }, [settings?.web_settings?.semantic_aliases]);
 
   const [assistantEntryMessage, setAssistantEntryMessage] = useState<{
     status: 'success' | 'error';

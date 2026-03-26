@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../core/cn';
+import { SemanticIcon } from '../../core/Icons/SemanticIcon';
 import {
   CalendarSyncIcon,
   ClockPlusIcon,
@@ -8,7 +9,6 @@ import {
   ClockIcon,
   DotIcon,
   InboxIcon,
-  OpenThreadIcon,
   SettingsIcon,
   SparkIcon,
   ThreadsIcon,
@@ -16,136 +16,45 @@ import {
 } from '../../core/Icons';
 import type { IconProps } from '../../core/Icons/IconGlyphs';
 import { uiTheme } from '../../core/Theme';
+import { resolveNudgeSemantic } from '../../core/Theme/semanticRegistry';
+import { nudgeFamilyForBar } from './nudgeViewModel';
 
 const NUDGE_TAG_ICON = 10;
 /** Lead glyph (floating left of the nudge card). */
 const NUDGE_LEAD_ICON = 14;
 
-export type NudgeSurfaceTone = {
-  shell: string;
-  activeOutline: string;
-  warmSurface: boolean;
-};
-
-export function nudgeSurfaceTone(bar: { id: string; kind: string; actions: Array<{ kind: string }> }): NudgeSurfaceTone {
-  if (nudgeUsesSystemPresentation(bar)) {
-    return {
-      shell: '!border-indigo-400/38 bg-indigo-950/18 text-indigo-100 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]',
-      activeOutline: 'ring-1 ring-indigo-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(129,140,248,0.28),0_0_24px_rgba(99,102,241,0.16)]',
-      warmSurface: false,
-    };
-  }
-
-  switch (bar.kind) {
-    case 'trust_warning':
-      return {
-        shell: '!border-amber-400/45 bg-amber-950/30 text-amber-100 shadow-[0_0_0_1px_rgba(245,158,11,0.12)]',
-        activeOutline: 'ring-1 ring-amber-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(251,191,36,0.3),0_0_24px_rgba(245,158,11,0.18)]',
-        warmSurface: true,
-      };
-    case 'freshness_warning':
-      return {
-        shell: '!border-sky-400/38 bg-sky-950/25 text-sky-100 shadow-[0_0_0_1px_rgba(14,165,233,0.1)]',
-        activeOutline: 'ring-1 ring-sky-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(56,189,248,0.28),0_0_24px_rgba(14,165,233,0.16)]',
-        warmSurface: false,
-      };
-    case 'needs_input':
-      return {
-        shell: '!border-[color:rgba(255,107,0,0.34)] bg-[color:var(--vel-color-panel)]/82 text-[var(--vel-color-text)] shadow-[0_0_0_1px_rgba(255,107,0,0.1)]',
-        activeOutline: 'ring-1 ring-[var(--vel-color-accent-strong)]/80 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(255,107,0,0.34),0_0_24px_rgba(255,107,0,0.18)]',
-        warmSurface: false,
-      };
-    case 'review_request':
-      return {
-        shell: '!border-emerald-400/34 bg-emerald-950/20 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.1)]',
-        activeOutline: 'ring-1 ring-emerald-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(52,211,153,0.28),0_0_24px_rgba(16,185,129,0.16)]',
-        warmSurface: false,
-      };
-    case 'reflow_proposal':
-      return {
-        shell: '!border-orange-400/38 bg-orange-950/20 text-orange-100 shadow-[0_0_0_1px_rgba(249,115,22,0.1)]',
-        activeOutline: 'ring-1 ring-orange-400/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(251,146,60,0.28),0_0_24px_rgba(249,115,22,0.16)]',
-        warmSurface: true,
-      };
-    default:
-      return {
-        shell: '!border-[color:rgba(255,107,0,0.24)] bg-[color:var(--vel-color-panel)]/78 text-[var(--vel-color-text)] shadow-[0_0_0_1px_rgba(255,107,0,0.08)]',
-        activeOutline: 'ring-1 ring-[var(--vel-color-accent-border)]/70 ring-offset-1 ring-offset-[var(--vel-color-bg)] shadow-[0_0_0_1px_rgba(255,107,0,0.22),0_0_20px_rgba(255,107,0,0.12)]',
-        warmSurface: false,
-      };
-  }
-}
-
-export function nudgeUsesSystemPresentation(bar: { id: string; actions: Array<{ kind: string }> }): boolean {
-  if (
-    bar.id === 'core_setup_required'
-    || bar.id === 'backup_trust_warning'
-    || bar.id === 'mesh_summary_warning'
-  ) {
-    return true;
-  }
-  return bar.actions.some((action) => action.kind.startsWith('open_settings'));
-}
-
-export function nudgeLeadKindForBar(bar: { id: string; kind: string; actions: Array<{ kind: string }> }): string {
-  return nudgeUsesSystemPresentation(bar) ? 'system_settings' : bar.kind;
-}
-
 export function nudgeIcon(kind: string, urgent = false): ReactNode {
-  switch (kind) {
-    case 'system_settings':
-      return <SettingsIcon size={NUDGE_LEAD_ICON} />;
-    case 'needs_input':
-      return <ThreadsIcon size={NUDGE_LEAD_ICON} />;
-    case 'trust_warning':
-    case 'freshness_warning':
-      return <WarningIcon size={NUDGE_LEAD_ICON} />;
-    case 'review_request':
-      return <OpenThreadIcon size={NUDGE_LEAD_ICON} />;
-    case 'nudge':
-      return urgent ? <WarningIcon size={NUDGE_LEAD_ICON} /> : <SparkIcon size={NUDGE_LEAD_ICON} />;
-    default:
-      return urgent ? <WarningIcon size={NUDGE_LEAD_ICON} /> : <SparkIcon size={NUDGE_LEAD_ICON} />;
+  if (urgent && kind === 'nudge') {
+    return <WarningIcon size={NUDGE_LEAD_ICON} />;
   }
+  const semantic = resolveNudgeSemantic(kind);
+  return <SemanticIcon icon={semantic.icon} size={NUDGE_LEAD_ICON} />;
 }
 
 /** Default icon for nudge kind tags (dense; matches `nudgeIcon` semantics). */
 export function nudgeKindTagIcon(kind: string): ReactNode {
-  switch (kind) {
-    case 'system_settings':
-      return <SettingsIcon size={NUDGE_TAG_ICON} />;
-    case 'needs_input':
-      return <ThreadsIcon size={NUDGE_TAG_ICON} />;
-    case 'trust_warning':
-    case 'freshness_warning':
-      return <WarningIcon size={NUDGE_TAG_ICON} />;
-    case 'review_request':
-      return <OpenThreadIcon size={NUDGE_TAG_ICON} />;
-    case 'reflow_proposal':
-      return <SparkIcon size={NUDGE_TAG_ICON} />;
-    case 'thread_continuation':
-      return <ThreadsIcon size={NUDGE_TAG_ICON} />;
-    case 'nudge':
-    default:
-      return <SparkIcon size={NUDGE_TAG_ICON} />;
-  }
+  const semantic = resolveNudgeSemantic(kind);
+  return <SemanticIcon icon={semantic.icon} size={NUDGE_TAG_ICON} />;
 }
 
 function nudgeOrbColorFamily(kind: string): 'brand' | 'warm' | 'sky' | 'emerald' | 'orange' | 'indigo' {
-  switch (kind) {
-    case 'system_settings':
+  if (kind === 'system_settings') {
+    return 'indigo';
+  }
+  const family = nudgeFamilyForBar({ id: kind, kind, urgent: false, actions: [] });
+  switch (family) {
+    case 'system':
       return 'indigo';
-    case 'trust_warning':
+    case 'warning':
       return 'warm';
-    case 'freshness_warning':
+    case 'freshness':
       return 'sky';
-    case 'review_request':
+    case 'review':
       return 'emerald';
-    case 'reflow_proposal':
+    case 'reflow':
       return 'orange';
-    case 'needs_input':
-    case 'thread_continuation':
-    case 'nudge':
+    case 'thread':
+    case 'default':
     default:
       return 'brand';
   }

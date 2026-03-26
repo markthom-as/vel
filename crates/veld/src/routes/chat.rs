@@ -559,6 +559,8 @@ pub struct WebSettingsUpdateRequest {
     pub reduced_motion: Option<bool>,
     pub strong_focus: Option<bool>,
     pub docked_action_bar: Option<bool>,
+    pub semantic_aliases:
+        Option<std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -657,12 +659,16 @@ pub async fn patch_settings(
         if let Some(value) = patch.docked_action_bar {
             web_settings.docked_action_bar = value;
         }
+        if let Some(value) = patch.semantic_aliases.clone() {
+            web_settings.semantic_aliases = value;
+        }
         let value = serde_json::to_value(WebSettingsData {
             dense_rows: web_settings.dense_rows,
             tabular_numbers: web_settings.tabular_numbers,
             reduced_motion: web_settings.reduced_motion,
             strong_focus: web_settings.strong_focus,
             docked_action_bar: web_settings.docked_action_bar,
+            semantic_aliases: web_settings.semantic_aliases,
         })
         .map_err(|error| AppError::internal(format!("serialize web_settings: {error}")))?;
         state.storage.set_setting("web_settings", &value).await?;

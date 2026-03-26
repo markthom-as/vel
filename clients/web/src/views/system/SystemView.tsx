@@ -27,12 +27,13 @@ import type {
   IntegrationConnectionData,
   IntegrationsData,
   LocalIntegrationData,
+  SemanticAliasOverridesData,
   SettingsData,
 } from '../../types';
 import { Button } from '../../core/Button';
 import { cn } from '../../core/cn';
 import { MarkdownMessage } from '../../core/MarkdownMessage';
-import { SettingsIcon, SyncIcon, WarningIcon } from '../../core/Icons';
+import { SettingsIcon } from '../../core/Icons';
 import {
   PanelEmptyRow,
 } from '../../core/PanelChrome';
@@ -49,6 +50,13 @@ import {
 import { SurfaceState } from '../../core/SurfaceState';
 import { uiFonts } from '../../core/Theme';
 import { SearchField } from '../../core/SearchField/SearchField';
+import {
+  resolveProviderSemantic,
+  resolveProjectStatusSemantic,
+  resolveProviderStatusSemantic,
+  resolveStateStatusSemantic,
+} from '../../core/Theme/semanticRegistry';
+import { SemanticIcon } from '../../core/Icons/SemanticIcon';
 import systemSurfaceDoc from '../../../../../docs/user/system.md?raw';
 
 export type SystemSectionKey = 'core' | 'overview' | 'operations' | 'integrations' | 'control' | 'preferences';
@@ -377,56 +385,6 @@ function resolveSystemTarget(target?: SystemNavigationTarget | { section?: strin
   };
 }
 
-function providerTintClass(provider: IntegrationProviderKey) {
-  switch (provider) {
-    case 'google_calendar':
-      return 'bg-[#b96e3a] text-[#ffd7bf]';
-    case 'todoist':
-      return 'bg-[#8d4a35] text-[#ffd8c9]';
-    case 'git':
-      return 'bg-[#73553a] text-[#f7d0af]';
-    default:
-      return 'bg-zinc-700 text-zinc-200';
-  }
-}
-
-function stateToneFromStatus(status: string | null | undefined): 'active' | 'warning' | 'degraded' | 'offline' | 'done' | 'neutral' {
-  const normalized = status?.toLowerCase() ?? '';
-  if (normalized.includes('error') || normalized.includes('blocked')) {
-    return 'warning';
-  }
-  if (normalized.includes('degraded') || normalized.includes('stale')) {
-    return 'degraded';
-  }
-  if (normalized.includes('connected') || normalized.includes('configured') || normalized.includes('ready') || normalized.includes('available')) {
-    return 'active';
-  }
-  if (normalized.includes('offline') || normalized.includes('never') || normalized.includes('not')) {
-    return 'offline';
-  }
-  if (normalized.includes('ok')) {
-    return 'done';
-  }
-  return 'neutral';
-}
-
-function providerStatusTone(status: string | null | undefined): 'active' | 'warning' | 'degraded' | 'offline' | 'done' | 'neutral' {
-  const normalized = status?.toLowerCase() ?? '';
-  if (normalized.includes('connected') || normalized.includes('configured') || normalized.includes('ready') || normalized.includes('available') || normalized.includes('ok')) {
-    return 'done';
-  }
-  if (normalized.includes('error') || normalized.includes('blocked')) {
-    return 'warning';
-  }
-  if (normalized.includes('degraded') || normalized.includes('stale')) {
-    return 'degraded';
-  }
-  if (normalized.includes('offline') || normalized.includes('never') || normalized.includes('not')) {
-    return 'offline';
-  }
-  return 'neutral';
-}
-
 type IntegrationProviderSummary = {
   key: IntegrationProviderKey;
   label: string;
@@ -492,7 +450,7 @@ function providerSummaries(integrations: IntegrationsData): IntegrationProviderS
   return [
     {
       key: 'google_calendar',
-      label: 'Google Calendar',
+      label: resolveProviderSemantic('google_calendar').label,
       guidance: integrations.google_calendar.guidance?.detail ?? integrations.google_calendar.last_error ?? 'Calendar connection is healthy.',
       status: integrations.google_calendar.connected ? 'connected' : integrations.google_calendar.configured ? 'configured' : 'not configured',
       configured: integrations.google_calendar.configured,
@@ -516,7 +474,7 @@ function providerSummaries(integrations: IntegrationsData): IntegrationProviderS
     },
     {
       key: 'todoist',
-      label: 'Todoist',
+      label: resolveProviderSemantic('todoist').label,
       guidance: integrations.todoist.guidance?.detail ?? integrations.todoist.last_error ?? 'Todoist connection is healthy.',
       status: integrations.todoist.connected ? 'connected' : integrations.todoist.configured ? 'configured' : 'not configured',
       configured: integrations.todoist.configured,
@@ -527,9 +485,9 @@ function providerSummaries(integrations: IntegrationsData): IntegrationProviderS
         { label: 'Last sync', value: formatMaybeTimestamp(integrations.todoist.last_sync_at) },
       ],
     },
-    ...locals.map(({ key, label, data }) => ({
+    ...locals.map(({ key, data }) => ({
       key,
-      label,
+      label: resolveProviderSemantic(key).label,
       guidance: data.guidance?.detail ?? data.last_error ?? 'No additional guidance recorded.',
       status: data.configured ? 'configured' : 'not configured',
       configured: data.configured,
@@ -853,14 +811,14 @@ export function SystemView({ target }: SystemViewProps) {
       ],
       activity: providers.map((provider) => ({
         id: systemChildAnchor('activity', provider.key),
-        label: provider.label,
+        label: resolveProviderSemantic(provider.key).label,
       })),
       recovery: [
         ...providers
           .filter((provider) => providerNeedsRecovery(provider))
           .map((provider) => ({
             id: systemChildAnchor('recovery', provider.key),
-            label: provider.label,
+            label: resolveProviderSemantic(provider.key).label,
           })),
         ...(filteredBlockers.map((blocker) => ({
           id: systemChildAnchor('recovery', blocker.code),
@@ -870,7 +828,7 @@ export function SystemView({ target }: SystemViewProps) {
       providers: [
         ...providers.map((provider) => ({
           id: systemChildAnchor('providers', provider.key),
-          label: provider.label,
+          label: resolveProviderSemantic(provider.key).label,
         })),
         ...(llmProfiles.length > 0
           ? [
@@ -957,6 +915,7 @@ export function SystemView({ target }: SystemViewProps) {
     reducedMotion: settings?.web_settings?.reduced_motion ?? false,
     strongFocus: settings?.web_settings?.strong_focus ?? true,
     dockedActionBar: settings?.web_settings?.docked_action_bar ?? true,
+    semanticAliases: settings?.web_settings?.semantic_aliases ?? {},
   };
   const sectionOrder = visibleSectionOrder(developerMode);
 
@@ -1165,6 +1124,15 @@ export function SystemView({ target }: SystemViewProps) {
                       }
                       applyReturnedSettings(settingsKey, response);
                     },
+                    onUpdateSemanticAliases: async (aliases) => {
+                      const response = await updateWebSettings({
+                        semantic_aliases: aliases,
+                      });
+                      if (!response.ok) {
+                        throw new Error(response.error?.message ?? 'Failed to update semantic alias settings');
+                      }
+                      applyReturnedSettings(settingsKey, response);
+                    },
                     onCommitSettingField: async (key, value) => {
                       const response = await updateSettings({ [key]: value });
                       if (!response.ok) {
@@ -1272,6 +1240,7 @@ function renderSystemSubsection({
   blockers,
   preferences,
   onTogglePreference,
+  onUpdateSemanticAliases,
   onCommitSettingField,
   onUpdateCoreSettings,
   developerMode,
@@ -1298,8 +1267,10 @@ function renderSystemSubsection({
     reducedMotion: boolean;
     strongFocus: boolean;
     dockedActionBar: boolean;
+    semanticAliases: SemanticAliasOverridesData;
   };
   onTogglePreference: (key: 'denseRows' | 'tabularNumbers' | 'reducedMotion' | 'strongFocus' | 'dockedActionBar') => void;
+  onUpdateSemanticAliases: (aliases: SemanticAliasOverridesData) => void | Promise<void>;
   onCommitSettingField: (key: 'node_display_name' | 'timezone' | 'tailscale_base_url' | 'lan_base_url', value: string) => Promise<void>;
   onUpdateCoreSettings: (patch: Record<string, unknown>) => Promise<void>;
   developerMode: boolean;
@@ -1371,7 +1342,7 @@ function renderSystemSubsection({
     );
   }
   if (subsection === 'appearance') {
-    return <PreferencesAppearanceDetail preferences={preferences} onToggle={onTogglePreference} />;
+    return <PreferencesAppearanceDetail preferences={preferences} onToggle={onTogglePreference} onUpdateSemanticAliases={onUpdateSemanticAliases} />;
   }
   return (
     <PreferencesAccessibilityDetail
@@ -1462,18 +1433,24 @@ function OperationsActivityDetail({
       </div>
       <SystemDocumentList>
         {providers.map((provider) => (
+          (() => {
+            const providerSemantic = resolveProviderSemantic(provider.key);
+            const statusSemantic = resolveStateStatusSemantic(provider.status);
+            return (
           <SystemDocumentItem
             key={provider.key}
             id={systemChildAnchor('activity', provider.key)}
             leading={<ProviderGlyph provider={provider.key} />}
-            title={provider.label}
+            title={providerSemantic.label}
             subtitle={provider.guidance}
-            trailing={<SystemDocumentStatusChip tone={stateToneFromStatus(provider.status)}>{provider.status}</SystemDocumentStatusChip>}
+            trailing={<SystemDocumentStatusChip tone={statusSemantic.tone}>{statusSemantic.label}</SystemDocumentStatusChip>}
           >
             <SystemDocumentStatsGrid className="gap-x-6">
               {provider.meta.map((item) => <SystemDocumentMetaRow key={`${provider.key}-${item.label}`} label={item.label} value={item.value} />)}
             </SystemDocumentStatsGrid>
           </SystemDocumentItem>
+            );
+          })()
         ))}
       </SystemDocumentList>
     </div>
@@ -1494,20 +1471,24 @@ function OperationsRecoveryDetail({
 
   return (
     <SystemDocumentList>
-        {recoveryProviders.map((provider) => (
+        {recoveryProviders.map((provider) => {
+            const providerSemantic = resolveProviderSemantic(provider.key);
+            const statusSemantic = resolveStateStatusSemantic(provider.status);
+            return (
             <SystemDocumentItem
               key={provider.key}
               id={systemChildAnchor('recovery', provider.key)}
               leading={<ProviderGlyph provider={provider.key} />}
-              title={provider.label}
+              title={providerSemantic.label}
               subtitle={provider.guidance}
-              trailing={<SystemDocumentStatusChip tone={stateToneFromStatus(provider.status)}>{provider.status}</SystemDocumentStatusChip>}
+              trailing={<SystemDocumentStatusChip tone={statusSemantic.tone}>{statusSemantic.label}</SystemDocumentStatusChip>}
             >
               <>
                 {provider.meta.map((item) => <SystemDocumentMetaRow key={`${provider.key}-${item.label}`} label={item.label} value={item.value} />)}
               </>
             </SystemDocumentItem>
-          ))}
+            );
+          })}
         {recoveryProviders.length === 0 ? (
           <PanelEmptyRow>No recovery actions are pressing right now.</PanelEmptyRow>
         ) : null}
@@ -2111,9 +2092,9 @@ function IntegrationsProvidersDetail({
             key={provider.key}
             id={systemChildAnchor('providers', provider.key)}
             leading={<ProviderGlyph provider={provider.key} />}
-            title={provider.label}
+            title={resolveProviderSemantic(provider.key).label}
             subtitle={provider.guidance}
-            trailing={<SystemDocumentStatusChip tone={providerStatusTone(provider.status)}>{provider.status}</SystemDocumentStatusChip>}
+            trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(provider.status).tone}>{resolveProviderStatusSemantic(provider.status).label}</SystemDocumentStatusChip>}
           >
             {collapseUnavailable ? (
               <details className="rounded-[18px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)]/55 px-3 py-2">
@@ -2133,7 +2114,7 @@ function IntegrationsProvidersDetail({
           id={systemChildAnchor('providers', 'llm-routing')}
           title="LLM routing"
           subtitle="Choose the default local/remote chat profile and optional fallback from the discovered model registry."
-          trailing={<SystemDocumentStatusChip tone={llmProfiles.some((profile) => profile.enabled) ? 'done' : 'offline'}>{activeDefaultId ? 'configured' : 'not configured'}</SystemDocumentStatusChip>}
+          trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(activeDefaultId ? 'configured' : 'not configured').tone}>{resolveProviderStatusSemantic(activeDefaultId ? 'configured' : 'not configured').label}</SystemDocumentStatusChip>}
         >
           <>
             <p className="text-xs leading-5 text-[var(--vel-color-muted)]">
@@ -2154,7 +2135,7 @@ function IntegrationsProvidersDetail({
                   className="ml-3"
                   title={profile.id}
                   subtitle={`${profile.provider} · ${profile.model}`}
-                  trailing={<SystemDocumentStatusChip tone={profile.enabled ? 'done' : 'offline'}>{profile.enabled ? 'enabled' : 'disabled'}</SystemDocumentStatusChip>}
+                  trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(profile.enabled ? 'enabled' : 'disabled').tone}>{resolveProviderStatusSemantic(profile.enabled ? 'enabled' : 'disabled').label}</SystemDocumentStatusChip>}
                 >
                   <>
                     <SystemDocumentStatsGrid className="gap-x-6">
@@ -2351,7 +2332,7 @@ function IntegrationsProvidersDetail({
                   className="ml-3"
                   title={draft.id || 'New OpenAI profile'}
                   subtitle="openai_oauth · localhost OpenAI-compatible proxy"
-                  trailing={<SystemDocumentStatusChip tone={draft.enabled ? 'done' : 'offline'}>{draft.enabled ? 'enabled' : 'disabled'}</SystemDocumentStatusChip>}
+                  trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(draft.enabled ? 'enabled' : 'disabled').tone}>{resolveProviderStatusSemantic(draft.enabled ? 'enabled' : 'disabled').label}</SystemDocumentStatusChip>}
                 >
                   <div className="space-y-1 rounded-[18px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)]/40 px-3 py-2">
                     <SystemDocumentField
@@ -2422,7 +2403,7 @@ function IntegrationsProvidersDetail({
                   className="ml-3"
                   title={draft.id || 'New OpenAI API profile'}
                   subtitle="openai_api · direct OpenAI API"
-                  trailing={<SystemDocumentStatusChip tone={draft.enabled ? 'done' : 'offline'}>{draft.enabled ? 'enabled' : 'disabled'}</SystemDocumentStatusChip>}
+                  trailing={<SystemDocumentStatusChip tone={resolveProviderStatusSemantic(draft.enabled ? 'enabled' : 'disabled').tone}>{resolveProviderStatusSemantic(draft.enabled ? 'enabled' : 'disabled').label}</SystemDocumentStatusChip>}
                 >
                   <div className="space-y-1 rounded-[18px] border border-[var(--vel-color-border)] bg-[var(--vel-color-panel)]/40 px-3 py-2">
                     <SystemDocumentField
@@ -2521,18 +2502,21 @@ function IntegrationsAccountsDetail({
     <SystemDocumentList>
       {connections.length === 0 ? (
         <PanelEmptyRow>No integration accounts are connected yet.</PanelEmptyRow>
-      ) : connections.map((connection) => (
+      ) : connections.map((connection) => {
+        const providerSemantic = resolveProviderSemantic(connection.provider_key);
+        const statusSemantic = resolveProviderStatusSemantic(connection.status);
+        return (
         <SystemDocumentItem
           key={connection.id}
           id={systemChildAnchor('accounts', connection.id)}
           title={connection.display_name}
-          subtitle={connection.provider_key}
-          trailing={<SystemDocumentStatusChip tone={providerStatusTone(connection.status)}>{connection.status}</SystemDocumentStatusChip>}
+          subtitle={providerSemantic.label}
+          trailing={<SystemDocumentStatusChip tone={statusSemantic.tone}>{statusSemantic.label}</SystemDocumentStatusChip>}
         >
           <>
             <SystemDocumentStatsGrid className="gap-x-6">
               <SystemDocumentField label="Family" value={connection.family} />
-              <SystemDocumentField label="Provider" value={connection.provider_key} />
+              <SystemDocumentField label="Provider" value={providerSemantic.label} />
               <SystemDocumentField label="Account ref" value={connection.account_ref ?? 'Unavailable'} />
               <SystemDocumentField label="Updated" value={formatMaybeTimestamp(connection.updated_at)} />
             </SystemDocumentStatsGrid>
@@ -2541,7 +2525,8 @@ function IntegrationsAccountsDetail({
             ))}
           </>
         </SystemDocumentItem>
-      ))}
+        );
+      })}
     </SystemDocumentList>
   );
 }
@@ -2555,13 +2540,15 @@ function ControlProjectsDetail({
     <SystemDocumentList>
       {projects.length === 0 ? (
         <PanelEmptyRow>No grounded projects are available.</PanelEmptyRow>
-      ) : projects.map((project) => (
+      ) : projects.map((project) => {
+        const statusSemantic = resolveProjectStatusSemantic(project.status);
+        return (
         <SystemDocumentItem
           key={project.id}
           id={systemChildAnchor('projects', project.id)}
           title={project.name}
           subtitle={project.slug}
-          trailing={<SystemDocumentStatusChip tone={project.status === 'active' ? 'active' : 'neutral'}>{project.status}</SystemDocumentStatusChip>}
+          trailing={<SystemDocumentStatusChip tone={statusSemantic.tone}>{statusSemantic.label}</SystemDocumentStatusChip>}
         >
           <>
             <SystemDocumentStatsGrid className="gap-x-6">
@@ -2572,7 +2559,8 @@ function ControlProjectsDetail({
             </SystemDocumentStatsGrid>
           </>
         </SystemDocumentItem>
-      ))}
+        );
+      })}
     </SystemDocumentList>
   );
 }
@@ -2624,6 +2612,7 @@ function ControlCapabilitiesDetail({
 function PreferencesAppearanceDetail({
   preferences,
   onToggle,
+  onUpdateSemanticAliases,
 }: {
   preferences: {
     denseRows: boolean;
@@ -2631,9 +2620,13 @@ function PreferencesAppearanceDetail({
     reducedMotion: boolean;
     strongFocus: boolean;
     dockedActionBar: boolean;
+    semanticAliases: SemanticAliasOverridesData;
   };
   onToggle: (key: 'denseRows' | 'tabularNumbers' | 'reducedMotion' | 'strongFocus' | 'dockedActionBar') => void;
+  onUpdateSemanticAliases: (aliases: SemanticAliasOverridesData) => void | Promise<void>;
 }) {
+  const semanticAliasesJson = JSON.stringify(preferences.semanticAliases ?? {}, null, 2);
+
   return (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -2662,6 +2655,34 @@ function PreferencesAppearanceDetail({
           <SystemDocumentMetaRow label="Typography" value="Geist / Inter / JetBrains Mono" />
         </SystemDocumentStatsGrid>
       </div>
+
+      <div className="space-y-3">
+        <SystemDocumentSectionLabel>Semantic aliases</SystemDocumentSectionLabel>
+        <SystemDocumentField
+          label="Alias overrides JSON"
+          fieldId="appearance-semantic-aliases"
+          value={semanticAliasesJson}
+          multiline
+          placeholder={`{
+  "provider": { "google_calendar": "Calendar" }
+}`}
+          onCommit={(value) => {
+            const trimmed = value.trim();
+            let parsed: SemanticAliasOverridesData = {};
+            if (trimmed.length > 0) {
+              const candidate = JSON.parse(trimmed);
+              if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+                throw new Error('Semantic aliases must be a JSON object.');
+              }
+              parsed = candidate as SemanticAliasOverridesData;
+            }
+            return onUpdateSemanticAliases(parsed);
+          }}
+        />
+        <p className="text-xs leading-5 text-[var(--vel-color-muted)]">
+          Override shared labels for providers, projects, calendars, nudges, alerts, and modes. Use canonical snake_case keys.
+        </p>
+      </div>
     </div>
   );
 }
@@ -2677,6 +2698,8 @@ function RequiredSetupRow({
   ready: boolean;
   action?: ReactNode;
 }) {
+  const statusSemantic = resolveStateStatusSemantic(ready ? 'ready' : 'required');
+
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--vel-color-border)] py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
@@ -2684,8 +2707,8 @@ function RequiredSetupRow({
         <p className="text-xs leading-5 text-[var(--vel-color-muted)]">{detail}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <SystemDocumentStatusChip tone={ready ? 'done' : 'warning'}>
-          {ready ? 'ready' : 'required'}
+        <SystemDocumentStatusChip tone={statusSemantic.tone}>
+          {statusSemantic.label}
         </SystemDocumentStatusChip>
         {action}
       </div>
@@ -2718,6 +2741,7 @@ function CoreSettingsDetail({
     () => buildCoreSetupStatus(settings, integrations),
     [integrations, settings],
   );
+  const requiredSetupSemantic = resolveStateStatusSemantic(coreSetupStatus.ready ? 'ready' : 'blocked');
   const hasConfiguredLlm = Boolean(
     settings?.llm?.default_chat_profile_id
     && settings.llm.profiles.some(
@@ -2772,7 +2796,7 @@ function CoreSettingsDetail({
             id={systemChildAnchor('core_settings', 'required-setup')}
             title="Required setup"
             subtitle="Vel stays partially disabled until every required Core item is saved."
-            trailing={<SystemDocumentStatusChip tone={coreSetupStatus.ready ? 'done' : 'warning'}>{coreSetupStatus.ready ? 'ready' : 'blocked'}</SystemDocumentStatusChip>}
+            trailing={<SystemDocumentStatusChip tone={requiredSetupSemantic.tone}>{requiredSetupSemantic.label}</SystemDocumentStatusChip>}
           >
             <>
               <p className="rounded-[18px] border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-sm leading-6 text-amber-100">
@@ -3034,7 +3058,7 @@ function CapabilityRow({ entry }: { entry: AgentCapabilityEntryData }) {
     <SystemDocumentItem
       title={entry.label}
       subtitle={entry.summary}
-      trailing={<SystemDocumentStatusChip tone={entry.available ? 'active' : 'warning'}>{entry.available ? 'available' : 'blocked'}</SystemDocumentStatusChip>}
+      trailing={<SystemDocumentStatusChip tone={resolveStateStatusSemantic(entry.available ? 'available' : 'blocked').tone}>{resolveStateStatusSemantic(entry.available ? 'available' : 'blocked').label}</SystemDocumentStatusChip>}
       className="py-2 first:pt-0 last:pb-0"
     >
       {entry.blocked_reason ? (
@@ -3045,26 +3069,17 @@ function CapabilityRow({ entry }: { entry: AgentCapabilityEntryData }) {
 }
 
 function ProviderGlyph({ provider }: { provider: IntegrationProviderKey }) {
-  const statusIcon =
-    provider === 'activity' || provider === 'health'
-      ? <WarningIcon size={12} />
-      : provider === 'google_calendar' || provider === 'todoist'
-        ? <SyncIcon size={12} />
-        : null;
+  const semantic = resolveProviderSemantic(provider);
 
   return (
     <div
       className={cn(
         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold uppercase tracking-[0.16em]',
-        providerTintClass(provider),
+        semantic.glyphClassName,
       )}
       aria-hidden
     >
-      {statusIcon ?? (provider === 'google_calendar'
-        ? 'G'
-        : provider === 'todoist'
-          ? 'T'
-          : provider.slice(0, 1))}
+      <SemanticIcon icon={semantic.icon} size={12} />
     </div>
   );
 }
