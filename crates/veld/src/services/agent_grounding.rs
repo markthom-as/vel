@@ -115,6 +115,15 @@ pub async fn build_agent_inspect(state: &AppState) -> Result<AgentInspectData, A
                             requires_review_gate: None,
                             requires_writeback_enabled: false,
                         },
+                        AgentCapabilityEntryData {
+                            key: "read_task_calendar_details".to_string(),
+                            label: "Inspect task and calendar details".to_string(),
+                            summary: "The agent can inspect surfaced calendar events and query tracked tasks through bounded read tools.".to_string(),
+                            available: true,
+                            blocked_reason: None,
+                            requires_review_gate: None,
+                            requires_writeback_enabled: false,
+                        },
                     ],
                 },
                 AgentCapabilityGroupData {

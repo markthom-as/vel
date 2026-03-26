@@ -19,6 +19,10 @@ use crate::{
 };
 
 const TOOL_GET_NOW: &str = "vel_get_now";
+const TOOL_LIST_CALENDAR_EVENTS: &str = "vel_list_calendar_events";
+const TOOL_GET_CALENDAR_EVENT: &str = "vel_get_calendar_event";
+const TOOL_LIST_TASKS: &str = "vel_list_tasks";
+const TOOL_GET_TASK: &str = "vel_get_task";
 const TOOL_SEARCH_MEMORY: &str = "vel_search_memory";
 const TOOL_GET_RECALL_CONTEXT: &str = "vel_get_recall_context";
 const TOOL_LIST_PROJECTS: &str = "vel_list_projects";
@@ -38,6 +42,95 @@ pub(crate) fn chat_tool_specs() -> Vec<ToolSpec> {
             schema: json!({
                 "type": "object",
                 "properties": {},
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_LIST_CALENDAR_EVENTS.to_string(),
+            description:
+                "List the calendar events currently surfaced by Vel's Now schedule, with optional inclusion of following-day events."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "include_following_day": {
+                        "type": "boolean",
+                        "description": "Whether to include following-day events from the current Now schedule."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                        "description": "Maximum number of events to return."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_GET_CALENDAR_EVENT.to_string(),
+            description:
+                "Read one surfaced calendar event from Vel's current Now schedule by event id."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["event_id"],
+                "properties": {
+                    "event_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Calendar event id from Vel's surfaced Now schedule."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_LIST_TASKS.to_string(),
+            description:
+                "List Vel tasks and commitments with optional status, source, and project filtering."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["open", "done", "all"],
+                        "description": "Task status filter. Defaults to open."
+                    },
+                    "source_type": {
+                        "type": "string",
+                        "description": "Optional source filter such as todoist."
+                    },
+                    "project": {
+                        "type": "string",
+                        "description": "Optional project filter."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                        "description": "Maximum number of tasks to return."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_GET_TASK.to_string(),
+            description:
+                "Read one Vel task or commitment by its canonical task id."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["task_id"],
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Canonical Vel task/commitment id."
+                    }
+                },
                 "additionalProperties": false,
             }),
         },
@@ -202,6 +295,120 @@ pub(crate) async fn execute_chat_tool(
                 .await?
                 .into();
             Ok(json!({ "now": now }))
+        }
+        TOOL_LIST_CALENDAR_EVENTS => {
+            let now: NowData = crate::services::now::get_now(&state.storage, &state.config)
+                .await?
+                .into();
+            let limit = parse_limit(arguments, 8, 20)?;
+            let include_following_day =
+                parse_bool_argument(arguments, "include_following_day")?.unwrap_or(true);
+            let mut events = now.schedule.upcoming_events.clone();
+            if include_following_day {
+                events.extend(now.schedule.following_day_events.clone());
+            }
+            events.truncate(limit);
+            Ok(json!({
+                "computed_at": now.computed_at,
+                "timezone": now.timezone,
+                "events": events,
+                "include_following_day": include_following_day,
+            }))
+        }
+        TOOL_GET_CALENDAR_EVENT => {
+            let event_id =
+                required_trimmed_argument(arguments, "event_id", TOOL_GET_CALENDAR_EVENT)?;
+            let now: NowData = crate::services::now::get_now(&state.storage, &state.config)
+                .await?
+                .into();
+            let upcoming = now
+                .schedule
+                .upcoming_events
+                .iter()
+                .find(|event| event.event_id.as_deref() == Some(event_id.as_str()))
+                .cloned();
+            let (event, surfaced_in) = if let Some(event) = upcoming {
+                (event, "upcoming_events")
+            } else {
+                let following_day = now
+                    .schedule
+                    .following_day_events
+                    .iter()
+                    .find(|event| event.event_id.as_deref() == Some(event_id.as_str()))
+                    .cloned();
+                match following_day {
+                    Some(event) => (event, "following_day_events"),
+                    None => {
+                        return Err(AppError::not_found(
+                            "calendar event is not surfaced in the current Now schedule",
+                        ));
+                    }
+                }
+            };
+            Ok(json!({
+                "computed_at": now.computed_at,
+                "timezone": now.timezone,
+                "event": event,
+                "surfaced_in": surfaced_in,
+            }))
+        }
+        TOOL_LIST_TASKS => {
+            let limit = parse_limit(arguments, 8, 20)?;
+            let status = parse_task_status(arguments)?;
+            let source_type = optional_trimmed_argument(arguments, "source_type")?;
+            let project = optional_trimmed_argument(arguments, "project")?;
+            let commitments = state
+                .storage
+                .list_commitments(status, None, None, 256)
+                .await?
+                .into_iter()
+                .filter(|commitment| {
+                    source_type.as_deref().is_none_or(|expected| {
+                        commitment.source_type.trim().eq_ignore_ascii_case(expected)
+                    })
+                })
+                .filter(|commitment| {
+                    project.as_deref().is_none_or(|expected| {
+                        commitment
+                            .project
+                            .as_deref()
+                            .map(|value| value.trim().eq_ignore_ascii_case(expected))
+                            .unwrap_or(false)
+                    })
+                })
+                .take(limit)
+                .map(CommitmentData::from)
+                .collect::<Vec<_>>();
+            Ok(json!({
+                "tasks": commitments,
+                "filters": {
+                    "status": task_status_label(status),
+                    "source_type": source_type,
+                    "project": project,
+                }
+            }))
+        }
+        TOOL_GET_TASK => {
+            let task_id = required_trimmed_argument(arguments, "task_id", TOOL_GET_TASK)?;
+            let task = state
+                .storage
+                .get_commitment_by_id(&task_id)
+                .await?
+                .ok_or_else(|| AppError::not_found("task not found"))?;
+            let now: NowData = crate::services::now::get_now(&state.storage, &state.config)
+                .await?
+                .into();
+            let surfaced_in_now = now
+                .tasks
+                .next_commitment
+                .as_ref()
+                .is_some_and(|next| next.id == task_id)
+                || now.tasks.todoist.iter().any(|item| item.id == task_id)
+                || now.tasks.other_open.iter().any(|item| item.id == task_id);
+            Ok(json!({
+                "task": CommitmentData::from(task),
+                "surfaced_in_now": surfaced_in_now,
+            }))
         }
         TOOL_SEARCH_MEMORY => {
             let query = arguments
@@ -381,6 +588,7 @@ pub(crate) async fn build_chat_grounding_prompt(state: &AppState) -> Result<Stri
     Ok(format!(
         "You are Vel, a concise assistant for capture, recall, daily orientation, and supervised execution.\n\
          Use the provided Vel tool surface when the user asks about their current state, projects, people, commitments, or prior captured knowledge.\n\
+         Use the dedicated task and calendar tools for detailed inspection when the user needs concrete commitments or surfaced schedule events instead of only the compact Now summary.\n\
          Prefer the recall-context tool for memory-backed questions when you need a bounded pack of relevant context instead of a raw search list.\n\
          Daily-loop state, standup continuity, closeout briefs, and thread-based resolution should stay aligned with Vel's existing product lanes rather than invented ad hoc in chat.\n\
          Never invent access you do not have. If a write, mutation, or review-gated action is requested, explain the limit instead of pretending it happened.\n\
@@ -534,6 +742,58 @@ fn parse_limit(
     Ok(limit.min(max_limit))
 }
 
+fn parse_bool_argument(arguments: &Value, key: &str) -> Result<Option<bool>, AppError> {
+    match arguments.get(key) {
+        Some(value) => value
+            .as_bool()
+            .map(Some)
+            .ok_or_else(|| AppError::bad_request(format!("{key} must be a boolean"))),
+        None => Ok(None),
+    }
+}
+
+fn optional_trimmed_argument(arguments: &Value, key: &str) -> Result<Option<String>, AppError> {
+    match arguments.get(key) {
+        Some(value) => value
+            .as_str()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| Some(value.to_string()))
+            .ok_or_else(|| AppError::bad_request(format!("{key} must be a non-empty string"))),
+        None => Ok(None),
+    }
+}
+
+fn required_trimmed_argument(
+    arguments: &Value,
+    key: &str,
+    tool_name: &str,
+) -> Result<String, AppError> {
+    optional_trimmed_argument(arguments, key)?
+        .ok_or_else(|| AppError::bad_request(format!("{tool_name} requires non-empty {key}")))
+}
+
+fn parse_task_status(arguments: &Value) -> Result<Option<CommitmentStatus>, AppError> {
+    let status = optional_trimmed_argument(arguments, "status")?;
+    match status.as_deref() {
+        None | Some("open") => Ok(Some(CommitmentStatus::Open)),
+        Some("done") => Ok(Some(CommitmentStatus::Done)),
+        Some("all") => Ok(None),
+        Some(_) => Err(AppError::bad_request(
+            "task status must be open, done, or all",
+        )),
+    }
+}
+
+fn task_status_label(status: Option<CommitmentStatus>) -> &'static str {
+    match status {
+        Some(CommitmentStatus::Open) => "open",
+        Some(CommitmentStatus::Done) => "done",
+        None => "all",
+        Some(_) => "open",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -541,7 +801,8 @@ mod tests {
     use tokio::sync::broadcast;
     use vel_config::AppConfig;
     use vel_core::{
-        DailyLoopStartMetadata, DailyLoopStartRequest, DailyLoopStartSource, DailyLoopSurface,
+        CurrentContextV1, DailyLoopStartMetadata, DailyLoopStartRequest, DailyLoopStartSource,
+        DailyLoopSurface,
     };
 
     fn test_state(storage: vel_storage::Storage) -> AppState {
@@ -784,5 +1045,126 @@ mod tests {
             .unwrap()
             .iter()
             .any(|item| item.as_str().unwrap().contains("follow up")));
+    }
+
+    #[tokio::test]
+    async fn list_tasks_tool_filters_by_source_and_project() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Todoist task".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("alpha".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({})),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Local task".to_string(),
+                source_type: "manual".to_string(),
+                source_id: "local_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("beta".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({})),
+            })
+            .await
+            .unwrap();
+
+        let state = test_state(storage);
+        let value = execute_chat_tool(
+            &state,
+            TOOL_LIST_TASKS,
+            &json!({
+                "status": "open",
+                "source_type": "todoist",
+                "project": "alpha",
+                "limit": 10,
+            }),
+        )
+        .await
+        .unwrap();
+
+        let tasks = value["tasks"].as_array().unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0]["text"], "Todoist task");
+        assert_eq!(value["filters"]["status"], "open");
+        assert_eq!(value["filters"]["source_type"], "todoist");
+        assert_eq!(value["filters"]["project"], "alpha");
+    }
+
+    #[tokio::test]
+    async fn calendar_tools_return_surfaced_now_schedule_events() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_current_context(
+                now,
+                &serde_json::to_string(&CurrentContextV1 {
+                    computed_at: now,
+                    ..CurrentContextV1::default()
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "calendar".to_string(),
+                source_ref: Some("calendar:event_today".to_string()),
+                timestamp: now + 1800,
+                payload_json: Some(json!({
+                    "event_id": "event_today",
+                    "calendar_id": "cal_a",
+                    "calendar_name": "Primary",
+                    "title": "Design review",
+                    "start": now + 1800,
+                    "end": now + 3600,
+                    "location": "Studio",
+                    "description": "Review current slice",
+                    "attendees": ["annie@example.com"],
+                    "prep_minutes": 10,
+                    "travel_minutes": 0
+                })),
+            })
+            .await
+            .unwrap();
+
+        let state = test_state(storage);
+        let listed = execute_chat_tool(
+            &state,
+            TOOL_LIST_CALENDAR_EVENTS,
+            &json!({
+                "limit": 10,
+                "include_following_day": false,
+            }),
+        )
+        .await
+        .unwrap();
+
+        let events = listed["events"].as_array().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["title"], "Design review");
+        assert_eq!(events[0]["event_id"], "event_today");
+
+        let fetched = execute_chat_tool(
+            &state,
+            TOOL_GET_CALENDAR_EVENT,
+            &json!({ "event_id": "event_today" }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(fetched["event"]["title"], "Design review");
+        assert_eq!(fetched["surfaced_in"], "upcoming_events");
     }
 }
