@@ -28,6 +28,14 @@ export interface EmbeddedBridgePacketRuntime {
     project?: string | null,
   ): EmbeddedBridgePacketResponse;
   shortClientKindLabelPacket(clientKind?: string | null): EmbeddedBridgePacketResponse;
+  actionItemDedupeKeyPacket(
+    kind: string,
+    title: string,
+    summary: string,
+    projectLabel?: string | null,
+    threadId?: string | null,
+    threadLabel?: string | null,
+  ): EmbeddedBridgePacketResponse;
   queuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -142,6 +150,24 @@ export function shortClientKindLabelPacket(
   clientKind?: string | null,
 ): EmbeddedBridgePacketResponse {
   return getEmbeddedBridgePacketRuntime().shortClientKindLabelPacket(clientKind);
+}
+
+export function actionItemDedupeKeyPacket(
+  kind: string,
+  title: string,
+  summary: string,
+  projectLabel?: string | null,
+  threadId?: string | null,
+  threadLabel?: string | null,
+): EmbeddedBridgePacketResponse {
+  return getEmbeddedBridgePacketRuntime().actionItemDedupeKeyPacket(
+    kind,
+    title,
+    summary,
+    projectLabel,
+    threadId,
+    threadLabel,
+  );
 }
 
 export function queuedActionPacket(

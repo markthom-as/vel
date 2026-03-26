@@ -13,6 +13,14 @@ export interface EmbeddedBridgeWasmModule {
   velEmbeddedNormalizeSemanticLabelPacket(input: string): string;
   velEmbeddedNormalizeTaskDisplayPacket(tagsJson?: string | null, project?: string | null): string;
   velEmbeddedShortClientKindLabelPacket(clientKind?: string | null): string;
+  velEmbeddedActionItemDedupeKeyPacket(
+    kind: string,
+    title: string,
+    summary: string,
+    projectLabel?: string | null,
+    threadId?: string | null,
+    threadLabel?: string | null,
+  ): string;
   velEmbeddedQueuedActionPacket(
     kind: string,
     targetId?: string | null,
@@ -122,6 +130,19 @@ export function createEmbeddedBridgePacketRuntimeFromWasm(
       return response(
         'deterministic_domain_helpers',
         wasm.velEmbeddedShortClientKindLabelPacket(clientKind),
+      );
+    },
+    actionItemDedupeKeyPacket(kind, title, summary, projectLabel, threadId, threadLabel) {
+      return response(
+        'deterministic_domain_helpers',
+        wasm.velEmbeddedActionItemDedupeKeyPacket(
+          kind,
+          title,
+          summary,
+          projectLabel,
+          threadId,
+          threadLabel,
+        ),
       );
     },
     queuedActionPacket(kind, targetId, text, minutes) {

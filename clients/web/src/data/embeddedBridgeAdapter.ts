@@ -1,4 +1,5 @@
 import {
+  actionItemDedupeKeyPacket,
   appShellFeedbackPacket,
   assistantEntryFallbackPacket,
   collectRemoteRoutesPacket,
@@ -78,6 +79,10 @@ export type EmbeddedBridgeClientKindPacket = {
   shortLabel: string | null;
 };
 
+export type EmbeddedBridgeActionItemDedupeKeyPacket = {
+  key: string;
+};
+
 function parsePacket<T>(kind: EmbeddedBridgePacketKind, payloadJson: string): T {
   const parsed = JSON.parse(payloadJson) as { kind?: string } & T;
   void kind;
@@ -120,6 +125,26 @@ export function shortClientKindLabelValue(
 ): EmbeddedBridgeClientKindPacket {
   ensureEmbeddedBridgeRuntime();
   const response = shortClientKindLabelPacket(clientKind);
+  return parsePacket(response.kind, response.payloadJson);
+}
+
+export function actionItemDedupeKeyValue(
+  kind: string,
+  title: string,
+  summary: string,
+  projectLabel?: string | null,
+  threadId?: string | null,
+  threadLabel?: string | null,
+): EmbeddedBridgeActionItemDedupeKeyPacket {
+  ensureEmbeddedBridgeRuntime();
+  const response = actionItemDedupeKeyPacket(
+    kind,
+    title,
+    summary,
+    projectLabel,
+    threadId,
+    threadLabel,
+  );
   return parsePacket(response.kind, response.payloadJson);
 }
 
