@@ -15,7 +15,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -24,6 +27,20 @@ jobs:
 
       - name: Full CI checks
         run: make ci
+
+      - name: CLI coverage structure report
+        run: node scripts/check-cli-coverage.mjs --json
+
+      - name: CLI line coverage report
+        run: node scripts/check-cli-line-coverage.mjs --json
+
+      - name: Upload CLI coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vel-cli-coverage
+          path: |
+            target/coverage/vel-cli/llvm-cov-summary.json
+            target/coverage/vel-cli/lcov.info
 
       - name: Smoke test daemon/API/CLI
         run: make smoke

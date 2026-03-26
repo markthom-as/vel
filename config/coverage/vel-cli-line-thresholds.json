@@ -1,0 +1,11 @@
+{
+  "threshold_stage": "stage_c_ratchet_1",
+  "overall_line_percent_floor": 52.0,
+  "file_line_percent_floors": [
+    {
+      "path": "crates/vel-cli/src/client.rs",
+      "percent": 56.0,
+      "reason": "The HTTP client seam is the highest-risk shared boundary and should stay above the first measured post-rollout baseline with a small stability margin."
+    }
+  ]
+}

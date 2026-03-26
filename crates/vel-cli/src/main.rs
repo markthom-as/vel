@@ -93,6 +93,10 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommand,
+    },
     Policy {
         #[command(subcommand)]
         command: PolicyCommand,
@@ -125,6 +129,10 @@ enum Command {
         #[command(subcommand)]
         command: IntegrationsCommand,
     },
+    Components {
+        #[command(subcommand)]
+        command: ComponentsCommand,
+    },
     Connect {
         #[command(subcommand)]
         command: ConnectCommand,
@@ -136,6 +144,10 @@ enum Command {
     Integration {
         #[command(subcommand)]
         command: IntegrationCommand,
+    },
+    Component {
+        #[command(subcommand)]
+        command: ComponentCommand,
     },
     Artifact {
         #[command(subcommand)]
@@ -257,10 +269,20 @@ enum Command {
         #[command(subcommand)]
         command: PeopleCommand,
     },
+    #[command(about = "List and inspect project records")]
+    Project {
+        #[command(subcommand)]
+        command: ProjectCommand,
+    },
     #[command(about = "List and create signals")]
     Signals {
         #[command(subcommand)]
         command: SignalCommand,
+    },
+    #[command(about = "Inspect LLM profile health")]
+    Llm {
+        #[command(subcommand)]
+        command: LlmCommand,
     },
 }
 
@@ -272,6 +294,43 @@ enum PeopleCommand {
     },
     Inspect {
         id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ProjectCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Families {
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Create {
+        #[arg(long)]
+        slug: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        family: String,
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        repo_path: String,
+        #[arg(long)]
+        notes_path: String,
+        #[arg(long)]
+        create_repo: bool,
+        #[arg(long)]
+        create_notes_root: bool,
         #[arg(long)]
         json: bool,
     },
@@ -490,6 +549,10 @@ enum ThreadCommand {
 
 #[derive(Debug, Subcommand)]
 enum IntegrationsCommand {
+    Show {
+        #[arg(long)]
+        json: bool,
+    },
     Connections {
         #[arg(long)]
         family: Option<String>,
@@ -503,11 +566,42 @@ enum IntegrationsCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum ComponentsCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum IntegrationCommand {
     Inspect {
         id: String,
         #[arg(long, default_value = "10")]
         events_limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    Logs {
+        id: String,
+        #[arg(long, default_value = "10")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ComponentCommand {
+    Logs {
+        id: String,
+        #[arg(long, default_value = "50")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    Restart {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -687,6 +781,14 @@ enum ConfigCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum SettingsCommand {
+    Show {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum PolicyCommand {
     Check {
         #[arg(long)]
@@ -720,6 +822,15 @@ enum LoopCommand {
     },
     Disable {
         kind: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum LlmCommand {
+    ProfileHealth {
+        profile_id: String,
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -1080,6 +1191,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Config { command } => match command {
             ConfigCommand::Show { json } => commands::config::run(&config, json),
         },
+        Command::Settings { command } => match command {
+            SettingsCommand::Show { json } => commands::settings::run_show(&client, json).await,
+        },
         Command::Policy { command } => match command {
             PolicyCommand::Check { path, json } => {
                 commands::policy::run_check(path.as_deref(), json)
@@ -1143,6 +1257,9 @@ async fn main() -> anyhow::Result<()> {
             ReviewCommand::Week { json } => commands::review::run_week(&client, json).await,
         },
         Command::Integrations { command } => match command {
+            IntegrationsCommand::Show { json } => {
+                commands::integrations::run_show(&client, json).await
+            }
             IntegrationsCommand::Connections {
                 family,
                 provider_key,
@@ -1158,6 +1275,9 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await
             }
+        },
+        Command::Components { command } => match command {
+            ComponentsCommand::List { json } => commands::components::run_list(&client, json).await,
         },
         Command::Connect { command } => match command {
             ConnectCommand::Instances { json } => {
@@ -1286,6 +1406,17 @@ async fn main() -> anyhow::Result<()> {
             } => {
                 commands::integrations::run_inspect_connection(&client, &id, events_limit, json)
                     .await
+            }
+            IntegrationCommand::Logs { id, limit, json } => {
+                commands::integrations::run_logs(&client, &id, limit, json).await
+            }
+        },
+        Command::Component { command } => match command {
+            ComponentCommand::Logs { id, limit, json } => {
+                commands::components::run_logs(&client, &id, limit, json).await
+            }
+            ComponentCommand::Restart { id, json } => {
+                commands::components::run_restart(&client, &id, json).await
             }
         },
         Command::Artifact { command } => match command {
@@ -1757,6 +1888,40 @@ async fn main() -> anyhow::Result<()> {
                 commands::people::run_inspect(&client, &id, json).await
             }
         },
+        Command::Project { command } => match command {
+            ProjectCommand::List { json } => commands::projects::run_list(&client, json).await,
+            ProjectCommand::Families { json } => {
+                commands::projects::run_families(&client, json).await
+            }
+            ProjectCommand::Inspect { id, json } => {
+                commands::projects::run_inspect(&client, &id, json).await
+            }
+            ProjectCommand::Create {
+                slug,
+                name,
+                family,
+                status,
+                repo_path,
+                notes_path,
+                create_repo,
+                create_notes_root,
+                json,
+            } => {
+                commands::projects::run_create(
+                    &client,
+                    &slug,
+                    &name,
+                    &family,
+                    status.as_deref(),
+                    &repo_path,
+                    &notes_path,
+                    create_repo,
+                    create_notes_root,
+                    json,
+                )
+                .await
+            }
+        },
         Command::Signals { command } => match command {
             SignalCommand::List {
                 signal_type,
@@ -1783,6 +1948,11 @@ async fn main() -> anyhow::Result<()> {
                     json,
                 )
                 .await
+            }
+        },
+        Command::Llm { command } => match command {
+            LlmCommand::ProfileHealth { profile_id, json } => {
+                commands::llm::run_profile_health(&client, &profile_id, json).await
             }
         },
     }
@@ -1924,6 +2094,115 @@ mod tests {
         match cli.command {
             Command::Today { json } => assert!(json),
             _ => panic!("expected today command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_settings_show() {
+        let cli = Cli::try_parse_from(["vel", "settings", "show", "--json"]).unwrap();
+        match cli.command {
+            Command::Settings {
+                command: SettingsCommand::Show { json },
+            } => assert!(json),
+            _ => panic!("expected settings show command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_components_list() {
+        let cli = Cli::try_parse_from(["vel", "components", "list", "--json"]).unwrap();
+        match cli.command {
+            Command::Components {
+                command: ComponentsCommand::List { json },
+            } => assert!(json),
+            _ => panic!("expected components list command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_project_list() {
+        let cli = Cli::try_parse_from(["vel", "project", "list", "--json"]).unwrap();
+        match cli.command {
+            Command::Project {
+                command: ProjectCommand::List { json },
+            } => assert!(json),
+            _ => panic!("expected project list command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_project_inspect() {
+        let cli = Cli::try_parse_from(["vel", "project", "inspect", "proj_123", "--json"]).unwrap();
+        match cli.command {
+            Command::Project {
+                command: ProjectCommand::Inspect { id, json },
+            } => {
+                assert_eq!(id, "proj_123");
+                assert!(json);
+            }
+            _ => panic!("expected project inspect command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_project_families() {
+        let cli = Cli::try_parse_from(["vel", "project", "families", "--json"]).unwrap();
+        match cli.command {
+            Command::Project {
+                command: ProjectCommand::Families { json },
+            } => assert!(json),
+            _ => panic!("expected project families command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_project_create() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "project",
+            "create",
+            "--slug",
+            "vel",
+            "--name",
+            "Vel",
+            "--family",
+            "creative",
+            "--status",
+            "active",
+            "--repo-path",
+            "/code/vel",
+            "--notes-path",
+            "/notes/vel",
+            "--create-notes-root",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Project {
+                command:
+                    ProjectCommand::Create {
+                        slug,
+                        name,
+                        family,
+                        status,
+                        repo_path,
+                        notes_path,
+                        create_repo,
+                        create_notes_root,
+                        json,
+                    },
+            } => {
+                assert_eq!(slug, "vel");
+                assert_eq!(name, "Vel");
+                assert_eq!(family, "creative");
+                assert_eq!(status.as_deref(), Some("active"));
+                assert_eq!(repo_path, "/code/vel");
+                assert_eq!(notes_path, "/notes/vel");
+                assert!(!create_repo);
+                assert!(create_notes_root);
+                assert!(json);
+            }
+            _ => panic!("expected project create command"),
         }
     }
 
@@ -2188,6 +2467,71 @@ mod tests {
                 assert_eq!(family.as_deref(), Some("messaging"));
                 assert_eq!(provider_key.as_deref(), Some("imessage"));
                 assert!(include_disabled);
+                assert!(json);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_integrations_show() {
+        let cli = Cli::try_parse_from(["vel", "integrations", "show", "--json"]).unwrap();
+        match cli.command {
+            Command::Integrations {
+                command: IntegrationsCommand::Show { json },
+            } => assert!(json),
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_integration_logs() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "integration",
+            "logs",
+            "todoist",
+            "--limit",
+            "25",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Integration {
+                command: IntegrationCommand::Logs { id, limit, json },
+            } => {
+                assert_eq!(id, "todoist");
+                assert_eq!(limit, 25);
+                assert!(json);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_component_restart() {
+        let cli =
+            Cli::try_parse_from(["vel", "component", "restart", "evaluate", "--json"]).unwrap();
+        match cli.command {
+            Command::Component {
+                command: ComponentCommand::Restart { id, json },
+            } => {
+                assert_eq!(id, "evaluate");
+                assert!(json);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_llm_profile_health() {
+        let cli =
+            Cli::try_parse_from(["vel", "llm", "profile-health", "default", "--json"]).unwrap();
+        match cli.command {
+            Command::Llm {
+                command: LlmCommand::ProfileHealth { profile_id, json },
+            } => {
+                assert_eq!(profile_id, "default");
                 assert!(json);
             }
             other => panic!("unexpected command: {:?}", other),

@@ -4,23 +4,26 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vel_api_types::{
     AgentInspectData, ApiResponse, BackupManifestData, BackupStatusData, BatchImportRequest,
     BatchImportResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
-    ClusterBootstrapData, CommandExecuteRequest,
-    CommandExecutionPlanData, CommandExecutionResultData, CommandPlanRequest,
-    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectAttachData,
-    DailyLoopCheckInSkipRequestData, DailyLoopCheckInSkipResponseData,
-    ConnectInstanceData, DailyLoopOverdueApplyRequestData, DailyLoopOverdueApplyResponseData,
+    ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
+    CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
+    CommitmentUpdateRequest, ComponentData, ComponentLogEventData, ConnectAttachData,
+    ConnectInstanceData, DailyLoopCheckInSkipRequestData, DailyLoopCheckInSkipResponseData,
+    DailyLoopOverdueApplyRequestData, DailyLoopOverdueApplyResponseData,
     DailyLoopOverdueConfirmRequestData, DailyLoopOverdueConfirmResponseData,
     DailyLoopOverdueMenuRequestData, DailyLoopOverdueMenuResponseData,
     DailyLoopOverdueUndoRequestData, DailyLoopOverdueUndoResponseData, DailyLoopPhaseData,
     DailyLoopSessionData, DailyLoopStartRequestData, DailyLoopTurnActionData,
     DailyLoopTurnRequestData, DoctorData, EndOfDayData, EvaluateResultData, ExecutionHandoffData,
-    HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
-    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, NowData,
-    NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData, PersonRecordData,
-    PlanningProfileProposalApplyResponseData, PlanningProfileResponseData, ProjectListResponseData,
-    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SignalCreateRequest,
-    SignalData, SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData,
-    TodayData, UncertaintyData, ValidationRequestData,
+    HealthData, IntegrationConnectionData, IntegrationConnectionEventData, IntegrationLogEventData,
+    IntegrationsData, LinkScopeData, LinkedNodeData, LlmProfileHealthData, LoopData,
+    LoopUpdateRequest, MoodJournalCreateRequest, NowData, NudgeData, NudgeSnoozeRequest,
+    PainJournalCreateRequest, PairingTokenData, PersonRecordData,
+    PlanningProfileProposalApplyResponseData, PlanningProfileResponseData,
+    ProjectCreateRequestData, ProjectCreateResponseData, ProjectFamilyData,
+    ProjectListResponseData, ProjectRecordData, QueuedWorkRoutingData, RunUpdateRequest,
+    SearchQuery, SearchResults, SignalCreateRequest, SignalData, SyncBootstrapData,
+    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
+    ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -1055,6 +1058,54 @@ impl ApiClient {
         self.get(&path).await
     }
 
+    pub async fn get_integrations(&self) -> anyhow::Result<ApiResponse<IntegrationsData>> {
+        self.get("/api/integrations").await
+    }
+
+    pub async fn list_integration_logs(
+        &self,
+        id: &str,
+        limit: Option<u32>,
+    ) -> anyhow::Result<ApiResponse<Vec<IntegrationLogEventData>>> {
+        let mut path = format!("/api/integrations/{id}/logs");
+        if let Some(limit) = limit {
+            path.push_str(&format!("?limit={limit}"));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn get_settings(&self) -> anyhow::Result<ApiResponse<serde_json::Value>> {
+        self.get("/api/settings").await
+    }
+
+    pub async fn get_llm_profile_health(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<LlmProfileHealthData>> {
+        self.get(&format!("/api/llm/profiles/{id}/health")).await
+    }
+
+    pub async fn list_components(&self) -> anyhow::Result<ApiResponse<Vec<ComponentData>>> {
+        self.get("/api/components").await
+    }
+
+    pub async fn get_component_logs(
+        &self,
+        id: &str,
+        limit: Option<u32>,
+    ) -> anyhow::Result<ApiResponse<Vec<ComponentLogEventData>>> {
+        let mut path = format!("/api/components/{id}/logs");
+        if let Some(limit) = limit {
+            path.push_str(&format!("?limit={limit}"));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn restart_component(&self, id: &str) -> anyhow::Result<ApiResponse<ComponentData>> {
+        let path = format!("/api/components/{id}/restart");
+        self.post_empty(&path).await
+    }
+
     pub async fn sync_branch_sync_request(
         &self,
         body: &BranchSyncRequestData,
@@ -1149,6 +1200,23 @@ impl ApiClient {
 
     pub async fn list_projects(&self) -> anyhow::Result<ApiResponse<ProjectListResponseData>> {
         self.get("/v1/projects").await
+    }
+
+    pub async fn get_project(&self, id: &str) -> anyhow::Result<ApiResponse<ProjectRecordData>> {
+        self.get(&format!("/v1/projects/{}", id)).await
+    }
+
+    pub async fn create_project(
+        &self,
+        body: &ProjectCreateRequestData,
+    ) -> anyhow::Result<ApiResponse<ProjectCreateResponseData>> {
+        self.post_json("/v1/projects", body).await
+    }
+
+    pub async fn list_project_families(
+        &self,
+    ) -> anyhow::Result<ApiResponse<Vec<ProjectFamilyData>>> {
+        self.get("/v1/projects/families").await
     }
 
     pub async fn get_execution_context(
@@ -1482,4 +1550,641 @@ async fn decode_response<T: DeserializeOwned>(
     }
 
     Ok(parsed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::StatusCode;
+    use serde::Serialize;
+    use time::OffsetDateTime;
+    use wiremock::matchers::{body_json, method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn ok_response<T: Serialize>(data: T) -> serde_json::Value {
+        serde_json::json!({
+            "ok": true,
+            "data": data,
+            "warnings": [],
+            "meta": {
+                "request_id": "req_test",
+                "degraded": false
+            }
+        })
+    }
+
+    fn error_response(message: &str) -> serde_json::Value {
+        serde_json::json!({
+            "ok": false,
+            "error": {
+                "code": "bad_request",
+                "message": message
+            },
+            "warnings": [],
+            "meta": {
+                "request_id": "req_test",
+                "degraded": false
+            }
+        })
+    }
+
+    fn make_client(server: &MockServer) -> ApiClient {
+        ApiClient::new(server.uri())
+    }
+
+    fn sample_commitment() -> CommitmentData {
+        CommitmentData {
+            id: vel_core::CommitmentId::from("com_123".to_string()),
+            text: "Ship client coverage".to_string(),
+            source_type: "manual".to_string(),
+            source_id: None,
+            status: "open".to_string(),
+            due_at: None,
+            project: Some("vel".to_string()),
+            commitment_kind: Some("todo".to_string()),
+            created_at: OffsetDateTime::from_unix_timestamp(1_742_927_200).unwrap(),
+            resolved_at: None,
+            scheduler_rules: vel_api_types::CanonicalScheduleRulesData::default(),
+            metadata: serde_json::json!({ "lane": "cli" }),
+        }
+    }
+
+    fn sample_run_detail() -> vel_api_types::RunDetailData {
+        vel_api_types::RunDetailData {
+            id: vel_core::RunId::from("run_123".to_string()),
+            kind: "sync".to_string(),
+            status: "blocked".to_string(),
+            trace_id: "trace_123".to_string(),
+            parent_run_id: None,
+            automatic_retry_supported: true,
+            automatic_retry_reason: Some("retryable".to_string()),
+            unsupported_retry_override: false,
+            unsupported_retry_override_reason: None,
+            input: serde_json::json!({ "source": "calendar" }),
+            output: None,
+            error: None,
+            created_at: OffsetDateTime::from_unix_timestamp(1_742_927_200).unwrap(),
+            started_at: Some(OffsetDateTime::from_unix_timestamp(1_742_927_260).unwrap()),
+            finished_at: None,
+            duration_ms: None,
+            retry_scheduled_at: Some(OffsetDateTime::from_unix_timestamp(1_742_930_800).unwrap()),
+            retry_reason: Some("waiting on dependency".to_string()),
+            blocked_reason: Some("calendar token expired".to_string()),
+            events: vec![],
+            artifacts: vec![],
+        }
+    }
+
+    fn sample_suggestion() -> vel_api_types::SuggestionData {
+        vel_api_types::SuggestionData {
+            id: "sg_123".to_string(),
+            suggestion_type: "adaptive_policy".to_string(),
+            state: "pending".to_string(),
+            title: Some("Delay sync".to_string()),
+            summary: Some("Push sync later".to_string()),
+            priority: 3,
+            confidence: Some("medium".to_string()),
+            evidence_count: 1,
+            decision_context_summary: Some("Recent failures detected".to_string()),
+            decision_context: Some(serde_json::json!({ "source": "health" })),
+            evidence: None,
+            latest_feedback_outcome: None,
+            latest_feedback_notes: None,
+            adaptive_policy: None,
+            payload: serde_json::json!({ "minutes": 30 }),
+            created_at: 1_742_927_200,
+            resolved_at: None,
+        }
+    }
+
+    fn sample_thread() -> vel_api_types::ThreadData {
+        vel_api_types::ThreadData {
+            id: "thr_123".to_string(),
+            thread_type: "planning".to_string(),
+            title: "Client coverage follow-up".to_string(),
+            status: "open".to_string(),
+            planning_kind: None,
+            lifecycle_stage: None,
+            created_at: 1_742_927_200,
+            updated_at: 1_742_927_260,
+            continuation: None,
+            metadata: Some(serde_json::json!({ "owner": "cli" })),
+            links: None,
+            project_id: Some(vel_core::ProjectId::from("proj_vel".to_string())),
+            project_label: Some("Vel".to_string()),
+        }
+    }
+
+    #[tokio::test]
+    async fn decode_response_returns_parsed_payload_for_success_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/ok"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(ok_response(serde_json::json!({ "value": 7 }))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = reqwest::Client::new()
+            .get(format!("{}/ok", server.uri()))
+            .send()
+            .await
+            .unwrap();
+        let parsed = decode_response::<serde_json::Value>(response)
+            .await
+            .unwrap();
+
+        assert!(parsed.ok);
+        assert_eq!(parsed.data.unwrap()["value"], 7);
+    }
+
+    #[tokio::test]
+    async fn decode_response_uses_api_error_message_for_failed_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/fail"))
+            .respond_with(
+                ResponseTemplate::new(400).set_body_json(error_response("invalid request payload")),
+            )
+            .mount(&server)
+            .await;
+
+        let response = reqwest::Client::new()
+            .get(format!("{}/fail", server.uri()))
+            .send()
+            .await
+            .unwrap();
+        let err = decode_response::<serde_json::Value>(response)
+            .await
+            .unwrap_err();
+
+        assert!(err.to_string().contains("invalid request payload"));
+    }
+
+    #[tokio::test]
+    async fn list_runs_includes_limit_kind_and_today_query_parameters() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/runs"))
+            .and(query_param("limit", "5"))
+            .and(query_param("kind", "sync"))
+            .and(query_param("today", "true"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(serde_json::json!([]))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .list_runs(Some(5), Some("sync"), true)
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn list_uncertainty_omits_blank_status_and_keeps_limit() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/uncertainty"))
+            .and(query_param("limit", "20"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(serde_json::json!([]))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .list_uncertainty(Some(""), Some(20))
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn list_integration_connections_applies_only_non_empty_filters() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/integrations/connections"))
+            .and(query_param("provider_key", "google"))
+            .and(query_param("include_disabled", "true"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(serde_json::json!([]))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .list_integration_connections(Some(""), Some("google"), true)
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn list_integration_logs_includes_optional_limit() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/integrations/google/logs"))
+            .and(query_param("limit", "12"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(serde_json::json!([]))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .list_integration_logs("google", Some(12))
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn get_llm_profile_health_targets_profile_route() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/llm/profiles/default/health"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                serde_json::json!({
+                    "profile_id": "default",
+                    "healthy": true,
+                    "message": "Provider handshake succeeded."
+                }),
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .get_llm_profile_health("default")
+            .await
+            .unwrap();
+
+        let data = response.data.unwrap();
+        assert_eq!(data.profile_id, "default");
+        assert!(data.healthy);
+    }
+
+    #[tokio::test]
+    async fn get_component_logs_includes_optional_limit() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/components/evaluate/logs"))
+            .and(query_param("limit", "50"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(serde_json::json!([]))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .get_component_logs("evaluate", Some(50))
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn list_connect_instance_events_builds_optional_query_string() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/connect/instances/run_123/events"))
+            .and(query_param("after_id", "9"))
+            .and(query_param("limit", "25"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(serde_json::json!([]))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .list_connect_instance_events("run_123", Some(9), Some(25))
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn post_json_serializes_body_and_decodes_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/example"))
+            .and(body_json(serde_json::json!({
+                "note": "keep this stable",
+                "count": 2
+            })))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(ok_response(serde_json::json!({ "saved": true }))),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .post_json::<serde_json::Value, _>(
+                "/v1/example",
+                &serde_json::json!({
+                    "note": "keep this stable",
+                    "count": 2
+                }),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.data.unwrap()["saved"], true);
+    }
+
+    #[tokio::test]
+    async fn stream_connect_instance_events_returns_response_for_successful_stream() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/connect/instances/run_123/events/stream"))
+            .and(query_param("after_id", "4"))
+            .and(query_param("limit", "10"))
+            .and(query_param("poll_ms", "250"))
+            .and(query_param("max_events", "3"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "text/event-stream")
+                    .set_body_string("event: connect_event\ndata: {}\n\n"),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .stream_connect_instance_events("run_123", Some(4), Some(10), Some(250), Some(3))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn stream_connect_instance_events_surfaces_error_body_for_failed_stream() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/connect/instances/run_404/events/stream"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("connect instance not found"))
+            .mount(&server)
+            .await;
+
+        let err = make_client(&server)
+            .stream_connect_instance_events("run_404", None, None, None, None)
+            .await
+            .unwrap_err();
+
+        assert!(err.to_string().contains("connect instance not found"));
+    }
+
+    #[tokio::test]
+    async fn capture_posts_typed_request_and_parses_capture_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/captures"))
+            .and(body_json(serde_json::json!({
+                "content_text": "remember the edge case",
+                "capture_type": "todo",
+                "source_device": "laptop"
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                CaptureCreateResponse {
+                    capture_id: vel_core::CaptureId::from("cap_123".to_string()),
+                    accepted_at: OffsetDateTime::from_unix_timestamp(1_742_927_200).unwrap(),
+                },
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .capture(CaptureCreateRequest {
+                content_text: "remember the edge case".to_string(),
+                capture_type: "todo".to_string(),
+                source_device: Some("laptop".to_string()),
+            })
+            .await
+            .unwrap();
+
+        let capture = response.data.unwrap();
+        assert_eq!(capture.capture_id.as_ref(), "cap_123");
+    }
+
+    #[tokio::test]
+    async fn update_loop_uses_patch_with_expected_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("PATCH"))
+            .and(path("/v1/loops/morning"))
+            .and(body_json(serde_json::json!({
+                "enabled": true,
+                "interval_seconds": 3600
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                serde_json::json!({
+                    "kind": "morning",
+                    "enabled": true,
+                    "interval_seconds": 3600,
+                    "last_started_at": null,
+                    "last_finished_at": null,
+                    "last_status": null,
+                    "last_error": null,
+                    "next_due_at": null
+                }),
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .update_loop(
+                "morning",
+                &LoopUpdateRequest {
+                    enabled: Some(true),
+                    interval_seconds: Some(3600),
+                },
+            )
+            .await
+            .unwrap();
+
+        let loop_data = response.data.unwrap();
+        assert_eq!(loop_data.kind, "morning");
+        assert!(loop_data.enabled);
+        assert_eq!(loop_data.interval_seconds, 3600);
+    }
+
+    #[tokio::test]
+    async fn sync_activity_uses_post_empty_helper() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/sync/activity"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                serde_json::json!({
+                    "source": "activity",
+                    "signals_ingested": 4
+                }),
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server).sync_activity().await.unwrap();
+
+        let result = response.data.unwrap();
+        assert_eq!(result.source, "activity");
+        assert_eq!(result.signals_ingested, 4);
+    }
+
+    #[tokio::test]
+    async fn restart_component_uses_post_empty_helper() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/components/evaluate/restart"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                serde_json::json!({
+                    "id": "evaluate",
+                    "name": "Evaluate",
+                    "description": "Inference evaluator",
+                    "status": "healthy",
+                    "last_restarted_at": 1742927200,
+                    "last_error": null,
+                    "restart_count": 2
+                }),
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .restart_component("evaluate")
+            .await
+            .unwrap();
+
+        let component = response.data.unwrap();
+        assert_eq!(component.id, "evaluate");
+        assert_eq!(component.restart_count, 2);
+    }
+
+    #[tokio::test]
+    async fn create_commitment_posts_typed_body_and_parses_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/commitments"))
+            .and(body_json(serde_json::json!({
+                "text": "Ship client coverage",
+                "source_type": "manual",
+                "source_id": null,
+                "due_at": null,
+                "project": "vel",
+                "commitment_kind": "todo",
+                "metadata": { "lane": "cli" }
+            })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(sample_commitment())),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .create_commitment(CommitmentCreateRequest {
+                text: "Ship client coverage".to_string(),
+                source_type: "manual".to_string(),
+                source_id: None,
+                due_at: None,
+                project: Some("vel".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata: serde_json::json!({ "lane": "cli" }),
+            })
+            .await
+            .unwrap();
+
+        let commitment = response.data.unwrap();
+        assert_eq!(commitment.id.as_ref(), "com_123");
+        assert_eq!(commitment.project.as_deref(), Some("vel"));
+    }
+
+    #[tokio::test]
+    async fn update_run_uses_patch_and_preserves_retry_fields() {
+        let server = MockServer::start().await;
+        let retry_at = OffsetDateTime::from_unix_timestamp(1_742_930_800).unwrap();
+        let request = RunUpdateRequest {
+            status: "blocked".to_string(),
+            retry_at: Some(retry_at),
+            retry_after_seconds: Some(900),
+            reason: Some("waiting on dependency".to_string()),
+            allow_unsupported_retry: false,
+            blocked_reason: Some("calendar token expired".to_string()),
+        };
+        Mock::given(method("PATCH"))
+            .and(path("/v1/runs/run_123"))
+            .and(body_json(serde_json::to_value(&request).unwrap()))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(sample_run_detail())),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .update_run("run_123", &request)
+            .await
+            .unwrap();
+
+        let run = response.data.unwrap();
+        assert_eq!(run.id.as_ref(), "run_123");
+        assert_eq!(
+            run.blocked_reason.as_deref(),
+            Some("calendar token expired")
+        );
+    }
+
+    #[tokio::test]
+    async fn update_suggestion_uses_patch_with_optional_payload() {
+        let server = MockServer::start().await;
+        Mock::given(method("PATCH"))
+            .and(path("/v1/suggestions/sg_123"))
+            .and(body_json(serde_json::json!({
+                "state": "accepted",
+                "payload": { "minutes": 30 }
+            })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(ok_response(sample_suggestion())),
+            )
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .update_suggestion(
+                "sg_123",
+                "accepted",
+                Some(serde_json::json!({ "minutes": 30 })),
+            )
+            .await
+            .unwrap();
+
+        let suggestion = response.data.unwrap();
+        assert_eq!(suggestion.id, "sg_123");
+        assert_eq!(suggestion.payload["minutes"], 30);
+    }
+
+    #[tokio::test]
+    async fn update_thread_uses_patch_with_status_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("PATCH"))
+            .and(path("/v1/threads/thr_123"))
+            .and(body_json(serde_json::json!({ "status": "closed" })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(sample_thread())))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .update_thread("thr_123", "closed")
+            .await
+            .unwrap();
+
+        let thread = response.data.unwrap();
+        assert_eq!(thread.id, "thr_123");
+        assert_eq!(thread.project_label.as_deref(), Some("Vel"));
+    }
 }

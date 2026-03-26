@@ -1,7 +1,7 @@
 # Vel — top-level build and dev
 # veld binds 127.0.0.1:4130 by default; web client uses VITE_API_URL (default http://localhost:4130).
 
-.PHONY: build build-api build-web clean dev dev-api dev-web dev-openai-oauth download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-build-watch-sim apple-run-ios-sim apple-run-watch-sim apple-run-all-sim apple-build apple-run apple-build-ios-device apple-install-ios-device apple-build-watch-device apple-install-watch-device apple-install-devices apple-list-devices apple-test install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
+.PHONY: build build-api build-web clean dev dev-api dev-web dev-openai-oauth download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-build-watch-sim apple-run-ios-sim apple-run-watch-sim apple-run-all-sim apple-build apple-run apple-build-ios-device apple-install-ios-device apple-build-watch-device apple-install-watch-device apple-install-devices apple-list-devices apple-test install-web lint-web seed smoke test test-api test-web test-cli coverage-cli coverage-cli-collect coverage-cli-report coverage-cli-check verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
 
 build: build-api build-web
 
@@ -45,7 +45,24 @@ clippy-check:
 verify-repo-truth:
 	node scripts/verify-repo-truth.mjs
 
-verify: verify-repo-truth fmt-check clippy-check lint-web test
+coverage-cli-collect:
+	node scripts/run-cli-coverage.mjs
+
+coverage-cli-report:
+	node scripts/check-cli-line-coverage.mjs
+	node scripts/check-cli-coverage.mjs
+
+coverage-cli-check: coverage-cli-collect
+	node scripts/check-cli-line-coverage.mjs --check
+	node scripts/check-cli-coverage.mjs --check
+
+test-cli:
+	cargo test -p vel-cli
+
+coverage-cli: coverage-cli-collect coverage-cli-report
+	@true
+
+verify: verify-repo-truth coverage-cli-check fmt-check clippy-check lint-web test
 	@true
 
 # Download default chat model (Qwen2.5-1.5B-Instruct, ~1.1 GB) to configs/models/weights/. After this, make dev uses it when llama-server is on PATH.

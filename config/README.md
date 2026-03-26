@@ -95,6 +95,8 @@ Use it to answer four questions quickly:
   - `examples/0.5-workflow-object.example.json`
   - `examples/0.5-migration-artifact.example.json`
   - `contracts-manifest.json`
+  - `coverage/vel-cli-coverage-debt.json`
+  - `coverage/vel-cli-line-thresholds.json`
 
 ## Ownership Rules
 

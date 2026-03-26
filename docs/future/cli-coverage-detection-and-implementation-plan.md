@@ -1,10 +1,10 @@
 ---
 title: CLI Coverage Detection And Implementation Plan
 doc_type: doc
-status: draft
+status: implemented-partial
 owner: contributors
 created: 2026-03-25
-updated: 2026-03-25
+updated: 2026-03-26
 audience:
   - contributors
   - coding-agents
@@ -27,7 +27,7 @@ related_files:
   - crates/vel-cli/src/client.rs
   - scripts/ci-smoke.sh
   - .github/workflows/ci.yml
-summary: This document records the current `vel-cli` coverage baseline and defines a concrete plan to add automated coverage detection plus phased implementation work for the largest CLI test gaps.
+summary: This document records the current `vel-cli` coverage baseline, the now-implemented automation for structural and line coverage detection, and the remaining ratchet plan for higher thresholds and deeper behavior coverage.
 ---
 
 # CLI Coverage Detection And Implementation Plan
@@ -44,30 +44,30 @@ This document answers two contributor questions:
 This document covers:
 
 - the current `vel-cli` test baseline
-- the missing coverage detection automation
-- a phased implementation plan for command, client, and smoke-path coverage
+- the implemented coverage detection automation
+- the remaining phased plan for deeper command behavior coverage and tighter thresholds
 - suggested CI thresholds and ownership rules
-
-This document does not change shipped behavior and does not itself add test automation code.
 
 ## Current Reality
 
 `vel-cli` has meaningful test presence, but current coverage is strongest in parser and formatter paths rather than operator-visible execution behavior.
 
-Observed baseline on 2026-03-25:
+Observed baseline after the 2026-03-26 coverage rollout:
 
-- `cargo test -p vel-cli` passes with `97` tests
-- tests are all unit tests from the binary crate; there is no dedicated `crates/vel-cli/tests/` integration-test tree
-- there is no repo-wired line or branch coverage report for `vel-cli`
-- `crates/vel-cli/Cargo.toml` does not define coverage tooling or CLI integration-test helpers such as `assert_cmd` or `trycmd`
-- the top-level automation paths in `Makefile` and `.github/workflows/ci.yml` run tests, but do not publish or enforce CLI coverage metrics
+- `cargo test -p vel-cli` passes with `113` unit tests and `31` binary integration tests
+- `crates/vel-cli/tests/cli_binary.rs` now provides compiled-binary integration coverage
+- `crates/vel-cli/Cargo.toml` now includes CLI integration-test helpers
+- the repo now has repo-wired structural and line coverage detection for `vel-cli`
+- `Makefile` exposes `coverage-cli`, `coverage-cli-report`, and `coverage-cli-check`
+- `.github/workflows/ci.yml` now installs `cargo-llvm-cov`, runs CLI line coverage, and uploads the JSON coverage artifact
+- `.github/workflows/ci.yml` now uploads both the LLVM JSON summary and `lcov.info`
 
 Current source inventory:
 
 - `crates/vel-cli/src` contains `52` Rust files
-- `23` files contain local tests
-- `29` files contain no local tests
-- under `crates/vel-cli/src/commands`, `16` files contain tests and `25` do not
+- under `crates/vel-cli/src/commands`, `16` files have local tests
+- `24` command files are currently covered through compiled-binary integration tests
+- `0` command files remain in explicit CLI coverage debt
 
 Current strengths:
 
@@ -77,32 +77,28 @@ Current strengths:
 
 Current weak points:
 
-- `crates/vel-cli/src/client.rs` is large and untested
-- many operator-facing commands have no tests
-- the repo smoke path validates only a narrow set of CLI commands
-- there is no automated detection that flags new untested command surfaces or falling coverage trends
+- line coverage is now measurable, but still modest in many operator-facing command modules
+- some modules are only integration-covered and still lack focused local tests for formatting branches
+- the repo smoke path remains intentionally narrow and should not be treated as the primary CLI behavior net
+- the initial line-coverage floor is conservative and should be ratcheted upward from measured baseline
 
-Representative untested CLI command files as of this baseline:
+Measured line baseline from the first stable `cargo llvm-cov` run:
 
-- `commands/capture.rs`
-- `commands/commitments.rs`
-- `commands/doctor.rs`
-- `commands/evaluate.rs`
-- `commands/export_.rs`
-- `commands/health.rs`
-- `commands/integrations.rs`
-- `commands/journal.rs`
-- `commands/loops.rs`
-- `commands/nudges.rs`
-- `commands/people.rs`
-- `commands/recent.rs`
-- `commands/risk.rs`
-- `commands/signals.rs`
-- `commands/suggestions.rs`
-- `commands/sync.rs`
-- `commands/synthesize.rs`
-- `commands/threads.rs`
-- `commands/uncertainty.rs`
+- overall `vel-cli` line coverage: about `53.3%`
+- `crates/vel-cli/src/client.rs` line coverage: about `57.0%`
+
+Implemented automation surfaces:
+
+- `scripts/check-cli-coverage.mjs`
+- `scripts/run-cli-coverage.mjs`
+- `scripts/check-cli-line-coverage.mjs`
+- `config/coverage/vel-cli-coverage-debt.json`
+- `config/coverage/vel-cli-line-thresholds.json`
+
+Current enforced floors:
+
+- overall `vel-cli` line coverage: `52.0%`
+- `crates/vel-cli/src/client.rs` line coverage: `56.0%`
 
 ## Goal
 
@@ -140,7 +136,7 @@ Purpose:
 
 Current state:
 
-- partial and uneven
+- improved but still uneven, with some daily-use command paths covered only through binary integration tests
 
 Success condition:
 
@@ -154,20 +150,21 @@ Purpose:
 
 Current state:
 
-- narrow smoke coverage only via `scripts/ci-smoke.sh`
+- a compiled-binary integration harness now exists in `crates/vel-cli/tests/cli_binary.rs`
+- `scripts/ci-smoke.sh` remains a thin smoke layer rather than the main CLI behavior net
 
 Success condition:
 
 - integration tests exercise representative happy-path and failure-path command execution
 - smoke tests remain thin and fast, while richer command behavior moves into dedicated integration tests
 
-## Proposed Automated Detection
+## Implemented Detection
 
-The repo should add two forms of automated detection.
+The repo now has two forms of automated detection.
 
 ### A. Coverage Metric Detection
 
-Add a dedicated `vel-cli` coverage command based on `cargo llvm-cov`.
+The repo now has a dedicated `vel-cli` coverage command based on `cargo llvm-cov`.
 
 Recommended local command:
 
@@ -179,7 +176,7 @@ Recommended CI artifact outputs:
 
 - text summary for logs
 - JSON summary for threshold checks
-- LCOV report for future upload or local inspection
+- LCOV report for artifact upload and local inspection
 
 Why `cargo llvm-cov`:
 
@@ -188,11 +185,15 @@ Why `cargo llvm-cov`:
 - it gives both human-readable and machine-readable output
 - it avoids inventing a home-grown line coverage counter
 
-If Nix or CI image setup makes `cargo llvm-cov` expensive initially, phase it in behind a separate make target first, then promote it into required CI once stable.
+Implementation note:
+
+- local runs use the ambient `llvm-cov` / `llvm-profdata` binaries when available
+- when those binaries are missing, `scripts/run-cli-coverage.mjs` falls back to a version-matched Nix LLVM toolchain based on `rustc -vV`
+- CI installs `llvm-tools-preview` and `cargo-llvm-cov` directly
 
 ### B. Structural Gap Detection
 
-Add a lightweight repo script that inspects `crates/vel-cli/src/commands/*.rs` and reports:
+The repo now has a lightweight script that inspects `crates/vel-cli/src/commands/*.rs` and reports:
 
 - command files with no local tests
 - command files missing matching integration-test references
@@ -208,35 +209,37 @@ Recommended checks:
   - is explicitly listed in an allowlisted debt file with an owner and exit date
 - `crates/vel-cli/src/client.rs` must have at least one dedicated test module or integration suite coverage marker
 
-## Proposed Repo Changes
+## Implemented Repo Changes
 
 The implementation should add the following surfaces.
 
 ### Makefile Targets
 
-Add:
+Implemented:
 
 - `test-cli`: run `cargo test -p vel-cli`
 - `coverage-cli`: run the crate-scoped coverage pipeline
 - `coverage-cli-check`: enforce minimum thresholds and structural rules
 
-Suggested progression:
+Current behavior:
 
-- keep `make verify` unchanged until coverage runtime is stable
-- add `coverage-cli-check` to `make ci` only after the baseline is reliable in CI
+- `coverage-cli-check` depends on `coverage-cli-collect`
+- `make verify` now includes `coverage-cli-check`
+- `make ci` therefore enforces both structural and line coverage for `vel-cli`
 
 ### CI Workflow
 
-Extend `.github/workflows/ci.yml` to:
+`.github/workflows/ci.yml` now:
 
-- run `cargo test -p vel-cli`
+- install `llvm-tools-preview`
+- install `cargo-llvm-cov`
 - run the new coverage target
 - upload the coverage summary as an artifact
-- fail on threshold regression once the threshold is ratified
+- fail on threshold regression at the current floor
 
 ### CLI Integration Test Harness
 
-Add `crates/vel-cli/tests/` with:
+Implemented in `crates/vel-cli/tests/`:
 
 - `assert_cmd` for invoking the binary
 - fixture-backed HTTP stubs for deterministic API responses
@@ -250,9 +253,11 @@ Recommended harness shape:
 
 ### Coverage Debt Manifest
 
-Add a checked-in machine-readable file for temporary exceptions, for example:
+Implemented machine-readable files:
 
 `config/coverage/vel-cli-coverage-debt.json`
+
+`config/coverage/vel-cli-line-thresholds.json`
 
 Each entry should include:
 

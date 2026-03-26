@@ -1,0 +1,173 @@
+{
+  "integration_covered": [
+    {
+      "path": "crates/vel-cli/src/commands/capture.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests in crates/vel-cli/tests/cli_binary.rs.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/commitments.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests in crates/vel-cli/tests/cli_binary.rs.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/doctor.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests in crates/vel-cli/tests/cli_binary.rs.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/health.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests in crates/vel-cli/tests/cli_binary.rs.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/integrations.rs",
+      "owner": "contributors",
+      "reason": "Covered by parser coverage and compiled-binary integration tests that exercise the integrations connections command path.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/inspect.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for inspect capture output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/journal.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for journal mood flow.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/loops.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for loop listing.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/morning.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for morning daily-loop session startup.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/nudges.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests in crates/vel-cli/tests/cli_binary.rs.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/people.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for people listing.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/recent.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests in crates/vel-cli/tests/cli_binary.rs.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/risk.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for risk JSON output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/signals.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for signal listing.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/suggestions.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for suggestion rejection flow.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/sync.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for sync activity output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/uncertainty.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for uncertainty listing.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/artifact.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for artifact latest lookup.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/end_of_day.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for end-of-day summary output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/evaluate.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for evaluate recompute output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/explain.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for explain context and explain command flows.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/export_.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for combined export output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/synthesize.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for synthesis week output.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    },
+    {
+      "path": "crates/vel-cli/src/commands/threads.rs",
+      "owner": "contributors",
+      "reason": "Covered by compiled-binary integration tests for thread listing.",
+      "created": "2026-03-25",
+      "target_removal": "2026-04-30"
+    }
+  ],
+  "debt": []
+}

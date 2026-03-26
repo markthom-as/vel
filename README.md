@@ -69,6 +69,7 @@ Vel uses Nix for a reproducible toolchain. Ensure you are in the `nix-shell` bef
 | `make check-llm-setup` | Inspect local model paths, `llama-server`, GPU visibility, and localhost OpenAI OAuth readiness. |
 | `make verify` | Run Rust fmt/clippy and full test suite. |
 | `make ci` | Run local CI verification (install, check, test, build). |
+| `make coverage-cli` | Generate and report `vel-cli` structural plus line coverage. |
 | `make seed` | Populate local API with sample captures and commitments. |
 | `make smoke` | Run the daemon/API/CLI smoke path. |
 | `make bootstrap-demo-data` | Load demo-oriented local data and snapshots. |
@@ -81,6 +82,9 @@ vel import codex-workspace ~/code/codex-workspace  # Import curated workspace no
 vel today                   # Generate morning briefing
 vel runs                    # View active worker runs
 vel config show             # Inspect local node configuration
+vel settings show           # Inspect operator settings, profiles, and web preferences
+vel integrations show       # Inspect provider and local integration state
+vel components list         # Inspect runtime component health
 ```
 
 If chat routing points at the checked-in `oauth-openai` profile, `make dev` now starts the localhost proxy via `npx openai-oauth@latest --host 127.0.0.1 --port 8014`. That proxy depends on a local Codex auth file; if startup reports it missing, run `npx @openai/codex login` and retry.
