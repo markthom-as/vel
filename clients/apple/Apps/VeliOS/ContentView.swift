@@ -12,13 +12,10 @@ import VelFeatureFlags
 import UIKit
 #endif
 
-private enum VeliOSTab: String, Hashable, CaseIterable, Identifiable {
+private enum AppleSurface: String, Hashable, CaseIterable, Identifiable {
     case now
-    case inbox
     case threads
-    case chat
-    case projects
-    case settings
+    case system
 
     var id: String { rawValue }
 
@@ -26,16 +23,10 @@ private enum VeliOSTab: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .now:
             return "Now"
-        case .inbox:
-            return "Inbox"
         case .threads:
             return "Threads"
-        case .chat:
-            return "Chat"
-        case .projects:
-            return "Projects"
-        case .settings:
-            return "Settings"
+        case .system:
+            return "System"
         }
     }
 
@@ -43,66 +34,10 @@ private enum VeliOSTab: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .now:
             return "sun.max.fill"
-        case .inbox:
-            return "tray.full.fill"
         case .threads:
             return "bubble.left.and.bubble.right.fill"
-        case .chat:
-            return "message"
-        case .projects:
-            return "square.grid.2x2.fill"
-        case .settings:
+        case .system:
             return "gearshape.fill"
-        }
-    }
-}
-
-private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
-    case now
-    case inbox
-    case threads
-    case chat
-    case projects
-    case quickEntry
-    case settings
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .now:
-            return "Now"
-        case .inbox:
-            return "Inbox"
-        case .threads:
-            return "Threads"
-        case .chat:
-            return "Chat"
-        case .projects:
-            return "Projects"
-        case .quickEntry:
-            return "Quick entry"
-        case .settings:
-            return "Settings"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .now:
-            return "sun.max"
-        case .inbox:
-            return "calendar"
-        case .threads:
-            return "bubble.left.and.bubble.right"
-        case .chat:
-            return "message"
-        case .projects:
-            return "square.grid.2x2"
-        case .quickEntry:
-            return "plus.circle"
-        case .settings:
-            return "gearshape"
         }
     }
 }
@@ -126,7 +61,7 @@ private enum QuickEntrySurface: String, Identifiable {
     var id: String { rawValue }
 }
 
-private enum SettingsLaunchSection: String, Hashable, Identifiable {
+private enum SystemLaunchSection: String, Hashable, Identifiable {
     case overview
     case linking
 
@@ -140,12 +75,12 @@ private enum SettingsLaunchSection: String, Hashable, Identifiable {
 struct ContentView: View {
     let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
-    @State private var selectedTab: VeliOSTab = .now
-    @State private var selectedPadSection: VeliPadSection = .now
+    @State private var selectedTab: AppleSurface = .now
+    @State private var selectedPadSection: AppleSurface = .now
     @StateObject private var voiceModel: VoiceCaptureModel
     @State private var captureSeed: CaptureDraftSeed?
     @State private var quickEntrySurface: QuickEntrySurface?
-    @State private var settingsLaunchSection: SettingsLaunchSection = .overview
+    @State private var systemLaunchSection: SystemLaunchSection = .overview
 
     init(appEnvironment: VelAppEnvironment, voiceOfflineStore: VelOfflineStore = VelOfflineStore()) {
         self.appEnvironment = appEnvironment
@@ -208,52 +143,39 @@ struct ContentView: View {
                     voiceModel: voiceModel,
                     onOpenCapture: { quickEntrySurface = .capture },
                     onOpenVoice: { quickEntrySurface = .voice },
-                    onOpenChat: { selectedTab = .chat }
+                    onOpenThreads: { selectedTab = .threads }
                 )
-            }
-        case .inbox:
-            iPhoneTab {
-                NudgesTab(store: store)
             }
         case .threads:
             iPhoneTab {
-                ActivityTab(store: store, voiceModel: voiceModel)
-            }
-        case .chat:
-            iPhoneTab {
-                ChatTab(
+                ThreadsTab(
                     store: store,
                     voiceModel: voiceModel,
                     onOpenCapture: { quickEntrySurface = .capture },
                     onOpenVoice: { quickEntrySurface = .voice },
-                    onOpenThreads: { selectedTab = .threads },
-                    onOpenSettings: {
-                        settingsLaunchSection = .overview
-                        selectedTab = .settings
+                    onOpenSystem: {
+                        systemLaunchSection = .overview
+                        selectedTab = .system
                     },
                     onOpenLinking: {
-                        settingsLaunchSection = .linking
-                        selectedTab = .settings
+                        systemLaunchSection = .linking
+                        selectedTab = .system
                     }
                 )
             }
-        case .projects:
+        case .system:
             iPhoneTab {
-                ProjectsTab(store: store)
-            }
-        case .settings:
-            iPhoneTab {
-                SettingsTab(appEnvironment: appEnvironment, store: store, initialSection: settingsLaunchSection)
+                SettingsTab(appEnvironment: appEnvironment, store: store, initialSection: systemLaunchSection)
             }
         }
     }
 
     private var iPhoneBottomRail: some View {
         HStack(spacing: 6) {
-            ForEach(VeliOSTab.allCases) { tab in
+            ForEach(AppleSurface.allCases) { tab in
                 Button {
-                    if tab == .settings {
-                        settingsLaunchSection = .overview
+                    if tab == .system {
+                        systemLaunchSection = .overview
                     }
                     selectedTab = tab
                 } label: {
@@ -285,9 +207,9 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Vel")
+                    Text(selectedTab.title)
                         .font(.system(.title2, design: .rounded, weight: .bold))
-                    Text("MVP · \(capabilities.roleLabel)")
+                    Text("Vel Apple · \(capabilities.roleLabel)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -338,10 +260,10 @@ struct ContentView: View {
         attachQuickEntrySheet {
             NavigationSplitView {
                 List {
-            ForEach(VeliPadSection.allCases) { section in
+            ForEach(AppleSurface.allCases) { section in
                 Button {
-                    if section == .settings {
-                        settingsLaunchSection = .overview
+                    if section == .system {
+                        systemLaunchSection = .overview
                     }
                     selectedPadSection = section
                 } label: {
@@ -423,7 +345,7 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func iPadDetail(for section: VeliPadSection) -> some View {
+    private func iPadDetail(for section: AppleSurface) -> some View {
         switch section {
         case .now:
             TodayTab(
@@ -431,38 +353,25 @@ struct ContentView: View {
                 voiceModel: voiceModel,
                 onOpenCapture: { quickEntrySurface = .capture },
                 onOpenVoice: { quickEntrySurface = .voice },
-                onOpenChat: { selectedPadSection = .chat }
+                onOpenThreads: { selectedPadSection = .threads }
             )
-        case .inbox:
-            NudgesTab(store: store)
         case .threads:
-            ActivityTab(store: store, voiceModel: voiceModel)
-        case .chat:
-                ChatTab(
-                    store: store,
-                    voiceModel: voiceModel,
-                    onOpenCapture: { quickEntrySurface = .capture },
-                    onOpenVoice: { quickEntrySurface = .voice },
-                    onOpenThreads: { selectedPadSection = .threads },
-                    onOpenSettings: {
-                        settingsLaunchSection = .overview
-                        selectedPadSection = .settings
-                    },
-                    onOpenLinking: {
-                        settingsLaunchSection = .linking
-                        selectedPadSection = .settings
-                    }
-                )
-        case .projects:
-            ProjectsTab(store: store)
-        case .quickEntry:
-            CaptureTab(
+            ThreadsTab(
                 store: store,
                 voiceModel: voiceModel,
-                incomingSeed: $captureSeed
+                onOpenCapture: { quickEntrySurface = .capture },
+                onOpenVoice: { quickEntrySurface = .voice },
+                onOpenSystem: {
+                    systemLaunchSection = .overview
+                    selectedPadSection = .system
+                },
+                onOpenLinking: {
+                    systemLaunchSection = .linking
+                    selectedPadSection = .system
+                }
             )
-        case .settings:
-            SettingsTab(appEnvironment: appEnvironment, store: store, initialSection: settingsLaunchSection)
+        case .system:
+            SettingsTab(appEnvironment: appEnvironment, store: store, initialSection: systemLaunchSection)
         }
     }
 
@@ -474,7 +383,7 @@ private struct ProjectsTab: View {
     var body: some View {
         List {
             Section("Project context") {
-                Text("Projects stay secondary on Apple. Use them for durable roots and project-specific context after `Now`, `Inbox`, or `Threads` point you here.")
+                Text("Projects stay secondary on Apple. Use them for durable roots and project-specific context after `Now`, `Threads`, or `System` point you here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 let projects = store.offlineStore.cachedProjects()
@@ -512,7 +421,7 @@ private struct TodayTab: View {
     @ObservedObject var voiceModel: VoiceCaptureModel
     let onOpenCapture: () -> Void
     let onOpenVoice: () -> Void
-    let onOpenChat: () -> Void
+    let onOpenThreads: () -> Void
     @State private var commitmentText = ""
     @State private var captureText = ""
 
@@ -536,6 +445,16 @@ private struct TodayTab: View {
 
     private var taskLane: NowTaskLaneData? {
         cachedNow?.task_lane
+    }
+
+    private var activeNudges: [NudgeData] {
+        Array(store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }.prefix(3))
+    }
+
+    private var triageActionCount: Int {
+        store.offlineStore.cachedActionItems()
+            .filter { $0.surface == .inbox }
+            .count
     }
 
     var body: some View {
@@ -573,6 +492,8 @@ private struct TodayTab: View {
                 if let taskLane {
                     compactTaskLane(taskLane)
                 }
+
+                compactTriageSection
 
                 compactDockedInputShell
 
@@ -708,9 +629,9 @@ private struct TodayTab: View {
                         }
 
                         Button {
-                            onOpenChat()
+                            onOpenThreads()
                         } label: {
-                            Label("Open chat", systemImage: "message")
+                            Label("Open threads", systemImage: "bubble.left.and.bubble.right")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -942,6 +863,51 @@ private struct TodayTab: View {
     }
 
     @ViewBuilder
+    private var compactTriageSection: some View {
+        SurfaceSectionCard("Triage") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(triageActionCount) backend action items are currently tagged for review.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if activeNudges.isEmpty {
+                    Text("No active nudges right now.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(activeNudges, id: \.nudge_id) { nudge in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(nudge.message)
+                            Text("\(nudge.nudge_type) · \(nudge.level) · \(nudge.state)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+
+                            HStack {
+                                Button("Done") {
+                                    Task { await store.markNudgeDone(id: nudge.nudge_id) }
+                                }
+                                .velProminentActionButtonStyle()
+
+                                Button("Snooze 10m") {
+                                    Task { await store.snoozeNudge(id: nudge.nudge_id, minutes: 10) }
+                                }
+                                .velActionButtonStyle()
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                Button("Open threads") {
+                    onOpenThreads()
+                }
+                .velActionButtonStyle()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
     private var compactDockedInputShell: some View {
         SurfaceSectionCard("Input") {
             VStack(alignment: .leading, spacing: 10) {
@@ -965,8 +931,8 @@ private struct TodayTab: View {
                     }
                     .velActionButtonStyle()
 
-                    Button("Open chat") {
-                        onOpenChat()
+                    Button("Open threads") {
+                        onOpenThreads()
                     }
                     .velActionButtonStyle()
                 }
@@ -1002,13 +968,12 @@ private struct TodayTab: View {
     }
 }
 
-private struct ChatTab: View {
+private struct ThreadsTab: View {
     @ObservedObject var store: VelClientStore
     @ObservedObject var voiceModel: VoiceCaptureModel
     let onOpenCapture: () -> Void
     let onOpenVoice: () -> Void
-    let onOpenThreads: () -> Void
-    let onOpenSettings: () -> Void
+    let onOpenSystem: () -> Void
     let onOpenLinking: () -> Void
 
     @State private var composerText = ""
@@ -1018,9 +983,17 @@ private struct ChatTab: View {
     @State private var lastStatus: String?
     @State private var conversationHistory: [ChatHistoryRow] = []
 
+    private var recentSignals: [SignalData] {
+        Array(store.signals.prefix(24))
+    }
+
     var body: some View {
         List {
-            Section("Assistant") {
+            Section("Threads") {
+                Text("Threads keep interaction grounded in canonical objects and continuity. Compose here, then reconcile from backend responses.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 if let routeTarget {
                     Text("Route: \(routeTarget)")
                         .font(.caption)
@@ -1066,13 +1039,8 @@ private struct ChatTab: View {
                     }
                     .velActionButtonStyle()
 
-                    Button("Open threads") {
-                        onOpenThreads()
-                    }
-                    .velActionButtonStyle()
-
-                    Button("Settings") {
-                        onOpenSettings()
+                    Button("Open system") {
+                        onOpenSystem()
                     }
                     .velActionButtonStyle()
 
@@ -1091,7 +1059,7 @@ private struct ChatTab: View {
             }
 
             if let now = store.offlineStore.cachedNow() {
-                Section("Context") {
+                Section("Grounding") {
                     let hints = threadHints
                     if let contextLine = now.context_line {
                         Text(contextLine.text)
@@ -1136,6 +1104,85 @@ private struct ChatTab: View {
                 }
             }
 
+            Section("Continuity") {
+                if let summary = voiceModel.continuitySummary(using: store) {
+                    Text(summary.headline)
+                    if let detail = summary.detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("No local voice continuity is waiting for recovery.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                let entries = Array(voiceModel.history.prefix(3))
+                if !entries.isEmpty {
+                    Divider()
+                        .padding(.vertical, 2)
+                    ForEach(entries) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(entry.statusLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(entry.statusColor)
+                                Spacer()
+                                Text(formatDate(entry.createdAt))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(entry.transcript)
+                                .font(.subheadline)
+                                .lineLimit(2)
+                            if let detail = entry.continuityDetail {
+                                Text(detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+
+            Section("Recent signals") {
+                if recentSignals.isEmpty {
+                    Text("No signals available yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(recentSignals.enumerated()), id: \.element.signal_id) { index, signal in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(signal.signal_type)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text(formatUnix(signal.timestamp))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("source: \(signal.source)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if signal.payload != .null {
+                                Text(signal.payload.compactText)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(3)
+                            }
+                        }
+                        .padding(.vertical, 2)
+
+                        if index < recentSignals.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+            }
+
             if !conversationHistory.isEmpty {
                 Section("Conversation history") {
                     ForEach(Array(conversationHistory.suffix(12).enumerated()), id: \.element.id) { index, row in
@@ -1170,7 +1217,10 @@ private struct ChatTab: View {
             }
         }
         .velCompactListStyle()
-        .refreshable { await store.refresh() }
+        .refreshable {
+            await store.refresh()
+            await store.refreshSignals()
+        }
     }
 
     private func submitMessage() async {
@@ -2490,7 +2540,7 @@ private struct VoiceTab: View {
 private struct SettingsTab: View {
     let appEnvironment: VelAppEnvironment
     @ObservedObject var store: VelClientStore
-    let initialSection: SettingsLaunchSection
+    let initialSection: SystemLaunchSection
     @State private var baseURLOverride = UserDefaults.standard.string(forKey: "vel_base_url") ?? ""
     @State private var operatorToken = UserDefaults.standard.string(forKey: "vel_operator_token") ?? ""
     @State private var pairingReadContext = true
@@ -2519,12 +2569,12 @@ private struct SettingsTab: View {
         ScrollViewReader { proxy in
             List {
                 runtimeSection
-                    .id(SettingsLaunchSection.overview.sectionAnchor)
+                    .id(SystemLaunchSection.overview.sectionAnchor)
                 embeddedBridgeSection
                 connectRuntimeSection
                 endpointOverrideSection
                 linkingSection
-                    .id(SettingsLaunchSection.linking.sectionAnchor)
+                    .id(SystemLaunchSection.linking.sectionAnchor)
                 linkedDevicesSection
                 operatorAuthSection
                 docsSection
@@ -2562,8 +2612,8 @@ private struct SettingsTab: View {
     }
 
     private var runtimeSection: some View {
-        Section("Advanced operator setup") {
-            Text("Apple stays summary-first by default. Daily-use work belongs in `Now`, `Inbox`, and `Threads`; deeper setup and trust detail live here.")
+        Section("System overview") {
+            Text("System is the Apple structural surface. Daily-use work belongs in `Now` and `Threads`; deeper trust, linking, and runtime detail live here.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             ConnectionSummaryRow(store: store)
@@ -2766,7 +2816,7 @@ private struct SettingsTab: View {
 
     private var connectRuntimeSection: some View {
         Section("Connect runtime console") {
-            Text("Use this only for supervised runtime debugging. Daily work should stay in `Now`, `Inbox`, and `Threads`.")
+            Text("Use this only for supervised runtime debugging. Daily work should stay in `Now` and `Threads`.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

@@ -17,7 +17,7 @@ Product-mode authority for summary-first disclosure:
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
-- **VeliOS** — iPhone/iPad: compact canonical `Now`, triage-first `Inbox`, continuity-first `Threads`, secondary `Projects`, and advanced `Settings`, plus quick-entry capture + voice sheets, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
+- **VeliOS** — iPhone/iPad: compact canonical `Now`, continuity-first `Threads`, and structural `System`, plus quick-entry capture + voice sheets, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
 - **VelWatch** — Apple Watch: reduced canonical `Now` lane from `/v1/now`, bounded advisories and inbox actions, quick capture/check-in/task entry, reduced thread response with handoff to phone/Mac, and cached fallback.
 - **VelMac** — macOS: summary-first `Now`, explicit `Inbox` triage, compact `Threads` continuity summary, secondary `Projects`, support-only `Settings`, quick entry as a shell-native wrapper over backend routes, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
 
@@ -27,10 +27,10 @@ Apple clients follow the same shell policy as web:
 
 - `Now` is the default compact execution lane for current context, immediate pressure, and quick entry.
 - Apple `Now` should inherit the same sleep-relative current-day truth as web and CLI. It should not roll to a new day at midnight if the backend still considers the operator inside the same day-between-sleeps window.
-- `Inbox` is the explicit triage lane for urgent nudges, commitments, and other reviewable work.
+- `Now` absorbs triage for urgent nudges, commitments, and other reviewable work; Apple does not ship `Inbox` as a first-class surface.
 - `Threads` is the continuity/history lane and should not become a second live queue.
-- `Projects` remains real but secondary; it is for project-specific roots and context after the daily-use lanes point there.
-- `Settings` is advanced setup, trust, linking, and deeper detail rather than first-contact operator education.
+- `System` is the structural/setup lane for trust, linking, and deeper detail rather than first-contact operator education.
+- `Projects` remain secondary backend truth and may appear inside other surfaces, but they are not a first-class Apple destination.
 
 Apple embodiment remains intentionally compact and backend-first. It should reuse typed backend state and keep deeper runtime/internal detail progressively disclosed instead of teaching implementation categories by default. Native quick-entry, voice, and offline affordances are wrappers over backend-owned routing and continuity, not separate Apple-local product logic.
 

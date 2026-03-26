@@ -36,8 +36,8 @@ Current truth is still daemon-backed HTTP via `VelAPI`. The embedded bridge exis
 ## Current Client Wiring
 
 - `VeliOS` now uses `VelApplication.VelAppEnvironment` + `VelFeatureFlags.FeatureCapabilities` to switch between:
-  - iPhone shell (existing tab-oriented loop)
-  - iPad shell (`NavigationSplitView` with role-appropriate sections)
+  - iPhone shell with exactly three first-class surfaces: `Now`, `Threads`, and `System`
+  - iPad shell (`NavigationSplitView`) over those same three surfaces
 - `VelWatch` remains intentionally lean with quick-loop and capture focus.
 - `VelMac` is a live target with a placeholder sidebar shell and shared environment wiring.
 - `VelWidgetExtension` and `VelIntentsExtension` are scaffolded targets for Apple-native affordances.
