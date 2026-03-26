@@ -1,11 +1,17 @@
 import type {
   AgentInspectData,
+  ClusterBootstrapData,
+  ClusterWorkersData,
   IntegrationConnectionData,
   IntegrationsData,
+  LinkScopeData,
+  LinkedNodeData,
+  PairingTokenData,
   SemanticAliasOverridesData,
   SettingsData,
 } from '../../types';
 import { CoreSettingsDetail } from './SystemCoreSettingsSection';
+import { NodePairingDetail } from './SystemNodePairingSection';
 import {
   OperationsActivityDetail,
   OperationsRecoveryDetail,
@@ -59,6 +65,9 @@ export function renderSystemSubsection({
   providers,
   integrations,
   connections,
+  clusterBootstrap,
+  clusterWorkers,
+  linkedNodes,
   projects,
   capabilityGroups,
   settings,
@@ -75,6 +84,11 @@ export function renderSystemSubsection({
   onPatchGoogleCalendar,
   onPatchTodoist,
   onStartGoogleAuth,
+  pairingLoading,
+  pairingError,
+  onIssuePairingToken,
+  onRedeemPairingToken,
+  onRevokeLinkedNode,
   onJumpToTarget,
 }: {
   subsection: SystemSubsectionKey;
@@ -82,6 +96,9 @@ export function renderSystemSubsection({
   providers: IntegrationProviderSummary[];
   integrations: IntegrationsData;
   connections: IntegrationConnectionData[];
+  clusterBootstrap: ClusterBootstrapData | null;
+  clusterWorkers: ClusterWorkersData | null;
+  linkedNodes: LinkedNodeData[];
   projects: AgentInspectData['grounding']['projects'];
   capabilityGroups: AgentInspectData['capabilities']['groups'];
   settings: SettingsData | null;
@@ -105,6 +122,29 @@ export function renderSystemSubsection({
   onPatchGoogleCalendar: (patch: Record<string, unknown>) => Promise<void>;
   onPatchTodoist: (patch: Record<string, unknown>) => Promise<void>;
   onStartGoogleAuth: () => Promise<void>;
+  pairingLoading: boolean;
+  pairingError: string | null;
+  onIssuePairingToken: (payload: {
+    issued_by_node_id: string;
+    ttl_seconds?: number;
+    scopes: LinkScopeData;
+    target_node_id?: string;
+    target_node_display_name?: string | null;
+    target_base_url?: string | null;
+  }) => Promise<PairingTokenData>;
+  onRedeemPairingToken: (payload: {
+    token_code: string;
+    node_id: string;
+    node_display_name: string;
+    transport_hint?: string | null;
+    requested_scopes?: LinkScopeData | null;
+    sync_base_url?: string | null;
+    tailscale_base_url?: string | null;
+    lan_base_url?: string | null;
+    localhost_base_url?: string | null;
+    public_base_url?: string | null;
+  }) => Promise<LinkedNodeData>;
+  onRevokeLinkedNode: (nodeId: string) => Promise<LinkedNodeData>;
   onJumpToTarget: (target: SystemNavigationTarget) => void;
 }) {
   if (subsection === 'core_settings') {
@@ -115,6 +155,22 @@ export function renderSystemSubsection({
         onCommitSettingField={onCommitSettingField}
         onUpdateCoreSettings={onUpdateCoreSettings}
         onJumpToTarget={onJumpToTarget}
+      />
+    );
+  }
+  if (subsection === 'pairing') {
+    return (
+      <NodePairingDetail
+        loading={pairingLoading}
+        error={pairingError}
+        clusterBootstrap={clusterBootstrap}
+        clusterWorkers={clusterWorkers}
+        linkedNodes={linkedNodes}
+        settings={settings}
+        integrations={integrations}
+        onIssuePairingToken={onIssuePairingToken}
+        onRedeemPairingToken={onRedeemPairingToken}
+        onRevokeLinkedNode={onRevokeLinkedNode}
       />
     );
   }

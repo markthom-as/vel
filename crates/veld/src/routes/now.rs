@@ -74,12 +74,45 @@ pub async fn update_now_task_lane(
 
     if lane == "completed" {
         if commitment.status != CommitmentStatus::Done {
+            if commitment.source_type == "todoist" {
+                services::writeback::todoist_complete_task(
+                    &state.storage,
+                    &state.config,
+                    "vel-local",
+                    commitment_id,
+                )
+                .await?;
+            } else {
+                state
+                    .storage
+                    .update_commitment(
+                        commitment_id,
+                        None,
+                        Some(CommitmentStatus::Done),
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
+                    .await?;
+            }
+        }
+    } else if commitment.status == CommitmentStatus::Done {
+        if commitment.source_type == "todoist" {
+            services::writeback::todoist_reopen_task(
+                &state.storage,
+                &state.config,
+                "vel-local",
+                commitment_id,
+            )
+            .await?;
+        } else {
             state
                 .storage
                 .update_commitment(
                     commitment_id,
                     None,
-                    Some(CommitmentStatus::Done),
+                    Some(CommitmentStatus::Open),
                     None,
                     None,
                     None,
@@ -87,19 +120,6 @@ pub async fn update_now_task_lane(
                 )
                 .await?;
         }
-    } else if commitment.status == CommitmentStatus::Done {
-        state
-            .storage
-            .update_commitment(
-                commitment_id,
-                None,
-                Some(CommitmentStatus::Open),
-                None,
-                None,
-                None,
-                None,
-            )
-            .await?;
     }
 
     if lane == "next_up" {

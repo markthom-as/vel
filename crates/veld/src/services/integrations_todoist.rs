@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use reqwest::{Method, Url};
+use reqwest::{Method, StatusCode, Url};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -617,8 +617,12 @@ async fn execute_todoist_write_plan_with_base_url(
             let _: JsonValue =
                 todoist_rest_request(client, api_token, base_url, Method::POST, &endpoint, None)
                     .await?;
-            let refreshed =
-                todoist_get_task(client, api_token, base_url, &upstream_ref.external_id).await?;
+            let refreshed = completed_task_after_close(
+                &current,
+                todoist_try_get_task(client, api_token, base_url, &upstream_ref.external_id)
+                    .await?,
+                OffsetDateTime::now_utc(),
+            );
             let persisted = persist_todoist_task(
                 storage,
                 Some(commitment),
@@ -1047,6 +1051,54 @@ async fn todoist_get_task(
 ) -> Result<TodoistTask, AppError> {
     let endpoint = format!("/tasks/{}", task_id.trim());
     todoist_rest_request(client, api_token, base_url, Method::GET, &endpoint, None).await
+}
+
+async fn todoist_try_get_task(
+    client: &reqwest::Client,
+    api_token: &str,
+    base_url: &str,
+    task_id: &str,
+) -> Result<Option<TodoistTask>, AppError> {
+    let endpoint = format!("/tasks/{}", task_id.trim());
+    let url = Url::parse(&format!("{}{}", base_url.trim_end_matches('/'), endpoint))
+        .map_err(|error| AppError::internal(format!("todoist url: {}", error)))?;
+    let response = client
+        .request(Method::GET, url)
+        .bearer_auth(api_token)
+        .send()
+        .await
+        .map_err(|error| AppError::internal(format!("todoist request: {}", error)))?;
+
+    if response.status() == StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+
+    let response = response
+        .error_for_status()
+        .map_err(|error| AppError::internal(format!("todoist request: {}", error)))?;
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| AppError::internal(format!("todoist decode: {}", error)))?;
+    let task = serde_json::from_slice(&bytes)
+        .map_err(|error| AppError::internal(format!("todoist decode: {}", error)))?;
+    Ok(Some(task))
+}
+
+fn closed_todoist_task_snapshot(task: &TodoistTask, now: OffsetDateTime) -> TodoistTask {
+    TodoistTask {
+        checked: Some(true),
+        updated_at: now.format(&Rfc3339).ok(),
+        ..task.clone()
+    }
+}
+
+fn completed_task_after_close(
+    current: &TodoistTask,
+    refreshed: Option<TodoistTask>,
+    now: OffsetDateTime,
+) -> TodoistTask {
+    refreshed.unwrap_or_else(|| closed_todoist_task_snapshot(current, now))
 }
 
 async fn persist_todoist_task(
@@ -1621,7 +1673,7 @@ async fn plan_existing_todoist_task(
     })
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct TodoistTask {
     id: String,
     content: String,
@@ -2360,5 +2412,32 @@ mod tests {
                 "waiting_on:alex"
             ])
         );
+    }
+
+    #[test]
+    fn completed_task_after_close_marks_task_done_when_follow_up_get_is_missing() {
+        let current = TodoistTask {
+            id: "task_1".to_string(),
+            content: "Follow up".to_string(),
+            labels: vec!["focus".to_string()],
+            project_id: Some("todo-proj-1".to_string()),
+            priority: Some(2),
+            checked: Some(false),
+            due: Some(TodoistDue {
+                date: Some("2026-03-19".to_string()),
+                datetime: None,
+            }),
+            deadline: None,
+            updated_at: Some("2026-03-18T08:00:00Z".to_string()),
+        };
+
+        let completed = completed_task_after_close(&current, None, OffsetDateTime::UNIX_EPOCH);
+
+        assert_eq!(completed.id, current.id);
+        assert_eq!(completed.content, current.content);
+        assert_eq!(completed.project_id, current.project_id);
+        assert_eq!(completed.labels, current.labels);
+        assert_eq!(completed.checked, Some(true));
+        assert_eq!(completed.updated_at.as_deref(), Some("1970-01-01T0:00:00Z"));
     }
 }

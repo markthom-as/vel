@@ -144,6 +144,13 @@ export function buildSystemSubsectionChildren({
       { id: systemChildAnchor('core_settings', 'about-agent'), label: 'About agent' },
       ...(developerMode ? [{ id: systemChildAnchor('core_settings', 'developer-controls'), label: 'Developer controls' }] : []),
     ],
+    pairing: [
+      { id: systemChildAnchor('pairing', 'guide'), label: 'Guide' },
+      { id: systemChildAnchor('pairing', 'scope'), label: 'Trust scope' },
+      { id: systemChildAnchor('pairing', 'issue'), label: 'Issue token' },
+      { id: systemChildAnchor('pairing', 'redeem'), label: 'Redeem token' },
+      { id: systemChildAnchor('pairing', 'linked'), label: 'Linked nodes' },
+    ],
     ...primitiveChildren,
     trust: [
       { id: systemChildAnchor('trust', 'current-mode'), label: 'Current mode' },
@@ -221,7 +228,7 @@ export function buildSystemSubsectionChildren({
     documentation: [
       { id: SYSTEM_DOCUMENTATION_ANCHOR, label: 'System documentation' },
     ],
-  };
+  } as Record<SystemSubsectionKey, SystemSidebarChild[]>;
 }
 
 export function buildSystemGroupSummaries({
