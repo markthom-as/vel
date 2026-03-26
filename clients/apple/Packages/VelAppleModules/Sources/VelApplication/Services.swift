@@ -113,7 +113,8 @@ public struct VelAppEnvironment {
                     .localQuickActionPreparation,
                     .offlineRequestPackaging,
                     .deterministicDomainHelpers,
-                    .localThreadDraftPackaging
+                    .localThreadDraftPackaging,
+                    .localVoiceCapturePackaging
                 ]
                 : []
         )

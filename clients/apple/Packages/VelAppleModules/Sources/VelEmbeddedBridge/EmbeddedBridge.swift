@@ -11,6 +11,7 @@ public enum EmbeddedAppleFlow: String, Sendable, CaseIterable {
     case offlineRequestPackaging = "offline_request_packaging"
     case deterministicDomainHelpers = "deterministic_domain_helpers"
     case localThreadDraftPackaging = "local_thread_draft_packaging"
+    case localVoiceCapturePackaging = "local_voice_capture_packaging"
 }
 
 public struct EmbeddedBridgeRuntimeStatus: Sendable {
@@ -22,6 +23,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     public let offlineRequestPackagingSymbolAvailable: Bool
     public let deterministicDomainHelpersSymbolAvailable: Bool
     public let localThreadDraftPackagingSymbolAvailable: Bool
+    public let localVoiceCapturePackagingSymbolAvailable: Bool
 
     public init(
         resolvedSource: String?,
@@ -31,7 +33,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localQuickActionPreparationSymbolAvailable: Bool,
         offlineRequestPackagingSymbolAvailable: Bool,
         deterministicDomainHelpersSymbolAvailable: Bool,
-        localThreadDraftPackagingSymbolAvailable: Bool
+        localThreadDraftPackagingSymbolAvailable: Bool,
+        localVoiceCapturePackagingSymbolAvailable: Bool
     ) {
         self.resolvedSource = resolvedSource
         self.attemptedPaths = attemptedPaths
@@ -41,6 +44,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         self.offlineRequestPackagingSymbolAvailable = offlineRequestPackagingSymbolAvailable
         self.deterministicDomainHelpersSymbolAvailable = deterministicDomainHelpersSymbolAvailable
         self.localThreadDraftPackagingSymbolAvailable = localThreadDraftPackagingSymbolAvailable
+        self.localVoiceCapturePackagingSymbolAvailable = localVoiceCapturePackagingSymbolAvailable
     }
 
     public static let unavailable = EmbeddedBridgeRuntimeStatus(
@@ -51,7 +55,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
         localQuickActionPreparationSymbolAvailable: false,
         offlineRequestPackagingSymbolAvailable: false,
         deterministicDomainHelpersSymbolAvailable: false,
-        localThreadDraftPackagingSymbolAvailable: false
+        localThreadDraftPackagingSymbolAvailable: false,
+        localVoiceCapturePackagingSymbolAvailable: false
     )
 
     public var isBridgeLoaded: Bool {
@@ -64,6 +69,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             || offlineRequestPackagingSymbolAvailable
             || deterministicDomainHelpersSymbolAvailable
             || localThreadDraftPackagingSymbolAvailable
+            || localVoiceCapturePackagingSymbolAvailable
     }
 
     public var isOperational: Bool {
@@ -71,7 +77,7 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
     }
 
     public var discoveredSymbolCount: Int {
-        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable]
+        [cachedNowHydrationSymbolAvailable, localQuickActionPreparationSymbolAvailable, offlineRequestPackagingSymbolAvailable, deterministicDomainHelpersSymbolAvailable, localThreadDraftPackagingSymbolAvailable, localVoiceCapturePackagingSymbolAvailable]
             .filter(\.self)
             .count
     }
@@ -88,6 +94,8 @@ public struct EmbeddedBridgeRuntimeStatus: Sendable {
             deterministicDomainHelpersSymbolAvailable
         case .localThreadDraftPackaging:
             localThreadDraftPackagingSymbolAvailable
+        case .localVoiceCapturePackaging:
+            localVoiceCapturePackagingSymbolAvailable
         }
     }
 }
@@ -157,6 +165,10 @@ public protocol EmbeddedThreadDraftBridge: Sendable {
     func prepareThreadDraft(_ text: String, conversationID: String?) -> EmbeddedThreadDraftPacket
 }
 
+public protocol EmbeddedVoiceCaptureBridge: Sendable {
+    func prepareVoiceCapturePayload(transcript: String, intentStorageToken: String) -> String
+}
+
 private struct OfflineBridgeEnvelope: Decodable {
     let kind: String?
     let payload: String?
@@ -170,6 +182,7 @@ public protocol EmbeddedBridgeSurface: Sendable {
     var offlineRequestBridge: any EmbeddedOfflineRequestBridge { get }
     var domainHelpersBridge: any EmbeddedDomainHelpersBridge { get }
     var threadDraftBridge: any EmbeddedThreadDraftBridge { get }
+    var voiceCaptureBridge: any EmbeddedVoiceCaptureBridge { get }
 }
 
 public struct NoopEmbeddedNowBridge: EmbeddedNowBridge {
@@ -228,6 +241,21 @@ public struct NoopEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge {
     }
 }
 
+public struct NoopEmbeddedVoiceCaptureBridge: EmbeddedVoiceCaptureBridge {
+    public init() {}
+
+    public func prepareVoiceCapturePayload(transcript: String, intentStorageToken: String) -> String {
+        [
+            "voice_transcript:",
+            transcript.trimmingCharacters(in: .whitespacesAndNewlines),
+            "",
+            "intent_candidate: \(intentStorageToken.trimmingCharacters(in: .whitespacesAndNewlines))",
+            "client_surface: ios_voice"
+        ]
+        .joined(separator: "\n")
+    }
+}
+
 public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -236,6 +264,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
     public let threadDraftBridge: any EmbeddedThreadDraftBridge
+    public let voiceCaptureBridge: any EmbeddedVoiceCaptureBridge
 
     public init(configuration: EmbeddedBridgeConfiguration = .daemonBackedDefault()) {
         self.configuration = configuration
@@ -245,6 +274,7 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
         self.offlineRequestBridge = NoopEmbeddedOfflineRequestBridge()
         self.domainHelpersBridge = NoopEmbeddedDomainHelpersBridge()
         self.threadDraftBridge = NoopEmbeddedThreadDraftBridge()
+        self.voiceCaptureBridge = NoopEmbeddedVoiceCaptureBridge()
     }
 }
 
@@ -254,6 +284,7 @@ private typealias VelEmbeddedPrepareQuickCaptureFn = @convention(c) (UnsafePoint
 private typealias VelEmbeddedPackageOfflineRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedNormalizeDomainHelpersFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedPrepareThreadDraftFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedPrepareVoiceCapturePayloadFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias VelEmbeddedFreeBufferFn = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
 private struct VelEmbeddedRustBindings: @unchecked Sendable {
@@ -263,6 +294,7 @@ private struct VelEmbeddedRustBindings: @unchecked Sendable {
     let packageOfflineRequest: VelEmbeddedPackageOfflineRequestFn?
     let normalizeDomainHelpers: VelEmbeddedNormalizeDomainHelpersFn?
     let prepareThreadDraft: VelEmbeddedPrepareThreadDraftFn?
+    let prepareVoiceCapturePayload: VelEmbeddedPrepareVoiceCapturePayloadFn?
     let freeBuffer: VelEmbeddedFreeBufferFn
 }
 
@@ -273,6 +305,7 @@ private enum VelEmbeddedRustBridge {
         packageOfflineRequest: "vel_embedded_package_offline_request",
         normalizeDomainHelpers: "vel_embedded_normalize_domain_helpers",
         prepareThreadDraft: "vel_embedded_prepare_thread_draft",
+        prepareVoiceCapturePayload: "vel_embedded_prepare_voice_capture_payload",
         freeBuffer: "vel_embedded_free_buffer"
     )
 
@@ -292,7 +325,8 @@ private enum VelEmbeddedRustBridge {
             prepareQuickCapture: VelEmbeddedPrepareQuickCaptureFn?,
             packageOfflineRequest: VelEmbeddedPackageOfflineRequestFn?,
             normalizeDomainHelpers: VelEmbeddedNormalizeDomainHelpersFn?,
-            prepareThreadDraft: VelEmbeddedPrepareThreadDraftFn?
+            prepareThreadDraft: VelEmbeddedPrepareThreadDraftFn?,
+            prepareVoiceCapturePayload: VelEmbeddedPrepareVoiceCapturePayloadFn?
         ) -> EmbeddedBridgeRuntimeStatus {
             EmbeddedBridgeRuntimeStatus(
                 resolvedSource: source,
@@ -302,7 +336,8 @@ private enum VelEmbeddedRustBridge {
                 localQuickActionPreparationSymbolAvailable: prepareQuickCapture != nil,
                 offlineRequestPackagingSymbolAvailable: packageOfflineRequest != nil,
                 deterministicDomainHelpersSymbolAvailable: normalizeDomainHelpers != nil,
-                localThreadDraftPackagingSymbolAvailable: prepareThreadDraft != nil
+                localThreadDraftPackagingSymbolAvailable: prepareThreadDraft != nil,
+                localVoiceCapturePackagingSymbolAvailable: prepareVoiceCapturePayload != nil
             )
         }
 
@@ -331,6 +366,10 @@ private enum VelEmbeddedRustBridge {
                 candidate: symbolNames.prepareThreadDraft,
                 from: handle
             )
+            let prepareVoiceCapturePayload: VelEmbeddedPrepareVoiceCapturePayloadFn? = lookup(
+                candidate: symbolNames.prepareVoiceCapturePayload,
+                from: handle
+            )
 
             let status = makeStatus(
                 source: freeBuffer == nil ? nil : source,
@@ -339,7 +378,8 @@ private enum VelEmbeddedRustBridge {
                 prepareQuickCapture: prepareQuickCapture,
                 packageOfflineRequest: packageOfflineRequest,
                 normalizeDomainHelpers: normalizeDomainHelpers,
-                prepareThreadDraft: prepareThreadDraft
+                prepareThreadDraft: prepareThreadDraft,
+                prepareVoiceCapturePayload: prepareVoiceCapturePayload
             )
 
             guard freeBuffer != nil else {
@@ -351,6 +391,7 @@ private enum VelEmbeddedRustBridge {
                 && packageOfflineRequest == nil
                 && normalizeDomainHelpers == nil
                 && prepareThreadDraft == nil
+                && prepareVoiceCapturePayload == nil
             {
                 return (nil, status)
             }
@@ -363,6 +404,7 @@ private enum VelEmbeddedRustBridge {
                     packageOfflineRequest: packageOfflineRequest,
                     normalizeDomainHelpers: normalizeDomainHelpers,
                     prepareThreadDraft: prepareThreadDraft,
+                    prepareVoiceCapturePayload: prepareVoiceCapturePayload,
                     freeBuffer: freeBuffer
                 ),
                 status
@@ -405,7 +447,8 @@ private enum VelEmbeddedRustBridge {
                 localQuickActionPreparationSymbolAvailable: false,
                 offlineRequestPackagingSymbolAvailable: false,
                 deterministicDomainHelpersSymbolAvailable: false,
-                localThreadDraftPackagingSymbolAvailable: false
+                localThreadDraftPackagingSymbolAvailable: false,
+                localVoiceCapturePackagingSymbolAvailable: false
             )
         )
     }()
@@ -508,6 +551,17 @@ private enum VelEmbeddedRustBridge {
         return String(cString: result)
     }
 
+    static func invokeStringResultFunction(
+        _ function: VelEmbeddedPrepareVoiceCapturePayloadFn?,
+        freeBuffer: VelEmbeddedFreeBufferFn?,
+        payload: String
+    ) -> String? {
+        guard let function else { return nil }
+        guard let result = payload.withCString({ function($0) }) else { return nil }
+        defer { freeBuffer?(result) }
+        return String(cString: result)
+    }
+
     @inline(__always)
     static func encodeContextPayload(_ context: VelContextSnapshot) -> String {
         let encoder = JSONEncoder()
@@ -556,6 +610,16 @@ private enum VelEmbeddedRustBridge {
         }
     }
 
+    struct VoiceCaptureInput: Encodable {
+        let transcript: String
+        let intentStorageToken: String
+
+        enum CodingKeys: String, CodingKey {
+            case transcript
+            case intentStorageToken = "intentStorageToken"
+        }
+    }
+
     static func decodeOfflineRequest(_ value: String) -> OfflineRequestPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OfflineRequestPacket.self, from: data)
@@ -581,6 +645,18 @@ private enum VelEmbeddedRustBridge {
     static func decodeThreadDraft(_ value: String) -> ThreadDraftPacket? {
         guard let data = value.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(ThreadDraftPacket.self, from: data)
+    }
+
+    static func encodeVoiceCapturePayload(transcript: String, intentStorageToken: String) -> String {
+        let payload = VoiceCaptureInput(
+            transcript: transcript,
+            intentStorageToken: intentStorageToken
+        )
+        guard let data = try? JSONEncoder().encode(payload),
+              let value = String(data: data, encoding: .utf8) else {
+            return "{\"transcript\":\"\"}"
+        }
+        return value
     }
 }
 
@@ -702,6 +778,33 @@ public struct RustEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge, @uncheck
     }
 }
 
+public struct RustEmbeddedVoiceCaptureBridge: EmbeddedVoiceCaptureBridge, @unchecked Sendable {
+    private let bindings: VelEmbeddedRustBindings
+
+    public init?(bindings: VelEmbeddedRustBindings) {
+        guard bindings.prepareVoiceCapturePayload != nil else { return nil }
+        self.bindings = bindings
+    }
+
+    public func prepareVoiceCapturePayload(transcript: String, intentStorageToken: String) -> String {
+        guard let output = VelEmbeddedRustBridge.invokeStringResultFunction(
+            bindings.prepareVoiceCapturePayload,
+            freeBuffer: bindings.freeBuffer,
+            payload: VelEmbeddedRustBridge.encodeVoiceCapturePayload(
+                transcript: transcript,
+                intentStorageToken: intentStorageToken
+            )
+        ) else {
+            return NoopEmbeddedVoiceCaptureBridge().prepareVoiceCapturePayload(
+                transcript: transcript,
+                intentStorageToken: intentStorageToken
+            )
+        }
+
+        return output
+    }
+}
+
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -710,6 +813,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
     public let threadDraftBridge: any EmbeddedThreadDraftBridge
+    public let voiceCaptureBridge: any EmbeddedVoiceCaptureBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         guard let bindings = VelEmbeddedRustBridge.bindings else {
@@ -749,11 +853,18 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
             self.threadDraftBridge = NoopEmbeddedThreadDraftBridge()
         }
 
+        if let rustVoiceCapture = RustEmbeddedVoiceCaptureBridge(bindings: bindings), configuration.permits(.localVoiceCapturePackaging) {
+            self.voiceCaptureBridge = rustVoiceCapture
+        } else {
+            self.voiceCaptureBridge = NoopEmbeddedVoiceCaptureBridge()
+        }
+
         let isEmbedded = configuration.permits(.cachedNowHydration)
             || configuration.permits(.localQuickActionPreparation)
             || configuration.permits(.offlineRequestPackaging)
             || configuration.permits(.deterministicDomainHelpers)
             || configuration.permits(.localThreadDraftPackaging)
+            || configuration.permits(.localVoiceCapturePackaging)
 
         guard isEmbedded else { return nil }
     }
@@ -799,6 +910,16 @@ public struct RustEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge, @uncheck
     }
 }
 
+public struct RustEmbeddedVoiceCaptureBridge: EmbeddedVoiceCaptureBridge, @unchecked Sendable {
+    public init?(bindings: ()) { return nil }
+    public func prepareVoiceCapturePayload(transcript: String, intentStorageToken: String) -> String {
+        NoopEmbeddedVoiceCaptureBridge().prepareVoiceCapturePayload(
+            transcript: transcript,
+            intentStorageToken: intentStorageToken
+        )
+    }
+}
+
 public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Sendable {
     public let configuration: EmbeddedBridgeConfiguration
     public let runtimeStatus: EmbeddedBridgeRuntimeStatus
@@ -807,6 +928,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
     public let offlineRequestBridge: any EmbeddedOfflineRequestBridge
     public let domainHelpersBridge: any EmbeddedDomainHelpersBridge
     public let threadDraftBridge: any EmbeddedThreadDraftBridge
+    public let voiceCaptureBridge: any EmbeddedVoiceCaptureBridge
 
     public init?(configuration: EmbeddedBridgeConfiguration) {
         self.configuration = configuration
@@ -816,6 +938,7 @@ public struct VelEmbeddedRustBridgeSurface: EmbeddedBridgeSurface, @unchecked Se
         self.offlineRequestBridge = NoopEmbeddedOfflineRequestBridge()
         self.domainHelpersBridge = NoopEmbeddedDomainHelpersBridge()
         self.threadDraftBridge = NoopEmbeddedThreadDraftBridge()
+        self.voiceCaptureBridge = NoopEmbeddedVoiceCaptureBridge()
         return nil
     }
 }

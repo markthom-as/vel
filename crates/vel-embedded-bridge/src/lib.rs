@@ -77,6 +77,13 @@ struct ThreadDraftOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceCaptureInput {
+    transcript: Option<String>,
+    intent_storage_token: Option<String>,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -236,6 +243,29 @@ fn normalize_payload(value: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<VoiceCaptureInput>(&raw).unwrap_or(VoiceCaptureInput {
+        transcript: Some(raw.clone()),
+        intent_storage_token: Some("capture".to_string()),
+    });
+
+    let transcript = decoded.transcript.unwrap_or_default().trim().to_string();
+    let intent_storage_token = decoded.intent_storage_token.unwrap_or_else(|| "capture".to_string());
+
+    let payload = [
+        "voice_transcript:".to_string(),
+        transcript,
+        String::new(),
+        format!("intent_candidate: {}", normalize_payload(&intent_storage_token)),
+        "client_surface: ios_voice".to_string(),
+    ]
+    .join("\n");
+
+    to_owned_c_string(&payload)
 }
 
 #[no_mangle]
