@@ -33,6 +33,7 @@ struct VelApp: App {
             ContentView(appEnvironment: appEnvironment)
                 .environmentObject(client)
                 .preferredColorScheme(.dark)
+                .accentColor(.orange)
         }
     }
 }
@@ -241,6 +242,44 @@ final class VelClientStore: ObservableObject {
                 )
             }
         )
+    }
+
+    func submitAssistantEntry(
+        text: String,
+        conversationID: String? = nil
+    ) async -> AssistantEntryResponseData? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        do {
+            let response = try await client.submitAssistantEntry(text: trimmed, conversationID: conversationID)
+            pendingActionCount = offlineStore.pendingActionCount()
+            await refresh()
+            errorMessage = nil
+            return response
+        } catch {
+            let fallbackText = [
+                "queued_assistant_entry:",
+                conversationID.map { "requested_conversation_id: \($0)" },
+                "",
+                trimmed
+            ]
+                .compactMap { $0 }
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .joined(separator: "\n")
+
+            offlineStore.enqueueCaptureCreate(
+                text: queuedCaptureText(
+                    text: fallbackText,
+                    type: "assistant_entry",
+                    source: "apple_ios_chat"
+                )
+            )
+            pendingActionCount = offlineStore.pendingActionCount()
+            errorMessage = "Assistant message queued for sync."
+            await refresh()
+            return nil
+        }
     }
 
     func setBaseURLOverride(_ value: String?) {

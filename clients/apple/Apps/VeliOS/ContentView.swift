@@ -11,18 +11,56 @@ import VelFeatureFlags
 import UIKit
 #endif
 
-private enum VeliOSTab: Hashable {
+private enum VeliOSTab: String, Hashable, CaseIterable, Identifiable {
     case now
     case inbox
     case threads
+    case chat
     case projects
     case settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .now:
+            return "Now"
+        case .inbox:
+            return "Inbox"
+        case .threads:
+            return "Threads"
+        case .chat:
+            return "Chat"
+        case .projects:
+            return "Projects"
+        case .settings:
+            return "Settings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .now:
+            return "sun.max.fill"
+        case .inbox:
+            return "tray.full.fill"
+        case .threads:
+            return "bubble.left.and.bubble.right.fill"
+        case .chat:
+            return "message"
+        case .projects:
+            return "square.grid.2x2.fill"
+        case .settings:
+            return "gearshape.fill"
+        }
+    }
 }
 
 private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
     case now
     case inbox
     case threads
+    case chat
     case projects
     case quickEntry
     case settings
@@ -37,6 +75,8 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
             return "Inbox"
         case .threads:
             return "Threads"
+        case .chat:
+            return "Chat"
         case .projects:
             return "Projects"
         case .quickEntry:
@@ -54,6 +94,8 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
             return "calendar"
         case .threads:
             return "bubble.left.and.bubble.right"
+        case .chat:
+            return "message"
         case .projects:
             return "square.grid.2x2"
         case .quickEntry:
@@ -83,6 +125,17 @@ private enum QuickEntrySurface: String, Identifiable {
     var id: String { rawValue }
 }
 
+private enum SettingsLaunchSection: String, Hashable, Identifiable {
+    case overview
+    case linking
+
+    var id: String { rawValue }
+
+    var sectionAnchor: String {
+        "settings-\(rawValue)"
+    }
+}
+
 struct ContentView: View {
     let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
@@ -91,6 +144,7 @@ struct ContentView: View {
     @StateObject private var voiceModel: VoiceCaptureModel
     @State private var captureSeed: CaptureDraftSeed?
     @State private var quickEntrySurface: QuickEntrySurface?
+    @State private var settingsLaunchSection: SettingsLaunchSection = .overview
 
     init(appEnvironment: VelAppEnvironment, voiceOfflineStore: VelOfflineStore = VelOfflineStore()) {
         self.appEnvironment = appEnvironment
@@ -112,51 +166,11 @@ struct ContentView: View {
 
     private var iPhoneShell: some View {
         attachQuickEntrySheet {
-            TabView(selection: $selectedTab) {
-                iPhoneTab {
-                    TodayTab(
-                        store: store,
-                        voiceModel: voiceModel,
-                        onOpenCapture: { quickEntrySurface = .capture },
-                        onOpenVoice: { quickEntrySurface = .voice }
-                    )
-                }
-                .tag(VeliOSTab.now)
-                .tabItem {
-                    Label("Now", systemImage: "sun.max")
-                }
-
-                iPhoneTab {
-                    NudgesTab(store: store)
-                }
-                .tag(VeliOSTab.inbox)
-                .tabItem {
-                    Label("Inbox", systemImage: "tray.full")
-                }
-
-                iPhoneTab {
-                    ActivityTab(store: store, voiceModel: voiceModel)
-                }
-                .tag(VeliOSTab.threads)
-                .tabItem {
-                    Label("Threads", systemImage: "bubble.left.and.bubble.right")
-                }
-
-                iPhoneTab {
-                    ProjectsTab(store: store)
-                }
-                .tag(VeliOSTab.projects)
-                .tabItem {
-                    Label("Projects", systemImage: "square.grid.2x2")
-                }
-
-                iPhoneTab {
-                    SettingsTab(store: store)
-                }
-                .tag(VeliOSTab.settings)
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
+            VStack(spacing: 0) {
+                iPhoneMVPHeader
+                Divider()
+                iPhoneShellContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .task {
                 await store.refresh()
@@ -174,7 +188,126 @@ struct ContentView: View {
                     Task { await store.refreshSignals() }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                iPhoneBottomRail
+            }
         }
+    }
+
+    @ViewBuilder
+    private var iPhoneShellContent: some View {
+        switch selectedTab {
+        case .now:
+            iPhoneTab {
+                TodayTab(
+                    store: store,
+                    voiceModel: voiceModel,
+                    onOpenCapture: { quickEntrySurface = .capture },
+                    onOpenVoice: { quickEntrySurface = .voice },
+                    onOpenChat: { selectedTab = .chat }
+                )
+            }
+        case .inbox:
+            iPhoneTab {
+                NudgesTab(store: store)
+            }
+        case .threads:
+            iPhoneTab {
+                ActivityTab(store: store, voiceModel: voiceModel)
+            }
+        case .chat:
+            iPhoneTab {
+                ChatTab(
+                    store: store,
+                    voiceModel: voiceModel,
+                    onOpenCapture: { quickEntrySurface = .capture },
+                    onOpenVoice: { quickEntrySurface = .voice },
+                    onOpenThreads: { selectedTab = .threads },
+                    onOpenSettings: {
+                        settingsLaunchSection = .overview
+                        selectedTab = .settings
+                    },
+                    onOpenLinking: {
+                        settingsLaunchSection = .linking
+                        selectedTab = .settings
+                    }
+                )
+            }
+        case .projects:
+            iPhoneTab {
+                ProjectsTab(store: store)
+            }
+        case .settings:
+            iPhoneTab {
+                SettingsTab(store: store, initialSection: settingsLaunchSection)
+            }
+        }
+    }
+
+    private var iPhoneBottomRail: some View {
+        HStack(spacing: 6) {
+            ForEach(VeliOSTab.allCases) { tab in
+                Button {
+                    if tab == .settings {
+                        settingsLaunchSection = .overview
+                    }
+                    selectedTab = tab
+                } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: tab.systemImage)
+                            .font(.caption2)
+                        Text(tab.title)
+                            .font(.caption2)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(selectedTab == tab ? Color.orange : .secondary)
+                    .background(selectedTab == tab ? Color.orange.opacity(0.2) : .clear)
+                    .clipShape(.capsule)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(.thinMaterial)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private var iPhoneMVPHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Vel")
+                        .font(.system(.title2, design: .rounded, weight: .bold))
+                    Text("MVP · \(capabilities.roleLabel)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if store.isSyncing {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(.orange)
+                } else {
+                    Button {
+                        Task { await store.refresh() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+            }
+            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(Color(uiColor: .systemGray6))
     }
 
     @ViewBuilder
@@ -201,10 +334,13 @@ struct ContentView: View {
         attachQuickEntrySheet {
             NavigationSplitView {
                 List {
-                    ForEach(VeliPadSection.allCases) { section in
-                        Button {
-                            selectedPadSection = section
-                        } label: {
+            ForEach(VeliPadSection.allCases) { section in
+                Button {
+                    if section == .settings {
+                        settingsLaunchSection = .overview
+                    }
+                    selectedPadSection = section
+                } label: {
                             HStack {
                                 Label(section.title, systemImage: section.systemImage)
                                 Spacer()
@@ -290,12 +426,29 @@ struct ContentView: View {
                 store: store,
                 voiceModel: voiceModel,
                 onOpenCapture: { quickEntrySurface = .capture },
-                onOpenVoice: { quickEntrySurface = .voice }
+                onOpenVoice: { quickEntrySurface = .voice },
+                onOpenChat: { selectedPadSection = .chat }
             )
         case .inbox:
             NudgesTab(store: store)
         case .threads:
             ActivityTab(store: store, voiceModel: voiceModel)
+        case .chat:
+                ChatTab(
+                    store: store,
+                    voiceModel: voiceModel,
+                    onOpenCapture: { quickEntrySurface = .capture },
+                    onOpenVoice: { quickEntrySurface = .voice },
+                    onOpenThreads: { selectedPadSection = .threads },
+                    onOpenSettings: {
+                        settingsLaunchSection = .overview
+                        selectedPadSection = .settings
+                    },
+                    onOpenLinking: {
+                        settingsLaunchSection = .linking
+                        selectedPadSection = .settings
+                    }
+                )
         case .projects:
             ProjectsTab(store: store)
         case .quickEntry:
@@ -305,7 +458,7 @@ struct ContentView: View {
                 incomingSeed: $captureSeed
             )
         case .settings:
-            SettingsTab(store: store)
+            SettingsTab(store: store, initialSection: settingsLaunchSection)
         }
     }
 
@@ -355,6 +508,7 @@ private struct TodayTab: View {
     @ObservedObject var voiceModel: VoiceCaptureModel
     let onOpenCapture: () -> Void
     let onOpenVoice: () -> Void
+    let onOpenChat: () -> Void
     @State private var commitmentText = ""
     @State private var captureText = ""
 
@@ -547,6 +701,12 @@ private struct TodayTab: View {
                             onOpenVoice()
                         } label: {
                             Label("Open voice", systemImage: "waveform")
+                        }
+
+                        Button {
+                            onOpenChat()
+                        } label: {
+                            Label("Open chat", systemImage: "message")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -762,6 +922,17 @@ private struct TodayTab: View {
                 }
             }
             Spacer()
+            if item.task_kind == .commitment && item.state != "completed" {
+                Button {
+                    Task {
+                        await store.markCommitmentDone(id: item.id)
+                    }
+                } label: {
+                    Image(systemName: "checkmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.orange)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -787,6 +958,11 @@ private struct TodayTab: View {
 
                     Button("Open voice") {
                         onOpenVoice()
+                    }
+                    .velActionButtonStyle()
+
+                    Button("Open chat") {
+                        onOpenChat()
                     }
                     .velActionButtonStyle()
                 }
@@ -819,6 +995,377 @@ private struct TodayTab: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+private struct ChatTab: View {
+    @ObservedObject var store: VelClientStore
+    @ObservedObject var voiceModel: VoiceCaptureModel
+    let onOpenCapture: () -> Void
+    let onOpenVoice: () -> Void
+    let onOpenThreads: () -> Void
+    let onOpenSettings: () -> Void
+    let onOpenLinking: () -> Void
+
+    @State private var composerText = ""
+    @State private var sending = false
+    @State private var conversationID: String?
+    @State private var routeTarget: String?
+    @State private var lastStatus: String?
+    @State private var conversationHistory: [ChatHistoryRow] = []
+
+    var body: some View {
+        List {
+            Section("Assistant") {
+                if let routeTarget {
+                    Text("Route: \(routeTarget)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let lastStatus, !lastStatus.isEmpty {
+                    Text(lastStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                TextEditor(text: $composerText)
+                    .frame(minHeight: 130)
+
+                HStack {
+                    Button("Send") {
+                        Task { await submitMessage() }
+                    }
+                    .velProminentActionButtonStyle()
+                    .disabled(composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
+
+                    if let transcript = latestVoiceTranscript {
+                        Button(sending ? "Sending voice..." : "Send voice") {
+                            Task { await submitMessage(rawText: transcript, clearComposer: false) }
+                        }
+                        .velActionButtonStyle()
+                        .disabled(sending)
+
+                        Button("Use voice text") {
+                            appendVoiceTranscript()
+                        }
+                        .velActionButtonStyle()
+                        .disabled(sending)
+                    }
+
+                    Button(sending ? "Sending..." : "Open voice") { onOpenVoice() }
+                        .velActionButtonStyle()
+                        .disabled(sending)
+
+                    Button("Open capture") {
+                        onOpenCapture()
+                    }
+                    .velActionButtonStyle()
+
+                    Button("Open threads") {
+                        onOpenThreads()
+                    }
+                    .velActionButtonStyle()
+
+                    Button("Settings") {
+                        onOpenSettings()
+                    }
+                    .velActionButtonStyle()
+
+                    Button("Link nodes") {
+                        onOpenLinking()
+                    }
+                    .velActionButtonStyle()
+                }
+
+                if let conversationID {
+                    Text("Using thread: \(conversationID)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+
+            if let now = store.offlineStore.cachedNow() {
+                Section("Context") {
+                    let hints = threadHints
+                    if let contextLine = now.context_line {
+                        Text(contextLine.text)
+                            .font(.caption)
+                            .foregroundStyle(contextLine.fallback_used ? .secondary : .primary)
+                    } else {
+                    Text("No cached context line available yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    if hints.isEmpty {
+                        Text("No thread hint in cache.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    } else {
+                        Text("Thread hints:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(hints, id: \.id) { hint in
+                                    Button {
+                                        useThreadHint(hint)
+                                    } label: {
+                                        Text(hint.label)
+                                            .font(.caption2)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                    .tint(.orange)
+                                }
+                            }
+                        }
+                    }
+                    if let activeID = conversationID {
+                        Text("Using thread: \(activeID)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            if !conversationHistory.isEmpty {
+                Section("Conversation history") {
+                    ForEach(Array(conversationHistory.suffix(12).enumerated()), id: \.element.id) { index, row in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(row.actorLabel)
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(row.actorColor)
+                                Text(formatDate(row.timestamp))
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                Spacer()
+                            }
+                            Text(row.text)
+                                .font(row.role == .system ? .caption2 : .body)
+                                .foregroundStyle(row.role == .system ? .secondary : .primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let detail = row.detail, !detail.isEmpty {
+                                Text(detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+
+                        if index < conversationHistory.suffix(12).count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+        .velCompactListStyle()
+        .refreshable { await store.refresh() }
+    }
+
+    private func submitMessage() async {
+        await submitMessage(rawText: nil, clearComposer: true)
+    }
+
+    private func submitMessage(rawText: String?, clearComposer: Bool) async {
+        let text = (rawText ?? composerText).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        sending = true
+        let currentConversationID = conversationID ?? resolveConversationID(from: store.offlineStore.cachedNow())
+        conversationHistory.append(.init(role: .user, text: text))
+
+        if let response = await store.submitAssistantEntry(
+            text: text,
+            conversationID: currentConversationID
+        ) {
+            if let resolved = response.conversation?.id {
+                conversationID = resolved
+            }
+            routeTarget = response.route_target ?? "inline"
+            if let error = response.assistant_error, !error.isEmpty {
+                lastStatus = error
+                conversationHistory.append(
+                    .init(role: .system, text: "Assistant returned an error.", detail: error)
+                )
+            } else {
+                lastStatus = "Message sent to \(routeTarget ?? "inline")."
+                conversationHistory.append(
+                    .init(
+                        role: .assistant,
+                        text: "Message acknowledged for \(routeTarget ?? "inline").",
+                        detail: conversationHistory.count < 2 ? "Conversation starts now." : nil
+                    )
+                )
+            }
+        } else {
+            if let currentConversationID {
+                routeTarget = "threads (queued)"
+                conversationID = currentConversationID
+            } else {
+                routeTarget = "inline (queued)"
+            }
+            if let error = store.errorMessage, !error.isEmpty {
+                lastStatus = error
+            } else {
+                lastStatus = "Message queued for sync."
+            }
+            conversationHistory.append(
+                .init(role: .system, text: "Send failed; queued for sync.", detail: routeTarget)
+            )
+        }
+
+        if clearComposer {
+            composerText = ""
+        }
+        sending = false
+        await store.refresh()
+    }
+
+    private func appendVoiceTranscript() {
+        guard let transcript = latestVoiceTranscript else { return }
+        if composerText.isEmpty {
+            composerText = transcript
+        } else {
+            composerText = "\(composerText)\n\(transcript)"
+        }
+    }
+
+    private var latestVoiceTranscript: String? {
+        let trimmedCurrent = voiceModel.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedCurrent.isEmpty {
+            return trimmedCurrent
+        }
+        if let historyTop = voiceModel.history.first?.transcript.trimmingCharacters(in: .whitespacesAndNewlines), !historyTop.isEmpty {
+            return historyTop
+        }
+        return nil
+    }
+
+    private var cachedNow: NowData? {
+        store.offlineStore.cachedNow()
+    }
+
+    private var threadHints: [ThreadHint] {
+        var hints: [ThreadHint] = []
+        var seen: Set<String> = []
+
+        func appendHint(id: String?, label: String) {
+            let trimmed = id?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !trimmed.isEmpty else { return }
+            if seen.contains(trimmed) { return }
+            seen.insert(trimmed)
+            hints.append(ThreadHint(threadID: trimmed, label: "\(label): \(threadIDShort(trimmed))"))
+        }
+
+        if let now = cachedNow {
+            appendHint(id: now.docked_input?.raw_capture_thread_id, label: "Docked")
+            appendHint(id: now.context_line?.thread_id, label: "Context")
+            if let taskLane = now.task_lane {
+                appendHint(id: taskLane.active?.primary_thread_id, label: "Active")
+                for item in taskLane.pending.prefix(2) {
+                    appendHint(id: item.primary_thread_id, label: "Pending")
+                }
+                for item in taskLane.recent_completed.prefix(2) {
+                    appendHint(id: item.primary_thread_id, label: "Done")
+                }
+            }
+        }
+
+        if !hints.isEmpty {
+            return hints
+        }
+
+        if let fallback = resolveConversationID(from: cachedNow) {
+            hints.append(ThreadHint(threadID: fallback, label: "Current: \(threadIDShort(fallback))"))
+        }
+
+        return hints
+    }
+
+    private func useThreadHint(_ hint: ThreadHint) {
+        conversationID = hint.threadID
+        routeTarget = "threads"
+        lastStatus = "Conversation locked to \(hint.label)."
+        conversationHistory.append(
+            .init(role: .system, text: "Thread switched to \(hint.threadID)")
+        )
+    }
+
+    private func threadIDShort(_ threadID: String) -> String {
+        if threadID.count <= 10 {
+            return threadID
+        }
+        return String(threadID.prefix(6)) + "…" + String(threadID.suffix(4))
+    }
+
+    private func resolveConversationID(from now: NowData?) -> String? {
+        guard let now else { return nil }
+        if let threadID = now.docked_input?.raw_capture_thread_id {
+            return threadID
+        }
+        if let threadID = now.context_line?.thread_id {
+            return threadID
+        }
+        if let threadID = now.task_lane?.active?.primary_thread_id {
+            return threadID
+        }
+        if let first = now.task_lane?.pending.first(where: { $0.primary_thread_id != nil }) {
+            return first.primary_thread_id
+        }
+        if let first = now.task_lane?.recent_completed.first(where: { $0.primary_thread_id != nil }) {
+            return first.primary_thread_id
+        }
+        return nil
+    }
+
+    private enum ChatRole: String {
+        case user
+        case assistant
+        case system
+    }
+
+    private struct ChatHistoryRow: Identifiable {
+        let id = UUID()
+        let role: ChatRole
+        let text: String
+        let detail: String?
+        let timestamp: Date
+
+        init(role: ChatRole, text: String, detail: String? = nil, timestamp: Date = Date()) {
+            self.role = role
+            self.text = text
+            self.detail = detail
+            self.timestamp = timestamp
+        }
+
+        var actorLabel: String {
+            role.rawValue.capitalized
+        }
+
+        var actorColor: Color {
+            switch role {
+            case .user:
+                return .blue
+            case .assistant:
+                return .green
+            case .system:
+                return .orange
+            }
+        }
+    }
+
+    private struct ThreadHint: Identifiable, Hashable {
+        let threadID: String
+        let label: String
+
+        var id: String { threadID + label }
     }
 }
 
@@ -1938,6 +2485,7 @@ private struct VoiceTab: View {
 
 private struct SettingsTab: View {
     @ObservedObject var store: VelClientStore
+    let initialSection: SettingsLaunchSection
     @State private var baseURLOverride = UserDefaults.standard.string(forKey: "vel_base_url") ?? ""
     @State private var operatorToken = UserDefaults.standard.string(forKey: "vel_operator_token") ?? ""
     @State private var pairingReadContext = true
@@ -1963,29 +2511,46 @@ private struct SettingsTab: View {
     @State private var selectedConnectRecentID: String = ""
 
     var body: some View {
-        List {
-            runtimeSection
-            connectRuntimeSection
-            endpointOverrideSection
-            linkingSection
-            linkedDevicesSection
-            operatorAuthSection
-            docsSection
-        }
+        ScrollViewReader { proxy in
+            List {
+                runtimeSection
+                    .id(SettingsLaunchSection.overview.sectionAnchor)
+                connectRuntimeSection
+                endpointOverrideSection
+                linkingSection
+                    .id(SettingsLaunchSection.linking.sectionAnchor)
+                linkedDevicesSection
+                operatorAuthSection
+                docsSection
+            }
         .velCompactListStyle()
+        .onAppear {
+            if selectedDiscoveredNodeID == nil {
+                selectedDiscoveredNodeID = store.discoveredWorkers.first?.node_id
+            }
+            scrollToInitialSection(using: proxy)
+        }
+        .onChange(of: initialSection) { _ in
+            scrollToInitialSection(using: proxy)
+        }
         .onDisappear {
             connectStreamTask?.cancel()
             connectStreamTask = nil
             connectStreaming = false
         }
-        .onAppear {
-            if selectedDiscoveredNodeID == nil {
-                selectedDiscoveredNodeID = store.discoveredWorkers.first?.node_id
-            }
         }
         .onChange(of: store.discoveredWorkers.map(\.node_id)) { nodeIDs in
             if !nodeIDs.contains(selectedDiscoveredNodeID ?? "") {
                 selectedDiscoveredNodeID = nodeIDs.first
+            }
+        }
+    }
+
+    private func scrollToInitialSection(using proxy: ScrollViewProxy) {
+        guard initialSection != .overview else { return }
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                proxy.scrollTo(initialSection.sectionAnchor, anchor: .top)
             }
         }
     }
