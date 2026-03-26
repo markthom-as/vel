@@ -239,7 +239,7 @@ struct ContentView: View {
             }
         case .settings:
             iPhoneTab {
-                SettingsTab(store: store, initialSection: settingsLaunchSection)
+                SettingsTab(store: store, appEnvironment: appEnvironment, initialSection: settingsLaunchSection)
             }
         }
     }
@@ -458,7 +458,7 @@ struct ContentView: View {
                 incomingSeed: $captureSeed
             )
         case .settings:
-            SettingsTab(store: store, initialSection: settingsLaunchSection)
+            SettingsTab(store: store, appEnvironment: appEnvironment, initialSection: settingsLaunchSection)
         }
     }
 
@@ -2484,6 +2484,7 @@ private struct VoiceTab: View {
 }
 
 private struct SettingsTab: View {
+    let appEnvironment: VelAppEnvironment
     @ObservedObject var store: VelClientStore
     let initialSection: SettingsLaunchSection
     @State private var baseURLOverride = UserDefaults.standard.string(forKey: "vel_base_url") ?? ""
@@ -2515,6 +2516,7 @@ private struct SettingsTab: View {
             List {
                 runtimeSection
                     .id(SettingsLaunchSection.overview.sectionAnchor)
+                embeddedBridgeSection
                 connectRuntimeSection
                 endpointOverrideSection
                 linkingSection
@@ -2572,6 +2574,51 @@ private struct SettingsTab: View {
                     .foregroundStyle(.orange)
             }
             planningProfileSummary
+        }
+    }
+
+    private var embeddedBridgeSection: some View {
+        let configuration = appEnvironment.embeddedBridge.configuration
+
+        return Section("Embedded Rust bridge") {
+            if appEnvironment.featureCapabilities.supportsEmbeddedRustBridge {
+                Text("Bridge is enabled for this surface.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Bridge is disabled on this device surface.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("Runtime mode: \(configuration.mode.rawValue)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text("Target: \(configuration.target.rawValue)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text("Library in build: \(configuration.isBridgeAvailableInBuild ? "yes" : "no")")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            BoolStatusRow(label: "Cached now hydration", value: configuration.permits(.cachedNowHydration))
+            BoolStatusRow(label: "Local quick capture", value: configuration.permits(.localQuickActionPreparation))
+            BoolStatusRow(label: "Offline request packaging", value: configuration.permits(.offlineRequestPackaging))
+            BoolStatusRow(label: "Domain helpers", value: configuration.permits(.deterministicDomainHelpers))
+
+            if configuration.approvedFlows.isEmpty {
+                Text("No embedded bridge flows are currently permitted.")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
+            } else {
+                let approved = configuration.approvedFlows
+                    .map { $0.rawValue }
+                    .sorted()
+                    .joined(separator: ", ")
+                Text("Approved flows: \(approved)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
