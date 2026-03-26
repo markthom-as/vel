@@ -34,6 +34,7 @@ These files drive ongoing implementation work:
 - `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows
 - `.planning/phases/05-*` through `.planning/phases/09-*`: active phase-planning directories
 - `docs/future/*.md`: future-facing product and architecture specs that are explicitly not shipped-behavior authority
+- [future/cli-coverage-detection-and-implementation-plan.md](future/cli-coverage-detection-and-implementation-plan.md): future-facing plan for automated `vel-cli` coverage detection and phased command/client coverage closure
 - [tickets/README.md](tickets/README.md): queue index and phase navigation
 - [tickets/architecture-first-parallel-queue.md](tickets/architecture-first-parallel-queue.md): documentation/contracts-first execution order and parallel work waves
 - `docs/tickets/phase-1/*.md`
