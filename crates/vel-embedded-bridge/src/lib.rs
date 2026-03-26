@@ -241,7 +241,7 @@ fn parse_thread_draft(raw_json: Option<&str>) -> Result<ThreadDraftInputDecoded,
         text: decoded.text.unwrap_or_default(),
         requested_conversation_id: decoded.requested_conversation_id.and_then(|value| {
             let trimmed = value.trim().to_string();
-            if trimmed.is_empty() { nil } else { Some(trimmed) }
+            if trimmed.is_empty() { None } else { Some(trimmed) }
         }),
     })
 }
@@ -301,7 +301,7 @@ pub extern "C" fn vel_embedded_package_voice_quick_action(input_json: *const c_c
     let primary_text = decoded.primary_text.unwrap_or_default();
     let target_id = decoded.target_id.and_then(|value| {
         let trimmed = value.trim().to_string();
-        if trimmed.is_empty() { nil } else { Some(trimmed) }
+        if trimmed.is_empty() { None } else { Some(trimmed) }
     });
     let minutes = decoded.minutes.map(|value| value.max(1));
 
