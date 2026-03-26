@@ -12,7 +12,10 @@ import {
   decodeComponentData,
   decodeComponentLogEventData,
   decodeClusterWorkersData,
+  decodeCommandCompleteResponseData,
   decodeDailyLoopSessionData,
+  decodeDailyLoopCheckInEventData,
+  decodeDailyLoopCheckInSkipResponseData,
   decodeExecutionHandoffRecordData,
   decodeInboxItemData,
   decodeIntegrationConnectionData,
@@ -343,6 +346,37 @@ describe('transport decoders', () => {
 
     expect(data.project_id).toBe('proj_vel')
     expect(data.links?.[0].entity_type).toBe('project')
+  })
+
+  it('decodes command completion responses with hints and parse errors', () => {
+    const data = decodeCommandCompleteResponseData({
+      input: ['should', 'plan'],
+      completion_hints: ['<goal>', 'for', 'with'],
+      registry: [
+        {
+          kind: 'commitment',
+          aliases: ['todo'],
+          selectors: ['inline_text'],
+          operations: ['create'],
+        },
+      ],
+      parsed: null,
+      resolved_command: null,
+      local_preview: null,
+      local_explanation: null,
+      intent_hints: {
+        target_kind: 'execution_plan',
+        mode: 'planning_artifact',
+        suggestions: ['task breakdown', 'ordered steps'],
+      },
+      parse_error: '`should` commands require a verb and a target',
+    })
+
+    expect(data.input).toEqual(['should', 'plan'])
+    expect(data.completion_hints).toEqual(['<goal>', 'for', 'with'])
+    expect(data.registry[0]?.kind).toBe('commitment')
+    expect(data.intent_hints?.target_kind).toBe('execution_plan')
+    expect(data.parse_error).toContain('require a verb and a target')
   })
 
   it('decodes current-context responses with nullable data', () => {
@@ -1168,6 +1202,50 @@ describe('transport decoders', () => {
     expect(session.outcome).toBeNull()
   })
 
+  it('decodes daily loop check-in event and skip response payloads', () => {
+    const event = decodeDailyLoopCheckInEventData({
+      event_id: 'dci_1',
+      session_id: 'dls_1',
+      prompt_id: 'prompt_mood_1',
+      check_in_type: 'mood',
+      session_phase: 'morning_overview',
+      source: 'user',
+      answered_at: 1710850000,
+      text: 'steady',
+      scale: 3,
+      scale_min: -10,
+      scale_max: 10,
+      keywords_json: ['calm', 'focused'],
+      confidence: 0.9,
+      schema_version: 1,
+      skipped: false,
+      skip_reason_code: null,
+      skip_reason_text: null,
+      replaced_by_event_id: null,
+      meta_json: {},
+      created_at: 1710850100,
+      updated_at: 1710850100,
+      run_id: null,
+    })
+
+    expect(event.event_id).toBe('dci_1')
+    expect(event.skip_reason_text).toBeNull()
+
+    expect(
+      decodeDailyLoopCheckInSkipResponseData({
+        check_in_event_id: 'dci_2',
+        session_id: 'dls_1',
+        status: 'applied',
+        supersedes_event_id: null,
+      }),
+    ).toEqual({
+      check_in_event_id: 'dci_2',
+      session_id: 'dls_1',
+      status: 'applied',
+      supersedes_event_id: null,
+    })
+  })
+
   it('decodes canonical integration connection data', () => {
     expect(
       decodeIntegrationConnectionData({
@@ -1725,6 +1803,14 @@ describe('transport decoders', () => {
             id: 'task_active_1',
             task_kind: 'commitment',
             text: 'Standup check-in',
+            title: 'Standup check-in',
+            description: null,
+            due_at: null,
+            due_label: null,
+            deadline: null,
+            deadline_label: null,
+            deadline_passed: false,
+            is_overdue: false,
             state: 'active',
             project: 'Vel',
             primary_thread_id: 'thr_day_2026_03_20',
@@ -1734,6 +1820,14 @@ describe('transport decoders', () => {
               id: 'task_pending_1',
               task_kind: 'task',
               text: 'Review operator queue',
+              title: 'Review operator queue',
+              description: null,
+              due_at: null,
+              due_label: null,
+              deadline: null,
+              deadline_label: null,
+              deadline_passed: false,
+              is_overdue: false,
               state: 'pending',
               project: 'Vel',
               primary_thread_id: null,
@@ -1744,6 +1838,14 @@ describe('transport decoders', () => {
               id: 'task_done_1',
               task_kind: 'task',
               text: 'Check calendar drift',
+              title: 'Check calendar drift',
+              description: null,
+              due_at: null,
+              due_label: null,
+              deadline: null,
+              deadline_label: null,
+              deadline_passed: false,
+              is_overdue: false,
               state: 'completed',
               project: null,
               primary_thread_id: null,
@@ -2219,6 +2321,12 @@ describe('transport decoders', () => {
           text: 'Standup check-in',
           title: 'Standup check-in',
           description: null,
+          due_at: null,
+          due_label: null,
+          deadline: null,
+          deadline_label: null,
+          deadline_passed: false,
+          is_overdue: false,
           tags: [],
           state: 'active',
           project: 'Vel',
@@ -2231,6 +2339,12 @@ describe('transport decoders', () => {
             text: 'Review operator queue',
             title: 'Review operator queue',
             description: null,
+            due_at: null,
+            due_label: null,
+            deadline: null,
+            deadline_label: null,
+            deadline_passed: false,
+            is_overdue: false,
             tags: [],
             state: 'pending',
             project: 'Vel',
@@ -2244,6 +2358,12 @@ describe('transport decoders', () => {
             text: 'Check calendar drift',
             title: 'Check calendar drift',
             description: null,
+            due_at: null,
+            due_label: null,
+            deadline: null,
+            deadline_label: null,
+            deadline_passed: false,
+            is_overdue: false,
             tags: [],
             state: 'completed',
             project: null,
@@ -2308,6 +2428,7 @@ describe('transport decoders', () => {
         empty_message: null,
         next_event: null,
         upcoming_events: [],
+        following_day_events: [],
       },
       tasks: {
         todoist: [],
@@ -2434,6 +2555,14 @@ describe('transport decoders', () => {
         latest_failed: null,
       },
       planning_profile_summary: undefined,
+      next_up_items: [],
+      progress: {
+        base_count: 1,
+        backlog_count: 0,
+        completed_count: 0,
+        completed_ratio: 0,
+        backlog_ratio: 0,
+      },
       check_in: {
         id: 'act_check_in_1',
         source_kind: 'daily_loop',
