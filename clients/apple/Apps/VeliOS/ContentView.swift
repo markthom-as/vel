@@ -2627,6 +2627,8 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Local voice capture packaging", value: configuration.permits(.localVoiceCapturePackaging))
             BoolStatusRow(label: "Local voice quick action packaging", value: configuration.permits(.localVoiceQuickActionPackaging))
             BoolStatusRow(label: "Local voice continuity packaging", value: configuration.permits(.localVoiceContinuityPackaging))
+            BoolStatusRow(label: "Local queued action packaging", value: configuration.permits(.localQueuedActionPackaging))
+            BoolStatusRow(label: "Local linking settings normalization", value: configuration.permits(.localLinkingSettingsNormalization))
 
             BoolStatusRow(label: "Cached now symbol loaded", value: runtimeStatus.symbolAvailable(for: .cachedNowHydration))
             BoolStatusRow(label: "Quick capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQuickActionPreparation))
@@ -2636,6 +2638,8 @@ private struct SettingsTab: View {
             BoolStatusRow(label: "Voice capture symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceCapturePackaging))
             BoolStatusRow(label: "Voice quick action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceQuickActionPackaging))
             BoolStatusRow(label: "Voice continuity symbols loaded", value: runtimeStatus.symbolAvailable(for: .localVoiceContinuityPackaging))
+            BoolStatusRow(label: "Queued action symbol loaded", value: runtimeStatus.symbolAvailable(for: .localQueuedActionPackaging))
+            BoolStatusRow(label: "Linking settings symbols loaded", value: runtimeStatus.symbolAvailable(for: .localLinkingSettingsNormalization))
 
             if configuration.approvedFlows.isEmpty {
                 Text("No embedded bridge flows are currently permitted.")
@@ -2868,12 +2872,12 @@ private struct SettingsTab: View {
                 RemoteNodeSummaryCard(
                     title: worker.node_display_name,
                     subtitle: worker.sync_status ?? worker.status,
-                    routes: collectRemoteRoutes(
+                    routes: store.collectRemoteRoutes(
                         syncBaseURL: worker.sync_base_url,
                         tailscaleBaseURL: worker.tailscale_base_url,
                         lanBaseURL: worker.lan_base_url,
                         publicBaseURL: nil
-                    ),
+                    ).map { RouteSummary(label: $0.label, baseURL: $0.baseURL) },
                     prompt: worker.incoming_linking_prompt
                 )
             }
@@ -2891,7 +2895,7 @@ private struct SettingsTab: View {
                 "ABC-123",
                 text: Binding(
                     get: { pairingCodeInput },
-                    set: { pairingCodeInput = formatPairingTokenInput($0) }
+                    set: { pairingCodeInput = store.normalizePairingTokenInput($0) }
                 )
             )
             .textInputAutocapitalization(.characters)
@@ -2944,12 +2948,12 @@ private struct SettingsTab: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            ForEach(collectRemoteRoutes(
+            ForEach(store.collectRemoteRoutes(
                 syncBaseURL: node.sync_base_url,
                 tailscaleBaseURL: node.tailscale_base_url,
                 lanBaseURL: node.lan_base_url,
                 publicBaseURL: node.public_base_url
-            ), id: \.baseURL) { route in
+            ).map { RouteSummary(label: $0.label, baseURL: $0.baseURL) }, id: \.baseURL) { route in
                 Text("\(route.label): \(route.baseURL)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -3065,7 +3069,7 @@ private struct SettingsTab: View {
     }
 
     private func redeemPairingToken(using prompt: LinkingPromptData) async {
-        let normalized = store.normalizeDomainHint(formatPairingTokenInput(pairingCodeInput)).uppercased()
+        let normalized = store.normalizeDomainHint(store.normalizePairingTokenInput(pairingCodeInput)).uppercased()
         guard !normalized.isEmpty else {
             pairingFeedback = "Enter the pairing token shown on the issuing node."
             return
@@ -3382,47 +3386,12 @@ private struct RemoteNodeSummaryCard: View {
     }
 }
 
-private func collectRemoteRoutes(
-    syncBaseURL: String?,
-    tailscaleBaseURL: String?,
-    lanBaseURL: String?,
-    publicBaseURL: String?
-) -> [RouteSummary] {
-    let entries: [(String, String?)] = [
-        ("primary", syncBaseURL),
-        ("tailscale", tailscaleBaseURL),
-        ("lan", lanBaseURL),
-        ("public", publicBaseURL),
-    ]
-    var seen = Set<String>()
-    var routes: [RouteSummary] = []
-    for (label, value) in entries {
-        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if trimmed.isEmpty || trimmed.contains("127.0.0.1") || trimmed.contains("localhost") || seen.contains(trimmed) {
-            continue
-        }
-        seen.insert(trimmed)
-        routes.append(RouteSummary(label: label, baseURL: trimmed))
-    }
-    return routes
-}
-
 private func scopeSummary(_ scopes: LinkScopeData) -> String {
     var labels: [String] = []
     if scopes.read_context { labels.append("read_context") }
     if scopes.write_safe_actions { labels.append("write_safe_actions") }
     if scopes.execute_repo_tasks { labels.append("execute_repo_tasks") }
     return labels.isEmpty ? "No scopes selected" : labels.joined(separator: ", ")
-}
-
-private func formatPairingTokenInput(_ value: String) -> String {
-    let normalized = value.uppercased().filter { character in
-        character.isASCII && (character.isLetter || character.isNumber)
-    }.prefix(6)
-    let text = String(normalized)
-    if text.count <= 3 { return text }
-    let splitIndex = text.index(text.startIndex, offsetBy: 3)
-    return "\(text[..<splitIndex])-\(text[splitIndex...])"
 }
 
 private struct ContextValueRow: View {

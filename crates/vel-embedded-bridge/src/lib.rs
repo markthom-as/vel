@@ -141,6 +141,41 @@ struct VoiceContinuityEntryOutput {
     ready: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct QueuedActionInput {
+    kind: Option<String>,
+    target_id: Option<String>,
+    text: Option<String>,
+    minutes: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QueuedActionOutput {
+    queue_kind: String,
+    target_id: Option<String>,
+    text: Option<String>,
+    minutes: Option<i64>,
+    ready: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteRoutesInput {
+    sync_base_url: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
+    public_base_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteRouteOutput {
+    label: String,
+    base_url: String,
+}
+
 fn read_input(pointer: *const c_char) -> Option<String> {
     if pointer.is_null() {
         return None;
@@ -306,6 +341,17 @@ fn trim_text(value: &str) -> String {
     value.trim().to_string()
 }
 
+fn normalized_optional_trimmed(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    })
+}
+
 #[no_mangle]
 pub extern "C" fn vel_embedded_prepare_voice_capture_payload(input_json: *const c_char) -> *mut c_char {
     let raw = read_input(input_json).unwrap_or_default();
@@ -469,6 +515,98 @@ pub extern "C" fn vel_embedded_prepare_voice_continuity_entry(input_json: *const
     };
 
     let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_package_queued_action(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<QueuedActionInput>(&raw).unwrap_or(QueuedActionInput {
+        kind: Some("capture.create".to_string()),
+        target_id: None,
+        text: Some(raw.clone()),
+        minutes: None,
+    });
+
+    let kind = trim_text(&decoded.kind.unwrap_or_else(|| "capture.create".to_string()));
+    let target_id = normalized_optional_trimmed(decoded.target_id);
+    let text = normalized_optional_trimmed(decoded.text);
+    let minutes = decoded.minutes.map(|value| value.max(1));
+
+    let ready = matches!(
+        kind.as_str(),
+        "capture.create" | "commitment.create" | "commitment.done" | "nudge.done" | "nudge.snooze"
+    );
+
+    let output = QueuedActionOutput {
+        queue_kind: if ready { kind } else { "capture.create".to_string() },
+        target_id,
+        text,
+        minutes,
+        ready,
+    };
+
+    let json = serde_json::to_string(&output).unwrap_or_else(|_| "{\"ready\":false}".to_string());
+    to_owned_c_string(&json)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_normalize_pairing_token(value: *const c_char) -> *mut c_char {
+    let raw = read_input(value).unwrap_or_default();
+    let normalized: String = raw
+        .to_uppercase()
+        .chars()
+        .filter(|character| character.is_ascii() && character.is_ascii_alphanumeric())
+        .take(6)
+        .collect();
+
+    let output = if normalized.len() <= 3 {
+        normalized
+    } else {
+        format!("{}-{}", &normalized[..3], &normalized[3..])
+    };
+
+    to_owned_c_string(&output)
+}
+
+#[no_mangle]
+pub extern "C" fn vel_embedded_collect_remote_routes(input_json: *const c_char) -> *mut c_char {
+    let raw = read_input(input_json).unwrap_or_default();
+    let decoded = serde_json::from_str::<RemoteRoutesInput>(&raw).unwrap_or(RemoteRoutesInput {
+        sync_base_url: None,
+        tailscale_base_url: None,
+        lan_base_url: None,
+        public_base_url: None,
+    });
+
+    let entries = [
+        ("primary", decoded.sync_base_url),
+        ("tailscale", decoded.tailscale_base_url),
+        ("lan", decoded.lan_base_url),
+        ("public", decoded.public_base_url),
+    ];
+
+    let mut seen: Vec<String> = Vec::new();
+    let mut routes: Vec<RemoteRouteOutput> = Vec::new();
+
+    for (label, value) in entries {
+        let Some(trimmed) = normalized_optional_trimmed(value) else {
+            continue;
+        };
+        if trimmed.contains("127.0.0.1")
+            || trimmed.contains("localhost")
+            || seen.iter().any(|existing| existing == &trimmed)
+        {
+            continue;
+        }
+        seen.push(trimmed.clone());
+        routes.push(RemoteRouteOutput {
+            label: label.to_string(),
+            base_url: trimmed,
+        });
+    }
+
+    let json = serde_json::to_string(&routes).unwrap_or_else(|_| "[]".to_string());
     to_owned_c_string(&json)
 }
 

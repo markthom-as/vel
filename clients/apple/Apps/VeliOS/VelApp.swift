@@ -179,7 +179,7 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.nudgeDone(id: id)
             },
             queueFallback: {
-                offlineStore.enqueueNudgeDone(id: id)
+                enqueuePreparedQueuedAction(kind: "nudge.done", targetID: id, text: nil, minutes: nil)
             }
         )
     }
@@ -191,7 +191,7 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.nudgeSnooze(id: id, minutes: minutes)
             },
             queueFallback: {
-                offlineStore.enqueueNudgeSnooze(id: id, minutes: minutes)
+                enqueuePreparedQueuedAction(kind: "nudge.snooze", targetID: id, text: nil, minutes: minutes)
             }
         )
     }
@@ -203,7 +203,7 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.markCommitmentDone(id: id)
             },
             queueFallback: {
-                offlineStore.enqueueCommitmentDone(id: id)
+                enqueuePreparedQueuedAction(kind: "commitment.done", targetID: id, text: nil, minutes: nil)
             }
         )
     }
@@ -219,11 +219,14 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.createCommitment(text: preparedText)
             },
             queueFallback: {
-                offlineStore.enqueueCommitmentCreate(
+                enqueuePreparedQueuedAction(
+                    kind: "commitment.create",
+                    targetID: nil,
                     text: packageOfflineRequestPayload(
                         kind: "commitment.create",
                         payload: preparedText
-                    )
+                    ),
+                    minutes: nil
                 )
             }
         )
@@ -255,7 +258,7 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.createCapture(text: preparedText, type: type, source: source)
             },
             queueFallback: {
-                offlineStore.enqueueCaptureCreate(text: queueText)
+                enqueuePreparedQueuedAction(kind: "capture.create", targetID: nil, text: queueText, minutes: nil)
             }
         )
     }
@@ -313,6 +316,25 @@ final class VelClientStore: ObservableObject {
         embeddedBridge.domainHelpersBridge.normalizeDomainHint(
             input.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+    }
+
+    func normalizePairingTokenInput(_ input: String) -> String {
+        embeddedBridge.linkingSettingsBridge.normalizePairingTokenInput(input)
+    }
+
+    func collectRemoteRoutes(
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        publicBaseURL: String?
+    ) -> [(label: String, baseURL: String)] {
+        embeddedBridge.linkingSettingsBridge.collectRemoteRoutes(
+            syncBaseURL: syncBaseURL,
+            tailscaleBaseURL: tailscaleBaseURL,
+            lanBaseURL: lanBaseURL,
+            publicBaseURL: publicBaseURL
+        )
+        .map { (label: $0.label, baseURL: $0.baseURL) }
     }
 
     func setBaseURLOverride(_ value: String?) {
@@ -449,6 +471,37 @@ final class VelClientStore: ObservableObject {
         let reason: String?
     }
 
+    private func enqueuePreparedQueuedAction(kind: String, targetID: String?, text: String?, minutes: Int?) {
+        guard let packet = embeddedBridge.queuedActionBridge.packageQueuedAction(
+            kind: kind,
+            targetID: targetID,
+            text: text,
+            minutes: minutes
+        ),
+        let queuedKind = QueuedAction.Kind(rawValue: packet.queueKind) else {
+            return
+        }
+
+        switch queuedKind {
+        case .captureCreate:
+            offlineStore.enqueueCaptureCreate(text: packet.text ?? "")
+        case .commitmentCreate:
+            offlineStore.enqueueCommitmentCreate(text: packet.text ?? "")
+        case .commitmentDone:
+            if let targetID = packet.targetID {
+                offlineStore.enqueueCommitmentDone(id: targetID)
+            }
+        case .nudgeDone:
+            if let targetID = packet.targetID {
+                offlineStore.enqueueNudgeDone(id: targetID)
+            }
+        case .nudgeSnooze:
+            if let targetID = packet.targetID {
+                offlineStore.enqueueNudgeSnooze(id: targetID, minutes: packet.minutes ?? 10)
+            }
+        }
+    }
+
     private func packageOfflineRequestPayload(kind: String, payload: String) -> String {
         guard let encoded = try? JSONEncoder().encode(
             OfflineRequestEnvelope(kind: kind, payload: payload)
@@ -496,12 +549,11 @@ final class VelClientStore: ObservableObject {
         lanBaseURL: String?,
         publicBaseURL: String?
     ) -> String? {
-        for value in [syncBaseURL, tailscaleBaseURL, lanBaseURL, publicBaseURL] {
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let trimmed, !trimmed.isEmpty, !trimmed.contains("127.0.0.1"), !trimmed.contains("localhost") {
-                return trimmed
-            }
-        }
-        return nil
+        collectRemoteRoutes(
+            syncBaseURL: syncBaseURL,
+            tailscaleBaseURL: tailscaleBaseURL,
+            lanBaseURL: lanBaseURL,
+            publicBaseURL: publicBaseURL
+        ).first?.baseURL
     }
 }
