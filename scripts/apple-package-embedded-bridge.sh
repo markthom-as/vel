@@ -30,6 +30,9 @@ if ! command -v rustup >/dev/null 2>&1; then
   exit 1
 fi
 
+CARGO_BIN="$(rustup which cargo 2>/dev/null || command -v cargo)"
+RUSTC_BIN="$(rustup which rustc 2>/dev/null || command -v rustc)"
+
 case "$CARGO_PROFILE" in
   debug | release)
     ;;
@@ -58,11 +61,18 @@ if ! rustup target list --installed | rg -q "^${TARGET}$"; then
 fi
 
 echo "apple-package-embedded-bridge: building vel-embedded-bridge ($CARGO_PROFILE) for $TARGET"
-cargo build \
-  --manifest-path "$ROOT/Cargo.toml" \
-  -p vel-embedded-bridge \
-  --target "$TARGET" \
-  --"$CARGO_PROFILE"
+if [[ "$CARGO_PROFILE" == "release" ]]; then
+  RUSTC="$RUSTC_BIN" "$CARGO_BIN" build \
+    --manifest-path "$ROOT/Cargo.toml" \
+    -p vel-embedded-bridge \
+    --target "$TARGET" \
+    --release
+else
+  RUSTC="$RUSTC_BIN" "$CARGO_BIN" build \
+    --manifest-path "$ROOT/Cargo.toml" \
+    -p vel-embedded-bridge \
+    --target "$TARGET"
+fi
 
 BRIDGE_SRC="$ROOT/target/$TARGET/$CARGO_PROFILE/$LIB_NAME"
 if [[ ! -f "$BRIDGE_SRC" ]]; then

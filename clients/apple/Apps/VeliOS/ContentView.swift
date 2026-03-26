@@ -5,6 +5,7 @@ import SwiftUI
 import VelApplePlatform
 import VelApplication
 import VelAPI
+import VelEmbeddedBridge
 import VelDomain
 import VelFeatureFlags
 #if canImport(UIKit)
@@ -148,7 +149,10 @@ struct ContentView: View {
 
     init(appEnvironment: VelAppEnvironment, voiceOfflineStore: VelOfflineStore = VelOfflineStore()) {
         self.appEnvironment = appEnvironment
-        _voiceModel = StateObject(wrappedValue: VoiceCaptureModel(offlineStore: voiceOfflineStore))
+        _voiceModel = StateObject(wrappedValue: VoiceCaptureModel(
+            appEnvironment: appEnvironment,
+            offlineStore: voiceOfflineStore
+        ))
     }
 
     private var capabilities: FeatureCapabilities {
@@ -239,7 +243,7 @@ struct ContentView: View {
             }
         case .settings:
             iPhoneTab {
-                SettingsTab(store: store, appEnvironment: appEnvironment, initialSection: settingsLaunchSection)
+                SettingsTab(appEnvironment: appEnvironment, store: store, initialSection: settingsLaunchSection)
             }
         }
     }
@@ -458,7 +462,7 @@ struct ContentView: View {
                 incomingSeed: $captureSeed
             )
         case .settings:
-            SettingsTab(store: store, appEnvironment: appEnvironment, initialSection: settingsLaunchSection)
+            SettingsTab(appEnvironment: appEnvironment, store: store, initialSection: settingsLaunchSection)
         }
     }
 
@@ -2655,7 +2659,7 @@ private struct SettingsTab: View {
             }
             if !runtimeStatus.missingApprovedFlows(for: configuration).isEmpty {
                 Text(
-                    "Missing approved flows: \(runtimeStatus.missingApprovedFlows(for: configuration).map(\\.rawValue).joined(separator: \", \"))"
+                    "Missing approved flows: \(runtimeStatus.missingApprovedFlows(for: configuration).map(\.rawValue).joined(separator: ", "))"
                 )
                     .font(.caption2)
                     .foregroundStyle(.yellow)
@@ -3155,6 +3159,16 @@ private struct SettingsTab: View {
         }
     }
 
+    private func linkingFeedback(
+        scenario: String,
+        nodeDisplayName: String? = nil
+    ) -> String? {
+        appEnvironment.embeddedBridge.linkingFeedbackBridge.prepareLinkingFeedback(
+            scenario: scenario,
+            nodeDisplayName: nodeDisplayName
+        )?.message
+    }
+
     private enum LinkedScopeField {
         case readContext
         case writeSafeActions
@@ -3529,6 +3543,11 @@ private struct VoiceIntent: Codable, Equatable {
     let kind: Kind
     let minutes: Int?
 
+    init(kind: Kind, minutes: Int?) {
+        self.kind = kind
+        self.minutes = minutes
+    }
+
     static let capture = VoiceIntent(kind: .captureCreate, minutes: nil)
     static let commitment = VoiceIntent(kind: .commitmentCreate, minutes: nil)
     static let commitmentDone = VoiceIntent(kind: .commitmentDone, minutes: nil)
@@ -3541,6 +3560,43 @@ private struct VoiceIntent: Codable, Equatable {
     static let behaviorSummary = VoiceIntent(kind: .behaviorSummary, minutes: nil)
     static func nudgeSnooze(_ minutes: Int) -> VoiceIntent {
         VoiceIntent(kind: .nudgeSnooze, minutes: minutes)
+    }
+
+    init?(storageToken: String) {
+        switch storageToken {
+        case "capture_create":
+            self = .capture
+        case "commitment_create":
+            self = .commitment
+        case "commitment_done":
+            self = .commitmentDone
+        case "nudge_done":
+            self = .nudgeDone
+        case "morning_briefing":
+            self = .morningBriefing
+        case "current_schedule":
+            self = .currentSchedule
+        case "query_next_commitment":
+            self = .queryNextCommitment
+        case "query_nudges":
+            self = .queryNudges
+        case "explain_why":
+            self = .explainWhy
+        case "behavior_summary":
+            self = .behaviorSummary
+        default:
+            guard storageToken.hasPrefix("nudge_snooze_"),
+                  let minutesToken = storageToken
+                    .replacingOccurrences(of: "nudge_snooze_", with: "")
+                    .replacingOccurrences(of: "m", with: "")
+                    .split(separator: "_")
+                    .first,
+                  let minutes = Int(minutesToken)
+            else {
+                return nil
+            }
+            self = .nudgeSnooze(minutes)
+        }
     }
 
     var displayLabel: String {
@@ -4081,6 +4137,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
     private let speechSynthesizer = AVSpeechSynthesizer()
     private let audioEngine = AVAudioEngine()
+    private let appEnvironment: VelAppEnvironment
     private let offlineStore: VelOfflineStore
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
@@ -4090,7 +4147,8 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    init(offlineStore: VelOfflineStore = VelOfflineStore()) {
+    init(appEnvironment: VelAppEnvironment, offlineStore: VelOfflineStore = VelOfflineStore()) {
+        self.appEnvironment = appEnvironment
         self.offlineStore = offlineStore
         super.init()
         loadHistory()
@@ -4901,9 +4959,9 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             if let next = now.tasks.next_commitment {
                 let packet = voiceCachedQueryPacket(
                     scenario: "next_commitment",
+                    cachedNowSummary: embeddedCachedNowSummary(from: now),
                     nextCommitmentText: next.text,
-                    nextCommitmentDueAt: next.due_at,
-                    cachedNowSummary: embeddedCachedNowSummary(from: now)
+                    nextCommitmentDueAt: next.due_at
                 )
                 return VoiceResponse(
                     summary: packet?.summary ?? "Next commitment: \(next.text).",
@@ -4929,16 +4987,14 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     }
 
     private func embeddedCachedNowSummary(from now: NowData) -> String? {
-        guard appEnvironment.embeddedBridge.configuration.permits(.cachedNowHydration) else {
-            return nil
-        }
-        let snapshot = VelContextSnapshot(
-            mode: now.summary.mode_label,
-            nextEventTitle: now.schedule.next_event?.title,
-            nudgeCount: now.attention.total_count
-        )
-        let parts = appEnvironment.embeddedBridge.nowBridge.hydrateCachedNowSummary(from: snapshot)
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let parts = [
+            "Mode: \(now.summary.mode.label)",
+            now.schedule.next_event.map { "Next: \($0.title)" },
+            "Attention: \(now.attention.state.label)"
+        ]
+        .compactMap { $0 }
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " · ")
     }
@@ -5078,7 +5134,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 status: entry.status,
                 threadID: entry.threadID
             )
-            AppleVoiceContinuityEntryData(
+            return AppleVoiceContinuityEntryData(
                 id: entry.id,
                 created_at: entry.createdAt,
                 transcript: packet.transcript,

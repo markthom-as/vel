@@ -1260,28 +1260,29 @@ public struct NoopEmbeddedBridgeSurface: EmbeddedBridgeSurface {
 }
 
 #if canImport(Darwin)
-private typealias VelEmbeddedCachedNowSummaryFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareQuickCaptureFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPackageOfflineRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedNormalizeDomainHelpersFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareThreadDraftFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareVoiceCapturePayloadFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPackageVoiceQuickActionFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareVoiceDraftFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareVoiceContinuityEntryFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPackageQueuedActionFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedNormalizePairingTokenFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedCollectRemoteRoutesFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareAssistantEntryFallbackFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareLinkingRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareCaptureMetadataFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPreparePairingTokenIssueRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPreparePairingTokenRedeemRequestFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareVoiceContinuitySummaryFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareVoiceOfflineResponseFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareVoiceCachedQueryResponseFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareLinkingFeedbackFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
-private typealias VelEmbeddedPrepareAppShellFeedbackFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedJSONStringFn = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
+private typealias VelEmbeddedCachedNowSummaryFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareQuickCaptureFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPackageOfflineRequestFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedNormalizeDomainHelpersFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareThreadDraftFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareVoiceCapturePayloadFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPackageVoiceQuickActionFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareVoiceDraftFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareVoiceContinuityEntryFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPackageQueuedActionFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedNormalizePairingTokenFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedCollectRemoteRoutesFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareAssistantEntryFallbackFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareLinkingRequestFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareCaptureMetadataFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPreparePairingTokenIssueRequestFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPreparePairingTokenRedeemRequestFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareVoiceContinuitySummaryFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareVoiceOfflineResponseFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareVoiceCachedQueryResponseFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareLinkingFeedbackFn = VelEmbeddedJSONStringFn
+private typealias VelEmbeddedPrepareAppShellFeedbackFn = VelEmbeddedJSONStringFn
 private typealias VelEmbeddedFreeBufferFn = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
 private struct VelEmbeddedRustBindings: @unchecked Sendable {
@@ -1343,7 +1344,7 @@ private enum VelEmbeddedRustBridge {
         status: EmbeddedBridgeRuntimeStatus
     )
 
-    static let resolution: BindingResolution = {
+    private static let resolution: BindingResolution = {
         let flags = RTLD_NOW | RTLD_LOCAL
         var attemptedPaths: [String] = []
 
@@ -1402,7 +1403,7 @@ private enum VelEmbeddedRustBridge {
             from handle: UnsafeMutableRawPointer,
             source: String
         ) -> BindingResolution {
-            let freeBuffer = lookup(candidate: symbolNames.freeBuffer, from: handle)
+            let freeBuffer: VelEmbeddedFreeBufferFn? = lookup(candidate: symbolNames.freeBuffer, from: handle)
             let cachedNowSummary: VelEmbeddedCachedNowSummaryFn? = lookup(
                 candidate: symbolNames.cachedNowSummary,
                 from: handle
@@ -1574,7 +1575,7 @@ private enum VelEmbeddedRustBridge {
                     prepareVoiceCachedQueryResponse: prepareVoiceCachedQueryResponse,
                     prepareLinkingFeedback: prepareLinkingFeedback,
                     prepareAppShellFeedback: prepareAppShellFeedback,
-                    freeBuffer: freeBuffer
+                    freeBuffer: freeBuffer!
                 ),
                 status
             )
@@ -1678,194 +1679,7 @@ private enum VelEmbeddedRustBridge {
     }
 
     static func invokeStringResultFunction(
-        _ function: VelEmbeddedCachedNowSummaryFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareQuickCaptureFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPackageOfflineRequestFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedNormalizeDomainHelpersFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareThreadDraftFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareVoiceCapturePayloadFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPackageVoiceQuickActionFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareVoiceDraftFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareVoiceContinuityEntryFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPackageQueuedActionFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedNormalizePairingTokenFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedCollectRemoteRoutesFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareAssistantEntryFallbackFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareLinkingRequestFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareCaptureMetadataFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPreparePairingTokenIssueRequestFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPreparePairingTokenRedeemRequestFn?,
-        freeBuffer: VelEmbeddedFreeBufferFn?,
-        payload: String
-    ) -> String? {
-        guard let function else { return nil }
-        guard let result = payload.withCString({ function($0) }) else { return nil }
-        defer { freeBuffer?(result) }
-        return String(cString: result)
-    }
-
-    static func invokeStringResultFunction(
-        _ function: VelEmbeddedPrepareVoiceContinuitySummaryFn?,
+        _ function: VelEmbeddedJSONStringFn?,
         freeBuffer: VelEmbeddedFreeBufferFn?,
         payload: String
     ) -> String? {
@@ -2699,7 +2513,7 @@ private enum VelEmbeddedRustBridge {
 public struct RustEmbeddedNowBridge: EmbeddedNowBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.cachedNowSummary != nil else { return nil }
         self.bindings = bindings
     }
@@ -2719,7 +2533,7 @@ public struct RustEmbeddedNowBridge: EmbeddedNowBridge, @unchecked Sendable {
 public struct RustEmbeddedQuickActionBridge: EmbeddedQuickActionBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareQuickCapture != nil else { return nil }
         self.bindings = bindings
     }
@@ -2739,7 +2553,7 @@ public struct RustEmbeddedQuickActionBridge: EmbeddedQuickActionBridge, @uncheck
 public struct RustEmbeddedOfflineRequestBridge: EmbeddedOfflineRequestBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.packageOfflineRequest != nil else { return nil }
         self.bindings = bindings
     }
@@ -2765,7 +2579,7 @@ public struct RustEmbeddedOfflineRequestBridge: EmbeddedOfflineRequestBridge, @u
 public struct RustEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.normalizeDomainHelpers != nil else { return nil }
         self.bindings = bindings
     }
@@ -2791,7 +2605,7 @@ public struct RustEmbeddedDomainHelpersBridge: EmbeddedDomainHelpersBridge, @unc
 public struct RustEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareThreadDraft != nil else { return nil }
         self.bindings = bindings
     }
@@ -2817,7 +2631,7 @@ public struct RustEmbeddedThreadDraftBridge: EmbeddedThreadDraftBridge, @uncheck
 public struct RustEmbeddedVoiceCaptureBridge: EmbeddedVoiceCaptureBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareVoiceCapturePayload != nil else { return nil }
         self.bindings = bindings
     }
@@ -2844,7 +2658,7 @@ public struct RustEmbeddedVoiceCaptureBridge: EmbeddedVoiceCaptureBridge, @unche
 public struct RustEmbeddedVoiceQuickActionBridge: EmbeddedVoiceQuickActionBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.packageVoiceQuickAction != nil else { return nil }
         self.bindings = bindings
     }
@@ -2887,7 +2701,7 @@ public struct RustEmbeddedVoiceQuickActionBridge: EmbeddedVoiceQuickActionBridge
 public struct RustEmbeddedVoiceContinuityBridge: EmbeddedVoiceContinuityBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareVoiceDraft != nil,
               bindings.prepareVoiceContinuityEntry != nil else { return nil }
         self.bindings = bindings
@@ -2965,7 +2779,7 @@ public struct RustEmbeddedVoiceContinuityBridge: EmbeddedVoiceContinuityBridge, 
 public struct RustEmbeddedQueuedActionBridge: EmbeddedQueuedActionBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.packageQueuedAction != nil else { return nil }
         self.bindings = bindings
     }
@@ -3008,7 +2822,7 @@ public struct RustEmbeddedQueuedActionBridge: EmbeddedQueuedActionBridge, @unche
 public struct RustEmbeddedLinkingSettingsBridge: EmbeddedLinkingSettingsBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.normalizePairingToken != nil,
               bindings.collectRemoteRoutes != nil else { return nil }
         self.bindings = bindings
@@ -3054,7 +2868,7 @@ public struct RustEmbeddedLinkingSettingsBridge: EmbeddedLinkingSettingsBridge, 
 public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareAssistantEntryFallback != nil else { return nil }
         self.bindings = bindings
     }
@@ -3086,7 +2900,7 @@ public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFa
 public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareLinkingRequest != nil else { return nil }
         self.bindings = bindings
     }
@@ -3206,7 +3020,7 @@ public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @u
 public struct RustEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareCaptureMetadata != nil else { return nil }
         self.bindings = bindings
     }
@@ -3229,7 +3043,7 @@ public struct RustEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge, 
 public struct RustEmbeddedVoiceContinuitySummaryBridge: EmbeddedVoiceContinuitySummaryBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareVoiceContinuitySummary != nil else { return nil }
         self.bindings = bindings
     }
@@ -3274,7 +3088,7 @@ public struct RustEmbeddedVoiceContinuitySummaryBridge: EmbeddedVoiceContinuityS
 public struct RustEmbeddedVoiceOfflineResponseBridge: EmbeddedVoiceOfflineResponseBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareVoiceOfflineResponse != nil else { return nil }
         self.bindings = bindings
     }
@@ -3324,7 +3138,7 @@ public struct RustEmbeddedVoiceOfflineResponseBridge: EmbeddedVoiceOfflineRespon
 public struct RustEmbeddedVoiceCachedQueryBridge: EmbeddedVoiceCachedQueryBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareVoiceCachedQueryResponse != nil else { return nil }
         self.bindings = bindings
     }
@@ -3381,7 +3195,7 @@ public struct RustEmbeddedVoiceCachedQueryBridge: EmbeddedVoiceCachedQueryBridge
 public struct RustEmbeddedLinkingFeedbackBridge: EmbeddedLinkingFeedbackBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareLinkingFeedback != nil else { return nil }
         self.bindings = bindings
     }
@@ -3414,7 +3228,7 @@ public struct RustEmbeddedLinkingFeedbackBridge: EmbeddedLinkingFeedbackBridge, 
 public struct RustEmbeddedAppShellFeedbackBridge: EmbeddedAppShellFeedbackBridge, @unchecked Sendable {
     private let bindings: VelEmbeddedRustBindings
 
-    public init?(bindings: VelEmbeddedRustBindings) {
+    fileprivate init?(bindings: VelEmbeddedRustBindings) {
         guard bindings.prepareAppShellFeedback != nil else { return nil }
         self.bindings = bindings
     }
@@ -3441,167 +3255,6 @@ public struct RustEmbeddedAppShellFeedbackBridge: EmbeddedAppShellFeedbackBridge
         }
 
         return EmbeddedAppShellFeedbackPacket(message: message)
-    }
-}
-
-public struct RustEmbeddedAssistantEntryFallbackBridge: EmbeddedAssistantEntryFallbackBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareAssistantEntryFallback(
-        text: String,
-        conversationID: String?
-    ) -> EmbeddedAssistantEntryFallbackPacket {
-        NoopEmbeddedAssistantEntryFallbackBridge().prepareAssistantEntryFallback(
-            text: text,
-            conversationID: conversationID
-        )
-    }
-}
-
-public struct RustEmbeddedLinkingRequestBridge: EmbeddedLinkingRequestBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareLinkingRequest(tokenCode: String?, targetBaseURL: String?) -> EmbeddedLinkingRequestPacket {
-        NoopEmbeddedLinkingRequestBridge().prepareLinkingRequest(
-            tokenCode: tokenCode,
-            targetBaseURL: targetBaseURL
-        )
-    }
-    public func preparePairingTokenIssueRequest(
-        issuedByNodeID: String,
-        targetNodeID: String?,
-        targetNodeDisplayName: String?,
-        targetBaseURL: String?
-    ) -> EmbeddedPairingTokenIssueRequestPacket {
-        NoopEmbeddedLinkingRequestBridge().preparePairingTokenIssueRequest(
-            issuedByNodeID: issuedByNodeID,
-            targetNodeID: targetNodeID,
-            targetNodeDisplayName: targetNodeDisplayName,
-            targetBaseURL: targetBaseURL
-        )
-    }
-    public func preparePairingTokenRedeemRequest(
-        tokenCode: String,
-        nodeID: String,
-        nodeDisplayName: String,
-        transportHint: String?,
-        syncBaseURL: String?,
-        tailscaleBaseURL: String?,
-        lanBaseURL: String?,
-        localhostBaseURL: String?,
-        publicBaseURL: String?
-    ) -> EmbeddedPairingTokenRedeemRequestPacket {
-        NoopEmbeddedLinkingRequestBridge().preparePairingTokenRedeemRequest(
-            tokenCode: tokenCode,
-            nodeID: nodeID,
-            nodeDisplayName: nodeDisplayName,
-            transportHint: transportHint,
-            syncBaseURL: syncBaseURL,
-            tailscaleBaseURL: tailscaleBaseURL,
-            lanBaseURL: lanBaseURL,
-            localhostBaseURL: localhostBaseURL,
-            publicBaseURL: publicBaseURL
-        )
-    }
-}
-
-public struct RustEmbeddedCaptureMetadataBridge: EmbeddedCaptureMetadataBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareQueuedCaptureText(text: String, type: String, source: String) -> String {
-        NoopEmbeddedCaptureMetadataBridge().prepareQueuedCaptureText(text: text, type: type, source: source)
-    }
-}
-
-public struct RustEmbeddedVoiceContinuitySummaryBridge: EmbeddedVoiceContinuitySummaryBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareVoiceContinuitySummary(
-        draftExists: Bool,
-        threadedTranscript: String?,
-        pendingRecoveryCount: Int,
-        isReachable: Bool,
-        mergedTranscript: String?
-    ) -> EmbeddedVoiceContinuitySummaryPacket? {
-        NoopEmbeddedVoiceContinuitySummaryBridge().prepareVoiceContinuitySummary(
-            draftExists: draftExists,
-            threadedTranscript: threadedTranscript,
-            pendingRecoveryCount: pendingRecoveryCount,
-            isReachable: isReachable,
-            mergedTranscript: mergedTranscript
-        )
-    }
-}
-
-public struct RustEmbeddedVoiceOfflineResponseBridge: EmbeddedVoiceOfflineResponseBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareVoiceOfflineResponse(
-        scenario: String,
-        primaryText: String?,
-        matchedText: String?,
-        options: String?,
-        minutes: Int?,
-        isReachable: Bool
-    ) -> EmbeddedVoiceOfflineResponsePacket? {
-        NoopEmbeddedVoiceOfflineResponseBridge().prepareVoiceOfflineResponse(
-            scenario: scenario,
-            primaryText: primaryText,
-            matchedText: matchedText,
-            options: options,
-            minutes: minutes,
-            isReachable: isReachable
-        )
-    }
-}
-
-public struct RustEmbeddedVoiceCachedQueryBridge: EmbeddedVoiceCachedQueryBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareVoiceCachedQueryResponse(
-        scenario: String,
-        nextTitle: String?,
-        leaveBy: String?,
-        emptyMessage: String?,
-        cachedNowSummary: String?,
-        firstReason: String?,
-        nextCommitmentText: String?,
-        nextCommitmentDueAt: String?,
-        behaviorHeadline: String?,
-        behaviorReason: String?
-    ) -> EmbeddedVoiceCachedQueryPacket? {
-        NoopEmbeddedVoiceCachedQueryBridge().prepareVoiceCachedQueryResponse(
-            scenario: scenario,
-            nextTitle: nextTitle,
-            leaveBy: leaveBy,
-            emptyMessage: emptyMessage,
-            cachedNowSummary: cachedNowSummary,
-            firstReason: firstReason,
-            nextCommitmentText: nextCommitmentText,
-            nextCommitmentDueAt: nextCommitmentDueAt,
-            behaviorHeadline: behaviorHeadline,
-            behaviorReason: behaviorReason
-        )
-    }
-}
-
-public struct RustEmbeddedLinkingFeedbackBridge: EmbeddedLinkingFeedbackBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareLinkingFeedback(
-        scenario: String,
-        nodeDisplayName: String?
-    ) -> EmbeddedLinkingFeedbackPacket? {
-        NoopEmbeddedLinkingFeedbackBridge().prepareLinkingFeedback(
-            scenario: scenario,
-            nodeDisplayName: nodeDisplayName
-        )
-    }
-}
-
-public struct RustEmbeddedAppShellFeedbackBridge: EmbeddedAppShellFeedbackBridge, @unchecked Sendable {
-    public init?(bindings: ()) { return nil }
-    public func prepareAppShellFeedback(
-        scenario: String,
-        detail: String?
-    ) -> EmbeddedAppShellFeedbackPacket? {
-        NoopEmbeddedAppShellFeedbackBridge().prepareAppShellFeedback(
-            scenario: scenario,
-            detail: detail
-        )
     }
 }
 
