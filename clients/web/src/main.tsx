@@ -8,10 +8,41 @@ import './index.css'
 import App from './App.tsx'
 import { bootstrapEmbeddedBridgePacketRuntime } from './data/embeddedBridgeWasmRuntime'
 
-void bootstrapEmbeddedBridgePacketRuntime()
+async function start() {
+  const runtime = await bootstrapEmbeddedBridgePacketRuntime()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+  if (runtime == null) {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'grid',
+            placeItems: 'center',
+            padding: '24px',
+            background: '#111111',
+            color: '#f5f5f5',
+            fontFamily: '"Space Grotesk Variable", sans-serif',
+          }}
+        >
+          <div style={{ maxWidth: '720px', lineHeight: 1.6 }}>
+            <h1 style={{ fontSize: '24px', marginBottom: '12px' }}>Embedded Rust runtime is required</h1>
+            <p style={{ margin: 0 }}>
+              Set <code>VITE_VEL_EMBEDDED_BRIDGE_WASM_URL</code> to the generated browser module,
+              for example <code>/embedded-bridge/vel-embedded-bridge.js</code>.
+            </p>
+          </div>
+        </div>
+      </StrictMode>,
+    )
+    return
+  }
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
+
+void start()
