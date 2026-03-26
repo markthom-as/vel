@@ -106,6 +106,19 @@ function runtimeGlobal(): EmbeddedBridgeRuntimeGlobal | null {
     : null;
 }
 
+function resolveBrowserModuleUrl(wasmModuleUrl: string): string {
+  const locationOrigin =
+    typeof globalThis !== 'undefined' && 'location' in globalThis
+      ? globalThis.location?.origin
+      : undefined;
+
+  if (locationOrigin && wasmModuleUrl.trim().length > 0) {
+    return new URL(wasmModuleUrl, locationOrigin).href;
+  }
+
+  return wasmModuleUrl;
+}
+
 function response(kind: EmbeddedBridgePacketKind, payloadJson: string): EmbeddedBridgePacketResponse {
   return { kind, payloadJson };
 }
@@ -315,10 +328,7 @@ export async function bootstrapEmbeddedBridgePacketRuntime(): Promise<EmbeddedBr
     return null;
   }
 
-  const browserModuleUrl =
-    typeof window === 'undefined'
-      ? wasmModuleUrl
-      : new URL(wasmModuleUrl, window.location.origin).href;
+  const browserModuleUrl = resolveBrowserModuleUrl(wasmModuleUrl);
 
   const imported = await import(/* @vite-ignore */ browserModuleUrl);
   if (typeof imported.default === 'function') {
