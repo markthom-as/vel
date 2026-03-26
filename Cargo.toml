@@ -8,6 +8,7 @@ members = [
   "crates/vel-storage",
   "crates/vel-api-types",
   "crates/vel-agent-sdk",
+  "crates/vel-command-lang",
   "crates/vel-llm",
   "crates/vel-protocol",
   "crates/veld",

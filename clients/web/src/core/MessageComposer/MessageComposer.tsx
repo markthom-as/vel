@@ -497,7 +497,7 @@ export function MessageComposer({
     const timeoutId = window.setTimeout(async () => {
       setCommandCompletionLoading(true);
       try {
-        const response = await loadCommandCompletion(commandCompletionTokens);
+        const response = await loadCommandCompletion(text, commandCompletionTokens);
         if (cancelled) {
           return;
         }

@@ -204,7 +204,7 @@ fn assistant_entry_intent_with_override(
     if conversation_id.is_some() {
         return "continuation";
     }
-    if looks_like_slash_command(text) {
+    if looks_like_explicit_command(text) {
         return "command";
     }
     if contains_url_or_path_token(text) {
@@ -228,22 +228,8 @@ fn assistant_entry_intent_with_override(
     "task"
 }
 
-fn looks_like_slash_command(text: &str) -> bool {
-    let token = text.split_whitespace().next().unwrap_or_default().trim();
-    if !token.starts_with('/') {
-        return false;
-    }
-    let command = &token[1..];
-    if command.is_empty() || command.contains('/') {
-        return false;
-    }
-    command.chars().enumerate().all(|(idx, ch)| {
-        if idx == 0 {
-            ch.is_ascii_alphabetic()
-        } else {
-            ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
-        }
-    })
+fn looks_like_explicit_command(text: &str) -> bool {
+    vel_command_lang::shell::explicit_command_name(text).is_some()
 }
 
 fn contains_url_or_path_token(text: &str) -> bool {
@@ -1392,6 +1378,10 @@ mod tests {
     fn assistant_entry_intent_detects_slash_commands_without_confusing_paths() {
         assert_eq!(
             assistant_entry_intent_with_override("/morning", None, None),
+            "command"
+        );
+        assert_eq!(
+            assistant_entry_intent_with_override("vel morning", None, None),
             "command"
         );
         assert_eq!(

@@ -1,16 +1,8 @@
-pub mod ast;
-pub mod completion;
-pub mod explain;
-pub mod infer;
-pub mod parse;
-pub mod preview;
-pub mod registry;
-pub mod tokenize;
-
 use crate::client::ApiClient;
 use anyhow::bail;
 use serde_json::json;
 use vel_api_types::CommandExecutionPayloadData;
+pub use vel_command_lang::{ast, completion, explain, infer, preview, registry};
 
 use ast::{PhraseFamily, Verb};
 use infer::parse_and_resolve;

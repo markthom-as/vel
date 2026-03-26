@@ -2,17 +2,145 @@ use axum::{extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::{
     AdaptivePolicyOverrideData, ApiResponse, ArtifactData, CaptureCreateResponse,
-    CommandDelegationHintsData, CommandExecuteRequest, CommandExecutionPayloadData,
-    CommandExecutionPlanData, CommandExecutionResultData, CommandIntentHintsData,
-    CommandPlanModeData, CommandPlanRequest, CommandPlanStepData, CommandPlannedLinkData,
-    CommandPlannedRecordData, CommandReviewSummaryData, CommandValidationData,
+    CommandCompleteRequest, CommandCompleteResponseData, CommandDelegationHintsData,
+    CommandExecuteRequest, CommandExecutionPayloadData, CommandExecutionPlanData,
+    CommandExecutionResultData, CommandIntentHintsData, CommandParsedData, CommandPlanModeData,
+    CommandPlanRequest, CommandPlanStepData, CommandPlannedLinkData, CommandPlannedRecordData,
+    CommandRegistryEntryData, CommandReviewSummaryData, CommandValidationData,
     CommandValidationIssueCodeData, CommandValidationIssueData, CommitmentData,
     CommitmentExplainData, ContextCapture, ContextExplainData, ContextSourceSummariesData,
     ContextSourceSummaryData, DriftExplainData, PlanningArtifactCreatedData, SignalExplainSummary,
     SynthesisWeekData, ThreadData,
 };
+use vel_command_lang::{completion, explain, infer, preview, registry, shell};
 
 use crate::{errors::AppError, services, state::AppState};
+
+fn shell_completion_to_data(completion: shell::ShellCompletion) -> CommandCompleteResponseData {
+    CommandCompleteResponseData {
+        input: completion.input,
+        completion_hints: completion.completion_hints,
+        registry: completion
+            .registry
+            .into_iter()
+            .map(|entry| CommandRegistryEntryData {
+                kind: entry.kind,
+                aliases: entry.aliases,
+                selectors: entry.selectors,
+                operations: entry.operations,
+            })
+            .collect(),
+        parsed: completion.parsed.map(|parsed| CommandParsedData {
+            family: parsed.family,
+            verb: parsed.verb,
+            target_tokens: parsed.target_tokens,
+            source_text: parsed.source_text,
+        }),
+        resolved_command: None,
+        local_preview: completion.local_preview,
+        local_explanation: completion.local_explanation,
+        intent_hints: completion.intent_hints.map(|hints| CommandIntentHintsData {
+            target_kind: hints.target_kind,
+            mode: hints.mode,
+            suggestions: hints.suggestions,
+        }),
+        parse_error: completion.parse_error,
+    }
+}
+
+pub async fn complete_command(
+    Json(body): Json<CommandCompleteRequest>,
+) -> Result<Json<ApiResponse<CommandCompleteResponseData>>, AppError> {
+    if let Some(text) = body.text.as_deref() {
+        if let Some(completion) = shell::shell_completion_for_text(text) {
+            let request_id = format!("req_{}", Uuid::new_v4().simple());
+            return Ok(Json(ApiResponse::success(
+                shell_completion_to_data(completion),
+                request_id,
+            )));
+        }
+    }
+
+    let input = body
+        .text
+        .as_deref()
+        .and_then(shell::parse_explicit_command_input)
+        .map(|parsed| parsed.tokens)
+        .unwrap_or(body.input);
+
+    if let Some(completion) = shell::shell_completion(&input) {
+        let request_id = format!("req_{}", Uuid::new_v4().simple());
+        return Ok(Json(ApiResponse::success(
+            shell_completion_to_data(completion),
+            request_id,
+        )));
+    }
+
+    let completion_hints = completion::next_tokens(&input)
+        .into_iter()
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let registry = registry::default_registry()
+        .into_iter()
+        .map(|entry| CommandRegistryEntryData {
+            kind: entry.kind.to_string(),
+            aliases: entry
+                .aliases
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+            selectors: entry
+                .selectors
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+            operations: entry
+                .operations
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+        })
+        .collect();
+
+    let data = match infer::parse_and_resolve(&input) {
+        Ok(resolution) => CommandCompleteResponseData {
+            input,
+            completion_hints,
+            registry,
+            parsed: Some(CommandParsedData {
+                family: format!("{:?}", resolution.parsed.family).to_ascii_lowercase(),
+                verb: resolution.parsed.verb.to_string(),
+                target_tokens: resolution.parsed.target_tokens.clone(),
+                source_text: resolution.parsed.source_text.clone(),
+            }),
+            resolved_command: Some(resolution.resolved.clone()),
+            local_preview: Some(preview::render(&resolution)),
+            local_explanation: Some(explain::render_explanation(&resolution)),
+            intent_hints: completion::intent_hints(&resolution).map(|hints| {
+                CommandIntentHintsData {
+                    target_kind: hints.target_kind,
+                    mode: hints.mode.to_string(),
+                    suggestions: hints.suggestions.into_iter().map(str::to_string).collect(),
+                }
+            }),
+            parse_error: None,
+        },
+        Err(error) => CommandCompleteResponseData {
+            input,
+            completion_hints,
+            registry,
+            parsed: None,
+            resolved_command: None,
+            local_preview: None,
+            local_explanation: None,
+            intent_hints: None,
+            parse_error: Some(error.to_string()),
+        },
+    };
+
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
 
 pub async fn plan_command(
     State(state): State<AppState>,

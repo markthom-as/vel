@@ -34,35 +34,13 @@ pub async fn get_active_session(
         .map(|record| record.session))
 }
 
-fn slash_command_name(text: &str) -> Option<&str> {
-    let token = text.split_whitespace().next().unwrap_or_default().trim();
-    if !token.starts_with('/') {
-        return None;
-    }
-    let command = &token[1..];
-    if command.is_empty() || command.contains('/') {
-        return None;
-    }
-    if command.chars().enumerate().all(|(idx, ch)| {
-        if idx == 0 {
-            ch.is_ascii_alphabetic()
-        } else {
-            ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'
-        }
-    }) {
-        Some(command)
-    } else {
-        None
-    }
-}
-
 pub fn assistant_requested_phase(text: &str) -> Option<DailyLoopPhase> {
     let normalized = text.trim().to_ascii_lowercase();
     if normalized.is_empty() {
         return None;
     }
-    if let Some(command) = slash_command_name(&normalized) {
-        match command {
+    if let Some(command) = vel_command_lang::shell::explicit_command_name(&normalized) {
+        match command.as_str() {
             "standup" => return Some(DailyLoopPhase::Standup),
             "morning" => return Some(DailyLoopPhase::MorningOverview),
             _ => {}
@@ -95,7 +73,7 @@ pub fn assistant_prefers_resume(text: &str) -> bool {
     normalized.contains("resume")
         || normalized.contains("continue")
         || matches!(
-            slash_command_name(&normalized),
+            vel_command_lang::shell::explicit_command_name(&normalized).as_deref(),
             Some("checkin" | "check-in" | "check_in")
         )
 }
@@ -108,7 +86,10 @@ async fn assistant_requested_check_in_phase(
         crate::services::timezone::current_day_date_string(&timezone, OffsetDateTime::now_utc())?;
 
     for phase in [DailyLoopPhase::Standup, DailyLoopPhase::MorningOverview] {
-        if get_active_session(storage, &session_date, phase).await?.is_some() {
+        if get_active_session(storage, &session_date, phase)
+            .await?
+            .is_some()
+        {
             return Ok(Some(phase));
         }
     }
@@ -123,7 +104,7 @@ pub async fn start_or_resume_assistant_session(
     surface: vel_core::DailyLoopSurface,
 ) -> Result<Option<DailyLoopSession>, AppError> {
     let phase = if matches!(
-        slash_command_name(&transcript.to_ascii_lowercase()),
+        vel_command_lang::shell::explicit_command_name(&transcript.to_ascii_lowercase()).as_deref(),
         Some("checkin" | "check-in" | "check_in")
     ) {
         assistant_requested_check_in_phase(storage).await?

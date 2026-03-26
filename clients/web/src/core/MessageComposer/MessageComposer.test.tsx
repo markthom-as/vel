@@ -632,7 +632,7 @@ describe('MessageComposer', () => {
           conversation_id: 'conv_1',
           role: 'user',
           kind: 'text',
-          content: { text: '/morning' },
+          content: { text: 'vel morning' },
           status: null,
           importance: null,
           created_at: 0,
@@ -666,7 +666,7 @@ describe('MessageComposer', () => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/api/assistant/entry',
         {
-          text: '/morning',
+          text: 'vel morning',
           conversation_id: 'conv_1',
           intent: 'command',
         },
@@ -678,10 +678,328 @@ describe('MessageComposer', () => {
         undefined,
         expect.objectContaining({ entry_intent: 'command' }),
         expect.objectContaining({
-          text: '/morning',
+          text: 'vel morning',
           conversationId: 'conv_1',
           intent: 'command',
         }),
+      )
+    })
+  })
+
+  it('loads shared command completion hints for slash input and applies a hint chip', async () => {
+    vi.mocked(api.apiPost).mockImplementation(async (path) => {
+      if (path === '/v1/command/complete') {
+        return {
+          ok: true,
+          data: {
+            input: ['should'],
+            completion_hints: ['capture', 'plan', 'delegate'],
+            registry: [],
+            parsed: null,
+            resolved_command: null,
+            local_preview: null,
+            local_explanation: null,
+            intent_hints: null,
+            parse_error: '`should` commands require a verb and a target',
+          },
+          meta: { request_id: 'req_complete_1' },
+        }
+      }
+      throw new Error(`unexpected api path: ${path}`)
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+    fireEvent.change(textarea, { target: { value: '/should' } })
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/command/complete',
+        { input: ['should'] },
+        expect.any(Function),
+      )
+    })
+
+    const hint = await within(container).findByRole('button', { name: 'plan' })
+    fireEvent.click(hint)
+
+    expect(textarea).toHaveValue('vel should plan')
+  })
+
+  it('does not fetch command completion for path-like slash input', async () => {
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    fireEvent.change(requireHtmlElement(container.querySelector('textarea')), {
+      target: { value: '/home/jove/code/vel/README.md' },
+    })
+
+    await new Promise((resolve) => window.setTimeout(resolve, 180))
+
+    expect(api.apiPost).not.toHaveBeenCalledWith(
+      '/v1/command/complete',
+      expect.anything(),
+      expect.any(Function),
+    )
+    expect(within(container).queryByText(/command/i)).not.toBeInTheDocument()
+  })
+
+  it('loads vel root completion hints and applies the first hint with ArrowRight', async () => {
+    vi.mocked(api.apiPost).mockImplementation(async (path) => {
+      if (path === '/v1/command/complete') {
+        return {
+          ok: true,
+          data: {
+            input: [],
+            completion_hints: ['morning', 'standup', 'checkin', 'should'],
+            registry: [],
+            parsed: null,
+            resolved_command: null,
+            local_preview: 'Vel command mode',
+            local_explanation: 'Start with morning, standup, checkin, or a typed `should ...` command.',
+            intent_hints: null,
+            parse_error: null,
+          },
+          meta: { request_id: 'req_complete_vel_root' },
+        }
+      }
+      throw new Error(`unexpected api path: ${path}`)
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+    fireEvent.change(textarea, { target: { value: 'vel' } })
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/command/complete',
+        { input: [] },
+        expect.any(Function),
+      )
+    })
+
+    expect(within(container).getAllByText('vel command').length).toBeGreaterThan(0)
+    fireEvent.keyDown(textarea, { key: 'ArrowRight' })
+    expect(textarea).toHaveValue('vel morning')
+  })
+
+  it('cycles terminal-style completion with Tab for vel root commands', async () => {
+    vi.mocked(api.apiPost).mockImplementation(async (path) => {
+      if (path === '/v1/command/complete') {
+        return {
+          ok: true,
+          data: {
+            input: [],
+            completion_hints: ['morning', 'standup', 'checkin', 'should'],
+            registry: [],
+            parsed: null,
+            resolved_command: null,
+            local_preview: 'Vel command mode',
+            local_explanation: 'Start with morning, standup, checkin, or a typed `should ...` command.',
+            intent_hints: null,
+            parse_error: null,
+          },
+          meta: { request_id: 'req_complete_vel_root_tab' },
+        }
+      }
+      throw new Error(`unexpected api path: ${path}`)
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+    fireEvent.change(textarea, { target: { value: 'vel' } })
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/command/complete',
+        { input: [] },
+        expect.any(Function),
+      )
+    })
+
+    fireEvent.keyDown(textarea, { key: 'Tab' })
+    const standupChip = await within(container).findByRole('button', { name: 'standup' })
+    expect(standupChip.className).toContain('accent-border')
+
+    fireEvent.keyDown(textarea, { key: 'ArrowRight' })
+    expect(textarea).toHaveValue('vel standup')
+  })
+
+  it('treats vel-prefixed commands as command intent and sends them through the assistant seam', async () => {
+    vi.mocked(api.apiPost).mockImplementation(async (path) => {
+      if (path === '/v1/command/complete') {
+        return {
+          ok: true,
+          data: {
+            input: ['morning'],
+            completion_hints: [],
+            registry: [],
+            parsed: { family: 'vel', verb: 'morning', target_tokens: [], source_text: 'vel morning' },
+            resolved_command: null,
+            local_preview: 'Launch or resume the morning daily-loop session.',
+            local_explanation: 'Equivalent to `vel morning`.',
+            intent_hints: {
+              target_kind: 'daily_loop_session',
+              mode: 'execute',
+              suggestions: ['today startup', 'orientation'],
+            },
+            parse_error: null,
+          },
+          meta: { request_id: 'req_complete_vel_morning' },
+        }
+      }
+      if (path === '/api/assistant/entry') {
+        return {
+          ok: true,
+          data: {
+            route_target: 'inline',
+            entry_intent: 'command',
+            user_message: {
+              id: 'msg_vel_cmd_1',
+              conversation_id: 'conv_1',
+              role: 'user',
+              kind: 'text',
+              content: { text: 'vel morning' },
+              status: null,
+              importance: null,
+              created_at: 0,
+              updated_at: null,
+            },
+            assistant_message: null,
+            assistant_error: null,
+            conversation: {
+              id: 'conv_1',
+              title: 'Conversation',
+              kind: 'general',
+              pinned: false,
+              archived: false,
+              call_mode_active: false,
+              created_at: 0,
+              updated_at: 0,
+            },
+          },
+          meta: { request_id: 'req_vel_cmd_1' },
+        }
+      }
+      throw new Error(`unexpected api path: ${path}`)
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+    fireEvent.change(textarea, { target: { value: 'vel morning' } })
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/v1/command/complete',
+        { input: ['morning'] },
+        expect.any(Function),
+      )
+    })
+
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: 'vel morning',
+          conversation_id: 'conv_1',
+          intent: 'command',
+        },
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('normalizes spoken slash commands from local voice transcripts into vel command execution', async () => {
+    vi.mocked(speech.useSpeechRecognition).mockImplementation((options = {}) => ({
+      isSupported: true,
+      isListening: false,
+      error: null,
+      start: () => options.onResult?.('slash morning'),
+      stop: vi.fn(),
+      interimTranscript: '',
+    }))
+    vi.mocked(api.apiPost).mockImplementation(async (path) => {
+      if (path === '/v1/command/complete') {
+        return {
+          ok: true,
+          data: {
+            input: ['morning'],
+            completion_hints: [],
+            registry: [],
+            parsed: { family: 'vel', verb: 'morning', target_tokens: [], source_text: 'vel morning' },
+            resolved_command: null,
+            local_preview: 'Launch or resume the morning daily-loop session.',
+            local_explanation: 'Equivalent to `vel morning`.',
+            intent_hints: {
+              target_kind: 'daily_loop_session',
+              mode: 'execute',
+              suggestions: ['today startup', 'orientation'],
+            },
+            parse_error: null,
+          },
+          meta: { request_id: 'req_spoken_complete_1' },
+        }
+      }
+      if (path === '/api/assistant/entry') {
+        return {
+          ok: true,
+          data: {
+            route_target: 'inline',
+            entry_intent: 'command',
+            user_message: {
+              id: 'msg_spoken_cmd_1',
+              conversation_id: 'conv_1',
+              role: 'user',
+              kind: 'text',
+              content: { text: 'vel morning' },
+              status: null,
+              importance: null,
+              created_at: 0,
+              updated_at: null,
+            },
+            assistant_message: null,
+            assistant_error: null,
+            conversation: {
+              id: 'conv_1',
+              title: 'Conversation',
+              kind: 'general',
+              pinned: false,
+              archived: false,
+              call_mode_active: false,
+              created_at: 0,
+              updated_at: 0,
+            },
+          },
+          meta: { request_id: 'req_spoken_cmd_1' },
+        }
+      }
+      throw new Error(`unexpected api path: ${path}`)
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const voiceButton = within(container).getByRole('button', { name: /hold to talk locally/i })
+    fireEvent.pointerDown(voiceButton)
+    fireEvent.pointerUp(voiceButton)
+
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+    await waitFor(() => {
+      expect(textarea).toHaveValue('slash morning')
+    })
+
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        {
+          text: 'vel morning',
+          conversation_id: 'conv_1',
+          intent: 'command',
+          voice: expect.objectContaining({
+            transcript_origin: 'local_browser_stt',
+          }),
+        },
+        expect.any(Function),
       )
     })
   })

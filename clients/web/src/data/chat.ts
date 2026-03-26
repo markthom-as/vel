@@ -5,12 +5,14 @@ import {
   decodeApiResponse,
   decodeArray,
   decodeConversationData,
+  decodeCommandCompleteResponseData,
   decodeInboxItemData,
   decodeInterventionActionData,
   decodeMessageData,
   decodeProvenanceData,
   type AssistantEntryResponse,
   type AssistantEntryAttachmentData,
+  type CommandCompleteResponseData,
   type NowDockedInputIntentData,
   type AssistantEntryVoiceProvenanceData,
   type ApiResponse,
@@ -103,6 +105,17 @@ export function submitAssistantEntry(
       ...(attachments?.length ? { attachments } : {}),
     },
     (value) => decodeApiResponse(value, decodeAssistantEntryResponse),
+  );
+}
+
+export function loadCommandCompletion(
+  text: string,
+  input: string[] = [],
+): Promise<ApiResponse<CommandCompleteResponseData>> {
+  return canonicalPostMutation<CommandCompleteResponseData>(
+    '/v1/command/complete',
+    { text, input },
+    (value) => decodeApiResponse(value, decodeCommandCompleteResponseData),
   );
 }
 
