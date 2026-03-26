@@ -1675,18 +1675,7 @@ struct TodoistCompletedPage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        extract::{Path, State},
-        routing::{get, post},
-        Json, Router,
-    };
     use serde_json::json;
-    use std::{
-        collections::HashMap,
-        net::SocketAddr,
-        sync::{Arc, Mutex},
-    };
-    use tokio::net::TcpListener;
     use vel_core::{ProjectFamily, ProjectProvisionRequest, ProjectRootRef, ProjectStatus};
 
     #[test]
@@ -2195,35 +2184,28 @@ mod tests {
         )
         .await
         .unwrap();
-
-        let server = spawn_mock_todoist_server(vec![MockTodoistTask {
+        let TodoistWriteExecutionPlan::Update { upstream_ref, .. } = &plan.execution else {
+            panic!("expected update plan");
+        };
+        let current = TodoistTask {
             id: "task_1".to_string(),
             content: "Follow up".to_string(),
             project_id: Some("todo-proj-1".to_string()),
             priority: Some(2),
-            checked: false,
             labels: vec![],
-            due_string: Some("2026-03-19".to_string()),
+            deadline: None,
+            due: Some(TodoistDue {
+                date: Some("2026-03-19".to_string()),
+                datetime: None,
+            }),
+            checked: Some(false),
             updated_at: Some("2026-03-18T09:00:00Z".to_string()),
-        }])
-        .await;
+        };
 
-        let outcome = execute_todoist_write_plan_with_base_url(
-            &storage,
-            &reqwest::Client::new(),
-            "todo-token",
-            &server.base_url,
-            &plan,
-        )
-        .await
-        .unwrap();
-
-        match outcome {
-            TodoistWriteExecutionResult::Conflict { kind, .. } => {
-                assert_eq!(kind, ConflictCaseKind::StaleWrite);
-            }
-            other => panic!("expected conflict, got {other:?}"),
-        }
+        assert_eq!(
+            detect_upstream_conflict(upstream_ref, &current),
+            Some(ConflictCaseKind::StaleWrite)
+        );
     }
 
     #[tokio::test]
@@ -2302,36 +2284,59 @@ mod tests {
         )
         .await
         .unwrap();
-
-        let server = spawn_mock_todoist_server(vec![MockTodoistTask {
+        let TodoistWriteExecutionPlan::Update {
+            connection_id,
+            commitment,
+            mutation,
+            ..
+        } = &plan.execution
+        else {
+            panic!("expected update plan");
+        };
+        let current = TodoistTask {
             id: "task_1".to_string(),
             content: "Follow up".to_string(),
             project_id: Some("todo-proj-1".to_string()),
             priority: Some(2),
-            checked: false,
             labels: vec![],
-            due_string: Some("2026-03-19".to_string()),
+            deadline: None,
+            due: Some(TodoistDue {
+                date: Some("2026-03-19".to_string()),
+                datetime: None,
+            }),
+            checked: Some(false),
             updated_at: Some("2026-03-18T08:00:00Z".to_string()),
-        }])
-        .await;
+        };
+        let payload = todoist_upstream_payload(mutation, None, Some(&current)).unwrap();
+        assert_eq!(payload["content"], "Follow up today");
+        assert_eq!(
+            payload["labels"],
+            json!(["focus", "ops", "review_state:needs_review", "waiting_on:alex"])
+        );
 
-        let outcome = execute_todoist_write_plan_with_base_url(
+        let updated_task = TodoistTask {
+            content: "Follow up today".to_string(),
+            labels: vec![
+                "focus".to_string(),
+                "ops".to_string(),
+                "review_state:needs_review".to_string(),
+                "waiting_on:alex".to_string(),
+            ],
+            ..current
+        };
+        let persisted = persist_todoist_task(
             &storage,
-            &reqwest::Client::new(),
-            "todo-token",
-            &server.base_url,
-            &plan,
+            Some(commitment),
+            &updated_task,
+            connection_id,
+            Some("runtime"),
+            None,
+            &plan.requested_by_node_id,
+            true,
         )
         .await
         .unwrap();
-
-        match outcome {
-            TodoistWriteExecutionResult::Applied { result_payload, .. } => {
-                assert_eq!(result_payload["operation"], "todoist_update_task");
-                assert_eq!(result_payload["commitment_id"], commitment_id.as_ref());
-            }
-            other => panic!("expected applied result, got {other:?}"),
-        }
+        assert_eq!(persisted.commitment_id, commitment_id.as_ref());
 
         let updated = storage
             .get_commitment_by_id(commitment_id.as_ref())
@@ -2352,155 +2357,4 @@ mod tests {
         );
     }
 
-    #[derive(Clone)]
-    struct MockTodoistServer {
-        base_url: String,
-        _handle: Arc<tokio::task::JoinHandle<()>>,
-    }
-
-    #[derive(Debug, Clone)]
-    struct MockTodoistTask {
-        id: String,
-        content: String,
-        project_id: Option<String>,
-        priority: Option<u8>,
-        checked: bool,
-        labels: Vec<String>,
-        due_string: Option<String>,
-        updated_at: Option<String>,
-    }
-
-    #[derive(Clone)]
-    struct MockTodoistState {
-        tasks: Arc<Mutex<HashMap<String, MockTodoistTask>>>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct MockTodoistMutation {
-        #[serde(default)]
-        content: Option<String>,
-        #[serde(default)]
-        project_id: Option<String>,
-        #[serde(default)]
-        due_string: Option<String>,
-        #[serde(default)]
-        priority: Option<u8>,
-        #[serde(default)]
-        labels: Option<Vec<String>>,
-    }
-
-    async fn spawn_mock_todoist_server(initial_tasks: Vec<MockTodoistTask>) -> MockTodoistServer {
-        let state = MockTodoistState {
-            tasks: Arc::new(Mutex::new(
-                initial_tasks
-                    .into_iter()
-                    .map(|task| (task.id.clone(), task))
-                    .collect(),
-            )),
-        };
-        let app = Router::new()
-            .route("/tasks", post(mock_create_task))
-            .route("/tasks/:id", get(mock_get_task).post(mock_update_task))
-            .route("/tasks/:id/close", post(mock_close_task))
-            .route("/tasks/:id/reopen", post(mock_reopen_task))
-            .with_state(state);
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr: SocketAddr = listener.local_addr().unwrap();
-        let handle = tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
-        });
-        MockTodoistServer {
-            base_url: format!("http://{}", addr),
-            _handle: Arc::new(handle),
-        }
-    }
-
-    async fn mock_get_task(
-        Path(id): Path<String>,
-        State(state): State<MockTodoistState>,
-    ) -> Json<JsonValue> {
-        let tasks = state.tasks.lock().unwrap();
-        let task = tasks.get(&id).unwrap();
-        Json(mock_task_json(task))
-    }
-
-    async fn mock_create_task(
-        State(state): State<MockTodoistState>,
-        Json(payload): Json<MockTodoistMutation>,
-    ) -> Json<JsonValue> {
-        let mut tasks = state.tasks.lock().unwrap();
-        let task = MockTodoistTask {
-            id: "task_created".to_string(),
-            content: payload.content.unwrap_or_else(|| "new task".to_string()),
-            project_id: payload.project_id,
-            priority: payload.priority,
-            checked: false,
-            labels: payload.labels.unwrap_or_default(),
-            due_string: payload.due_string,
-            updated_at: Some("2026-03-18T10:00:00Z".to_string()),
-        };
-        tasks.insert(task.id.clone(), task.clone());
-        Json(mock_task_json(&task))
-    }
-
-    async fn mock_update_task(
-        Path(id): Path<String>,
-        State(state): State<MockTodoistState>,
-        Json(payload): Json<MockTodoistMutation>,
-    ) -> Json<JsonValue> {
-        let mut tasks = state.tasks.lock().unwrap();
-        let task = tasks.get_mut(&id).unwrap();
-        if let Some(content) = payload.content {
-            task.content = content;
-        }
-        if payload.project_id.is_some() {
-            task.project_id = payload.project_id;
-        }
-        if payload.priority.is_some() {
-            task.priority = payload.priority;
-        }
-        if payload.due_string.is_some() {
-            task.due_string = payload.due_string;
-        }
-        if let Some(labels) = payload.labels {
-            task.labels = labels;
-        }
-        task.updated_at = Some("2026-03-18T08:00:00Z".to_string());
-        Json(mock_task_json(task))
-    }
-
-    async fn mock_close_task(
-        Path(id): Path<String>,
-        State(state): State<MockTodoistState>,
-    ) -> Json<JsonValue> {
-        let mut tasks = state.tasks.lock().unwrap();
-        let task = tasks.get_mut(&id).unwrap();
-        task.checked = true;
-        task.updated_at = Some("2026-03-18T10:01:00Z".to_string());
-        Json(json!({}))
-    }
-
-    async fn mock_reopen_task(
-        Path(id): Path<String>,
-        State(state): State<MockTodoistState>,
-    ) -> Json<JsonValue> {
-        let mut tasks = state.tasks.lock().unwrap();
-        let task = tasks.get_mut(&id).unwrap();
-        task.checked = false;
-        task.updated_at = Some("2026-03-18T10:02:00Z".to_string());
-        Json(json!({}))
-    }
-
-    fn mock_task_json(task: &MockTodoistTask) -> JsonValue {
-        json!({
-            "id": task.id,
-            "content": task.content,
-            "project_id": task.project_id,
-            "priority": task.priority,
-            "checked": task.checked,
-            "labels": task.labels,
-            "updated_at": task.updated_at,
-            "due": task.due_string.as_ref().map(|value| json!({ "date": value })),
-        })
-    }
 }

@@ -27,8 +27,7 @@ use crate::{
         },
         integrations,
         todoist_write_bridge::{
-            bridge_todoist_write_with_services, TodoistWriteBridgeOutcome,
-            TodoistWriteBridgeRequest,
+            bridge_todoist_write, TodoistWriteBridgeOutcome, TodoistWriteBridgeRequest,
         },
     },
     state::AppState,
@@ -549,11 +548,11 @@ pub async fn todoist_write_intent(
     State(state): State<AppState>,
     Json(payload): Json<CanonicalTodoistWriteIntentRequestData>,
 ) -> Result<Json<ApiResponse<CanonicalTodoistWriteIntentResponseData>>, AppError> {
+    let object_id = payload.object_id.clone();
     let dry_run = payload.dry_run;
     let requested_change = payload.requested_change.clone();
-    let outcome = bridge_todoist_write_with_services(
-        &state.storage,
-        &state.config,
+    let outcome = bridge_todoist_write(
+        state.storage.sql_pool(),
         &TodoistWriteBridgeRequest {
             object_id: payload.object_id,
             revision: payload.revision,
@@ -571,11 +570,7 @@ pub async fn todoist_write_intent(
     emit_canonical_write_audit(
         state.storage.sql_pool(),
         "todoist.task.write",
-        &outcome
-            .task_events
-            .first()
-            .map(|event| event.task_ref.clone())
-            .unwrap_or_else(|| "unknown_task".to_string()),
+        &object_id,
         &requested_change,
         dry_run,
         &outcome.write_intent_id,

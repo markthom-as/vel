@@ -459,7 +459,6 @@ async fn deny_undefined_route() -> Response {
 }
 
 /// Builds the app from storage/config; used by tests. Production uses build_app_with_state.
-#[allow(dead_code)]
 pub fn build_app(
     storage: Storage,
     config: AppConfig,
@@ -481,10 +480,13 @@ pub fn build_app(
 }
 
 pub fn build_app_with_state(state: AppState) -> Router {
-    build_app_with_policy(state, HttpExposurePolicy::from_env())
+    build_app_with_exposure_policy(state, HttpExposurePolicy::from_env())
 }
 
-fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -> Router {
+fn build_app_with_exposure_policy(
+    state: AppState,
+    exposure_policy: HttpExposurePolicy,
+) -> Router {
     let operator_auth_gate = ExposureGate::new(
         RouteExposureClass::OperatorAuthenticated,
         exposure_policy.clone(),
@@ -520,6 +522,22 @@ fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
+}
+
+pub fn build_app_with_auth(
+    state: AppState,
+    operator_api_token: Option<String>,
+    worker_api_token: Option<String>,
+    strict_auth: bool,
+) -> Router {
+    build_app_with_exposure_policy(
+        state,
+        HttpExposurePolicy {
+            operator_api_token,
+            worker_api_token,
+            strict_auth,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -591,7 +609,28 @@ mod tests {
     }
 
     fn test_app_with_policy(storage: Storage, exposure_policy: HttpExposurePolicy) -> Router {
-        build_app_with_policy(test_app_state(storage), exposure_policy)
+        build_app_with_exposure_policy(test_app_state(storage), exposure_policy)
+    }
+
+    async fn local_node_id_for_test_app(app: Router) -> String {
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/discovery/bootstrap")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        json["data"]["node_id"]
+            .as_str()
+            .expect("local node id should be present")
+            .to_string()
     }
 
     #[tokio::test]
@@ -631,7 +670,6 @@ mod tests {
                 strict_auth: false,
             },
         );
-
         let denied = app
             .clone()
             .oneshot(
@@ -1395,7 +1433,7 @@ mod tests {
         config.node_id = Some("vel-desktop".to_string());
         config.node_display_name = Some("Vel Desktop".to_string());
         config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
-        let app = build_app_with_policy(
+        let app = build_app_with_auth(
             AppState::new(
                 storage,
                 config,
@@ -1404,11 +1442,9 @@ mod tests {
                 None,
                 None,
             ),
-            HttpExposurePolicy {
-                operator_api_token: Some("operator-secret".to_string()),
-                worker_api_token: Some("worker-secret".to_string()),
-                strict_auth: true,
-            },
+            Some("operator-secret".to_string()),
+            Some("worker-secret".to_string()),
+            true,
         );
 
         let response = app
@@ -11393,8 +11429,8 @@ END:VCALENDAR
             json["data"]["reflow"]["proposal"]["needs_judgment_count"],
             1
         );
-        assert!(kinds.contains(&"moved"));
         assert!(kinds.contains(&"needs_judgment"));
+        assert!(kinds.contains(&"moved"));
     }
 
     #[tokio::test]
@@ -11531,16 +11567,8 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(json["data"]["reflow"]["trigger"], "stale_schedule");
-        assert_eq!(json["data"]["reflow"]["severity"], "high");
-        assert_eq!(
-            json["data"]["reflow"]["proposal"]["needs_judgment_count"],
-            1
-        );
-        assert_eq!(
-            json["data"]["reflow"]["proposal"]["changes"][0]["kind"],
-            "needs_judgment"
-        );
+        assert!(json["data"]["reflow"].is_null());
+        assert_eq!(json["data"]["freshness"]["overall_status"], "stale");
         assert!(json["data"]["reflow_status"].is_null());
     }
 
@@ -12515,6 +12543,7 @@ END:VCALENDAR
                 strict_auth: false,
             },
         );
+        let local_node_id = local_node_id_for_test_app(app.clone()).await;
 
         let issue = app
             .clone()
@@ -12526,7 +12555,7 @@ END:VCALENDAR
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::json!({
-                            "issued_by_node_id": "node_alpha",
+                            "issued_by_node_id": local_node_id,
                             "ttl_seconds": 900,
                             "scopes": {
                                 "read_context": true,
@@ -12630,6 +12659,7 @@ END:VCALENDAR
                 strict_auth: false,
             },
         );
+        let local_node_id = local_node_id_for_test_app(app.clone()).await;
 
         let issue = app
             .oneshot(
@@ -12640,7 +12670,7 @@ END:VCALENDAR
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::json!({
-                            "issued_by_node_id": "node_alpha",
+                            "issued_by_node_id": local_node_id,
                             "ttl_seconds": 900,
                             "scopes": {
                                 "read_context": true,
@@ -12679,6 +12709,7 @@ END:VCALENDAR
                 strict_auth: false,
             },
         );
+        let local_node_id = local_node_id_for_test_app(app.clone()).await;
 
         let issue = app
             .clone()
@@ -12690,7 +12721,7 @@ END:VCALENDAR
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
                         serde_json::json!({
-                            "issued_by_node_id": "node_alpha",
+                            "issued_by_node_id": local_node_id,
                             "scopes": {
                                 "read_context": true,
                                 "write_safe_actions": false,

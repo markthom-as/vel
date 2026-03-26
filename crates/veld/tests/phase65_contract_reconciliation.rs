@@ -34,6 +34,10 @@ fn request(uri: &str, body: serde_json::Value) -> Request<Body> {
 async fn canonical_todoist_write_route_uses_write_intent_contract_and_preserves_task_events() {
     let storage = Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();
+    storage
+        .set_setting("writeback_enabled", &json!(true))
+        .await
+        .unwrap();
     let app = build_app(
         storage.clone(),
         AppConfig::default(),

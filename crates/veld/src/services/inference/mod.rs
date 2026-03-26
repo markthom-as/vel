@@ -55,15 +55,6 @@ struct TemporalWindows {
     next_event_start_ts: Option<i64>,
 }
 
-#[allow(dead_code)] // Retained for upcoming context/explainability surfacing of message-derived state.
-struct MessageSummary {
-    waiting_on_me_count: usize,
-    waiting_on_others_count: usize,
-    scheduling_thread_count: usize,
-    urgent_thread_count: usize,
-    top_threads: Vec<serde_json::Value>,
-}
-
 struct AttentionState {
     attention_state: &'static str,
     drift_type: Option<&'static str>,
@@ -104,8 +95,6 @@ struct CommitmentPriority {
 struct SignalInputs<'a> {
     has_workstation_activity: bool,
     calendar_events: Vec<&'a vel_storage::SignalRecord>,
-    message_threads: Vec<&'a vel_storage::SignalRecord>,
-    latest_health_signal: Option<&'a vel_storage::SignalRecord>,
     latest_git_activity: Option<&'a vel_storage::SignalRecord>,
     latest_mood_log: Option<&'a vel_storage::SignalRecord>,
     latest_pain_log: Option<&'a vel_storage::SignalRecord>,
@@ -113,9 +102,7 @@ struct SignalInputs<'a> {
     latest_assistant_message: Option<&'a vel_storage::SignalRecord>,
 }
 
-#[allow(dead_code)] // Carries intermediate summaries that will be surfaced by adjacent explain/context routes.
 struct DerivedContextState {
-    message_summary: MessageSummary,
     inference_state: InferenceState,
     next_commitment: NextCommitmentSummary,
     active_nudge_ids: Vec<String>,
@@ -125,8 +112,6 @@ struct DerivedContextState {
     commitments_used: Vec<String>,
     risk_used: Vec<String>,
     attention: AttentionState,
-    health_summary: Option<HealthSummary>,
-    git_activity_summary: Option<GitActivitySummary>,
     mood_summary: Option<MoodSummary>,
     pain_summary: Option<PainSummary>,
     note_document_summary: Option<NoteDocumentSummary>,
@@ -214,7 +199,12 @@ pub async fn run_at(
 
     // Apply signal reducers: calendar, messages, health, git — in explicit deterministic order.
     let registry = ReducerRegistry::new();
-    let context = registry.apply_all(base_context, &signals_today);
+    let mut context = registry.apply_all(base_context, &signals_today);
+    // Reducers still own signal-derived scheduling fields, but adaptive policy overrides are
+    // computed in orchestration. Reapply the authoritative temporal windows after reducers run
+    // so accepted prep/commute overrides survive evaluate persistence.
+    context.next_event_start_ts = temporal_windows.next_event_start_ts;
+    context.leave_by_ts = temporal_windows.leave_by_ts;
 
     persist_inference_outputs(
         storage,
@@ -239,14 +229,6 @@ fn collect_signal_inputs(signals_today: &[vel_storage::SignalRecord]) -> SignalI
             .iter()
             .filter(|signal| signal.signal_type == "calendar_event")
             .collect(),
-        message_threads: signals_today
-            .iter()
-            .filter(|signal| signal.signal_type == "message_thread")
-            .collect(),
-        latest_health_signal: signals_today
-            .iter()
-            .filter(|signal| signal.signal_type == "health_metric")
-            .max_by_key(|signal| signal.timestamp),
         latest_git_activity: signals_today
             .iter()
             .filter(|signal| signal.signal_type == "git_activity")
@@ -284,13 +266,10 @@ fn derive_context_state(
     temporal_windows: &TemporalWindows,
     now_ts: i64,
 ) -> DerivedContextState {
-    let health_summary = signal_inputs
-        .latest_health_signal
-        .and_then(build_health_summary);
-    let recent_git_summary = signal_inputs
+    let recent_git_activity_ts = signal_inputs
         .latest_git_activity
-        .and_then(build_git_activity_summary)
-        .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
+        .and_then(parse_git_activity_timestamp)
+        .filter(|timestamp| now_ts - timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
     let mood_summary = signal_inputs.latest_mood_log.and_then(build_mood_summary);
     let pain_summary = signal_inputs.latest_pain_log.and_then(build_pain_summary);
     let recent_note_summary = signal_inputs
@@ -305,12 +284,11 @@ fn derive_context_state(
         has_next_event,
         temporal_windows.prep_window_active,
         temporal_windows.commute_window_active,
-        recent_git_summary.is_some(),
+        recent_git_activity_ts.is_some(),
         recent_note_summary.is_some(),
         recent_assistant_summary.is_some(),
     );
 
-    let message_summary = derive_message_summary(&signal_inputs.message_threads);
     let next_commitment = summarize_next_commitment(open_commitments, risk_snapshots, now_ts);
     let active_nudge_ids = collect_active_nudge_ids(active_nudges, snoozed_nudges);
     let (top_risk_commitment_ids, risk_used) = summarize_risk_usage(risk_snapshots);
@@ -324,7 +302,6 @@ fn derive_context_state(
     );
 
     DerivedContextState {
-        message_summary,
         inference_state,
         next_commitment,
         active_nudge_ids,
@@ -334,18 +311,10 @@ fn derive_context_state(
         commitments_used,
         risk_used,
         attention,
-        health_summary,
-        git_activity_summary: signal_inputs
-            .latest_git_activity
-            .and_then(build_git_activity_summary),
         mood_summary,
         pain_summary,
-        note_document_summary: signal_inputs
-            .latest_note_document
-            .and_then(build_note_document_summary),
-        assistant_message_summary: signal_inputs
-            .latest_assistant_message
-            .and_then(build_assistant_message_summary),
+        note_document_summary: recent_note_summary,
+        assistant_message_summary: recent_assistant_summary,
     }
 }
 
@@ -493,30 +462,6 @@ async fn collect_inputs(
     })
 }
 
-#[allow(dead_code)] // Preserved as structured health provenance even while current outputs use coarser summaries.
-#[derive(Clone)]
-struct HealthSummary {
-    timestamp: i64,
-    metric_type: String,
-    value: serde_json::Value,
-    unit: Option<String>,
-    source_app: Option<String>,
-    device: Option<String>,
-}
-
-#[allow(dead_code)] // Preserved as structured git provenance even while current outputs use coarser summaries.
-#[derive(Clone)]
-struct GitActivitySummary {
-    timestamp: i64,
-    repo: String,
-    branch: Option<String>,
-    operation: Option<String>,
-    message: Option<String>,
-    files_changed: Option<u32>,
-    insertions: Option<u32>,
-    deletions: Option<u32>,
-}
-
 #[derive(Clone)]
 struct MoodSummary {
     timestamp: i64,
@@ -634,74 +579,6 @@ fn derive_temporal_windows(
         commute_window_active,
         leave_by_ts,
         next_event_start_ts,
-    }
-}
-
-fn derive_message_summary(message_threads: &[&vel_storage::SignalRecord]) -> MessageSummary {
-    let waiting_on_me_threads: Vec<_> = message_threads
-        .iter()
-        .copied()
-        .filter(|signal| {
-            signal
-                .payload_json
-                .get("waiting_state")
-                .and_then(|value| value.as_str())
-                == Some("me")
-        })
-        .collect();
-    let waiting_on_others_count = message_threads
-        .iter()
-        .filter(|signal| {
-            signal
-                .payload_json
-                .get("waiting_state")
-                .and_then(|value| value.as_str())
-                == Some("others")
-        })
-        .count();
-    let scheduling_thread_count = message_threads
-        .iter()
-        .filter(|signal| {
-            signal
-                .payload_json
-                .get("scheduling_related")
-                .and_then(|value| value.as_bool())
-                .unwrap_or(false)
-        })
-        .count();
-    let urgent_thread_count = message_threads
-        .iter()
-        .filter(|signal| {
-            signal
-                .payload_json
-                .get("urgent")
-                .and_then(|value| value.as_bool())
-                .unwrap_or(false)
-        })
-        .count();
-    let top_threads = waiting_on_me_threads
-        .iter()
-        .take(3)
-        .map(|signal| {
-            serde_json::json!({
-                "thread_id": signal.payload_json.get("thread_id").and_then(|value| value.as_str()),
-                "platform": signal.payload_json.get("platform").and_then(|value| value.as_str()),
-                "title": signal.payload_json.get("title").and_then(|value| value.as_str()),
-                "waiting_state": signal.payload_json.get("waiting_state").and_then(|value| value.as_str()),
-                "scheduling_related": signal.payload_json.get("scheduling_related").and_then(|value| value.as_bool()),
-                "urgent": signal.payload_json.get("urgent").and_then(|value| value.as_bool()),
-                "latest_timestamp": signal.payload_json.get("latest_timestamp").and_then(|value| value.as_i64()),
-                "snippet": signal.payload_json.get("snippet").and_then(|value| value.as_str()),
-            })
-        })
-        .collect();
-
-    MessageSummary {
-        waiting_on_me_count: waiting_on_me_threads.len(),
-        waiting_on_others_count,
-        scheduling_thread_count,
-        urgent_thread_count,
-        top_threads,
     }
 }
 
@@ -1038,9 +915,9 @@ fn commitment_updated_at(commitment: &vel_core::Commitment) -> i64 {
         .unwrap_or(i64::MIN)
 }
 
-fn build_git_activity_summary(signal: &vel_storage::SignalRecord) -> Option<GitActivitySummary> {
+fn parse_git_activity_timestamp(signal: &vel_storage::SignalRecord) -> Option<i64> {
     let payload = &signal.payload_json;
-    let repo = payload
+    payload
         .get("repo_name")
         .and_then(serde_json::Value::as_str)
         .map(ToString::to_string)
@@ -1049,71 +926,8 @@ fn build_git_activity_summary(signal: &vel_storage::SignalRecord) -> Option<GitA
                 .get("repo")
                 .and_then(serde_json::Value::as_str)
                 .and_then(repo_basename)
-        })?;
-
-    Some(GitActivitySummary {
-        timestamp: signal.timestamp,
-        repo,
-        branch: payload
-            .get("branch")
-            .and_then(serde_json::Value::as_str)
-            .map(ToString::to_string),
-        operation: payload
-            .get("operation")
-            .and_then(serde_json::Value::as_str)
-            .map(ToString::to_string),
-        message: payload
-            .get("message")
-            .and_then(serde_json::Value::as_str)
-            .map(ToString::to_string),
-        files_changed: payload
-            .get("files_changed")
-            .and_then(serde_json::Value::as_u64)
-            .map(|value| value as u32),
-        insertions: payload
-            .get("insertions")
-            .and_then(serde_json::Value::as_u64)
-            .map(|value| value as u32),
-        deletions: payload
-            .get("deletions")
-            .and_then(serde_json::Value::as_u64)
-            .map(|value| value as u32),
-    })
-}
-
-fn build_health_summary(signal: &vel_storage::SignalRecord) -> Option<HealthSummary> {
-    if signal.signal_type != "health_metric" {
-        return None;
-    }
-
-    Some(HealthSummary {
-        timestamp: signal.timestamp,
-        metric_type: signal
-            .payload_json
-            .get("metric_type")
-            .and_then(serde_json::Value::as_str)?
-            .to_string(),
-        value: signal
-            .payload_json
-            .get("value")
-            .cloned()
-            .unwrap_or(serde_json::Value::Null),
-        unit: signal
-            .payload_json
-            .get("unit")
-            .and_then(serde_json::Value::as_str)
-            .map(ToString::to_string),
-        source_app: signal
-            .payload_json
-            .get("source_app")
-            .and_then(serde_json::Value::as_str)
-            .map(ToString::to_string),
-        device: signal
-            .payload_json
-            .get("device")
-            .and_then(serde_json::Value::as_str)
-            .map(ToString::to_string),
-    })
+        })
+        .map(|_| signal.timestamp)
 }
 
 fn build_mood_summary(signal: &vel_storage::SignalRecord) -> Option<MoodSummary> {
@@ -1379,7 +1193,6 @@ mod tests {
 
         assert!(inputs.has_workstation_activity);
         assert_eq!(inputs.calendar_events.len(), 1);
-        assert_eq!(inputs.message_threads.len(), 1);
         assert_eq!(
             inputs
                 .latest_git_activity
@@ -1903,14 +1716,6 @@ mod tests {
 
         assert_eq!(derived.inference_state.inferred_activity, "coding");
         assert_eq!(derived.next_commitment.id.as_deref(), Some("com_soon"));
-        assert_eq!(
-            derived
-                .git_activity_summary
-                .as_ref()
-                .expect("git activity summary")
-                .repo,
-            "vel"
-        );
         assert_eq!(
             derived
                 .note_document_summary

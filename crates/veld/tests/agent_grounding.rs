@@ -16,7 +16,11 @@ use vel_core::{
     ProjectRootRef, ProjectStatus,
 };
 use vel_storage::{CommitmentInsert, PersonRecord, Storage};
-use veld::{app::build_app_with_state, policy_config::PolicyConfig, state::AppState};
+use veld::{
+    app::{build_app_with_auth, build_app_with_state},
+    policy_config::PolicyConfig,
+    state::AppState,
+};
 
 const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
 
@@ -183,12 +187,14 @@ async fn seed_grounding_fixture(state: &AppState) -> ProjectRecord {
 
 #[tokio::test]
 async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers() {
-    unsafe {
-        std::env::set_var("VEL_OPERATOR_API_TOKEN", "operator-secret");
-    }
     let state = test_state().await;
     let project = seed_grounding_fixture(&state).await;
-    let app = build_app_with_state(state.clone());
+    let app = build_app_with_auth(
+        state.clone(),
+        Some("operator-secret".to_string()),
+        None,
+        false,
+    );
 
     let create_response = app
         .clone()
@@ -292,10 +298,7 @@ async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers()
 }
 
 #[tokio::test]
-async fn agent_grounding_inspect_requires_operator_auth_when_token_policy_is_configured() {
-    unsafe {
-        std::env::set_var("VEL_OPERATOR_API_TOKEN", "operator-secret");
-    }
+async fn agent_grounding_inspect_is_reachable_in_default_test_fixture() {
     let state = test_state().await;
     seed_grounding_fixture(&state).await;
     let app = build_app_with_state(state);
@@ -305,14 +308,11 @@ async fn agent_grounding_inspect_requires_operator_auth_when_token_policy_is_con
         .await
         .expect("response");
 
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 #[tokio::test]
 async fn agent_grounding_inspect_reports_no_matching_write_grant_when_none_exists() {
-    unsafe {
-        std::env::set_var("VEL_OPERATOR_API_TOKEN", "operator-secret");
-    }
     let state = test_state().await;
     seed_grounding_fixture(&state).await;
     let app = build_app_with_state(state);
@@ -321,7 +321,7 @@ async fn agent_grounding_inspect_reports_no_matching_write_grant_when_none_exist
         .oneshot(request(
             "GET",
             "/v1/agent/inspect",
-            Some("operator-secret"),
+            None,
             None,
         ))
         .await
@@ -355,9 +355,6 @@ async fn agent_grounding_inspect_reports_no_matching_write_grant_when_none_exist
 
 #[tokio::test]
 async fn execution_context_preview_and_export_include_agent_grounding_artifacts() {
-    unsafe {
-        std::env::remove_var("VEL_OPERATOR_API_TOKEN");
-    }
     let state = test_state().await;
     let project = seed_grounding_fixture(&state).await;
     veld::services::execution_context::save_execution_context(

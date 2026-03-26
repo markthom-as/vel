@@ -1201,13 +1201,12 @@ async fn morning_assistant_entry_starts_shared_daily_loop_inline() {
         .unwrap_or_default()
         .contains("Morning overview ready"));
 
-    let session_date = time::OffsetDateTime::now_utc().date();
-    let session_date = format!(
-        "{:04}-{:02}-{:02}",
-        session_date.year(),
-        u8::from(session_date.month()),
-        session_date.day()
-    );
+    let timezone = veld::services::timezone::resolve_timezone(&storage)
+        .await
+        .unwrap();
+    let session_date =
+        veld::services::timezone::current_day_date_string(&timezone, time::OffsetDateTime::now_utc())
+            .unwrap();
     let record = storage
         .get_active_daily_session_for_date(&session_date, DailyLoopPhase::MorningOverview)
         .await
@@ -1226,12 +1225,12 @@ async fn standup_assistant_entry_resumes_existing_shared_session() {
         .await
         .unwrap();
 
-    let session_date = format!(
-        "{:04}-{:02}-{:02}",
-        time::OffsetDateTime::now_utc().year(),
-        u8::from(time::OffsetDateTime::now_utc().month()),
-        time::OffsetDateTime::now_utc().day()
-    );
+    let timezone = veld::services::timezone::resolve_timezone(&storage)
+        .await
+        .unwrap();
+    let session_date =
+        veld::services::timezone::current_day_date_string(&timezone, time::OffsetDateTime::now_utc())
+            .unwrap();
     let existing = veld::services::daily_loop::start_session(
         &storage,
         &AppConfig::default(),

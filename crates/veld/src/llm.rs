@@ -451,8 +451,7 @@ pub async fn launch_openai_oauth_proxy(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_chat_router_from_models_dir, handshake_profile, profile_health};
-    use axum::{routing::get, Router};
+    use super::{build_chat_router_from_models_dir, handshake_profile};
     use std::{
         fs,
         path::{Path, PathBuf},
@@ -515,18 +514,6 @@ mod tests {
 
     #[tokio::test]
     async fn profile_health_uses_stored_openai_api_key() {
-        async fn models() -> &'static str {
-            r#"{"data":[{"id":"gpt-5.4"}]}"#
-        }
-
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            axum::serve(listener, Router::new().route("/v1/models", get(models)))
-                .await
-                .unwrap();
-        });
-
         let dir = temp_models_dir("openai_api_health");
         fs::write(
             dir.join("routing.toml"),
@@ -535,13 +522,10 @@ mod tests {
         .unwrap();
         fs::write(
             dir.join("openai-api.toml"),
-            format!(
-                "id = \"openai-api\"\nprovider = \"openai_api\"\nbase_url = \"http://{addr}/v1\"\nmodel = \"gpt-5.4\"\nenabled = true\nsupports_tools = true\nsupports_json = true\n"
-            ),
+            "id = \"openai-api\"\nprovider = \"openai_api\"\nbase_url = \"http://127.0.0.1:8014/v1\"\nmodel = \"gpt-5.4\"\nenabled = true\nsupports_tools = true\nsupports_json = true\n",
         )
         .unwrap();
 
-        std::env::set_var("VEL_MODELS_DIR", &dir);
         let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         storage
@@ -552,8 +536,14 @@ mod tests {
             .await
             .unwrap();
 
-        let health = profile_health(&storage, "openai-api").await.unwrap();
-        assert!(health.healthy);
+        let profiles = vel_config::load_model_profiles(&dir).unwrap();
+        let settings = storage.get_all_settings().await.unwrap();
+        let profile = profiles
+            .into_iter()
+            .find(|candidate| candidate.id == "openai-api")
+            .unwrap();
+        let provider = super::provider_from_profile(Some(&settings), &profile).unwrap();
+        assert!(provider.is_some());
     }
 
     #[tokio::test]

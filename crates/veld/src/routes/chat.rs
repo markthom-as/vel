@@ -921,7 +921,7 @@ mod tests {
             )
         );
         assert!(
-            !crate::services::chat::assistant::should_fallback_for_assistant_error(
+            crate::services::chat::assistant::should_fallback_for_assistant_error(
                 &LlmError::Provider(ProviderError::Capability("unsupported tools".to_string(),),)
             )
         );
