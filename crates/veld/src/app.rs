@@ -50,6 +50,10 @@ fn public_routes(state: AppState) -> Router<AppState> {
 fn operator_authenticated_routes() -> Router<AppState> {
     Router::new()
         .merge(routes::connect::connect_routes())
+        .route(
+            "/v1/command/complete",
+            post(routes::command_lang::complete_command),
+        )
         .route("/v1/command/plan", post(routes::command_lang::plan_command))
         .route(
             "/v1/command/execute",
@@ -62,10 +66,7 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/backup/create", post(routes::backup::create_backup))
         .route("/v1/backup/inspect", post(routes::backup::inspect_backup))
         .route("/v1/backup/verify", post(routes::backup::verify_backup))
-        .route(
-            "/v1/import/batch",
-            post(routes::import::import_batch),
-        )
+        .route("/v1/import/batch", post(routes::import::import_batch))
         .route(
             "/v1/apple/voice/turn",
             post(routes::apple::apple_voice_turn),
@@ -483,10 +484,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
     build_app_with_exposure_policy(state, HttpExposurePolicy::from_env())
 }
 
-fn build_app_with_exposure_policy(
-    state: AppState,
-    exposure_policy: HttpExposurePolicy,
-) -> Router {
+fn build_app_with_exposure_policy(state: AppState, exposure_policy: HttpExposurePolicy) -> Router {
     let operator_auth_gate = ExposureGate::new(
         RouteExposureClass::OperatorAuthenticated,
         exposure_policy.clone(),
