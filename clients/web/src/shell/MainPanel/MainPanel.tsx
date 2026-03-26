@@ -5,6 +5,7 @@ import { contextQueryKeys } from '../../data/context';
 import { buildCoreSetupStatus, loadIntegrations, loadSettings, operatorQueryKeys } from '../../data/operator';
 import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
+import { SurfaceSpinner } from '../../core/SurfaceState';
 import {
   resetSemanticAliasRuntimeOverrides,
   setSemanticAliasRuntimeOverrides,
@@ -20,6 +21,7 @@ import { SystemView } from '../../views/system';
 import { ThreadView } from '../../views/threads';
 import type { IntegrationsData, SettingsData } from '../../types';
 import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
+import { uiFonts } from '../../core/Theme/tokens';
 
 function assistantReplyText(response: AssistantEntryResponse): string | null {
   const content = response.assistant_message?.content;
@@ -133,6 +135,24 @@ interface MainPanelProps {
   onRaiseNudge?: (nudge: NowNudgeBarData) => void;
   onClearNudge?: (nudgeId: string) => void;
   shellOwnsNowNudges?: boolean;
+  shellBootLoading?: boolean;
+}
+
+function MainPanelLoadingState() {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(200,116,43,0.18),_transparent_38%),linear-gradient(180deg,_rgba(23,18,14,0.96),_rgba(10,10,10,0.98))] px-6">
+      <div className="flex max-w-md flex-col items-center text-center">
+        <SurfaceSpinner variant="brand" className="h-16 w-16" />
+        <p className={`${uiFonts.display} mt-5 text-[11px] uppercase tracking-[0.34em] text-[var(--vel-color-accent-soft)]`}>
+          Operator Surface
+        </p>
+        <h2 className="mt-3 text-lg font-medium text-[var(--vel-color-text)]">Loading your current state…</h2>
+        <p className="mt-2 text-sm text-[var(--vel-color-muted)]">
+          Bringing Vel online before rendering live nudges and shell chrome.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export function MainPanel({
@@ -150,6 +170,7 @@ export function MainPanel({
   onRaiseNudge,
   onClearNudge,
   shellOwnsNowNudges = false,
+  shellBootLoading = false,
 }: MainPanelProps) {
   void onOpenSystem;
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
@@ -387,7 +408,9 @@ export function MainPanel({
   }, [handleAssistantEntry, pendingAssistantPayload, reclassifyingIntent]);
 
   let body: ReactNode;
-  if (mainView === 'now') {
+  if (shellBootLoading) {
+    body = <MainPanelLoadingState />;
+  } else if (mainView === 'now') {
     body = (
       <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
         <NowView
@@ -420,7 +443,7 @@ export function MainPanel({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {body}
-      {(assistantEntryMessage || assistantInlineResponse) ? (
+      {!shellBootLoading && (assistantEntryMessage || assistantInlineResponse) ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[35] flex justify-center px-4 sm:px-6">
           <div className="pointer-events-auto max-h-[min(40vh,14rem)] w-full max-w-5xl overflow-y-auto">
             <AssistantEntryFeedback
@@ -449,7 +472,7 @@ export function MainPanel({
           </div>
         </div>
       ) : null}
-      {miniComposerOpen ? null : (
+      {shellBootLoading || miniComposerOpen ? null : (
         <MessageComposer
           compact
           floating

@@ -5,7 +5,30 @@ interface SurfaceStateProps {
   title?: string
 }
 
-export function SurfaceSpinner({ className }: { className?: string }) {
+export function SurfaceSpinner({
+  className,
+  variant = 'default',
+}: {
+  className?: string
+  variant?: 'default' | 'brand'
+}) {
+  if (variant === 'brand') {
+    return (
+      <div
+        className={`relative inline-flex items-center justify-center text-[var(--vel-color-accent)] ${className ?? ''}`}
+        aria-hidden
+      >
+        <span className="absolute inset-0 rounded-full border border-[color:rgba(200,116,43,0.2)]" />
+        <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[var(--vel-color-accent)] border-r-[color:rgba(255,214,170,0.85)] shadow-[0_0_26px_rgba(200,116,43,0.24)]" />
+        <span className="absolute inset-[7px] rounded-full border border-[color:rgba(255,214,170,0.18)]" />
+        <span className="absolute inset-[7px] rounded-full border-2 border-transparent border-b-[color:rgba(255,214,170,0.78)] animate-[spin_1.35s_linear_infinite_reverse]" />
+        <span className="font-display text-[10px] uppercase tracking-[0.34em] text-[var(--vel-color-accent-soft)]">
+          VEL
+        </span>
+      </div>
+    )
+  }
+
   return (
     <svg
       className={`mx-auto mb-3 h-5 w-5 animate-spin ${className ?? ''}`}
