@@ -4009,27 +4009,44 @@ private struct SettingsTab: View {
                 }
             }
         } else {
-            Picker("Discovered node", selection: Binding(
-                get: { selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id ?? "" },
-                set: { selectedDiscoveredNodeID = $0 }
-            )) {
-                ForEach(store.discoveredWorkers) { worker in
-                    Text(worker.node_display_name).tag(worker.node_id)
+            Text("\(store.discoveredWorkers.count) companion node\(store.discoveredWorkers.count == 1 ? "" : "s") available")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach(store.discoveredWorkers) { worker in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .center) {
+                        Text(worker.node_display_name)
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        if (selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id) == worker.node_id {
+                            Text("Selected")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange.opacity(0.14), in: Capsule())
+                        } else {
+                            Button("Use for pairing") {
+                                selectedDiscoveredNodeID = worker.node_id
+                            }
+                            .buttonStyle(.plain)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+                        }
+                    }
+
+                    RemoteNodeSummaryCard(
+                        title: worker.node_display_name,
+                        subtitle: worker.sync_status ?? worker.status,
+                        routes: store.collectRemoteRoutes(
+                            syncBaseURL: worker.sync_base_url,
+                            tailscaleBaseURL: worker.tailscale_base_url,
+                            lanBaseURL: worker.lan_base_url,
+                            publicBaseURL: nil
+                        ).map { RouteSummary(label: $0.label, baseURL: $0.baseURL) },
+                        prompt: worker.incoming_linking_prompt
+                    )
                 }
-            }
-            if let selectedNodeID = selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id,
-               let worker = store.discoveredWorkers.first(where: { $0.node_id == selectedNodeID }) {
-                RemoteNodeSummaryCard(
-                    title: worker.node_display_name,
-                    subtitle: worker.sync_status ?? worker.status,
-                    routes: store.collectRemoteRoutes(
-                        syncBaseURL: worker.sync_base_url,
-                        tailscaleBaseURL: worker.tailscale_base_url,
-                        lanBaseURL: worker.lan_base_url,
-                        publicBaseURL: nil
-                    ).map { RouteSummary(label: $0.label, baseURL: $0.baseURL) },
-                    prompt: worker.incoming_linking_prompt
-                )
             }
         }
     }

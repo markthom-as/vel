@@ -99,6 +99,7 @@ final class VelClientStore: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
 
+        client.configuration = .shared()
         applyCachedState()
         var attemptedCandidates: [URL] = []
 
@@ -150,7 +151,12 @@ final class VelClientStore: ObservableObject {
                 )
                 offlineStore.hydrate(from: bootstrap)
                 offlineStore.saveCachedLinkedNodes(linkedNodes)
-                VelEndpointResolver.saveDiscoveredBaseURLs([candidate])
+                persistDiscoveryRoutes(
+                    activeCandidate: candidate,
+                    bootstrap: bootstrap.cluster,
+                    workers: workers?.workers ?? workersResult.fallbackWorkers,
+                    linkedNodes: linkedNodes
+                )
                 if let morningDailyLoop {
                     offlineStore.saveCachedDailyLoopSession(morningDailyLoop)
                 } else {
@@ -196,6 +202,42 @@ final class VelClientStore: ObservableObject {
         }
 
         return lastError
+    }
+
+    private func persistDiscoveryRoutes(
+        activeCandidate: URL,
+        bootstrap: ClusterBootstrapData,
+        workers: [WorkerPresenceData],
+        linkedNodes: [LinkedNodeData]
+    ) {
+        var discoveredURLs: [URL] = [activeCandidate]
+
+        func append(_ value: String?) {
+            guard let value, let url = URL(string: value), !discoveredURLs.contains(url) else { return }
+            discoveredURLs.append(url)
+        }
+
+        append(bootstrap.sync_base_url)
+        append(bootstrap.tailscale_base_url)
+        append(bootstrap.lan_base_url)
+        append(bootstrap.configured_base_url)
+
+        for worker in workers {
+            append(worker.sync_base_url)
+            append(worker.tailscale_base_url)
+            append(worker.lan_base_url)
+            append(worker.localhost_base_url)
+        }
+
+        for node in linkedNodes {
+            append(node.sync_base_url)
+            append(node.tailscale_base_url)
+            append(node.lan_base_url)
+            append(node.localhost_base_url)
+            append(node.public_base_url)
+        }
+
+        VelEndpointResolver.saveDiscoveredBaseURLs(discoveredURLs)
     }
 
     private func applyOfflineFallback(lastError: Error?) {
