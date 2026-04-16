@@ -220,7 +220,7 @@ Voice and watch reactions must map to the same action vocabulary and proposal/co
 - voice quick phrase examples: `close it`, `reschedule tomorrow 4pm`, `back to inbox`, `delete task`.
 - shells may do local STT/TTS, but action authority remains backend-owned.
 - if voice parsing is uncertain, shell must request typed confirmation before `apply`.
-- current mounted coverage includes the backend contract, CLI contract, and Apple Watch quick reactions; broader Apple voice shortcuts remain a client follow-up until those shells can invoke the same bounded action set without bypassing typed fallback on uncertainty.
+- current mounted coverage includes the backend contract, CLI contract, Apple Watch quick reactions, and iOS voice overdue quick reactions. Apple shells must continue to fall back to typed confirmation when target selection or reschedule payloads are uncertain.
 
 ## Security and Observability Constraints
 

@@ -23,7 +23,7 @@ labels:
 
 Ship the first supervised workflow vertical for morning standup/planning: detect overdue commitments, present bounded action choices, require confirmation before mutation, and persist explainable run/event evidence.
 
-Baseline implementation note: the backend and CLI workflow is mounted. Apple Watch overdue quick reactions are mounted over the same confirmation contract. Broader Apple voice shortcuts and service-layer extraction remain follow-up work.
+Baseline implementation note: the backend and CLI workflow is mounted. Apple Watch and iOS voice overdue quick reactions are mounted over the same confirmation contract. Service-layer extraction remains follow-up work.
 
 # Impacted Files & Symbols
 
@@ -35,6 +35,8 @@ Baseline implementation note: the backend and CLI workflow is mounted. Apple Wat
   - **Symbols**: standup overdue menu/confirm/apply/undo transport DTOs
 - **Crate**: `crates/vel-cli`
   - **Symbols**: standup overdue workflow command wrappers and operator rendering
+- **Client**: `clients/apple`
+  - **Symbols**: Apple Watch and iOS voice overdue quick reactions over the backend confirmation contract
 - **Docs**: `docs/api`
   - **Symbols**: planned API and CLI contract for overdue-task workflow
 
@@ -54,6 +56,7 @@ Baseline implementation note: the backend and CLI workflow is mounted. Apple Wat
 3. Add CLI command wrappers for operator flow (`menu`, `confirm`, `apply`, `undo`).
 4. Persist run-event lineage and before/after commitment state evidence.
 5. Add focused integration tests for happy path, deny path, and duplicate/idempotent apply.
+6. Mount Apple Watch and iOS voice quick reactions over the same backend contract with typed fallback on uncertainty.
 
 # Acceptance Criteria
 
@@ -62,6 +65,7 @@ Baseline implementation note: the backend and CLI workflow is mounted. Apple Wat
 3. [x] Reschedule supports confirm/override of Vel due-date guess with explicit persisted reason.
 4. [x] Undo path is available for supported actions and returns deterministic result.
 5. [x] CLI/operator output is readable and includes run/action evidence references.
+6. [x] Apple Watch and iOS voice surfaces use the same bounded overdue action vocabulary and fail closed to typed fallback when the target or payload is uncertain.
 
 # Verification & Regression
 
@@ -77,3 +81,5 @@ Verification evidence captured on 2026-04-15:
 
 - `cargo test -p veld --test daily_loop_standup`
 - `cargo test -p vel-cli cli_parses_daily_loop_overdue_commands`
+- `swift test --package-path clients/apple/VelAPI --filter DailyLoopTests`
+- `xcodebuild -project clients/apple/Vel.xcodeproj -scheme VeliOS -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`

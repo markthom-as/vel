@@ -3096,7 +3096,7 @@ private struct VoiceTab: View {
                         .clipShape(Capsule())
                 }
 
-                if voiceModel.suggestedIntent.requiresNudgeTarget || voiceModel.suggestedIntent.requiresCommitmentTarget {
+                if voiceModel.suggestedIntent.requiresNudgeTarget || voiceModel.suggestedIntent.requiresCommitmentTarget || voiceModel.suggestedIntent.requiresOverdueTarget {
                     Text(voiceModel.targetHint(from: store.nudges, commitments: store.commitments))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -5200,6 +5200,10 @@ private struct VoiceIntent: Codable, Equatable {
         case queryNudges = "query_nudges"
         case explainWhy = "explain_why"
         case behaviorSummary = "behavior_summary"
+        case overdueClose = "overdue_close"
+        case overdueReschedule = "overdue_reschedule"
+        case overdueBackToInbox = "overdue_back_to_inbox"
+        case overdueTombstone = "overdue_tombstone"
     }
 
     let kind: Kind
@@ -5220,6 +5224,10 @@ private struct VoiceIntent: Codable, Equatable {
     static let queryNudges = VoiceIntent(kind: .queryNudges, minutes: nil)
     static let explainWhy = VoiceIntent(kind: .explainWhy, minutes: nil)
     static let behaviorSummary = VoiceIntent(kind: .behaviorSummary, minutes: nil)
+    static let overdueClose = VoiceIntent(kind: .overdueClose, minutes: nil)
+    static let overdueReschedule = VoiceIntent(kind: .overdueReschedule, minutes: nil)
+    static let overdueBackToInbox = VoiceIntent(kind: .overdueBackToInbox, minutes: nil)
+    static let overdueTombstone = VoiceIntent(kind: .overdueTombstone, minutes: nil)
     static func nudgeSnooze(_ minutes: Int) -> VoiceIntent {
         VoiceIntent(kind: .nudgeSnooze, minutes: minutes)
     }
@@ -5246,6 +5254,14 @@ private struct VoiceIntent: Codable, Equatable {
             self = .explainWhy
         case "behavior_summary":
             self = .behaviorSummary
+        case "overdue_close":
+            self = .overdueClose
+        case "overdue_reschedule":
+            self = .overdueReschedule
+        case "overdue_back_to_inbox":
+            self = .overdueBackToInbox
+        case "overdue_tombstone":
+            self = .overdueTombstone
         default:
             guard storageToken.hasPrefix("nudge_snooze_"),
                   let minutesToken = storageToken
@@ -5285,6 +5301,14 @@ private struct VoiceIntent: Codable, Equatable {
             return "Explain why now"
         case .behaviorSummary:
             return "Behavior summary"
+        case .overdueClose:
+            return "Close overdue task"
+        case .overdueReschedule:
+            return "Reschedule overdue task"
+        case .overdueBackToInbox:
+            return "Return overdue task to inbox"
+        case .overdueTombstone:
+            return "Delete overdue task"
         }
     }
 
@@ -5312,6 +5336,14 @@ private struct VoiceIntent: Codable, Equatable {
             return "explain_why"
         case .behaviorSummary:
             return "behavior_summary"
+        case .overdueClose:
+            return "overdue_close"
+        case .overdueReschedule:
+            return "overdue_reschedule"
+        case .overdueBackToInbox:
+            return "overdue_back_to_inbox"
+        case .overdueTombstone:
+            return "overdue_tombstone"
         }
     }
 
@@ -5323,11 +5355,15 @@ private struct VoiceIntent: Codable, Equatable {
         kind == .commitmentDone
     }
 
+    var requiresOverdueTarget: Bool {
+        overdueAction != nil
+    }
+
     var isQuery: Bool {
         switch kind {
         case .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
             return true
-        case .captureCreate, .commitmentCreate, .commitmentDone, .nudgeDone, .nudgeSnooze:
+        case .captureCreate, .commitmentCreate, .commitmentDone, .nudgeDone, .nudgeSnooze, .overdueClose, .overdueReschedule, .overdueBackToInbox, .overdueTombstone:
             return false
         }
     }
@@ -5356,6 +5392,8 @@ private struct VoiceIntent: Codable, Equatable {
             return .explainWhy
         case .behaviorSummary:
             return .behaviorSummary
+        case .overdueClose, .overdueReschedule, .overdueBackToInbox, .overdueTombstone:
+            return nil
         }
     }
 
@@ -5369,6 +5407,23 @@ private struct VoiceIntent: Codable, Equatable {
             return .mutation
         case .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
             return .queryOnly
+        case .overdueClose, .overdueReschedule, .overdueBackToInbox, .overdueTombstone:
+            return nil
+        }
+    }
+
+    var overdueAction: DailyLoopOverdueActionData? {
+        switch kind {
+        case .overdueClose:
+            return .close
+        case .overdueReschedule:
+            return .reschedule
+        case .overdueBackToInbox:
+            return .backToInbox
+        case .overdueTombstone:
+            return .tombstone
+        default:
+            return nil
         }
     }
 
@@ -5461,6 +5516,11 @@ private enum VoiceIntentParser {
             return VoiceIntentSuggestion(intent: .behaviorSummary, cleanedText: clean)
         }
 
+        if let overdueAction = overdueActionIntent(for: normalized) {
+            let stripped = stripOverduePreamble(from: clean)
+            return VoiceIntentSuggestion(intent: overdueAction, cleanedText: stripped.isEmpty ? clean : stripped)
+        }
+
         if normalized.contains("snooze") {
             return VoiceIntentSuggestion(intent: .nudgeSnooze(extractMinutes(from: normalized) ?? 10), cleanedText: clean)
         }
@@ -5551,6 +5611,53 @@ private enum VoiceIntentParser {
         return value.trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
     }
 
+    private static func stripOverduePreamble(from transcript: String) -> String {
+        var value = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixes = [
+            "close overdue",
+            "close the overdue",
+            "reschedule overdue",
+            "reschedule the overdue",
+            "move overdue",
+            "move the overdue",
+            "back to inbox overdue",
+            "return overdue",
+            "return the overdue",
+            "delete overdue",
+            "delete the overdue",
+            "tombstone overdue",
+            "tombstone the overdue",
+            "overdue"
+        ]
+
+        for prefix in prefixes {
+            let lowercased = value.lowercased()
+            if lowercased.hasPrefix(prefix) {
+                let index = value.index(value.startIndex, offsetBy: prefix.count)
+                value = String(value[index...])
+                    .trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
+                break
+            }
+        }
+
+        let suffixes = [
+            " back to inbox",
+            " to inbox",
+            " done",
+            " complete",
+            " completed",
+            " tomorrow",
+            " later"
+        ]
+        for suffix in suffixes where value.lowercased().hasSuffix(suffix) {
+            value = String(value.dropLast(suffix.count))
+                .trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
+            break
+        }
+
+        return value
+    }
+
     private static func isMorningBriefingQuery(_ text: String) -> Bool {
         [
             "good morning",
@@ -5609,6 +5716,28 @@ private enum VoiceIntentParser {
             "health summary",
             "how am i moving"
         ].contains(where: { text.contains($0) })
+    }
+
+    private static func overdueActionIntent(for text: String) -> VoiceIntent? {
+        let mentionsOverdue = text.contains("overdue") || text.contains("late task") || text.contains("late commitment")
+        let backToInbox = text.contains("back to inbox") || text.contains("return to inbox") || text.contains("send to inbox")
+        let reschedule = text.contains("reschedule")
+            || text.contains("move overdue")
+            || text.contains("move the overdue")
+            || (mentionsOverdue && (text.contains("tomorrow") || text.contains("later")))
+        let tombstone = text.contains("tombstone") || (mentionsOverdue && (text.contains("delete") || text.contains("remove")))
+        let close = text.contains("close overdue")
+            || text.contains("close the overdue")
+            || (mentionsOverdue && (text.contains("done") || text.contains("complete") || text.contains("completed")))
+
+        let candidates: [VoiceIntent] = [
+            backToInbox ? .overdueBackToInbox : nil,
+            reschedule ? .overdueReschedule : nil,
+            tombstone ? .overdueTombstone : nil,
+            close ? .overdueClose : nil,
+        ].compactMap { $0 }
+
+        return candidates.count == 1 ? candidates[0] : nil
     }
 
     private static func isNudgeDoneCommand(_ text: String) -> Bool {
@@ -5780,7 +5909,8 @@ private struct VoiceCommandExample: Identifiable {
         VoiceCommandExample(id: "nudges", label: "Active nudges", command: "What are my active nudges?"),
         VoiceCommandExample(id: "behavior", label: "Behavior summary", command: "Give me a behavior summary"),
         VoiceCommandExample(id: "done", label: "Mark meds done", command: "Mark meds done"),
-        VoiceCommandExample(id: "snooze", label: "Snooze 10", command: "Snooze that 10 minutes")
+        VoiceCommandExample(id: "snooze", label: "Snooze 10", command: "Snooze that 10 minutes"),
+        VoiceCommandExample(id: "overdue", label: "Close overdue", command: "Close overdue task")
     ]
 }
 
@@ -5900,6 +6030,14 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return "No active nudge available. Submission falls back to capture-only provenance."
             }
             return "Target nudge: \(topNudge.message)"
+        }
+
+        if suggestedIntent.requiresOverdueTarget {
+            let target = suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if target.isEmpty {
+                return "Uses the backend overdue menu. If more than one overdue item exists, type the task text first."
+            }
+            return "Overdue target phrase: \(target)"
         }
 
         if suggestedIntent.requiresCommitmentTarget {
@@ -6029,6 +6167,25 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             ? text
             : suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        if intent.overdueAction != nil {
+            let result = await submitOverdueVoiceAction(
+                using: store,
+                transcript: text,
+                primaryText: primaryText,
+                intent: intent
+            )
+            appendHistoryEntry(
+                transcript: text,
+                suggestedIntent: suggestedIntent,
+                committedIntent: result.committedIntent,
+                status: result.historyStatus,
+                threadID: result.threadID
+            )
+            errorMessage = result.errorMessage
+            offlineStore.clearVoiceDraft()
+            return
+        }
+
         if intent.usesBackendVoiceTurn {
             let result = await submitBackendVoiceTurn(
                 using: store,
@@ -6153,6 +6310,70 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         return second.score >= max(first.score - 8, 35)
     }
 
+    private struct OverdueMatch {
+        let item: DailyLoopOverdueMenuItemData
+        let score: Int
+    }
+
+    private func rankedOverdueMatches(
+        for query: String,
+        in items: [DailyLoopOverdueMenuItemData]
+    ) -> [OverdueMatch] {
+        let normalizedQuery = normalizeForMatching(query)
+        if normalizedQuery.isEmpty, items.count == 1, let item = items.first {
+            return [OverdueMatch(item: item, score: 100)]
+        }
+        guard !normalizedQuery.isEmpty else { return [] }
+        let queryTokens = Set(normalizedQuery.split(separator: " ").map(String.init))
+
+        let matches = items.compactMap { item -> OverdueMatch? in
+            let normalizedTitle = normalizeForMatching(item.title)
+            guard !normalizedTitle.isEmpty else { return nil }
+
+            var score = 0
+            if normalizedTitle == normalizedQuery {
+                score += 120
+            }
+            if normalizedTitle.hasPrefix(normalizedQuery) {
+                score += 30
+            }
+            if normalizedTitle.contains(normalizedQuery) {
+                score += 80
+            }
+            if normalizedQuery.contains(normalizedTitle) {
+                score += 30
+            }
+
+            let titleTokens = Set(normalizedTitle.split(separator: " ").map(String.init))
+            score += queryTokens.intersection(titleTokens).count * 15
+            guard score > 0 else { return nil }
+            return OverdueMatch(item: item, score: score)
+        }
+
+        return matches.sorted { lhs, rhs in
+            if lhs.score != rhs.score {
+                return lhs.score > rhs.score
+            }
+            switch (lhs.item.due_at, rhs.item.due_at) {
+            case let (l?, r?):
+                return l < r
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                return lhs.item.title < rhs.item.title
+            }
+        }
+    }
+
+    private func isAmbiguousTopOverdueMatch(_ matches: [OverdueMatch]) -> Bool {
+        guard matches.count > 1 else { return false }
+        let first = matches[0]
+        let second = matches[1]
+        return second.score >= max(first.score - 8, 35)
+    }
+
     private func normalizeForMatching(_ text: String) -> String {
         text
             .lowercased()
@@ -6219,6 +6440,157 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         )
     }
 
+    private func submitOverdueVoiceAction(
+        using store: VelClientStore,
+        transcript: String,
+        primaryText: String,
+        intent: VoiceIntent
+    ) async -> VoiceSubmitResult {
+        guard store.isReachable else {
+            let capturePayload = voiceCapturePayload(transcript: transcript, intent: intent)
+            await store.createCapture(
+                text: capturePayload,
+                type: "voice_note",
+                source: "apple_ios_voice"
+            )
+            let packet = voiceOfflineResponsePacket(scenario: "backend_required_offline")
+            setResponse(
+                summary: packet?.summary ?? "Reconnect to resolve overdue work.",
+                detail: packet?.detail ?? "Overdue mutations require the backend confirmation contract."
+            )
+            return VoiceSubmitResult(
+                committedIntent: nil,
+                historyStatus: packet?.historyStatus ?? "backend_required",
+                threadID: nil,
+                errorMessage: packet?.errorPrefix ?? "Transcript preserved, but overdue actions require the backend route."
+            )
+        }
+
+        guard let action = intent.overdueAction else {
+            return VoiceSubmitResult(
+                committedIntent: nil,
+                historyStatus: "unsupported",
+                threadID: nil,
+                errorMessage: "This overdue voice action is not supported."
+            )
+        }
+
+        do {
+            let session = try await activeStandupSession(using: store)
+            let menu = try await store.client.dailyLoopOverdueMenu(
+                sessionID: session.id,
+                request: DailyLoopOverdueMenuRequestData(today: session.session_date, include_vel_guess: true, limit: 10)
+            )
+            guard !menu.items.isEmpty else {
+                setResponse(summary: "No overdue standup tasks.", detail: "The backend overdue menu is empty for this standup session.")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "needs_clarification",
+                    threadID: nil,
+                    errorMessage: "No overdue item is available to mutate."
+                )
+            }
+
+            let matches = rankedOverdueMatches(for: primaryText, in: menu.items)
+            guard let item = matches.first?.item, !isAmbiguousTopOverdueMatch(matches) else {
+                let options = menu.items.prefix(3).map(\.title).joined(separator: " | ")
+                setResponse(summary: "Choose the overdue task first.", detail: options.isEmpty ? nil : "Could match: \(options)")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "needs_clarification",
+                    threadID: nil,
+                    errorMessage: "Overdue voice target is ambiguous; use typed confirmation."
+                )
+            }
+            guard item.actions.contains(action) else {
+                setResponse(summary: "Action unavailable for this task.", detail: item.title)
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "needs_clarification",
+                    threadID: nil,
+                    errorMessage: "The backend did not offer that overdue action for the matched task."
+                )
+            }
+
+            let payload: DailyLoopOverdueReschedulePayloadData?
+            if action == .reschedule {
+                guard let guess = item.vel_due_guess else {
+                    setResponse(summary: "Reschedule needs typed confirmation.", detail: "No Vel due-date guess was returned for \(item.title).")
+                    return VoiceSubmitResult(
+                        committedIntent: nil,
+                        historyStatus: "needs_clarification",
+                        threadID: nil,
+                        errorMessage: "Reschedule requires a backend due-date guess or typed override."
+                    )
+                }
+                payload = DailyLoopOverdueReschedulePayloadData(
+                    due_at: guess.suggested_due_at,
+                    source: "vel_guess"
+                )
+            } else {
+                payload = nil
+            }
+
+            let confirm = try await store.client.dailyLoopOverdueConfirm(
+                sessionID: session.id,
+                request: DailyLoopOverdueConfirmRequestData(
+                    commitment_id: item.commitment_id,
+                    action: action,
+                    payload: payload,
+                    operator_reason: "apple_ios_voice_quick_reaction"
+                )
+            )
+            let applied = try await store.client.dailyLoopOverdueApply(
+                sessionID: session.id,
+                request: DailyLoopOverdueApplyRequestData(
+                    proposal_id: confirm.proposal_id,
+                    idempotency_key: confirm.idempotency_hint,
+                    confirmation_token: confirm.confirmation_token
+                )
+            )
+
+            await refreshBackendCaches(using: store)
+            await store.refresh()
+            setResponse(
+                summary: "\(overdueActionDisplayName(action)) applied.",
+                detail: "\(item.title). Run \(applied.run_id)."
+            )
+            return VoiceSubmitResult(
+                committedIntent: intent,
+                historyStatus: "submitted",
+                threadID: nil,
+                errorMessage: nil
+            )
+        } catch {
+            let capturePayload = voiceCapturePayload(transcript: transcript, intent: intent)
+            await store.createCapture(
+                text: capturePayload,
+                type: "voice_note",
+                source: "apple_ios_voice"
+            )
+            setResponse(summary: "Use typed confirmation for this overdue action.", detail: error.localizedDescription)
+            return VoiceSubmitResult(
+                committedIntent: nil,
+                historyStatus: "needs_clarification",
+                threadID: nil,
+                errorMessage: "Overdue voice action did not apply. \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func activeStandupSession(using store: VelClientStore) async throws -> DailyLoopSessionData {
+        if let session = store.standupDailyLoop {
+            return session
+        }
+        if let session = try await store.client.activeDailyLoopSession(
+            sessionDate: sessionDateForApple(),
+            phase: .standup
+        ) {
+            return session
+        }
+        throw VoiceShortcutError.missingStandupSession
+    }
+
     private func submitViaQueuedShell(
         using store: VelClientStore,
         transcript: String,
@@ -6265,7 +6637,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 threadID: nil,
                 errorMessage: store.isReachable ? nil : (responsePacket?.errorPrefix ?? "Commitment request queued for sync.")
             )
-        case .commitmentDone, .nudgeDone, .nudgeSnooze, .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
+        case .commitmentDone, .nudgeDone, .nudgeSnooze, .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary, .overdueClose, .overdueReschedule, .overdueBackToInbox, .overdueTombstone:
             let packet = voiceOfflineResponsePacket(scenario: "backend_required_shell")
             setResponse(summary: packet?.summary ?? "This voice action now requires the backend Apple route.", detail: packet?.detail ?? "Reconnect to Vel so the server can interpret and answer it.")
             return VoiceSubmitResult(
@@ -6433,7 +6805,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Showing cached backend behavior summary only.", underlyingError: underlyingError)
             )
-        case .queryNudges, .explainWhy:
+        case .queryNudges, .explainWhy, .overdueClose, .overdueReschedule, .overdueBackToInbox, .overdueTombstone:
             let packet = voiceOfflineResponsePacket(scenario: "backend_required_offline")
             setResponse(summary: packet?.summary ?? "Unavailable offline.", detail: packet?.detail ?? "This reply is backend-owned and is not synthesized from local Swift cache.")
             return VoiceSubmitResult(
@@ -6935,6 +7307,30 @@ private func sessionDateForApple(_ date: Date = .now) -> String {
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter.string(from: date)
+}
+
+private enum VoiceShortcutError: LocalizedError {
+    case missingStandupSession
+
+    var errorDescription: String? {
+        switch self {
+        case .missingStandupSession:
+            return "Start standup before using overdue voice shortcuts."
+        }
+    }
+}
+
+private func overdueActionDisplayName(_ action: DailyLoopOverdueActionData) -> String {
+    switch action {
+    case .close:
+        return "Close overdue"
+    case .reschedule:
+        return "Reschedule overdue"
+    case .backToInbox:
+        return "Back to inbox"
+    case .tombstone:
+        return "Delete overdue"
+    }
 }
 
 private struct ProjectGroupSection: Identifiable {

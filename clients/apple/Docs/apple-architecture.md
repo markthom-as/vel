@@ -59,7 +59,7 @@ Canonical authority for this stance lives in [apple-watch-edge-client-contract.m
 
 ## Next Moves
 
-1. Keep the overdue watch shortcuts event-first and edge-only as the backend confirmation contract evolves.
+1. Keep overdue Watch and iOS voice shortcuts event-first and backend-owned as the confirmation contract evolves.
 2. Route widget/complication timeline state from durable backend snapshots and bounded iPhone bridge cache.
 3. Expand watch-originated signal vocabulary only through typed event-log contracts.
 4. Expand App Intents from placeholder intent execution to auth-aware action routing.
