@@ -68,6 +68,7 @@
 - fifty-sixth DTO slice: `runs` module owns run summary/detail/update DTOs and their datetime contract test, with root re-exports preserving runs route, CLI, web, websocket cache, and test references
 - fifty-seventh DTO slice: `chat` module owns conversation and message DTOs, with root re-exports preserving chat route, CLI client, web, and command payload references
 - fifty-eighth DTO slice: `signals` module owns signal create/read DTOs, with root re-exports preserving signal route, CLI client, sync bootstrap, and test references
+- fifty-ninth DTO slice: `nudges` module owns nudge DTOs, with root re-exports preserving nudge route, sync bootstrap, CLI client, web, and test references
 
 ### Automated
 
@@ -135,6 +136,7 @@
 - fifty-sixth DTO slice: `cargo test -p vel-api-types run_summary_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-eighth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- fifty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
