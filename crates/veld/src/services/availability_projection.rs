@@ -1,7 +1,6 @@
-use chrono::{DateTime, NaiveDate, Utc};
 use serde_json::json;
 use sqlx::SqlitePool;
-use time::OffsetDateTime;
+use time::{format_description::well_known::Rfc3339, Date, OffsetDateTime, Time, UtcOffset};
 use vel_core::{
     AllDayHandlingRule, AvailabilityBasis, AvailabilityConfidence, AvailabilityPolicyConfig,
     AvailabilityResult, AvailabilityWindow, BlockingInterval, Calendar, Event, EventMomentKind,
@@ -24,8 +23,8 @@ pub struct AvailabilityProjectionService;
 
 impl AvailabilityProjectionService {
     pub fn project(
-        window_start: DateTime<Utc>,
-        window_end: DateTime<Utc>,
+        window_start: OffsetDateTime,
+        window_end: OffsetDateTime,
         config: &AvailabilityPolicyConfig,
         events: &[AvailabilityEventInput],
     ) -> Result<AvailabilityWindow, AppError> {
@@ -92,8 +91,8 @@ impl AvailabilityProjectionService {
             blocking_intervals.push(BlockingInterval {
                 event_id: input.event.id.to_string(),
                 calendar_id: input.calendar.id.to_string(),
-                start: event_start.to_rfc3339(),
-                end: event_end.to_rfc3339(),
+                start: format_utc_rfc3339(event_start)?,
+                end: format_utc_rfc3339(event_end)?,
                 reason: "opaque_calendar_event".to_string(),
             });
         }
@@ -104,8 +103,8 @@ impl AvailabilityProjectionService {
         filters_applied.sort();
 
         Ok(AvailabilityWindow {
-            window_start: window_start.to_rfc3339(),
-            window_end: window_end.to_rfc3339(),
+            window_start: format_utc_rfc3339(window_start)?,
+            window_end: format_utc_rfc3339(window_end)?,
             result: if blocking_intervals.is_empty() {
                 AvailabilityResult::Free
             } else {
@@ -151,36 +150,50 @@ impl AvailabilityProjectionService {
 fn blocking_bounds(
     event: &Event,
     all_day_rule: AllDayHandlingRule,
-) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>, AppError> {
+) -> Result<Option<(OffsetDateTime, OffsetDateTime)>, AppError> {
     match (&event.start.kind, &event.end.kind) {
         (EventMomentKind::ZonedDateTime, EventMomentKind::ZonedDateTime) => {
-            let start = DateTime::parse_from_rfc3339(&event.start.value)
+            let start = OffsetDateTime::parse(&event.start.value, &Rfc3339)
                 .map_err(|error| AppError::bad_request(format!("invalid event start: {error}")))?
-                .with_timezone(&Utc);
-            let end = DateTime::parse_from_rfc3339(&event.end.value)
+                .to_offset(UtcOffset::UTC);
+            let end = OffsetDateTime::parse(&event.end.value, &Rfc3339)
                 .map_err(|error| AppError::bad_request(format!("invalid event end: {error}")))?
-                .with_timezone(&Utc);
+                .to_offset(UtcOffset::UTC);
             Ok(Some((start, end)))
         }
         (EventMomentKind::AllDay, EventMomentKind::AllDay) => match all_day_rule {
             AllDayHandlingRule::RespectTransparency => {
-                let start = NaiveDate::parse_from_str(&event.start.value, "%Y-%m-%d")
+                let date_format = time::format_description::parse("[year]-[month]-[day]")
+                    .expect("hardcoded date format should parse");
+                let start = Date::parse(&event.start.value, &date_format)
                     .map_err(|error| {
                         AppError::bad_request(format!("invalid all-day start: {error}"))
                     })?
-                    .and_hms_opt(0, 0, 0)
-                    .ok_or_else(|| AppError::bad_request("invalid all-day start time"))?
-                    .and_utc();
-                let end = NaiveDate::parse_from_str(&event.end.value, "%Y-%m-%d")
+                    .with_time(Time::MIDNIGHT)
+                    .assume_utc();
+                let end = Date::parse(&event.end.value, &date_format)
                     .map_err(|error| {
                         AppError::bad_request(format!("invalid all-day end: {error}"))
                     })?
-                    .and_hms_opt(23, 59, 59)
-                    .ok_or_else(|| AppError::bad_request("invalid all-day end time"))?
-                    .and_utc();
+                    .with_time(
+                        Time::from_hms(23, 59, 59)
+                            .expect("hardcoded all-day end time should parse"),
+                    )
+                    .assume_utc();
                 Ok(Some((start, end)))
             }
         },
         _ => Ok(None),
     }
+}
+
+fn format_utc_rfc3339(value: OffsetDateTime) -> Result<String, AppError> {
+    let formatted = value
+        .to_offset(UtcOffset::UTC)
+        .format(&Rfc3339)
+        .map_err(|error| AppError::internal(error.to_string()))?;
+    Ok(formatted
+        .strip_suffix('Z')
+        .map(|prefix| format!("{prefix}+00:00"))
+        .unwrap_or(formatted))
 }

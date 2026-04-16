@@ -1,6 +1,6 @@
-use chrono::{TimeZone, Utc};
 use serde_json::Value;
 use sqlx::SqlitePool;
+use time::macros::datetime;
 use vel_core::{
     AllDayHandlingRule, AvailabilityPolicyConfig, AvailabilityResult, Calendar, CalendarId,
     CalendarVisibility, DeclinedResponsePolicy, Event, EventId, EventLocation, EventMoment,
@@ -85,8 +85,8 @@ async fn availability_derives_from_canonical_state_and_stays_projection_only() {
     migrate_storage(&pool).await.unwrap();
 
     let availability = AvailabilityProjectionService::project(
-        Utc.with_ymd_and_hms(2026, 3, 23, 8, 0, 0).unwrap(),
-        Utc.with_ymd_and_hms(2026, 3, 23, 9, 0, 0).unwrap(),
+        datetime!(2026-03-23 8:00:00 UTC),
+        datetime!(2026-03-23 9:00:00 UTC),
         &config(),
         &[
             AvailabilityEventInput {
@@ -168,8 +168,8 @@ async fn availability_derives_from_canonical_state_and_stays_projection_only() {
 #[test]
 fn availability_explain_reports_basis_sources_filters_and_decision() {
     let availability = AvailabilityProjectionService::project(
-        Utc.with_ymd_and_hms(2026, 3, 23, 8, 0, 0).unwrap(),
-        Utc.with_ymd_and_hms(2026, 3, 23, 9, 0, 0).unwrap(),
+        datetime!(2026-03-23 8:00:00 UTC),
+        datetime!(2026-03-23 9:00:00 UTC),
         &config(),
         &[AvailabilityEventInput {
             calendar: calendar("calendar_personal"),

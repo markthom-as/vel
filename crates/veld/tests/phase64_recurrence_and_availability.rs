@@ -1,6 +1,6 @@
 use chrono::{TimeZone, Utc};
 use serde_json::Value;
-use time::OffsetDateTime;
+use time::{macros::datetime, OffsetDateTime};
 use vel_adapters_google_calendar::{
     apply_google_upstream_delete, bridge_google_availability_input,
     google_availability_projection_envelope, map_google_calendar, map_google_event,
@@ -185,8 +185,8 @@ fn google_recurrence_and_availability_stay_native_core_aligned() {
     );
 
     let availability = AvailabilityProjectionService::project(
-        Utc.with_ymd_and_hms(2026, 3, 23, 8, 0, 0).unwrap(),
-        Utc.with_ymd_and_hms(2026, 3, 23, 9, 0, 0).unwrap(),
+        datetime!(2026-03-23 8:00:00 UTC),
+        datetime!(2026-03-23 9:00:00 UTC),
         &availability_config(),
         &[
             to_projection_input(busy),

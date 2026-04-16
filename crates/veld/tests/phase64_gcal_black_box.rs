@@ -1,7 +1,7 @@
 use chrono::TimeZone;
 use serde_json::json;
 use sqlx::SqlitePool;
-use time::OffsetDateTime;
+use time::{macros::datetime, OffsetDateTime};
 use vel_adapters_google_calendar::{
     apply_google_upstream_delete, bridge_google_availability_input,
     google_availability_projection_envelope, google_calendar_module_manifest, import_google_window,
@@ -186,8 +186,8 @@ async fn google_calendar_black_box_proves_account_window_calendar_event_particip
     assert_eq!(occurrences.len(), 2);
 
     let availability = AvailabilityProjectionService::project(
-        chrono::Utc.with_ymd_and_hms(2026, 3, 24, 9, 0, 0).unwrap(),
-        chrono::Utc.with_ymd_and_hms(2026, 3, 24, 10, 0, 0).unwrap(),
+        datetime!(2026-03-24 9:00:00 UTC),
+        datetime!(2026-03-24 10:00:00 UTC),
         &AvailabilityPolicyConfig {
             included_calendar_ids: vec![mapped_calendar.calendar.id.clone()],
             source_account_ids: vec![account.id.clone()],
