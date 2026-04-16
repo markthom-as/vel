@@ -17,6 +17,7 @@ mod check_in;
 mod client_sync;
 mod commands;
 mod common;
+mod components;
 mod conflicts;
 mod connect;
 mod context;
@@ -57,6 +58,7 @@ pub use check_in::*;
 pub use client_sync::*;
 pub use commands::*;
 pub use common::*;
+pub use components::*;
 pub use conflicts::*;
 pub use connect::*;
 pub use context::*;
@@ -414,28 +416,6 @@ pub struct UncertaintyData {
     pub status: String,
     pub created_at: UnixSeconds,
     pub resolved_at: Option<UnixSeconds>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComponentData {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub status: String,
-    pub last_restarted_at: Option<i64>,
-    pub last_error: Option<String>,
-    pub restart_count: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComponentLogEventData {
-    pub id: String,
-    pub component_id: String,
-    pub event_name: String,
-    pub status: String,
-    pub message: String,
-    pub payload: JsonValue,
-    pub created_at: UnixSeconds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
