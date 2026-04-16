@@ -115,3 +115,34 @@ impl From<vel_core::TrustedNodeReachability> for TrustedNodeReachabilityData {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustBootstrapArtifactData {
+    pub artifact_id: String,
+    pub trusted_node_id: String,
+    pub trusted_node_display_name: String,
+    pub scopes: LinkScopeData,
+    #[serde(default)]
+    pub preferred_transport_hint: Option<String>,
+    #[serde(default)]
+    pub endpoints: Vec<TrustedNodeEndpointData>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub issued_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub expires_at: Option<OffsetDateTime>,
+}
+
+impl From<vel_core::TrustBootstrapArtifactRecord> for TrustBootstrapArtifactData {
+    fn from(value: vel_core::TrustBootstrapArtifactRecord) -> Self {
+        Self {
+            artifact_id: value.artifact_id,
+            trusted_node_id: value.trusted_node_id,
+            trusted_node_display_name: value.trusted_node_display_name,
+            scopes: value.scopes.into(),
+            preferred_transport_hint: value.preferred_transport_hint,
+            endpoints: value.endpoints.into_iter().map(Into::into).collect(),
+            issued_at: value.issued_at,
+            expires_at: value.expires_at,
+        }
+    }
+}
