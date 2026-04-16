@@ -23,6 +23,7 @@ pub enum LoopKind {
     SyncTranscripts,
     WeeklySynthesis,
     StaleNudgeReconciliation,
+    BackupExport,
 }
 
 impl Display for LoopKind {
@@ -43,6 +44,7 @@ impl Display for LoopKind {
             Self::SyncTranscripts => "sync_transcripts",
             Self::WeeklySynthesis => "weekly_synthesis",
             Self::StaleNudgeReconciliation => "stale_nudge_reconciliation",
+            Self::BackupExport => "backup_export",
         };
         f.write_str(value)
     }
@@ -68,6 +70,7 @@ impl std::str::FromStr for LoopKind {
             "sync_transcripts" => Ok(Self::SyncTranscripts),
             "weekly_synthesis" => Ok(Self::WeeklySynthesis),
             "stale_nudge_reconciliation" => Ok(Self::StaleNudgeReconciliation),
+            "backup_export" => Ok(Self::BackupExport),
             _ => Err(crate::VelCoreError::Validation(format!(
                 "unknown loop kind: {value}"
             ))),

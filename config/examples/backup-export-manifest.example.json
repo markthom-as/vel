@@ -1,0 +1,62 @@
+{
+  "export_id": "bex_20260416T090000Z_local",
+  "created_at": "2026-04-16T09:00:00Z",
+  "target_root": "/mnt/candnas/jove/knowledge/google",
+  "export_root": "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local",
+  "included_domains": [
+    "calendar",
+    "tasks"
+  ],
+  "omitted_domains": [
+    {
+      "domain": "mail",
+      "reason": "unsupported export domain"
+    }
+  ],
+  "files": [
+    {
+      "domain": "calendar",
+      "path": "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/domains/calendar/events.ndjson",
+      "schema_version": "backup_export_calendar_events.v1",
+      "record_count": 1,
+      "checksum_algorithm": "sha256",
+      "checksum": "b8e37f0d5c2a4f1e9d6c3b2a19081726354433221100ffeeddccbbaa99887766",
+      "source_path": "/Users/jove/code/vel/var/integrations/calendar/local.ics"
+    },
+    {
+      "domain": "tasks",
+      "path": "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/domains/tasks/tasks.ndjson",
+      "schema_version": "backup_export_tasks.v1",
+      "record_count": 1,
+      "checksum_algorithm": "sha256",
+      "checksum": "a1d29c3b4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef",
+      "source_path": "/Users/jove/code/vel/var/integrations/todoist/snapshot.json"
+    }
+  ],
+  "derivatives": [
+    {
+      "domain": "calendar",
+      "path": "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/cold-tier/calendar/events.parquet",
+      "source_path": "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/domains/calendar/events.ndjson",
+      "format": "parquet",
+      "record_count": 1,
+      "checksum_algorithm": "sha256",
+      "checksum": "d2e37f0d5c2a4f1e9d6c3b2a19081726354433221100ffeeddccbbaa99887766"
+    }
+  ],
+  "verification_summary": {
+    "verified": true,
+    "checksum_algorithm": "sha256",
+    "checksum": "c9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcb",
+    "checked_paths": [
+      "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/manifest.json",
+      "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/domains/calendar/events.ndjson",
+      "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/domains/tasks/tasks.ndjson",
+      "/mnt/candnas/jove/knowledge/google/runs/bex_20260416T090000Z_local/cold-tier/calendar/events.parquet"
+    ],
+    "notes": [
+      "Manifest schema: backup_export_manifest.v1.",
+      "Manual export only; scheduling and retention pruning are not enabled in this slice. Parquet derivatives are generated from normalized JSON/NDJSON files."
+    ]
+  }
+}

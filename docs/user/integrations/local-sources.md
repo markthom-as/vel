@@ -28,6 +28,69 @@ Using local files and snapshots means:
 - ingestion is reproducible,
 - the runtime does not need to become a giant vendor-specific connector layer too early.
 
+## NAS knowledge export lane
+
+Vel's backup contract now reserves a normalized NAS export lane for inspectable knowledge snapshots. This is separate from the normal backup pack: backup packs protect Vel's own database, artifacts, and non-secret config, while the NAS export lane preserves source-shaped data that Vel can ingest and explain from.
+
+The manual runtime slice writes to an explicitly provided target root, commonly:
+
+```text
+/mnt/candnas/jove/knowledge/google/
+```
+
+The durable Vel-facing format is JSON or NDJSON per domain. Optional parquet files may be produced for analysis tools, but they are derivative cold-tier files and are not the source of truth.
+
+Current layout:
+
+```text
+<nas_root>/
+  manifest.json
+  runs/<export_id>/manifest.json
+  runs/<export_id>/domains/calendar/events.ndjson
+  runs/<export_id>/domains/tasks/tasks.ndjson
+  runs/<export_id>/domains/messaging/threads.ndjson
+  runs/<export_id>/domains/transcripts/messages.ndjson
+  runs/<export_id>/domains/git/events.ndjson
+  runs/<export_id>/domains/health/samples.ndjson
+  runs/<export_id>/domains/reminders/items.ndjson
+  runs/<export_id>/domains/notes/notes.ndjson
+  runs/<export_id>/domains/activity/events.ndjson
+  runs/<export_id>/domains/activity/source.ndjson
+```
+
+The current normalizer slice writes typed NDJSON records for calendar events, Todoist tasks, messaging threads, transcript messages, git events, health samples, reminders, notes, and explicit activity snapshot files. Activity directory sources and generic/non-snapshot activity files still use the raw local source snapshot fallback so local-source discovery behavior stays unchanged.
+
+Configure it in `vel.toml`:
+
+```toml
+[backup_export]
+target_root = "/mnt/candnas/jove/knowledge/google"
+domains = ["calendar", "tasks"]
+schedule_mode = "manual_only"
+retention_count = 7
+include_parquet_derivatives = false
+```
+
+Run it with:
+
+```bash
+vel backup --export --target-root /mnt/candnas/jove/knowledge/google --domain calendar --domain tasks
+```
+
+With `backup_export.target_root` and `backup_export.domains` configured, `vel backup --export` uses those configured values.
+
+Check the latest successful manual export with:
+
+```bash
+vel backup --export-status
+```
+
+The `backup_export` runtime loop is visible in loop policy/status surfaces but remains disabled and non-executing. Scheduled export job storage exists for future execution, and failed scheduled terminal jobs can degrade export-specific status without changing backup-pack trust.
+
+If the NAS root is unavailable, stale, or not writable, Vel fails closed instead of silently falling back to an untracked location. Scheduled execution remains future work. Optional parquet derivatives can be enabled with `include_parquet` on the export API or `include_parquet_derivatives = true` in config. If `retention_count` is configured, pruning is limited to older immutable export directories under `runs/`.
+
+If a normalized domain source is malformed, Vel omits that domain from the manifest with a reason and continues exporting other requested domains. This is currently active for calendar, tasks, messaging, transcripts, git, health, reminders, notes, and explicit activity snapshot files.
+
 ## How to verify current paths
 
 Use:

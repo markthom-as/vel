@@ -2,7 +2,8 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vel_api_types::{
-    AgentInspectData, ApiResponse, BackupManifestData, BackupStatusData, BatchImportRequest,
+    AgentInspectData, ApiResponse, BackupExportRequestData, BackupExportResultData,
+    BackupExportStatusData, BackupManifestData, BackupStatusData, BatchImportRequest,
     BatchImportResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
     ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
@@ -357,6 +358,12 @@ impl ApiClient {
         self.get("/v1/backup/status").await
     }
 
+    pub async fn backup_export_status(
+        &self,
+    ) -> anyhow::Result<ApiResponse<BackupExportStatusData>> {
+        self.get("/v1/backup/export/status").await
+    }
+
     pub async fn create_backup(
         &self,
         output_root: Option<&str>,
@@ -365,6 +372,22 @@ impl ApiClient {
             "/v1/backup/create",
             &CreateBackupRequestData {
                 output_root: output_root.map(ToString::to_string),
+            },
+        )
+        .await
+    }
+
+    pub async fn export_backup(
+        &self,
+        target_root: &str,
+        domains: Vec<String>,
+    ) -> anyhow::Result<ApiResponse<BackupExportResultData>> {
+        self.post_json(
+            "/v1/backup/export",
+            &BackupExportRequestData {
+                target_root: Some(target_root.to_string()),
+                domains,
+                include_parquet: false,
             },
         )
         .await
@@ -1974,6 +1997,81 @@ mod tests {
 
         let capture = response.data.unwrap();
         assert_eq!(capture.capture_id.as_ref(), "cap_123");
+    }
+
+    #[tokio::test]
+    async fn export_backup_posts_expected_payload() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/backup/export"))
+            .and(body_json(serde_json::json!({
+                "target_root": "/tmp/nas/google",
+                "domains": ["calendar", "tasks"],
+                "include_parquet": false
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                serde_json::json!({
+                    "manifest": {
+                        "export_id": "bex_test",
+                        "created_at": "2026-04-16T09:00:00Z",
+                        "target_root": "/tmp/nas/google",
+                        "export_root": "/tmp/nas/google/runs/bex_test",
+                        "included_domains": ["calendar", "tasks"],
+                        "omitted_domains": [],
+                        "files": [],
+                        "derivatives": [],
+                        "verification_summary": {
+                            "verified": true,
+                            "checksum_algorithm": "sha256",
+                            "checksum": "abc123",
+                            "checked_paths": ["/tmp/nas/google/manifest.json"],
+                            "notes": []
+                        }
+                    }
+                }),
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server)
+            .export_backup(
+                "/tmp/nas/google",
+                vec!["calendar".to_string(), "tasks".to_string()],
+            )
+            .await
+            .unwrap();
+
+        let result = response.data.unwrap();
+        assert_eq!(result.manifest.export_id, "bex_test");
+        assert_eq!(
+            result.manifest.included_domains,
+            vec!["calendar".to_string(), "tasks".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn backup_export_status_targets_status_route() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/backup/export/status"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(ok_response(
+                serde_json::json!({
+                    "state": "ready",
+                    "last_export_id": "bex_test",
+                    "last_export_at": "2026-04-16T09:00:00Z",
+                    "target_root": "/tmp/nas/google",
+                    "included_domains": ["tasks"],
+                    "omitted_domains": [],
+                    "warnings": []
+                }),
+            )))
+            .mount(&server)
+            .await;
+
+        let response = make_client(&server).backup_export_status().await.unwrap();
+        let status = response.data.unwrap();
+        assert_eq!(status.last_export_id.as_deref(), Some("bex_test"));
+        assert_eq!(status.included_domains, vec!["tasks".to_string()]);
     }
 
     #[tokio::test]

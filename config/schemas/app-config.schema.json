@@ -99,6 +99,35 @@
       "type": "string",
       "minLength": 1
     },
+    "backup_export": {
+      "type": "object",
+      "properties": {
+        "target_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
+        },
+        "schedule_mode": {
+          "type": "string",
+          "enum": ["manual_only"]
+        },
+        "retention_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "include_parquet_derivatives": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
     "now": {
       "type": "object",
       "properties": {

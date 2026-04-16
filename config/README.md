@@ -54,6 +54,7 @@ Use it to answer four questions quickly:
 - `schemas/sandbox-host-call.schema.json`
 - `schemas/swarm-protocol-envelope.schema.json`
 - `schemas/backup-manifest.schema.json`
+- `schemas/backup-export-manifest.schema.json`
 - `schemas/0.5-canonical-object-envelope.schema.json`
 - `schemas/0.5-sync-link.schema.json`
 - `schemas/0.5-write-intent.schema.json`
@@ -90,6 +91,7 @@ Use it to answer four questions quickly:
   - `examples/sandbox-host-call.example.json`
   - `examples/swarm-protocol-envelope.example.json`
   - `examples/backup-manifest.example.json`
+  - `examples/backup-export-manifest.example.json`
   - `examples/0.5-sync-link.example.json`
   - `examples/0.5-write-intent.example.json`
   - `examples/0.5-workflow-object.example.json`
@@ -113,7 +115,7 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md` owns the Phase 37 embedded-capable Apple runtime and daemon-vs-embedded boundary vocabulary.
 - `docs/cognitive-agent-architecture/apple/apple-local-first-voice-continuity-contract.md` owns the Phase 38 iPhone local-first voice continuity, cached `Now`, and offline quick-action vocabulary.
 - `docs/cognitive-agent-architecture/agents/coding-execution-contracts.md` owns the Phase 08 repo-aware execution-context, local-manifest, and supervised handoff vocabulary.
-- `docs/cognitive-agent-architecture/architecture/backup-and-operator-trust-contracts.md` owns the Phase 09 backup manifest, inspection, and manual-first restore vocabulary.
+- `docs/cognitive-agent-architecture/architecture/backup-and-operator-trust-contracts.md` owns the Phase 09 backup/export manifests, inspection, and manual-first restore vocabulary.
 - `docs/cognitive-agent-architecture/architecture/durable-routine-planning-contract.md` owns the durable planning-profile input vocabulary.
 - `docs/cognitive-agent-architecture/architecture/planning-profile-management-contract.md` owns the typed planning-profile management mutation vocabulary.
 - `docs/cognitive-agent-architecture/architecture/planning-profile-parity-contract.md` owns the cross-surface parity and assistant-managed planning-profile edit vocabulary.

@@ -5,10 +5,10 @@ use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
 use vel_config::{AppConfig, NowCountDisplayMode, NowTitleMode};
 use vel_core::{
-    normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
-    ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal,
-    ReflowCard, ReflowSeverity, ReviewSnapshot, WritebackOperationKind, WritebackOperationRecord,
-    WritebackStatus, AppleBehaviorSummary,
+    normalize_risk_level, ActionItem, ActionKind, AppleBehaviorSummary, CheckInCard, Commitment,
+    CommitmentStatus, ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1,
+    DayPlanProposal, ReflowCard, ReflowSeverity, ReviewSnapshot, WritebackOperationKind,
+    WritebackOperationRecord, WritebackStatus,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -662,7 +662,8 @@ async fn get_now_internal(
     let trust_readiness = build_trust_readiness(storage, &freshness, &action_queue).await?;
     let people = storage.list_people().await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
-    let attention_reasons = merge_attention_reasons(&context.attention_reasons, &recent_watch_signals);
+    let attention_reasons =
+        merge_attention_reasons(&context.attention_reasons, &recent_watch_signals);
     let reasons = build_reasons_typed(&context, &attention_reasons);
     let day_plan =
         crate::services::day_plan::derive_current_day_plan(storage, &context, now_ts).await?;

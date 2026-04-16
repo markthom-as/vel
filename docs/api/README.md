@@ -19,8 +19,9 @@ See [`runtime.md`](runtime.md) for:
 - risk
 - explain endpoints
 - synthesis
+- daily-loop overdue workflow (`menu -> confirm -> apply -> undo`)
 
-Planned contract drafts for not-yet-mounted runtime slices:
+Mounted runtime contract notes:
 
 - [`standup-overdue-workflow-contract.md`](standup-overdue-workflow-contract.md) (`menu -> confirm -> apply -> undo` overdue-task workflow)
 

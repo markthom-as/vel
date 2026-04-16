@@ -1,5 +1,6 @@
 pub(crate) mod artifacts_repo;
 pub(crate) mod assistant_transcripts_repo;
+pub(crate) mod backup_jobs_repo;
 pub(crate) mod backup_runs_repo;
 pub(crate) mod broker_events_repo;
 pub(crate) mod canonical_objects_repo;

@@ -7,7 +7,7 @@ use vel_api_types::{ApiResponse, LoopData, LoopUpdateRequest};
 
 use crate::{errors::AppError, state::AppState};
 
-const KNOWN_LOOP_KINDS: [vel_core::LoopKind; 15] = [
+const KNOWN_LOOP_KINDS: [vel_core::LoopKind; 16] = [
     vel_core::LoopKind::CaptureIngest,
     vel_core::LoopKind::RetryDueRuns,
     vel_core::LoopKind::QueueWorkScheduler,
@@ -23,6 +23,7 @@ const KNOWN_LOOP_KINDS: [vel_core::LoopKind; 15] = [
     vel_core::LoopKind::SyncTranscripts,
     vel_core::LoopKind::WeeklySynthesis,
     vel_core::LoopKind::StaleNudgeReconciliation,
+    vel_core::LoopKind::BackupExport,
 ];
 
 fn map_loop_data(record: vel_storage::RuntimeLoopRecord) -> LoopData {
@@ -107,6 +108,11 @@ fn configured_loop_defaults(state: &AppState, loop_kind: vel_core::LoopKind) -> 
             .stale_nudge_reconciliation_loop()
             .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
             .unwrap_or((true, 1_800)),
+        vel_core::LoopKind::BackupExport => state
+            .policy_config
+            .backup_export_loop()
+            .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
+            .unwrap_or((false, 86_400)),
     }
 }
 

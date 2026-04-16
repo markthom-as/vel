@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/backup-export-manifest.schema.json",
+  "title": "BackupExportManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "export_id",
+    "created_at",
+    "target_root",
+    "export_root",
+    "included_domains",
+    "omitted_domains",
+    "files",
+    "derivatives",
+    "verification_summary"
+  ],
+  "properties": {
+    "export_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "target_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "export_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "included_domains": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "omitted_domains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/domainOmission"
+      },
+      "default": []
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/exportFile"
+      },
+      "default": []
+    },
+    "derivatives": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/derivative"
+      },
+      "default": []
+    },
+    "verification_summary": {
+      "$ref": "#/$defs/verificationSummary"
+    }
+  },
+  "$defs": {
+    "domainOmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "reason"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "exportFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "path",
+        "schema_version",
+        "record_count",
+        "checksum_algorithm",
+        "checksum"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksum_algorithm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checksum": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "derivative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "path",
+        "source_path",
+        "format",
+        "record_count",
+        "checksum_algorithm",
+        "checksum"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksum_algorithm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checksum": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "verificationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified",
+        "checksum_algorithm",
+        "checksum",
+        "checked_paths"
+      ],
+      "properties": {
+        "verified": {
+          "type": "boolean"
+        },
+        "checksum_algorithm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checksum": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checked_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    }
+  }
+}

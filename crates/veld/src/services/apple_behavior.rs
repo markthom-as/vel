@@ -62,8 +62,7 @@ pub async fn get_summary(
         }
     }
 
-    let watch_signals =
-        select_recent_watch_signals(storage, start_of_day, &timezone, now).await?;
+    let watch_signals = select_recent_watch_signals(storage, start_of_day, &timezone, now).await?;
 
     if selected.is_empty() && watch_signals.is_empty() {
         return Ok(None);
@@ -95,22 +94,24 @@ pub async fn recent_watch_signal_summaries(
     let timezone = resolve_timezone(storage).await?;
     let now = OffsetDateTime::now_utc();
     let start_of_day = start_of_local_day_timestamp(&timezone, now)?;
-    Ok(select_recent_watch_signals(storage, start_of_day, &timezone, now)
-        .await?
-        .into_iter()
-        .map(|signal| RecentWatchSignalSummary {
-            signal_type: signal.signal_type.clone(),
-            timestamp: signal.timestamp,
-            label: watch_signal_display_label(signal.signal_type.as_str()).to_string(),
-            note: signal
-                .payload_json
-                .get("note")
-                .and_then(JsonValue::as_str)
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned),
-        })
-        .collect())
+    Ok(
+        select_recent_watch_signals(storage, start_of_day, &timezone, now)
+            .await?
+            .into_iter()
+            .map(|signal| RecentWatchSignalSummary {
+                signal_type: signal.signal_type.clone(),
+                timestamp: signal.timestamp,
+                label: watch_signal_display_label(signal.signal_type.as_str()).to_string(),
+                note: signal
+                    .payload_json
+                    .get("note")
+                    .and_then(JsonValue::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToOwned::to_owned),
+            })
+            .collect(),
+    )
 }
 
 pub fn is_supported_metric(metric_type: &str) -> bool {
@@ -321,7 +322,10 @@ fn summary_reasons(
 }
 
 fn watch_signal_display_label(signal_type: &str) -> &'static str {
-    match signal_type.strip_prefix("watch_signal:").unwrap_or(signal_type) {
+    match signal_type
+        .strip_prefix("watch_signal:")
+        .unwrap_or(signal_type)
+    {
         "drifting" => "Recent drifting signal",
         "on_track" => "Recent on-track signal",
         "need_focus" => "Recent need-focus signal",

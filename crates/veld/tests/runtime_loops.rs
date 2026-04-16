@@ -105,6 +105,13 @@ fn only_enabled_loop(loop_policy: Option<(&str, u64)>) -> PolicyConfig {
                 .map(|(_, interval)| interval)
                 .unwrap_or(1_800),
         }),
+        backup_export: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("backup_export", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "backup_export")
+                .map(|(_, interval)| interval)
+                .unwrap_or(86_400),
+        }),
     };
     config
 }
@@ -203,6 +210,34 @@ async fn failed_loop_records_error_and_next_due_time() {
         .as_deref()
         .is_some_and(|message| message.contains("read ics path")));
     assert!(record.next_due_at.is_some());
+}
+
+#[tokio::test]
+async fn backup_export_loop_is_visible_but_deferred() {
+    let state = test_state(
+        AppConfig::default(),
+        only_enabled_loop(Some(("backup_export", 60))),
+    )
+    .await;
+
+    let error = worker::run_registered_loops_once(&state)
+        .await
+        .expect_err("scheduled backup export should fail closed until job scheduling exists");
+    assert!(error
+        .to_string()
+        .contains("scheduled backup export is not implemented"));
+
+    let record = state
+        .storage
+        .get_runtime_loop("backup_export")
+        .await
+        .unwrap()
+        .expect("backup export loop row");
+    assert_eq!(record.last_status.as_deref(), Some("failed"));
+    assert!(record
+        .last_error
+        .as_deref()
+        .is_some_and(|message| message.contains("scheduled backup export is not implemented")));
 }
 
 #[tokio::test]

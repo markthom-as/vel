@@ -19,6 +19,13 @@ reminders_snapshot_path = "var/integrations/reminders/snapshot.json"
 notes_path = "var/integrations/notes"
 transcript_snapshot_path = "var/integrations/transcripts/snapshot.json"
 
+[backup_export]
+target_root = "/mnt/candnas/jove/knowledge/google"
+domains = ["calendar", "tasks"]
+schedule_mode = "manual_only"
+retention_count = 7
+include_parquet_derivatives = false
+
 [now]
 title_mode = "operator_name_possessive"
 bucket_count_display = "show_nonzero"

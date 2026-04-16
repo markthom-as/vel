@@ -291,8 +291,12 @@ impl LinkedNodeRecord {
     }
 
     pub fn merge_trust_state_from(mut self, existing: &LinkedNodeRecord) -> Self {
-        self.transport_hint = self.transport_hint.or_else(|| existing.transport_hint.clone());
-        self.sync_base_url = self.sync_base_url.or_else(|| existing.sync_base_url.clone());
+        self.transport_hint = self
+            .transport_hint
+            .or_else(|| existing.transport_hint.clone());
+        self.sync_base_url = self
+            .sync_base_url
+            .or_else(|| existing.sync_base_url.clone());
         self.tailscale_base_url = self
             .tailscale_base_url
             .or_else(|| existing.tailscale_base_url.clone());
@@ -300,7 +304,9 @@ impl LinkedNodeRecord {
         self.localhost_base_url = self
             .localhost_base_url
             .or_else(|| existing.localhost_base_url.clone());
-        self.public_base_url = self.public_base_url.or_else(|| existing.public_base_url.clone());
+        self.public_base_url = self
+            .public_base_url
+            .or_else(|| existing.public_base_url.clone());
         if self.endpoint_inventory.is_empty() {
             self.endpoint_inventory = existing.endpoint_inventory.clone();
         }

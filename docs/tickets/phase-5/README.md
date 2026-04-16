@@ -30,7 +30,7 @@ This directory defines the v0.1 harness ticket pack for single-operator local-fi
 
 ### Wave 5: Workflow Verticals
 
-1. `038-standup-overdue-workflow-slice.md`
+1. `038-standup-overdue-workflow-slice.md` `[baseline shipped]`
 
 ## Release Gate (v0.1)
 

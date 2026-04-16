@@ -8,12 +8,17 @@ use vel_config::AppConfig;
 use crate::client::{
     ApiClient, BackupCreateResultData, BackupInspectResultData, BackupVerifyResultData,
 };
+use vel_api_types::{BackupExportResultData, BackupExportStatusData};
 
 pub async fn run(
     client: &ApiClient,
     config: &AppConfig,
     create: bool,
+    export: bool,
+    export_status: bool,
     output_root: Option<&str>,
+    target_root: Option<&str>,
+    domains: Vec<String>,
     inspect: Option<&str>,
     verify: Option<&str>,
     dry_run_restore: Option<&str>,
@@ -21,6 +26,8 @@ pub async fn run(
 ) -> anyhow::Result<()> {
     let selected = [
         create,
+        export,
+        export_status,
         inspect.is_some(),
         verify.is_some(),
         dry_run_restore.is_some(),
@@ -37,6 +44,26 @@ pub async fn run(
         let response = client.create_backup(output_root).await?;
         let data = response.data.context("backup create missing data")?;
         return print_create(&data, json);
+    }
+
+    if export {
+        let target_root = target_root
+            .or(config.backup_export.target_root.as_deref())
+            .context("backup export requires --target-root <dir> or backup_export.target_root")?;
+        let domains = if domains.is_empty() {
+            config.backup_export.domains.clone()
+        } else {
+            domains
+        };
+        let response = client.export_backup(target_root, domains).await?;
+        let data = response.data.context("backup export missing data")?;
+        return print_export(&data, json);
+    }
+
+    if export_status {
+        let response = client.backup_export_status().await?;
+        let status = response.data.context("backup export status missing data")?;
+        return print_export_status(&status, json);
     }
 
     if let Some(root) = inspect {
@@ -123,6 +150,47 @@ fn print_verify(data: &BackupVerifyResultData, json: bool) -> anyhow::Result<()>
     Ok(())
 }
 
+fn print_export(data: &BackupExportResultData, json: bool) -> anyhow::Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(data)?);
+        return Ok(());
+    }
+
+    for line in export_summary_lines(data) {
+        println!("{line}");
+    }
+    Ok(())
+}
+
+fn print_export_status(status: &BackupExportStatusData, json: bool) -> anyhow::Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(status)?);
+        return Ok(());
+    }
+
+    println!("backup export status");
+    println!("status: {:?}", status.state);
+    if let Some(export_id) = status.last_export_id.as_deref() {
+        println!("last_export_id: {export_id}");
+    }
+    if let Some(exported_at) = status.last_export_at {
+        println!("last_export_at: {}", format_timestamp(exported_at));
+    }
+    if let Some(target_root) = status.target_root.as_deref() {
+        println!("target_root: {target_root}");
+    }
+    if !status.included_domains.is_empty() {
+        println!("included_domains: {}", status.included_domains.join(","));
+    }
+    for omission in &status.omitted_domains {
+        println!("omitted_domain: {} ({})", omission.domain, omission.reason);
+    }
+    for warning in &status.warnings {
+        println!("warning: {warning}");
+    }
+    Ok(())
+}
+
 fn print_dry_run_restore(
     manifest: &BackupManifestData,
     status: &BackupStatusData,
@@ -192,6 +260,8 @@ fn print_status(status: &BackupStatusData, config: &AppConfig, json: bool) -> an
     print_status_lines(status);
     println!("commands:");
     println!("  vel backup --create [--output-root <dir>]");
+    println!("  vel backup --export [--target-root <dir>] [--domain <name>]");
+    println!("  vel backup --export-status");
     println!("  vel backup --inspect <backup_root>");
     println!("  vel backup --verify <backup_root>");
     println!("  vel backup --dry-run-restore <backup_root>");
@@ -230,6 +300,31 @@ fn print_status_lines(status: &BackupStatusData) {
     }
 }
 
+fn export_summary_lines(data: &BackupExportResultData) -> Vec<String> {
+    let manifest = &data.manifest;
+    let included = if manifest.included_domains.is_empty() {
+        "-".to_string()
+    } else {
+        manifest.included_domains.join(",")
+    };
+    vec![
+        format!("backup export: {}", manifest.export_id),
+        format!("created_at: {}", format_timestamp(manifest.created_at)),
+        format!("target_root: {}", manifest.target_root),
+        format!("included_domains: {included}"),
+        format!("omitted_domains: {}", manifest.omitted_domains.len()),
+        format!("files: {}", manifest.files.len()),
+        format!(
+            "verified: {}",
+            if manifest.verification_summary.verified {
+                "yes"
+            } else {
+                "no"
+            }
+        ),
+    ]
+}
+
 fn manual_restore_steps(manifest: &BackupManifestData) -> Vec<String> {
     vec![
         "1. Stop `veld` before touching the live database.".to_string(),
@@ -263,8 +358,8 @@ mod tests {
     use super::*;
     use time::macros::datetime;
     use vel_api_types::{
-        BackupCoverageData, BackupSecretOmissionFlagsData, BackupStatusStateData,
-        BackupVerificationData,
+        BackupCoverageData, BackupExportFileData, BackupExportManifestData,
+        BackupSecretOmissionFlagsData, BackupStatusStateData, BackupVerificationData,
     };
 
     fn sample_manifest() -> BackupManifestData {
@@ -328,5 +423,62 @@ mod tests {
         let status = sample_status();
         let output = format!("{:?}", status.last_backup_id);
         assert!(output.contains("bkp_test"));
+    }
+
+    #[test]
+    fn backup_print_export_lines_include_target_root_and_domains() {
+        let result = BackupExportResultData {
+            manifest: BackupExportManifestData {
+                export_id: "bex_test".to_string(),
+                created_at: datetime!(2026-04-16 09:00:00 UTC),
+                target_root: "/tmp/nas/google".to_string(),
+                export_root: "/tmp/nas/google/runs/bex_test".to_string(),
+                included_domains: vec!["calendar".to_string(), "tasks".to_string()],
+                omitted_domains: vec![],
+                files: vec![BackupExportFileData {
+                    domain: "tasks".to_string(),
+                    path: "/tmp/nas/google/domains/tasks/source.ndjson".to_string(),
+                    schema_version: "local_source_snapshot.v1".to_string(),
+                    record_count: 1,
+                    checksum_algorithm: "sha256".to_string(),
+                    checksum: "abc123".to_string(),
+                    source_path: Some("/tmp/todoist.json".to_string()),
+                }],
+                derivatives: vec![],
+                verification_summary: BackupVerificationData {
+                    verified: true,
+                    checksum_algorithm: "sha256".to_string(),
+                    checksum: "abc123".to_string(),
+                    checked_paths: vec![],
+                    notes: vec![],
+                },
+            },
+        };
+
+        let lines = export_summary_lines(&result);
+        assert!(lines
+            .iter()
+            .any(|line| line == "target_root: /tmp/nas/google"));
+        assert!(lines
+            .iter()
+            .any(|line| line == "included_domains: calendar,tasks"));
+    }
+
+    #[test]
+    fn backup_export_status_json_renders() {
+        let status = BackupExportStatusData {
+            state: BackupStatusStateData::Ready,
+            last_export_id: Some("bex_test".to_string()),
+            last_export_at: Some(datetime!(2026-04-16 09:00:00 UTC)),
+            target_root: Some("/tmp/nas/google".to_string()),
+            included_domains: vec!["tasks".to_string()],
+            omitted_domains: vec![],
+            verification_summary: None,
+            warnings: vec![],
+        };
+
+        let rendered = serde_json::to_string(&status).unwrap();
+        assert!(rendered.contains("bex_test"));
+        assert!(rendered.contains("/tmp/nas/google"));
     }
 }

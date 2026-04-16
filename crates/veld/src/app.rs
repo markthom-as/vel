@@ -64,6 +64,11 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/doctor", get(routes::doctor::doctor))
         .route("/v1/backup/status", get(routes::backup::backup_status))
         .route("/v1/backup/create", post(routes::backup::create_backup))
+        .route(
+            "/v1/backup/export/status",
+            get(routes::backup::backup_export_status),
+        )
+        .route("/v1/backup/export", post(routes::backup::export_backup))
         .route("/v1/backup/inspect", post(routes::backup::inspect_backup))
         .route("/v1/backup/verify", post(routes::backup::verify_backup))
         .route("/v1/import/batch", post(routes::import::import_batch))
@@ -1687,7 +1692,10 @@ mod tests {
             .unwrap();
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].payload_json["signal_type"], "need_focus");
-        assert_eq!(signals[0].payload_json["note"], "context switching too much");
+        assert_eq!(
+            signals[0].payload_json["note"],
+            "context switching too much"
+        );
         assert_eq!(signals[0].payload_json["context"]["surface"], "watch");
     }
 
@@ -1722,7 +1730,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert!(storage.list_captures_recent(10, false).await.unwrap().is_empty());
+        assert!(storage
+            .list_captures_recent(10, false)
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]
@@ -12340,9 +12352,9 @@ END:VCALENDAR
             .filter_map(|value| value.as_str())
             .collect::<Vec<_>>();
 
-        assert!(reasons
-            .iter()
-            .any(|reason| reason.contains("watch input") && reason.contains("Need a quieter block")));
+        assert!(reasons.iter().any(
+            |reason| reason.contains("watch input") && reason.contains("Need a quieter block")
+        ));
     }
 
     #[tokio::test]

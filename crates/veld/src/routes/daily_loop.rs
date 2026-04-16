@@ -5,7 +5,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
-use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
+use time::{format_description::well_known::Rfc3339, Date, Duration, Month, OffsetDateTime, Time};
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, DailyLoopCheckInEventData, DailyLoopCheckInEventsQueryData,
@@ -199,12 +199,13 @@ pub async fn overdue_menu(
 ) -> Result<Json<ApiResponse<DailyLoopOverdueMenuResponseData>>, AppError> {
     ensure_standup_session(&state, &session_id).await?;
     let now = OffsetDateTime::now_utc();
+    let overdue_cutoff = overdue_cutoff_for_today(request.today.trim())?;
     let overdue = state
         .storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, request.limit)
         .await?
         .into_iter()
-        .filter(|commitment| commitment.due_at.is_some_and(|due| due < now))
+        .filter(|commitment| commitment.due_at.is_some_and(|due| due < overdue_cutoff))
         .collect::<Vec<_>>();
     let mut overdue = overdue;
     overdue.sort_by_key(|commitment| {
@@ -326,7 +327,16 @@ pub async fn overdue_apply(
         return Ok(response::success(cached));
     }
 
-    let proposal = load_overdue_proposal(&state, request.proposal_id.trim()).await?;
+    let proposal_record = load_overdue_proposal(&state, request.proposal_id.trim()).await?;
+    if proposal_record.status == "applied" {
+        return Err(AppError::conflict(
+            "proposal has already been applied; reuse the original idempotency key",
+        ));
+    }
+    if proposal_record.status != "confirmed" {
+        return Err(AppError::conflict("proposal is not in a confirmable state"));
+    }
+    let proposal = proposal_record.metadata;
     if proposal.session_id != session_id {
         return Err(AppError::bad_request(
             "proposal does not belong to this session",
@@ -372,6 +382,8 @@ pub async fn overdue_apply(
             "proposal_id": request.proposal_id,
             "action": action_label(proposal.action),
             "idempotency_key": request.idempotency_key,
+            "operator_reason": proposal.operator_reason.clone(),
+            "payload": proposal.payload.clone(),
             "before": before,
             "after": after
         }),
@@ -481,6 +493,7 @@ pub async fn overdue_undo(
         "overdue_undo",
         &json!({
             "action_event_id": request.action_event_id,
+            "action": action_label(action_event.action),
             "idempotency_key": request.idempotency_key,
             "before": before,
             "after": after
@@ -535,6 +548,12 @@ struct OverdueProposalMetadata {
     created_at: i64,
 }
 
+#[derive(Debug, Clone)]
+struct OverdueProposalRecord {
+    status: String,
+    metadata: OverdueProposalMetadata,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OverdueActionEventMetadata {
     session_id: String,
@@ -586,6 +605,29 @@ fn build_vel_guess(
         confidence: DailyLoopOverdueGuessConfidenceData::Medium,
         reason: "next free block + similar task duration".to_string(),
     }
+}
+
+fn overdue_cutoff_for_today(today: &str) -> Result<OffsetDateTime, AppError> {
+    let mut parts = today.split('-');
+    let year = parts
+        .next()
+        .and_then(|value| value.parse::<i32>().ok())
+        .ok_or_else(|| AppError::bad_request("today must be YYYY-MM-DD"))?;
+    let month = parts
+        .next()
+        .and_then(|value| value.parse::<u8>().ok())
+        .and_then(|value| Month::try_from(value).ok())
+        .ok_or_else(|| AppError::bad_request("today must be YYYY-MM-DD"))?;
+    let day = parts
+        .next()
+        .and_then(|value| value.parse::<u8>().ok())
+        .ok_or_else(|| AppError::bad_request("today must be YYYY-MM-DD"))?;
+    if parts.next().is_some() {
+        return Err(AppError::bad_request("today must be YYYY-MM-DD"));
+    }
+    let date = Date::from_calendar_date(year, month, day)
+        .map_err(|_| AppError::bad_request("today must be YYYY-MM-DD"))?;
+    Ok(date.with_time(Time::MIDNIGHT).assume_utc() + Duration::days(1))
 }
 
 fn snapshot_from_commitment(
@@ -648,7 +690,7 @@ fn parse_optional_due_at(value: Option<&str>) -> Result<Option<OffsetDateTime>, 
 async fn load_overdue_proposal(
     state: &AppState,
     proposal_id: &str,
-) -> Result<OverdueProposalMetadata, AppError> {
+) -> Result<OverdueProposalRecord, AppError> {
     let record = state
         .storage
         .get_thread_by_id(proposal_id)
@@ -659,8 +701,12 @@ async fn load_overdue_proposal(
             "proposal id is not an overdue proposal",
         ));
     }
-    serde_json::from_str::<OverdueProposalMetadata>(&record.4)
-        .map_err(|error| AppError::internal(format!("invalid proposal metadata: {error}")))
+    let metadata = serde_json::from_str::<OverdueProposalMetadata>(&record.4)
+        .map_err(|error| AppError::internal(format!("invalid proposal metadata: {error}")))?;
+    Ok(OverdueProposalRecord {
+        status: record.3,
+        metadata,
+    })
 }
 
 async fn load_overdue_action_event(
@@ -737,6 +783,10 @@ async fn record_overdue_mutation_run(
     state
         .storage
         .append_run_event_auto(run_id.as_ref(), RunEventType::MutationCommitted, payload)
+        .await?;
+    state
+        .storage
+        .append_run_event_auto(run_id.as_ref(), RunEventType::RunSucceeded, payload)
         .await?;
     state
         .storage

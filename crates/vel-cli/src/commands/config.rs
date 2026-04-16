@@ -71,6 +71,34 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
         "reminders_snapshot_path: {}",
         config.reminders_snapshot_path.as_deref().unwrap_or("-")
     );
+    println!(
+        "backup_export.target_root: {}",
+        config.backup_export.target_root.as_deref().unwrap_or("-")
+    );
+    println!(
+        "backup_export.domains: {}",
+        if config.backup_export.domains.is_empty() {
+            "-".to_string()
+        } else {
+            config.backup_export.domains.join(",")
+        }
+    );
+    println!(
+        "backup_export.schedule_mode: {:?}",
+        config.backup_export.schedule_mode
+    );
+    println!(
+        "backup_export.retention_count: {}",
+        config
+            .backup_export
+            .retention_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "-".to_string())
+    );
+    println!(
+        "backup_export.include_parquet_derivatives: {}",
+        config.backup_export.include_parquet_derivatives
+    );
     Ok(())
 }
 

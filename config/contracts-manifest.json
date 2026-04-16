@@ -180,28 +180,10 @@
       "schema": "config/schemas/swarm-protocol-envelope.schema.json"
     },
     {
-      "id": "v0_5_canonical_object_envelope_schema",
-      "path": "config/schemas/0.5-canonical-object-envelope.schema.json",
-      "kind": "canonical_object_envelope",
-      "schema": "config/schemas/0.5-canonical-object-envelope.schema.json"
-    },
-    {
-      "id": "v0_5_sync_link_schema",
-      "path": "config/schemas/0.5-sync-link.schema.json",
-      "kind": "sync_link",
-      "schema": "config/schemas/0.5-sync-link.schema.json"
-    },
-    {
       "id": "v0_5_sync_link_example",
       "path": "config/examples/0.5-sync-link.example.json",
       "kind": "sync_link",
       "schema": "config/schemas/0.5-sync-link.schema.json"
-    },
-    {
-      "id": "v0_5_write_intent_schema",
-      "path": "config/schemas/0.5-write-intent.schema.json",
-      "kind": "write_intent",
-      "schema": "config/schemas/0.5-write-intent.schema.json"
     },
     {
       "id": "v0_5_write_intent_example",
@@ -210,28 +192,10 @@
       "schema": "config/schemas/0.5-write-intent.schema.json"
     },
     {
-      "id": "v0_5_module_registry_object_schema",
-      "path": "config/schemas/0.5-module-registry-object.schema.json",
-      "kind": "module_registry_object",
-      "schema": "config/schemas/0.5-module-registry-object.schema.json"
-    },
-    {
-      "id": "v0_5_workflow_object_schema",
-      "path": "config/schemas/0.5-workflow-object.schema.json",
-      "kind": "workflow_object",
-      "schema": "config/schemas/0.5-workflow-object.schema.json"
-    },
-    {
       "id": "v0_5_workflow_object_example",
       "path": "config/examples/0.5-workflow-object.example.json",
       "kind": "workflow_object",
       "schema": "config/schemas/0.5-workflow-object.schema.json"
-    },
-    {
-      "id": "v0_5_migration_artifact_schema",
-      "path": "config/schemas/0.5-migration-artifact.schema.json",
-      "kind": "migration_artifact",
-      "schema": "config/schemas/0.5-migration-artifact.schema.json"
     },
     {
       "id": "v0_5_migration_artifact_example",
@@ -244,6 +208,18 @@
       "path": "config/examples/backup-manifest.example.json",
       "kind": "backup_manifest",
       "schema": "config/schemas/backup-manifest.schema.json"
+    },
+    {
+      "id": "backup_export_manifest_example",
+      "path": "config/examples/backup-export-manifest.example.json",
+      "kind": "backup_export_manifest",
+      "schema": "config/schemas/backup-export-manifest.schema.json"
+    },
+    {
+      "id": "backup_export_source_record_example",
+      "path": "config/examples/backup-export-source-record.example.json",
+      "kind": "backup_export_source_record",
+      "schema": "config/schemas/backup-export-source-record.schema.json"
     },
     {
       "id": "apple_voice_turn_example",

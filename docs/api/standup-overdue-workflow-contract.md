@@ -1,10 +1,10 @@
-# Standup Overdue Workflow Contract (Draft)
+# Standup Overdue Workflow Contract
 
-Status: planned contract draft with baseline mounted implementation; ticket `038` tracks deeper closure.
+Status: mounted baseline implementation.
 
-Last updated: 2026-03-25.
+Last updated: 2026-04-15.
 
-This document defines the proposed backend-owned contract for the first morning standup overdue-task workflow vertical.
+This document defines the backend-owned contract for the first morning standup overdue-task workflow vertical.
 
 ## Goal
 
@@ -17,11 +17,13 @@ Provide one supervised action flow for overdue commitments:
 
 All mutation-capable paths remain confirmation-first and idempotent.
 
-## Proposed Runtime Endpoints (`/v1`)
+## Runtime Endpoints (`/v1`)
 
 ### `POST /v1/daily-loop/sessions/:id/overdue/menu`
 
 Returns overdue commitments and bounded action options for each commitment.
+
+The request `today` field is a `YYYY-MM-DD` day boundary. The runtime returns open commitments with `due_at` before the end of that requested UTC day.
 
 Request:
 
@@ -154,9 +156,9 @@ Unknown actions must fail closed with `400`.
 - `409`: apply attempted without valid confirmation token.
 - `422`: due date outside allowed policy constraints.
 
-## Proposed CLI Surface
+## CLI Surface
 
-Current scaffolded CLI wrappers over the API above:
+Current CLI wrappers over the API above:
 
 ```bash
 vel daily-loop overdue menu [--limit 50] [--json]
@@ -196,6 +198,8 @@ run_id: run_01...
 action_event_id: evt_01...
 idempotency_key: ovd:apply:mp_01...
 undo_supported: true
+before: status=open, due_at=2026-03-24T17:00:00Z
+after: status=open, due_at=2026-03-26T16:00:00Z
 ```
 
 `vel daily-loop overdue undo evt_01...`:
@@ -203,23 +207,29 @@ undo_supported: true
 ```text
 undone: true
 run_id: run_01...
+action_event_id: evt_01...
 idempotency_key: ovd:undo:evt_01...
+before: status=open, due_at=unscheduled
+after: status=open, due_at=2026-03-24T17:00:00Z
 ```
 
 ## Voice and Accessibility Mapping
 
-Voice and watch reactions map to the same action vocabulary and proposal/apply transport.
+Voice and watch reactions must map to the same action vocabulary and proposal/apply transport when those shells expose overdue actions.
 
 - voice quick phrase examples: `close it`, `reschedule tomorrow 4pm`, `back to inbox`, `delete task`.
 - shells may do local STT/TTS, but action authority remains backend-owned.
 - if voice parsing is uncertain, shell must request typed confirmation before `apply`.
+- current mounted coverage is the backend and CLI contract; overdue-specific voice shortcuts remain a client follow-up.
 
 ## Security and Observability Constraints
 
 - no mutation without proposal + confirmation token.
-- every apply/undo emits run events with stable `run_id` and action event IDs.
+- every apply/undo emits run events with stable `run_id`; apply also returns a durable action event ID for undo.
+- apply run payloads include the operator reason and reschedule payload source when supplied.
 - logs and artifacts must not include decrypted secrets.
-- idempotency key collisions must return deterministic already-applied responses.
+- repeated apply/undo with the same idempotency key returns the deterministic stored response.
+- applying an already-applied proposal with a different idempotency key fails closed.
 
 ## Linked Implementation Ticket
 

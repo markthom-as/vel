@@ -7,7 +7,7 @@
 use crate::portable_core::{
     action_item_dedupe_batch_packet, action_item_dedupe_key_packet, collect_remote_routes,
     normalize_domain_hint, normalize_pairing_token_input, normalize_positive_minutes,
-    normalize_semantic_label, normalize_task_display_packet, normalize_task_display_batch_packet,
+    normalize_semantic_label, normalize_task_display_batch_packet, normalize_task_display_packet,
     normalized_optional_trimmed, prepare_app_shell_feedback_packet,
     prepare_assistant_entry_fallback_payload, prepare_capture_metadata_payload,
     prepare_linking_feedback_packet, prepare_linking_request_packet, prepare_queued_action_packet,

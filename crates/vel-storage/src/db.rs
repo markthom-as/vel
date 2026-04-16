@@ -1,12 +1,12 @@
 use crate::{
     infra,
     repositories::{
-        artifacts_repo, assistant_transcripts_repo, backup_runs_repo, broker_events_repo,
-        captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
-        conflict_cases_repo, connect_run_events_repo, connect_runs_repo, context_timeline_repo,
-        current_context_repo, daily_check_in_events_repo, daily_sessions_repo,
-        execution_contexts_repo, execution_handoffs_repo, import_repo, inferred_state_repo,
-        integration_connections_repo, linking_repo, nudges_repo, people_repo,
+        artifacts_repo, assistant_transcripts_repo, backup_jobs_repo, backup_runs_repo,
+        broker_events_repo, captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo,
+        commitments_repo, conflict_cases_repo, connect_run_events_repo, connect_runs_repo,
+        context_timeline_repo, current_context_repo, daily_check_in_events_repo,
+        daily_sessions_repo, execution_contexts_repo, execution_handoffs_repo, import_repo,
+        inferred_state_repo, integration_connections_repo, linking_repo, nudges_repo, people_repo,
         planning_profiles_repo, processing_jobs_repo, projects_repo, run_refs_repo, runs_repo,
         runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
         suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
@@ -159,6 +159,48 @@ pub struct BackupRunRecord {
     pub completed_at: Option<OffsetDateTime>,
     pub verified_at: Option<OffsetDateTime>,
     pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackupJobRecord {
+    pub backup_job_id: String,
+    pub storage_target_id: String,
+    pub storage_target_root: String,
+    pub trigger_type: String,
+    pub scope: String,
+    pub status: String,
+    pub safety_mode: String,
+    pub requested_by: String,
+    pub requested_by_ref: Option<String>,
+    pub manifest_id: Option<String>,
+    pub urgency: i64,
+    pub attempt: i64,
+    pub max_attempts: i64,
+    pub base_backoff_minutes: i64,
+    pub queue_confidence: Option<f64>,
+    pub created_at: OffsetDateTime,
+    pub next_attempt_at: Option<OffsetDateTime>,
+    pub started_at: Option<OffsetDateTime>,
+    pub finished_at: Option<OffsetDateTime>,
+    pub completed_at: Option<OffsetDateTime>,
+    pub last_error_code: Option<String>,
+    pub last_error_message: Option<String>,
+    pub last_error_transient: bool,
+    pub policy_json: JsonValue,
+    pub payload_json: JsonValue,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackupJobEventRecord {
+    pub event_id: String,
+    pub backup_job_id: String,
+    pub event_type: String,
+    pub state_before: Option<String>,
+    pub state_after: Option<String>,
+    pub reason_code: Option<String>,
+    pub reason_text: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub metadata_json: JsonValue,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1060,14 +1102,135 @@ impl Storage {
         backup_runs_repo::get_backup_run(self.pool(), backup_id).await
     }
 
+    pub async fn persist_backup_export_run(
+        &self,
+        export_id: &str,
+        target_root: &str,
+        state: &str,
+        manifest_json: &JsonValue,
+        started_at: OffsetDateTime,
+        completed_at: Option<OffsetDateTime>,
+        verified_at: Option<OffsetDateTime>,
+        last_error: Option<&str>,
+    ) -> Result<(), StorageError> {
+        backup_runs_repo::persist_backup_export_run(
+            self.pool(),
+            export_id,
+            target_root,
+            state,
+            manifest_json,
+            started_at,
+            completed_at,
+            verified_at,
+            last_error,
+        )
+        .await
+    }
+
+    pub async fn get_backup_export_run(
+        &self,
+        export_id: &str,
+    ) -> Result<Option<BackupRunRecord>, StorageError> {
+        backup_runs_repo::get_backup_export_run(self.pool(), export_id).await
+    }
+
     pub async fn list_backup_runs(&self, limit: u32) -> Result<Vec<BackupRunRecord>, StorageError> {
         backup_runs_repo::list_backup_runs(self.pool(), limit).await
+    }
+
+    pub async fn list_backup_export_runs(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<BackupRunRecord>, StorageError> {
+        backup_runs_repo::list_backup_export_runs(self.pool(), limit).await
     }
 
     pub async fn get_last_successful_backup_run(
         &self,
     ) -> Result<Option<BackupRunRecord>, StorageError> {
         backup_runs_repo::get_last_successful_backup_run(self.pool()).await
+    }
+
+    pub async fn get_last_successful_backup_export_run(
+        &self,
+    ) -> Result<Option<BackupRunRecord>, StorageError> {
+        backup_runs_repo::get_last_successful_backup_export_run(self.pool()).await
+    }
+
+    pub async fn queue_scheduled_backup_export_job(
+        &self,
+        target_root: &str,
+        payload_json: &JsonValue,
+        now: OffsetDateTime,
+    ) -> Result<BackupJobRecord, StorageError> {
+        backup_jobs_repo::queue_scheduled_backup_export_job(
+            self.pool(),
+            target_root,
+            payload_json,
+            now,
+        )
+        .await
+    }
+
+    pub async fn claim_next_due_scheduled_backup_export_job(
+        &self,
+        now: OffsetDateTime,
+    ) -> Result<Option<BackupJobRecord>, StorageError> {
+        backup_jobs_repo::claim_next_due_scheduled_backup_export_job(self.pool(), now).await
+    }
+
+    pub async fn complete_backup_export_job_success(
+        &self,
+        backup_job_id: &str,
+        manifest_id: Option<&str>,
+        now: OffsetDateTime,
+    ) -> Result<Option<BackupJobRecord>, StorageError> {
+        backup_jobs_repo::complete_backup_export_job_success(
+            self.pool(),
+            backup_job_id,
+            manifest_id,
+            now,
+        )
+        .await
+    }
+
+    pub async fn complete_backup_export_job_failure(
+        &self,
+        backup_job_id: &str,
+        error_code: &str,
+        error_message: &str,
+        transient: bool,
+        now: OffsetDateTime,
+    ) -> Result<Option<BackupJobRecord>, StorageError> {
+        backup_jobs_repo::complete_backup_export_job_failure(
+            self.pool(),
+            backup_job_id,
+            error_code,
+            error_message,
+            transient,
+            now,
+        )
+        .await
+    }
+
+    pub async fn get_backup_job(
+        &self,
+        backup_job_id: &str,
+    ) -> Result<Option<BackupJobRecord>, StorageError> {
+        backup_jobs_repo::get_backup_job(self.pool(), backup_job_id).await
+    }
+
+    pub async fn list_backup_job_events(
+        &self,
+        backup_job_id: &str,
+    ) -> Result<Vec<BackupJobEventRecord>, StorageError> {
+        backup_jobs_repo::list_backup_job_events(self.pool(), backup_job_id).await
+    }
+
+    pub async fn get_latest_finished_scheduled_backup_export_job(
+        &self,
+    ) -> Result<Option<BackupJobRecord>, StorageError> {
+        backup_jobs_repo::get_latest_finished_scheduled_backup_export_job(self.pool()).await
     }
 
     pub async fn create_sqlite_snapshot(&self, destination: &str) -> Result<(), StorageError> {

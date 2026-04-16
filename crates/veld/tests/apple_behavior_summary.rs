@@ -293,7 +293,13 @@ async fn apple_behavior_summary_returns_watch_signal_only_summary() {
         .await
         .unwrap();
 
-    let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
     let response = app.oneshot(behavior_summary_request()).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -370,10 +376,7 @@ async fn apple_behavior_summary_includes_watch_signal_context_alongside_metrics(
 
     assert_eq!(summary.metrics.len(), 1);
     assert!(summary.headline.contains("recent watch signals"));
-    assert!(summary
-        .reasons
-        .iter()
-        .any(|reason| reason.contains("wake")));
+    assert!(summary.reasons.iter().any(|reason| reason.contains("wake")));
     assert!(summary
         .reasons
         .iter()

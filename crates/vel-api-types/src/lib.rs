@@ -310,6 +310,94 @@ pub struct BackupManifestData {
     pub verification_summary: BackupVerificationData,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportRequestData {
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_root: Option<String>,
+    #[serde(default)]
+    pub domains: Vec<String>,
+    #[serde(default)]
+    pub include_parquet: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportDomainOmissionData {
+    pub domain: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportFileData {
+    pub domain: String,
+    pub path: String,
+    pub schema_version: String,
+    pub record_count: u64,
+    pub checksum_algorithm: String,
+    pub checksum: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportDerivativeData {
+    pub domain: String,
+    pub path: String,
+    pub source_path: String,
+    pub format: String,
+    pub record_count: u64,
+    pub checksum_algorithm: String,
+    pub checksum: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportManifestData {
+    pub export_id: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
+    pub target_root: String,
+    pub export_root: String,
+    #[serde(default)]
+    pub included_domains: Vec<String>,
+    #[serde(default)]
+    pub omitted_domains: Vec<BackupExportDomainOmissionData>,
+    #[serde(default)]
+    pub files: Vec<BackupExportFileData>,
+    #[serde(default)]
+    pub derivatives: Vec<BackupExportDerivativeData>,
+    pub verification_summary: BackupVerificationData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportResultData {
+    pub manifest: BackupExportManifestData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportStatusData {
+    pub state: BackupStatusStateData,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_export_id: Option<String>,
+    #[serde(default)]
+    #[serde(with = "time::serde::rfc3339::option")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_export_at: Option<OffsetDateTime>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_root: Option<String>,
+    #[serde(default)]
+    pub included_domains: Vec<String>,
+    #[serde(default)]
+    pub omitted_domains: Vec<BackupExportDomainOmissionData>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_summary: Option<BackupVerificationData>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackupStatusStateData {
@@ -6066,7 +6154,10 @@ mod linking_datetime_contract_tests {
         .unwrap();
         assert!(token["issued_at"].is_string());
         assert!(token["expires_at"].is_string());
-        assert_eq!(token["bootstrap_artifact"]["preferred_transport_hint"], "tailscale");
+        assert_eq!(
+            token["bootstrap_artifact"]["preferred_transport_hint"],
+            "tailscale"
+        );
 
         let prompt = serde_json::to_value(LinkingPromptData {
             target_node_id: "node_remote".to_string(),

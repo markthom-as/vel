@@ -55,6 +55,9 @@
     "transformation_result": {
       "type": "object"
     },
+    "validation_result": {
+      "type": "object"
+    },
     "replay": {
       "type": "object",
       "required": [

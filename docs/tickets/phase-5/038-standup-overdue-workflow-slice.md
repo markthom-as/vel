@@ -1,11 +1,11 @@
 ---
 title: Morning Standup Overdue-Task Workflow Slice
-status: planned
+status: baseline shipped
 owner: staff-eng
 type: implementation
 priority: high
 created: 2026-03-25
-updated: 2026-03-25
+updated: 2026-04-15
 depends_on:
   - 032-mutation-protocol-discipline
   - 034-vel-run-command
@@ -22,6 +22,8 @@ labels:
 # Context & Objectives
 
 Ship the first supervised workflow vertical for morning standup/planning: detect overdue commitments, present bounded action choices, require confirmation before mutation, and persist explainable run/event evidence.
+
+Baseline implementation note: the backend and CLI workflow is mounted. Overdue-specific voice/watch shortcuts and service-layer extraction remain follow-up work.
 
 # Impacted Files & Symbols
 
@@ -55,15 +57,23 @@ Ship the first supervised workflow vertical for morning standup/planning: detect
 
 # Acceptance Criteria
 
-1. [ ] Overdue standup workflow exposes bounded action menu for overdue commitments.
-2. [ ] Mutations cannot apply without explicit confirmation state.
-3. [ ] Reschedule supports confirm/override of Vel due-date guess with explicit persisted reason.
-4. [ ] Undo path is available for supported actions and returns deterministic result.
-5. [ ] CLI/operator output is readable and includes run/action evidence references.
+1. [x] Overdue standup workflow exposes bounded action menu for overdue commitments.
+2. [x] Mutations cannot apply without explicit confirmation state.
+3. [x] Reschedule supports confirm/override of Vel due-date guess with explicit persisted reason.
+4. [x] Undo path is available for supported actions and returns deterministic result.
+5. [x] CLI/operator output is readable and includes run/action evidence references.
 
 # Verification & Regression
 
 - **Integration Test**: menu -> confirm -> apply for each action type.
 - **Integration Test**: apply without confirm is rejected fail-closed.
 - **Integration Test**: repeated apply with same idempotency key is deterministic/no duplicate side effects.
+- **Integration Test**: undo restores before state and replays deterministically for the same idempotency key.
+- **Integration Test**: overdue menu honors requested `today` boundary.
+- **CLI Test**: overdue menu/confirm/apply/undo commands parse.
 - **Manual Smoke**: run one morning standup overdue sequence and inspect run/event/artifact outputs.
+
+Verification evidence captured on 2026-04-15:
+
+- `cargo test -p veld --test daily_loop_standup`
+- `cargo test -p vel-cli cli_parses_daily_loop_overdue_commands`

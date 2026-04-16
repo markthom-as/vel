@@ -84,6 +84,34 @@ impl Default for NowConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupExportScheduleMode {
+    ManualOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BackupExportConfig {
+    pub target_root: Option<String>,
+    #[serde(default)]
+    pub domains: Vec<String>,
+    pub schedule_mode: BackupExportScheduleMode,
+    pub retention_count: Option<u32>,
+    pub include_parquet_derivatives: bool,
+}
+
+impl Default for BackupExportConfig {
+    fn default() -> Self {
+        Self {
+            target_root: None,
+            domains: Vec::new(),
+            schedule_mode: BackupExportScheduleMode::ManualOnly,
+            retention_count: None,
+            include_parquet_derivatives: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
     pub bind_addr: String,
@@ -120,6 +148,8 @@ pub struct AppConfig {
     pub notes_path: Option<String>,
     /// Transcripts: path to assistant/chat transcript snapshot JSON.
     pub transcript_snapshot_path: Option<String>,
+    #[serde(default)]
+    pub backup_export: BackupExportConfig,
     #[serde(default)]
     pub now: NowConfig,
 }
@@ -300,6 +330,7 @@ impl Default for AppConfig {
             reminders_snapshot_path: Some(DEFAULT_REMINDERS_SNAPSHOT_PATH.to_string()),
             notes_path: Some(DEFAULT_NOTES_PATH.to_string()),
             transcript_snapshot_path: Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH.to_string()),
+            backup_export: BackupExportConfig::default(),
             now: NowConfig::default(),
         }
     }
@@ -358,6 +389,7 @@ struct FileConfig {
     reminders_snapshot_path: Option<String>,
     notes_path: Option<String>,
     transcript_snapshot_path: Option<String>,
+    backup_export: Option<BackupExportConfig>,
     now: Option<NowConfig>,
 }
 
@@ -486,6 +518,9 @@ impl AppConfig {
         if file.transcript_snapshot_path.is_some() {
             self.transcript_snapshot_path = file.transcript_snapshot_path;
         }
+        if let Some(value) = file.backup_export {
+            self.backup_export = value;
+        }
         if let Some(value) = file.now {
             self.now = value;
         }
@@ -568,7 +603,32 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_TRANSCRIPT_SNAPSHOT_PATH") {
             self.transcript_snapshot_path = Some(value.clone());
         }
+        if let Some(value) = env_map.get("VEL_BACKUP_EXPORT_TARGET_ROOT") {
+            self.backup_export.target_root = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_BACKUP_EXPORT_DOMAINS") {
+            self.backup_export.domains = parse_env_csv(value);
+        }
+        if let Some(value) = env_map.get("VEL_BACKUP_EXPORT_RETENTION_COUNT") {
+            if let Ok(value) = value.trim().parse::<u32>() {
+                self.backup_export.retention_count = Some(value);
+            }
+        }
+        if let Some(value) = env_map.get("VEL_BACKUP_EXPORT_INCLUDE_PARQUET") {
+            if let Some(value) = parse_env_bool(value) {
+                self.backup_export.include_parquet_derivatives = value;
+            }
+        }
     }
+}
+
+fn parse_env_csv(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .map(ToString::to_string)
+        .collect()
 }
 
 fn parse_env_bool(value: &str) -> Option<bool> {
@@ -634,6 +694,14 @@ mod tests {
             config.transcript_snapshot_path.as_deref(),
             Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH)
         );
+        assert_eq!(config.backup_export.target_root, None);
+        assert!(config.backup_export.domains.is_empty());
+        assert_eq!(
+            config.backup_export.schedule_mode,
+            BackupExportScheduleMode::ManualOnly
+        );
+        assert_eq!(config.backup_export.retention_count, None);
+        assert!(!config.backup_export.include_parquet_derivatives);
         assert_eq!(config.now.title_mode, NowTitleMode::OperatorNamePossessive);
         assert_eq!(
             config.now.bucket_count_display,
@@ -678,6 +746,22 @@ mod tests {
                 "VEL_REMINDERS_SNAPSHOT_PATH".to_string(),
                 "/tmp/reminders.json".to_string(),
             ),
+            (
+                "VEL_BACKUP_EXPORT_TARGET_ROOT".to_string(),
+                "/mnt/candnas/jove/knowledge/google".to_string(),
+            ),
+            (
+                "VEL_BACKUP_EXPORT_DOMAINS".to_string(),
+                "calendar,tasks".to_string(),
+            ),
+            (
+                "VEL_BACKUP_EXPORT_RETENTION_COUNT".to_string(),
+                "7".to_string(),
+            ),
+            (
+                "VEL_BACKUP_EXPORT_INCLUDE_PARQUET".to_string(),
+                "true".to_string(),
+            ),
         ]);
 
         config.apply_env_map(&env_map);
@@ -709,6 +793,13 @@ mod tests {
             config.agent_spec_path.as_deref(),
             Some("/tmp/agent-specs.yaml")
         );
+        assert_eq!(
+            config.backup_export.target_root.as_deref(),
+            Some("/mnt/candnas/jove/knowledge/google")
+        );
+        assert_eq!(config.backup_export.domains, vec!["calendar", "tasks"]);
+        assert_eq!(config.backup_export.retention_count, Some(7));
+        assert!(config.backup_export.include_parquet_derivatives);
     }
 
     #[test]
@@ -762,6 +853,20 @@ budgets:
             parsed.reminders_snapshot_path.as_deref(),
             Some("var/integrations/reminders/snapshot.json")
         );
+        let backup_export = parsed
+            .backup_export
+            .expect("template should declare backup export config");
+        assert_eq!(
+            backup_export.target_root.as_deref(),
+            Some("/mnt/candnas/jove/knowledge/google")
+        );
+        assert_eq!(backup_export.domains, vec!["calendar", "tasks"]);
+        assert_eq!(
+            backup_export.schedule_mode,
+            BackupExportScheduleMode::ManualOnly
+        );
+        assert_eq!(backup_export.retention_count, Some(7));
+        assert!(!backup_export.include_parquet_derivatives);
         let now = parsed
             .now
             .expect("template should declare governed now config");
@@ -786,6 +891,15 @@ budgets:
             config.reminders_snapshot_path.as_deref(),
             Some("var/integrations/reminders/snapshot.json")
         );
+        assert_eq!(
+            config.backup_export.target_root.as_deref(),
+            Some("/mnt/candnas/jove/knowledge/google")
+        );
+        assert_eq!(config.backup_export.domains, vec!["calendar", "tasks"]);
+        assert_eq!(
+            config.backup_export.schedule_mode,
+            BackupExportScheduleMode::ManualOnly
+        );
         assert_eq!(config.now.title_mode, NowTitleMode::Literal);
         assert_eq!(config.now.title_literal.as_deref(), Some("Jove's Now"));
         assert_eq!(
@@ -804,6 +918,9 @@ budgets:
         assert!(schema.contains("\"tailscale_preferred\""));
         assert!(schema.contains("\"bucket_count_display\""));
         assert!(schema.contains("\"allow_thread_handoff\""));
+        assert!(schema.contains("\"backup_export\""));
+        assert!(schema.contains("\"schedule_mode\""));
+        assert!(schema.contains("\"include_parquet_derivatives\""));
     }
 
     #[test]

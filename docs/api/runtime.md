@@ -91,18 +91,26 @@ Exposure:
 
 ### `GET /v1/backup/status`
 ### `POST /v1/backup/create`
+### `POST /v1/backup/export`
+### `GET /v1/backup/export/status`
 ### `POST /v1/backup/inspect`
 ### `POST /v1/backup/verify`
 
 - authenticated backup trust surfaces
 - `status` returns the backend-owned backup state used by doctor, settings, CLI, and web trust cards
 - `create` writes a typed local backup pack with manifest, SQLite snapshot, bounded artifact/config coverage, and explicit omissions
+- `export` writes a manual, JSON/NDJSON-first NAS/local-source export manifest into an existing operator-provided or configured target root; successful export runs are persisted separately from backup-pack runs, and this slice still does not schedule, prune retention, or derive parquet
+- `export/status` returns the most recent successful manual export state without changing backup-pack trust status; it can degrade the export-specific status when the latest finished scheduled export job failed after the latest successful export
 - `inspect` reads a pack non-destructively
 - `verify` re-checks manifest path boundaries and checksum state fail-closed
+
+The `backup_export` runtime loop kind is registered for policy/visibility consistency, but it is disabled by default and fails closed. Scheduled job queue/status storage exists, and failed scheduled jobs can now affect export-specific status, but no worker executes scheduled exports yet. Use `POST /v1/backup/export` or `vel backup --export` for the current supported path.
 
 CLI projection:
 
 - `vel backup --create [--output-root <dir>]`
+- `vel backup --export [--target-root <dir>] [--domain <name>]`
+- `vel backup --export-status`
 - `vel backup --inspect <backup_root>`
 - `vel backup --verify <backup_root>`
 - `vel backup --dry-run-restore <backup_root>`
@@ -326,8 +334,9 @@ CLI fallback when the web shell is unavailable:
 - `POST /v1/daily-loop/check-ins/:check_in_event_id/skip` creates a skip event linked to the original check-in event with required reason metadata
 - `POST /v1/daily-loop/sessions/:id/turn` advances the current prompt with bounded submit/skip actions and returns the updated typed session
 - when a daily-loop `check_in` needs longer follow-through, the backend preserves a deterministic thread-backed escalation target and updates that thread with typed deferred/resolved status as the session advances
-- `/overdue/*` endpoints now ship a baseline implementation for proposal/confirm/apply/undo with idempotency-key handling; deeper policy and undo guarantees continue under ticket `038`
-- contract and payload draft: [standup overdue workflow draft](standup-overdue-workflow-contract.md)
+- `/overdue/*` endpoints ship the mounted standup overdue workflow baseline: bounded menu, proposal/confirmation/apply, idempotent replay for repeated keys, supported undo, and run/event evidence for mutation commits
+- overdue menu requests evaluate overdue commitments against the requested `today` date boundary rather than only server wall-clock time
+- contract and payload notes: [standup overdue workflow contract](standup-overdue-workflow-contract.md)
 
 ### `GET /v1/context/current`
 ### `GET /v1/context/timeline`

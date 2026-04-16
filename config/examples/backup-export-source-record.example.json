@@ -1,0 +1,25 @@
+{
+  "schema_version": "backup_export_tasks.v1",
+  "record_kind": "task",
+  "source_family": "tasks",
+  "provider_key": "todoist",
+  "source_mode": "local_snapshot",
+  "source_path": "/Users/jove/code/vel/var/integrations/todoist/snapshot.json",
+  "external_id": "task-1",
+  "account_ref": null,
+  "record_timestamp": "2026-04-16T09:00:00Z",
+  "normalized_at": "2026-04-16T09:05:00Z",
+  "content_hash": "sha256:a1d29c3b4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef",
+  "payload": {
+    "task_id": "task-1",
+    "text": "Review export manifest",
+    "completed": false,
+    "due_time": "2026-04-16",
+    "labels": [
+      "vel"
+    ],
+    "project_id": "proj-1",
+    "priority": 1,
+    "updated_at": "2026-04-16T09:00:00Z"
+  }
+}

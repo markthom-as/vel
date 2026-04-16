@@ -75,6 +75,8 @@ That manual-first posture is deliberate. It keeps the operator in control and av
 Phase 09 now ships a bounded backup workflow:
 
 - `vel backup --create [--output-root <dir>]`
+- `vel backup --export [--target-root <dir>] [--domain <name>]`
+- `vel backup --export-status`
 - `vel backup --inspect <backup_root>`
 - `vel backup --verify <backup_root>`
 - `vel backup --dry-run-restore <backup_root>`
@@ -93,6 +95,28 @@ The create flow asks the backend to:
 3. record explicit omissions
 4. write `manifest.json`
 5. persist the last-success backup status for doctor/settings/web surfaces
+
+### Export Local Source Snapshots
+
+Use export when you want an inspectable source-shaped lane under a NAS or other operator-owned directory:
+
+```bash
+vel backup --export --target-root /mnt/candnas/jove/knowledge/google --domain calendar --domain tasks
+```
+
+The target root must already exist and be writable. If `backup_export.target_root` is configured in `vel.toml`, the CLI can omit `--target-root`. If `backup_export.domains` is configured, the CLI can omit repeated `--domain` flags. Vel writes a latest manifest pointer at `manifest.json` and writes the durable export under `runs/<export_id>/`, including `runs/<export_id>/manifest.json` plus JSON/NDJSON source snapshot files under `runs/<export_id>/domains/<domain>/`.
+
+Calendar exports now write normalized event records to `domains/calendar/events.ndjson` with schema `backup_export_calendar_events.v1`. Todoist task exports write normalized task records to `domains/tasks/tasks.ndjson` with schema `backup_export_tasks.v1`. Messaging exports write normalized thread records to `domains/messaging/threads.ndjson` with schema `backup_export_messaging_threads.v1`. Transcript exports write normalized message records to `domains/transcripts/messages.ndjson` with schema `backup_export_transcript_messages.v1`. Git exports write normalized event records to `domains/git/events.ndjson` with schema `backup_export_git_events.v1`. Health exports write normalized sample records to `domains/health/samples.ndjson` with schema `backup_export_health_samples.v1`. Reminder exports write normalized item records to `domains/reminders/items.ndjson` with schema `backup_export_reminder_items.v1`. Notes exports write normalized document records to `domains/notes/notes.ndjson` with schema `backup_export_notes.v1`. Explicit activity snapshot files write normalized event records to `domains/activity/events.ndjson` with schema `backup_export_activity_events.v1`; activity directories and generic activity files continue to write `domains/activity/source.ndjson` with the raw local-source snapshot schema. Malformed normalized sources are recorded in `omitted_domains` instead of failing the whole export when other requested domains can still be written.
+
+This export path is manual-only in the current slice. Vel registers a disabled `backup_export` runtime loop for visibility, but enabling it does not run scheduled export yet. Recurring job execution remains separate follow-up work. If `[backup_export].retention_count` is set, Vel prunes older export directories under `runs/` after a successful export and never prunes the run it just wrote. Optional parquet derivatives can be requested with `include_parquet` on the API request or `[backup_export].include_parquet_derivatives = true`; they are written under `runs/<export_id>/cold-tier/<domain>/` and derived from the normalized JSON/NDJSON files.
+
+Inspect the latest successful export run with:
+
+```bash
+vel backup --export-status
+```
+
+If a scheduled export job has been recorded and its latest terminal attempt failed after the latest successful export, export status reports `degraded` and includes the failed target and error text. That status signal is export-specific; it does not change backup-pack trust status.
 
 ### Backup Inspect And Verify
 

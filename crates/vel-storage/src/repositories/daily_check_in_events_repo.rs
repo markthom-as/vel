@@ -204,7 +204,7 @@ fn map_daily_check_in_event_row(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::StorageError;
+    use serde_json::Value as JsonValue;
 
     static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
 
@@ -214,9 +214,50 @@ mod tests {
         pool
     }
 
+    async fn seed_daily_session(pool: &SqlitePool, session_id: &str, phase: &str) {
+        sqlx::query(
+            r#"
+            INSERT INTO daily_sessions (
+                session_id,
+                session_date,
+                phase,
+                status,
+                start_json,
+                turn_state,
+                state_json,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(session_id)
+        .bind("2026-03-19")
+        .bind(match phase {
+            "standup" => "standup",
+            _ => "morning_overview",
+        })
+        .bind("active")
+        .bind(r#"{"source":"manual","surface":"cli"}"#)
+        .bind("in_progress")
+        .bind(match phase {
+            "standup" => {
+                r#"{"phase":"standup","commitments":[],"deferred_tasks":[],"confirmed_calendar":[],"focus_blocks":[],"check_in_history":[]}"#
+            }
+            _ => {
+                r#"{"phase":"morning_overview","snapshot":"","friction_callouts":[],"signals":[],"check_in_history":[]}"#
+            }
+        })
+        .bind(1_700_000_000_i64)
+        .bind(1_700_000_000_i64)
+        .execute(pool)
+        .await
+        .expect("daily session fixture should persist");
+    }
+
     #[tokio::test]
     async fn daily_check_in_events_round_trip() {
         let pool = test_pool().await;
+        seed_daily_session(&pool, "dls_1", "morning").await;
         let event_id = insert_daily_check_in_event(
             &pool,
             DailyCheckInEventInsert {
@@ -261,6 +302,7 @@ mod tests {
     #[tokio::test]
     async fn check_in_round_trip_ignores_phase_filter() {
         let pool = test_pool().await;
+        seed_daily_session(&pool, "dls_2", "standup").await;
         insert_daily_check_in_event(
             &pool,
             DailyCheckInEventInsert {
@@ -303,6 +345,7 @@ mod tests {
     #[tokio::test]
     async fn check_in_list_includes_skips_only_when_requested() {
         let pool = test_pool().await;
+        seed_daily_session(&pool, "dls_3", "morning").await;
         insert_daily_check_in_event(
             &pool,
             DailyCheckInEventInsert {
@@ -346,6 +389,7 @@ mod tests {
     #[tokio::test]
     async fn check_in_list_filters_by_phase() {
         let pool = test_pool().await;
+        seed_daily_session(&pool, "dls_4", "morning").await;
         insert_daily_check_in_event(
             &pool,
             DailyCheckInEventInsert {

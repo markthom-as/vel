@@ -13,17 +13,17 @@ mod storage_backend;
 pub use bootstrap::{bootstrap_canonical_registry, BootstrapReport};
 pub use db::{
     ArtifactInsert, ArtifactRecord, AssistantTranscriptInsert, AssistantTranscriptRecord,
-    BackupRunRecord, BrokerEventRecord, CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert,
-    CommitmentInsert, ConnectRunEventRecord, ConnectRunRecord, ConversationInsert,
-    ConversationRecord, DailyCheckInEventInsert, DailyCheckInEventRecord, DailySessionRecord,
-    EventLogInsert, EventLogRecord, InferredStateInsert, IntegrationConnectionFilters,
-    IntegrationConnectionInsert, InterventionInsert, InterventionRecord, MessageInsert,
-    MessageRecord, NudgeInsert, NudgeRecord, PendingJob, RetryReadyRun, RuntimeLoopRecord,
-    SearchFilters, SignalInsert, SignalRecord, Storage, StorageError, SuggestionEvidenceInsert,
-    SuggestionEvidenceRecord, SuggestionFeedbackInsert, SuggestionFeedbackRecord,
-    SuggestionFeedbackSummary, SuggestionInsertV2, SuggestionRecord, UncertaintyRecord,
-    UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord,
-    WorkAssignmentUpdate,
+    BackupJobEventRecord, BackupJobRecord, BackupRunRecord, BrokerEventRecord, CaptureInsert,
+    ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, ConnectRunEventRecord,
+    ConnectRunRecord, ConversationInsert, ConversationRecord, DailyCheckInEventInsert,
+    DailyCheckInEventRecord, DailySessionRecord, EventLogInsert, EventLogRecord,
+    InferredStateInsert, IntegrationConnectionFilters, IntegrationConnectionInsert,
+    InterventionInsert, InterventionRecord, MessageInsert, MessageRecord, NudgeInsert, NudgeRecord,
+    PendingJob, RetryReadyRun, RuntimeLoopRecord, SearchFilters, SignalInsert, SignalRecord,
+    Storage, StorageError, SuggestionEvidenceInsert, SuggestionEvidenceRecord,
+    SuggestionFeedbackInsert, SuggestionFeedbackRecord, SuggestionFeedbackSummary,
+    SuggestionInsertV2, SuggestionRecord, UncertaintyRecord, UncertaintyRecordInsert,
+    UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentUpdate,
 };
 pub use migration_artifacts::{
     replay_migration_artifact, validate_migration_artifact, MigrationArtifactRecord,

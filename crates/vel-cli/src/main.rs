@@ -173,7 +173,15 @@ enum Command {
         #[arg(long)]
         create: bool,
         #[arg(long)]
+        export: bool,
+        #[arg(long = "export-status")]
+        export_status: bool,
+        #[arg(long)]
         output_root: Option<String>,
+        #[arg(long)]
+        target_root: Option<String>,
+        #[arg(long = "domain")]
+        domains: Vec<String>,
         #[arg(long)]
         inspect: Option<String>,
         #[arg(long)]
@@ -1450,7 +1458,11 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Backup {
             create,
+            export,
+            export_status,
             output_root,
+            target_root,
+            domains,
             inspect,
             verify,
             dry_run_restore,
@@ -1460,7 +1472,11 @@ async fn main() -> anyhow::Result<()> {
                 &client,
                 &config,
                 create,
+                export,
+                export_status,
                 output_root.as_deref(),
+                target_root.as_deref(),
+                domains,
                 inspect.as_deref(),
                 verify.as_deref(),
                 dry_run_restore.as_deref(),
@@ -2020,6 +2036,42 @@ mod tests {
             Command::Agent {
                 command: AgentCommand::Inspect { json },
             } => assert!(json),
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_backup_export() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "backup",
+            "--export",
+            "--target-root",
+            "/tmp/vel-export",
+            "--domain",
+            "calendar",
+            "--domain",
+            "tasks",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Backup {
+                export,
+                target_root,
+                domains,
+                ..
+            } => {
+                assert!(export);
+                assert_eq!(target_root.as_deref(), Some("/tmp/vel-export"));
+                assert_eq!(domains, vec!["calendar".to_string(), "tasks".to_string()]);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+
+        let status = Cli::try_parse_from(["vel", "backup", "--export-status"]).unwrap();
+        match status.command {
+            Command::Backup { export_status, .. } => assert!(export_status),
             other => panic!("unexpected command: {:?}", other),
         }
     }
@@ -2888,6 +2940,69 @@ mod tests {
                 assert!(json);
             }
             _ => panic!("expected daily-loop overdue confirm command"),
+        }
+
+        let apply = Cli::try_parse_from([
+            "vel",
+            "daily-loop",
+            "overdue",
+            "apply",
+            "ovdp_123",
+            "--confirmation-token",
+            "confirm:ovdp_123",
+            "--idempotency-key",
+            "ovd:test:apply",
+        ])
+        .unwrap();
+        match apply.command {
+            Command::DailyLoop {
+                command:
+                    DailyLoopCommand::Overdue {
+                        command:
+                            DailyLoopOverdueCommand::Apply {
+                                proposal_id,
+                                confirmation_token,
+                                idempotency_key,
+                                json,
+                            },
+                    },
+            } => {
+                assert_eq!(proposal_id, "ovdp_123");
+                assert_eq!(confirmation_token, "confirm:ovdp_123");
+                assert_eq!(idempotency_key.as_deref(), Some("ovd:test:apply"));
+                assert!(!json);
+            }
+            _ => panic!("expected daily-loop overdue apply command"),
+        }
+
+        let undo = Cli::try_parse_from([
+            "vel",
+            "daily-loop",
+            "overdue",
+            "undo",
+            "ovda_123",
+            "--idempotency-key",
+            "ovd:test:undo",
+            "--json",
+        ])
+        .unwrap();
+        match undo.command {
+            Command::DailyLoop {
+                command:
+                    DailyLoopCommand::Overdue {
+                        command:
+                            DailyLoopOverdueCommand::Undo {
+                                action_event_id,
+                                idempotency_key,
+                                json,
+                            },
+                    },
+            } => {
+                assert_eq!(action_event_id, "ovda_123");
+                assert_eq!(idempotency_key.as_deref(), Some("ovd:test:undo"));
+                assert!(json);
+            }
+            _ => panic!("expected daily-loop overdue undo command"),
         }
     }
 

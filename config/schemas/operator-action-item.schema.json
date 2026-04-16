@@ -13,7 +13,9 @@
       "type": "string",
       "enum": [
         "next_step",
+        "recovery",
         "intervention",
+        "check_in",
         "review",
         "freshness",
         "blocked",
@@ -38,6 +40,36 @@
         "link_node"
       ]
     },
+    "ActionPermissionMode": {
+      "type": "string",
+      "enum": ["auto_allowed", "user_confirm", "blocked", "unavailable"]
+    },
+    "ActionScopeAffinity": {
+      "type": "string",
+      "enum": ["global", "project", "thread", "connector", "daily_loop"]
+    },
+    "ProjectFamily": {
+      "type": ["string", "null"],
+      "enum": ["personal", "creative", "work", null]
+    },
+    "ActionThreadRoute": {
+      "type": ["object", "null"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": ["existing_thread", "filtered_threads"]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "thread_id": { "type": ["string", "null"] },
+        "thread_type": { "type": ["string", "null"] },
+        "project_id": {
+          "type": ["string", "null"],
+          "pattern": "^proj_[A-Za-z0-9]+$"
+        }
+      },
+      "required": ["target", "label", "thread_id", "thread_type", "project_id"],
+      "additionalProperties": false
+    },
     "ActionEvidenceRef": {
       "type": "object",
       "properties": {
@@ -57,12 +89,16 @@
     },
     "surface": { "$ref": "#/$defs/ActionSurface" },
     "kind": { "$ref": "#/$defs/ActionKind" },
+    "permission_mode": { "$ref": "#/$defs/ActionPermissionMode" },
+    "scope_affinity": { "$ref": "#/$defs/ActionScopeAffinity" },
     "title": { "type": "string", "minLength": 1 },
     "summary": { "type": "string", "minLength": 1 },
     "project_id": {
       "type": ["string", "null"],
       "pattern": "^proj_[A-Za-z0-9]+$"
     },
+    "project_label": { "type": ["string", "null"] },
+    "project_family": { "$ref": "#/$defs/ProjectFamily" },
     "state": { "$ref": "#/$defs/ActionState" },
     "rank": { "type": "integer" },
     "surfaced_at": { "type": "string", "format": "date-time" },
@@ -77,21 +113,27 @@
     "evidence": {
       "type": "array",
       "items": { "$ref": "#/$defs/ActionEvidenceRef" }
-    }
+    },
+    "thread_route": { "$ref": "#/$defs/ActionThreadRoute" }
   },
   "required": [
     "id",
     "surface",
     "kind",
+    "permission_mode",
+    "scope_affinity",
     "title",
     "summary",
     "project_id",
+    "project_label",
+    "project_family",
     "state",
     "rank",
     "surfaced_at",
     "snoozed_until",
     "available_actions",
-    "evidence"
+    "evidence",
+    "thread_route"
   ],
   "additionalProperties": false
 }

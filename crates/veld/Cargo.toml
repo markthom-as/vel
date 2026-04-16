@@ -6,6 +6,8 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+arrow-array.workspace = true
+arrow-schema.workspace = true
 axum.workspace = true
 futures.workspace = true
 futures-util.workspace = true
@@ -34,6 +36,7 @@ vel-core = { path = "../vel-core" }
 vel-llm = { path = "../vel-llm" }
 vel-protocol = { path = "../vel-protocol" }
 vel-storage = { path = "../vel-storage" }
+parquet.workspace = true
 reqwest = { workspace = true }
 serde_yaml.workspace = true
 if-addrs.workspace = true

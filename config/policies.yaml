@@ -37,6 +37,9 @@ loops:
   stale_nudge_reconciliation:
     enabled: true
     interval_seconds: 1800
+  backup_export:
+    enabled: false
+    interval_seconds: 86400
 
 queued_work:
   validation:

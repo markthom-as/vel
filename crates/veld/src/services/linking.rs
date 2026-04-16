@@ -66,7 +66,8 @@ pub async fn issue_pairing_token(
     };
 
     let issued = state.storage.issue_pairing_token(&record).await?;
-    let bootstrap_artifact = local_trust_bootstrap_artifact(state, &issued, &local_bootstrap).await?;
+    let bootstrap_artifact =
+        local_trust_bootstrap_artifact(state, &issued, &local_bootstrap).await?;
     if let Some(target_node_id) = request
         .target_node_id
         .as_deref()
@@ -290,10 +291,7 @@ async fn redeem_pairing_token_via_prompt(
         .clone()
         .map(trust_bootstrap_artifact_from_data)
         .unwrap_or_else(|| legacy_prompt_bootstrap_artifact(&prompt));
-    let local_record = merge_linked_node(
-        existing.as_ref(),
-        artifact.to_linked_node_record(now),
-    );
+    let local_record = merge_linked_node(existing.as_ref(), artifact.to_linked_node_record(now));
     clear_linking_prompt(state, node_id).await?;
     state.storage.upsert_linked_node(&local_record).await?;
     Ok(local_record)

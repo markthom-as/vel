@@ -86,7 +86,7 @@ Execution order and v0.1 release gate: [phase-5/README.md](phase-5/README.md)
 - [035-vel-dry-run-command.md](phase-5/035-vel-dry-run-command.md) `[complete]` `vel dry-run` policy and mutation preview mode
 - [036-explainability-history-commands.md](phase-5/036-explainability-history-commands.md) `[complete]` `vel explain`, `vel runs`, and `vel artifacts` trust surfaces
 - [037-security-observability-hardening.md](phase-5/037-security-observability-hardening.md) `[complete]` v0.1 hardening for redaction, write scope, and observability
-- [038-standup-overdue-workflow-slice.md](phase-5/038-standup-overdue-workflow-slice.md) `[planned]` Morning standup overdue-task action workflow (`menu -> confirm -> apply -> undo`)
+- [038-standup-overdue-workflow-slice.md](phase-5/038-standup-overdue-workflow-slice.md) `[baseline shipped]` Morning standup overdue-task action workflow (`menu -> confirm -> apply -> undo`)
 
 ## Queue Maintenance Rules
 

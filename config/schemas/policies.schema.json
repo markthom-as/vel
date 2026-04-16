@@ -78,6 +78,9 @@
         },
         "stale_nudge_reconciliation": {
           "$ref": "#/$defs/LoopPolicy"
+        },
+        "backup_export": {
+          "$ref": "#/$defs/LoopPolicy"
         }
       },
       "additionalProperties": false

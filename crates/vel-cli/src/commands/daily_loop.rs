@@ -3,10 +3,10 @@ use time::OffsetDateTime;
 use vel_api_types::{
     DailyLoopCheckInSkipRequestData, DailyLoopOverdueActionData, DailyLoopOverdueApplyRequestData,
     DailyLoopOverdueConfirmRequestData, DailyLoopOverdueMenuRequestData,
-    DailyLoopOverdueReschedulePayloadData, DailyLoopOverdueUndoRequestData, DailyLoopPhaseData,
-    DailyLoopSessionData, DailyLoopSessionStateData, DailyLoopStartMetadataData,
-    DailyLoopStartRequestData, DailyLoopStartSourceData, DailyLoopSurfaceData,
-    DailyLoopTurnActionData,
+    DailyLoopOverdueReschedulePayloadData, DailyLoopOverdueStateSnapshotData,
+    DailyLoopOverdueUndoRequestData, DailyLoopPhaseData, DailyLoopSessionData,
+    DailyLoopSessionStateData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
+    DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
 };
 
 use crate::client::ApiClient;
@@ -258,6 +258,7 @@ pub async fn run_overdue_apply(
     println!("action_event_id: {}", data.action_event_id);
     println!("idempotency_key: {}", key);
     println!("undo_supported: {}", data.undo_supported);
+    print_overdue_transition(&data.before, &data.after);
     Ok(())
 }
 
@@ -288,8 +289,26 @@ pub async fn run_overdue_undo(
     }
     println!("undone: {}", data.undone);
     println!("run_id: {}", data.run_id);
+    println!("action_event_id: {}", action_event_id);
     println!("idempotency_key: {}", key);
+    print_overdue_transition(&data.before, &data.after);
     Ok(())
+}
+
+fn print_overdue_transition(
+    before: &DailyLoopOverdueStateSnapshotData,
+    after: &DailyLoopOverdueStateSnapshotData,
+) {
+    println!("before: {}", format_overdue_snapshot(before));
+    println!("after: {}", format_overdue_snapshot(after));
+}
+
+fn format_overdue_snapshot(snapshot: &DailyLoopOverdueStateSnapshotData) -> String {
+    format!(
+        "status={}, due_at={}",
+        snapshot.status,
+        snapshot.due_at.as_deref().unwrap_or("unscheduled")
+    )
 }
 
 async fn resolve_active_standup_session_id(client: &ApiClient) -> anyhow::Result<String> {

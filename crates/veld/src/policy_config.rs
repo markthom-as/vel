@@ -84,6 +84,7 @@ pub struct LoopPolicies {
     pub sync_transcripts: Option<LoopPolicy>,
     pub weekly_synthesis: Option<LoopPolicy>,
     pub stale_nudge_reconciliation: Option<LoopPolicy>,
+    pub backup_export: Option<LoopPolicy>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -247,6 +248,10 @@ impl Default for LoopPolicies {
                 enabled: true,
                 interval_seconds: 1_800,
             }),
+            backup_export: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 86_400,
+            }),
         }
     }
 }
@@ -363,6 +368,10 @@ impl PolicyConfig {
     pub fn stale_nudge_reconciliation_loop(&self) -> Option<&LoopPolicy> {
         self.loops.stale_nudge_reconciliation.as_ref()
     }
+
+    pub fn backup_export_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.backup_export.as_ref()
+    }
     pub fn queued_work_validation_policy(&self) -> &QueuedWorkRetryPolicy {
         &self.queued_work.validation
     }
@@ -409,6 +418,7 @@ mod tests {
         assert!(config.sync_reminders_loop().is_some());
         assert!(config.weekly_synthesis_loop().is_some());
         assert!(config.stale_nudge_reconciliation_loop().is_some());
+        assert!(config.backup_export_loop().is_some());
         assert!(config.suggestions().enabled);
         assert_eq!(config.suggestions().window_days, 7);
         assert_eq!(config.suggestions().response_debt.threshold, 3);
@@ -441,6 +451,11 @@ mod tests {
                 .unwrap()
                 .interval_seconds,
             1_800
+        );
+        assert!(!config.backup_export_loop().unwrap().enabled);
+        assert_eq!(
+            config.backup_export_loop().unwrap().interval_seconds,
+            86_400
         );
         assert_eq!(
             config.queued_work_validation_policy().max_failure_attempts,

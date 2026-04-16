@@ -1,6 +1,9 @@
 use axum::{extract::State, Json};
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, BackupStatusData};
+use vel_api_types::{
+    ApiResponse, BackupExportRequestData, BackupExportResultData, BackupExportStatusData,
+    BackupStatusData,
+};
 
 use crate::{
     errors::AppError,
@@ -44,10 +47,31 @@ pub async fn verify_backup(
     )))
 }
 
+pub async fn export_backup(
+    State(state): State<AppState>,
+    Json(payload): Json<BackupExportRequestData>,
+) -> Result<Json<ApiResponse<BackupExportResultData>>, AppError> {
+    let result = backup::export_backup(&state, payload).await?;
+    Ok(Json(ApiResponse::success(
+        result,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
 pub async fn backup_status(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<BackupStatusData>>, AppError> {
     let result = backup::backup_status(&state).await?;
+    Ok(Json(ApiResponse::success(
+        result,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn backup_export_status(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<BackupExportStatusData>>, AppError> {
+    let result = backup::backup_export_status(&state).await?;
     Ok(Json(ApiResponse::success(
         result,
         format!("req_{}", Uuid::new_v4().simple()),

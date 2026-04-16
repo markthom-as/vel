@@ -6,9 +6,10 @@
 
 use std::time::Duration;
 
-use crate::services::client_sync;
 #[cfg(not(test))]
 use std::process::Command;
+
+use crate::services::client_sync;
 use tracing::{debug, warn};
 use vel_core::{LoopKind, RunEventType, RunKind, RunStatus, WorkAssignmentStatus};
 use vel_storage::{PendingJob, RetryReadyRun, WorkAssignmentUpdate};
@@ -103,6 +104,14 @@ fn registered_loops_with_policy(
         .stale_nudge_reconciliation_loop()
         .cloned()
         .unwrap_or_default();
+    let backup_export_loop =
+        policy_config
+            .backup_export_loop()
+            .cloned()
+            .unwrap_or(crate::policy_config::LoopPolicy {
+                enabled: false,
+                interval_seconds: 86_400,
+            });
 
     vec![
         LoopDefinition {
@@ -194,6 +203,12 @@ fn registered_loops_with_policy(
             interval: Duration::from_secs(stale_nudge_reconciliation_loop.interval_seconds),
             enabled: stale_nudge_reconciliation_loop.enabled,
             runner: run_stale_nudge_reconciliation_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::BackupExport,
+            interval: Duration::from_secs(backup_export_loop.interval_seconds),
+            enabled: backup_export_loop.enabled,
+            runner: run_backup_export_loop_once,
         },
     ]
 }
@@ -471,6 +486,15 @@ fn run_stale_nudge_reconciliation_loop_once(state: &AppState) -> LoopFuture<'_> 
         let _ = crate::services::nudge_engine::evaluate(&state.storage, &state.policy_config, 0)
             .await?;
         Ok(())
+    })
+}
+
+fn run_backup_export_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let _ = state;
+        Err(crate::errors::AppError::bad_request(
+            "scheduled backup export is not implemented; use POST /v1/backup/export or vel backup --export",
+        ))
     })
 }
 
@@ -1001,7 +1025,7 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 15);
+        assert_eq!(loops.len(), 16);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
         assert_eq!(loops[2].kind, LoopKind::QueueWorkScheduler);
@@ -1017,6 +1041,7 @@ mod tests {
         assert_eq!(loops[12].kind, LoopKind::SyncTranscripts);
         assert_eq!(loops[13].kind, LoopKind::WeeklySynthesis);
         assert_eq!(loops[14].kind, LoopKind::StaleNudgeReconciliation);
+        assert_eq!(loops[15].kind, LoopKind::BackupExport);
         assert!(loops[0].enabled);
         assert!(loops[1].enabled);
         assert!(loops[2].enabled);
@@ -1032,6 +1057,7 @@ mod tests {
         assert!(!loops[12].enabled);
         assert!(loops[13].enabled);
         assert!(loops[14].enabled);
+        assert!(!loops[15].enabled);
     }
 
     #[tokio::test]
