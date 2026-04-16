@@ -19,6 +19,7 @@ mod commands;
 mod common;
 mod conflicts;
 mod connect;
+mod context;
 mod doctor;
 mod health;
 mod integrations;
@@ -51,6 +52,7 @@ pub use commands::*;
 pub use common::*;
 pub use conflicts::*;
 pub use connect::*;
+pub use context::*;
 pub use doctor::*;
 pub use health::*;
 pub use integrations::*;
@@ -2233,31 +2235,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TodayData {
-    pub date: String,
-    pub recent_captures: Vec<ContextCapture>,
-    pub focus_candidates: Vec<String>,
-    pub reminders: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MorningData {
-    pub date: String,
-    pub top_active_threads: Vec<String>,
-    pub pending_commitments: Vec<String>,
-    pub suggested_focus: Option<String>,
-    pub key_reminders: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EndOfDayData {
-    pub date: String,
-    pub what_was_done: Vec<ContextCapture>,
-    pub what_remains_open: Vec<String>,
-    pub what_may_matter_tomorrow: Vec<String>,
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AssistantEntryRouteTargetData {
@@ -3388,13 +3365,6 @@ pub struct SynthesisWeekData {
     pub artifact_id: String,
 }
 
-/// Persistent current context singleton (computed by inference engine).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurrentContextData {
-    pub computed_at: UnixSeconds,
-    pub context: JsonValue,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowLabelData {
     pub key: String,
@@ -3992,14 +3962,6 @@ pub struct NowData {
     pub people: Vec<PersonRecordData>,
     pub reasons: Vec<String>,
     pub debug: NowDebugData,
-}
-
-/// One entry in the context timeline (material context transitions).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextTimelineEntry {
-    pub id: String,
-    pub timestamp: i64,
-    pub context: JsonValue,
 }
 
 /// Explain payload for current context (context + reasons + entity ids used).
