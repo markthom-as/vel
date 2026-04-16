@@ -374,3 +374,53 @@ pub struct ClusterWorkerStateData {
     #[serde(default)]
     pub active_work: Vec<SwarmClientActiveWorkData>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientData {
+    pub client_id: String,
+    pub node_id: String,
+    #[serde(default)]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub heartbeat_age_seconds: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub active_work: Vec<SwarmClientActiveWorkData>,
+}
