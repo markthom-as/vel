@@ -495,3 +495,11 @@ pub struct WorkerPresenceData {
     pub incoming_linking_prompt: Option<LinkingPromptData>,
     pub capacity: WorkerCapacityData,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterWorkersData {
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    pub generated_at: UnixSeconds,
+    pub workers: Vec<WorkerPresenceData>,
+}
