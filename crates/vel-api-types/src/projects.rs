@@ -99,6 +99,36 @@ pub struct ProjectRecordData {
     pub archived_at: Option<OffsetDateTime>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectCreateRequestData {
+    pub slug: String,
+    pub name: String,
+    pub family: ProjectFamilyData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<ProjectStatusData>,
+    pub primary_repo: ProjectRootRefData,
+    pub primary_notes_root: ProjectRootRefData,
+    #[serde(default)]
+    pub secondary_repos: Vec<ProjectRootRefData>,
+    #[serde(default)]
+    pub secondary_notes_roots: Vec<ProjectRootRefData>,
+    #[serde(default)]
+    pub upstream_ids: BTreeMap<String, String>,
+    #[serde(default)]
+    pub pending_provision: ProjectProvisionRequestData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectCreateResponseData {
+    pub project: ProjectRecordData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectListResponseData {
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+}
+
 impl From<vel_core::ProjectRecord> for ProjectRecordData {
     fn from(value: vel_core::ProjectRecord) -> Self {
         Self {
@@ -121,5 +151,47 @@ impl From<vel_core::ProjectRecord> for ProjectRecordData {
             updated_at: value.updated_at,
             archived_at: value.archived_at,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_create_request_serializes_project_contract() {
+        let mut upstream_ids = BTreeMap::new();
+        upstream_ids.insert("github".to_string(), "vel/phase5".to_string());
+
+        let request = ProjectCreateRequestData {
+            slug: "vel-phase5".to_string(),
+            name: "Vel Phase 5".to_string(),
+            family: ProjectFamilyData::Work,
+            status: None,
+            primary_repo: ProjectRootRefData {
+                path: "/tmp/vel-phase5".to_string(),
+                label: "vel-phase5".to_string(),
+                kind: "repo".to_string(),
+            },
+            primary_notes_root: ProjectRootRefData {
+                path: "/tmp/notes/vel-phase5".to_string(),
+                label: "vel-phase5".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            secondary_repos: Vec::new(),
+            secondary_notes_roots: Vec::new(),
+            upstream_ids,
+            pending_provision: ProjectProvisionRequestData {
+                create_repo: true,
+                create_notes_root: false,
+            },
+        };
+
+        let value = serde_json::to_value(request).expect("project request should serialize");
+        assert_eq!(value["family"], "work");
+        assert!(value.get("status").is_none());
+        assert_eq!(value["pending_provision"]["create_repo"], true);
+        assert_eq!(value["pending_provision"]["create_notes_root"], false);
+        assert_eq!(value["upstream_ids"]["github"], "vel/phase5");
     }
 }

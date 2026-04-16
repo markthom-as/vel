@@ -1597,36 +1597,6 @@ pub struct AgentInspectData {
     pub explainability: AgentInspectExplainabilityData,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectCreateRequestData {
-    pub slug: String,
-    pub name: String,
-    pub family: ProjectFamilyData,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<ProjectStatusData>,
-    pub primary_repo: ProjectRootRefData,
-    pub primary_notes_root: ProjectRootRefData,
-    #[serde(default)]
-    pub secondary_repos: Vec<ProjectRootRefData>,
-    #[serde(default)]
-    pub secondary_notes_roots: Vec<ProjectRootRefData>,
-    #[serde(default)]
-    pub upstream_ids: BTreeMap<String, String>,
-    #[serde(default)]
-    pub pending_provision: ProjectProvisionRequestData,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectCreateResponseData {
-    pub project: ProjectRecordData,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectListResponseData {
-    #[serde(default)]
-    pub projects: Vec<ProjectRecordData>,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionSurfaceData {
