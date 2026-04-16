@@ -1,5 +1,5 @@
-use chrono::{DateTime, Datelike, LocalResult, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
 use serde_json::{json, Value};
+use time::{Date, Time};
 use vel_core::{
     AssistantProposalState, CurrentContextV1, DurableRoutineBlock, PlanningConstraint,
     PlanningConstraintKind, PlanningProfileContinuity, PlanningProfileEditProposal,
@@ -8,7 +8,10 @@ use vel_core::{
 };
 use vel_storage::{Storage, StorageError};
 
-use crate::{errors::AppError, services::timezone::ResolvedTimeZone};
+use crate::{
+    errors::AppError,
+    services::timezone::{self, ResolvedTimeZone},
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct DayPlanningInputs {
@@ -755,7 +758,9 @@ fn materialize_routine_blocks_for_day(
     profile: &RoutinePlanningProfile,
     session_date: &str,
 ) -> Result<Vec<RoutineBlock>, AppError> {
-    let session_date = NaiveDate::parse_from_str(session_date, "%Y-%m-%d")
+    let date_format = time::format_description::parse("[year]-[month]-[day]")
+        .expect("hardcoded date format should parse");
+    let session_date = Date::parse(session_date, &date_format)
         .map_err(|_| AppError::bad_request("invalid current-day session date"))?;
     let mut blocks = profile
         .routine_blocks
@@ -769,70 +774,40 @@ fn materialize_routine_blocks_for_day(
 
 fn materialize_routine_block(
     block: &DurableRoutineBlock,
-    session_date: NaiveDate,
+    session_date: Date,
 ) -> Result<Option<RoutineBlock>, AppError> {
     let timezone = ResolvedTimeZone::parse(&block.local_timezone)?;
-    let weekday = (session_date.weekday().num_days_from_monday() + 1) as u8;
+    let weekday = session_date.weekday().number_from_monday();
     if !block.days_of_week.is_empty() && !block.days_of_week.contains(&weekday) {
         return Ok(None);
     }
 
     let start_local_time = parse_local_hhmm(&block.start_local_time)?;
     let end_local_time = parse_local_hhmm(&block.end_local_time)?;
-    let start_local = resolve_local_datetime(
-        &timezone,
-        session_date.year(),
-        session_date.month(),
-        session_date.day(),
-        start_local_time.hour(),
-        start_local_time.minute(),
-    )?;
-    let mut end_local = resolve_local_datetime(
-        &timezone,
-        session_date.year(),
-        session_date.month(),
-        session_date.day(),
-        end_local_time.hour(),
-        end_local_time.minute(),
-    )?;
-    if end_local <= start_local {
-        end_local += chrono::Duration::days(1);
+    let start_ts = timezone::local_datetime_timestamp(&timezone, session_date, start_local_time)?;
+    let mut end_date = session_date;
+    if end_local_time <= start_local_time {
+        end_date = end_date
+            .next_day()
+            .ok_or_else(|| AppError::bad_request("unable to resolve routine block end date"))?;
     }
+    let end_ts = timezone::local_datetime_timestamp(&timezone, end_date, end_local_time)?;
 
     Ok(Some(RoutineBlock {
         id: block.id.clone(),
         label: block.label.clone(),
         source: block.source,
-        start_ts: start_local.with_timezone(&Utc).timestamp(),
-        end_ts: end_local.with_timezone(&Utc).timestamp(),
+        start_ts,
+        end_ts,
         protected: block.protected,
     }))
 }
 
-fn parse_local_hhmm(value: &str) -> Result<NaiveTime, AppError> {
-    NaiveTime::parse_from_str(value, "%H:%M")
+fn parse_local_hhmm(value: &str) -> Result<Time, AppError> {
+    let time_format = time::format_description::parse("[hour]:[minute]")
+        .expect("hardcoded time format should parse");
+    Time::parse(value, &time_format)
         .map_err(|_| AppError::bad_request(format!("invalid routine local time: {value}")))
-}
-
-fn resolve_local_datetime(
-    timezone: &ResolvedTimeZone,
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    minute: u32,
-) -> Result<DateTime<chrono_tz::Tz>, AppError> {
-    match timezone
-        .tz()
-        .with_ymd_and_hms(year, month, day, hour, minute, 0)
-    {
-        LocalResult::Single(value) => Ok(value),
-        LocalResult::Ambiguous(earliest, _) => Ok(earliest),
-        LocalResult::None => Err(AppError::bad_request(format!(
-            "unable to resolve routine block local time for timezone {}",
-            timezone.name
-        ))),
-    }
 }
 
 fn validate_mutation(mutation: &PlanningProfileMutation) -> Result<(), AppError> {

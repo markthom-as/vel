@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, LocalResult, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
-use time::OffsetDateTime;
+use time::{Date, OffsetDateTime, Time};
 use vel_storage::Storage;
 
 use crate::errors::AppError;
@@ -38,10 +38,6 @@ impl ResolvedTimeZone {
             name: trimmed.to_string(),
             tz,
         })
-    }
-
-    pub(crate) fn tz(&self) -> Tz {
-        self.tz
     }
 }
 
@@ -167,6 +163,23 @@ pub fn local_calendar_label(
 ) -> String {
     let local = utc_datetime(value).with_timezone(&timezone.tz);
     format!("{prefix} {}", local.format("%b %-d"))
+}
+
+pub(crate) fn local_datetime_timestamp(
+    timezone: &ResolvedTimeZone,
+    date: Date,
+    time: Time,
+) -> Result<i64, AppError> {
+    let local = resolve_local_datetime(
+        timezone,
+        date.year(),
+        u8::from(date.month()).into(),
+        date.day().into(),
+        time.hour().into(),
+        time.minute().into(),
+        time.second().into(),
+    )?;
+    Ok(local.with_timezone(&Utc).timestamp())
 }
 
 fn utc_datetime(value: OffsetDateTime) -> DateTime<Utc> {
