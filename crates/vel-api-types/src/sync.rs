@@ -281,3 +281,18 @@ pub struct ClusterNodeStateData {
     #[serde(default)]
     pub last_seen_at: Option<UnixSeconds>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientActiveWorkData {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub status: String,
+    pub assigned_at: UnixSeconds,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+    pub last_updated: UnixSeconds,
+}
