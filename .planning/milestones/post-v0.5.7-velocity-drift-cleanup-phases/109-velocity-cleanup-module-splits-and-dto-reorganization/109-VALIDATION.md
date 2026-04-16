@@ -28,6 +28,7 @@
 - sixteenth DTO slice: `people` module owns person alias, link ref, record, and alias upsert DTOs, with root re-exports preserving people route, sync, cluster, Now, review, and agent-grounding references
 - seventeenth DTO slice: `linking` module owns link status and scope primitives, with root re-exports preserving node CLI, linking routes/services, and larger pairing/trusted-node DTO references
 - eighteenth DTO slice: `linking` module also owns `LinkTargetSuggestionData`, with root re-exports preserving `PairingTokenData` and linking service references
+- nineteenth DTO slice: `linking` module owns trusted-node endpoint kind/data and reachability DTOs, with root re-exports preserving trust bootstrap and linked-node DTO references
 
 ### Automated
 
@@ -55,6 +56,7 @@
 - sixteenth DTO slice: `cargo test -p vel-api-types person_record_last_contacted_at_serializes_as_rfc3339_string -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - seventeenth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - eighteenth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- nineteenth DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
