@@ -21,6 +21,7 @@ export function CompactTaskLaneRow({
   item,
   metadata = null,
   emphasis = 'default',
+  surface = 'default',
   /** When true (TODAY / NEXT), row uses flat chrome with no shadow or glow wash. */
   flat = false,
   pending = false,
@@ -31,6 +32,7 @@ export function CompactTaskLaneRow({
   item: NonNullable<NowData['task_lane']>['active'] extends infer T ? Exclude<T, null> : never;
   metadata?: NowTaskData | null;
   emphasis?: 'active' | 'default' | 'completed';
+  surface?: 'default' | 'mobile';
   flat?: boolean;
   pending?: boolean;
   feedback?: { status: 'success' | 'error'; message: string };
@@ -42,11 +44,16 @@ export function CompactTaskLaneRow({
   const canComplete = Boolean(onComplete) && !completed;
   const description = item.description ?? metadata?.description ?? null;
 
-  const surface: NowItemRowSurface =
+  const rowSurface: NowItemRowSurface =
     emphasis === 'active' && !completed ? 'emphasis' : completed ? 'ghost' : flat ? 'queue' : 'muted';
+  const isMobile = surface === 'mobile';
 
   return (
-    <NowItemRowShell surface={surface} shell="laneRow">
+    <NowItemRowShell
+      surface={rowSurface}
+      shell="laneRow"
+      className={isMobile ? 'min-h-14 px-3 py-3' : undefined}
+    >
       <NowItemRowLayout
         leading={
           <button
@@ -60,7 +67,7 @@ export function CompactTaskLaneRow({
                 : canComplete
                   ? 'border-zinc-600 bg-zinc-950 text-zinc-500'
                   : 'border-zinc-800 bg-zinc-900 text-zinc-700'
-            }`}
+            } ${isMobile ? '!h-10 !w-10 rounded-lg' : ''}`}
           >
             {completed ? '✓' : ''}
           </button>
@@ -68,7 +75,7 @@ export function CompactTaskLaneRow({
         actions={
           <>
             {onOpenThread ? (
-              <ActionChipButton onClick={onOpenThread} aria-label="Open thread">
+              <ActionChipButton onClick={onOpenThread} aria-label="Open thread" className={isMobile ? '!min-h-10 !px-3' : undefined}>
                 <OpenThreadIcon size={16} className="shrink-0" aria-hidden />
                 <span className="capitalize">Open thread</span>
               </ActionChipButton>

@@ -77,6 +77,17 @@ export function updateConversationArchive(
   );
 }
 
+export function updateConversationPinned(
+  conversationId: string,
+  pinned: boolean,
+): Promise<ApiResponse<ConversationData>> {
+  return canonicalPatchMutation<ConversationData>(
+    `/api/conversations/${conversationId}`,
+    { pinned },
+    (value) => decodeApiResponse(value, decodeConversationData),
+  );
+}
+
 export function updateConversationCallMode(
   conversationId: string,
   callModeActive: boolean,

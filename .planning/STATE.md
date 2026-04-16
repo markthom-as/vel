@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: 0.5.8
 milestone_name: gsd-migration-and-phase-reset
-current_phase: "01"
-current_phase_name: gsd2-readiness-and-compatibility-audit
-current_plan: Not started
-status: in_progress
-last_updated: "2026-03-26T00:00:00.000Z"
-last_activity: 2026-03-26
+current_phase: complete
+current_phase_name: gsd-migration-and-phase-reset
+current_plan: complete
+status: complete
+last_updated: "2026-04-16T00:00:00.000Z"
+last_activity: 2026-04-16
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 3
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -23,23 +23,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-26)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** start Phase 01 GSD 2 readiness and compatibility audit for the `0.5.8` migration and phase-reset line
+**Current focus:** `0.5.8` closed as a GSD compatibility bridge
 
-Status: `0.5.8` in progress
+Status: `0.5.8` complete
 Release Line: 0.5.8-beta
-Current Work ID: 0.5.8.01.1
-Current Phase: 01
-Current Phase Name: gsd2-readiness-and-compatibility-audit
-Current Plan: Not started
+Current Work ID: 0.5.8.closeout
+Current Phase: complete
+Current Phase Name: gsd-migration-and-phase-reset
+Current Plan: complete
 Total Plans in Milestone: 3
-Progress: 0%
-Last Activity: 2026-03-26
-Last Activity Description: deferred `0.5.7`, archived its unexecuted phase packet under `.planning/milestones/v0.5.7-phases/`, and opened `0.5.8` with reset-numbered active phases
+Progress: 100%
+Last Activity: 2026-04-16
+Last Activity Description: Ticket 039 ConversationList overflow actions completed
 
 ## Current Position
 
-Phase: 01 (gsd2-readiness-and-compatibility-audit)
-Plan: Not started
+Milestone `0.5.8` complete.
+No active phase remains in this milestone.
 
 ## Accumulated Context
 
@@ -55,21 +55,21 @@ Plan: Not started
 - active milestones after `0.5.7` reset phase numbering to `01`
 - only the active milestone's live phase directories belong under `.planning/phases/`
 
-### Current Concerns
+### Residual Concerns
 
-- keeping GSD workflow discovery predictable while evaluating `GSD 2`
-- preserving current Codex workflow compatibility during any migration or fallback bridge
-- avoiding a toolchain migration that reintroduces planning drift midstream
+- v1 `init progress` and `init new-milestone` still report the stale milestone label `v0.1`
+- `init cleanup` is not a supported structured helper; cleanup remains markdown-workflow driven
+- full GSD 2 migration is not claimed; `gsd-pi@2.75.0` is installed, but command replacement still needs Node/runtime/dependency verification
 - keeping deferred duplex voice work visible as future scope instead of implying it shipped
 
 ### Pending Todos
 
-- 9 pending todos
-- latest: `Add NAS backup export job` (`.planning/todos/pending/2026-03-26-add-nas-backup-export-job.md`)
+- 0 pending todos
+- latest focused NAS backup/export follow-ups are complete: scheduled-failure trust, domain normalizers, parquet derivatives, and retention pruning.
 
 ### Next Step
 
-Start Phase 01 planning and compatibility audit for `0.5.8`, then decide whether `GSD 2` can replace the current local `get-shit-done` install without breaking active workflows.
+Before broad new feature work, decide whether to address the remaining v1 helper label debt, wire the installed GSD 2 command surface through a stable Node `>=22` runtime and dependency-complete install, or open the next product milestone with the compatibility bridge explicitly in place.
 
 ### Roadmap Evolution
 
@@ -84,10 +84,10 @@ Start Phase 01 planning and compatibility audit for `0.5.8`, then decide whether
 - `0.5.5` closed with its implementation, polish, and browser-proof packet archived
 - `0.5.6` closed with archived milestone packet and explicit audit record
 - `0.5.7` produced a duplex voice planning packet, then closed as deferred future work without implementation execution
-- `0.5.8` is now active as the GSD migration and milestone-local phase-reset line
+- `0.5.8` closed as the GSD compatibility bridge and milestone-local phase-reset line
 - queued cleanup phases `106` through `109` remain future packet drafts outside active scope
 - queued the future cluster-mesh, routing, and capability-sync milestone seed in backlog planning
 - archived historical phase packets from `0.4.x`, `0.5.3`, `0.5.4`, `0.5.5`, `0.5.6`, and deferred `0.5.7` into milestone buckets under `.planning/milestones/`
 
 ---
-*Last updated: 2026-03-26 after deferring `0.5.7`, archiving its planning packet, and opening `0.5.8` with reset-numbered phases*
+*Last updated: 2026-04-16 after completing the Ticket 039 ConversationList overflow actions slice*

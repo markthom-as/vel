@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MainPanel } from './MainPanel'
 import { clearQueryCache, setQueryData } from '../../data/query'
@@ -16,7 +16,11 @@ let lastComposerProps: {
   disabled?: boolean
   disabledReason?: string | null
   onDisabledInteract?: () => void
+  floatingOffsetClassName?: string
+  surface?: string
 } | null = null
+let lastNowProps: { surface?: string; hideNudgeLane?: boolean } | null = null
+let lastThreadProps: { conversationId: string | null; surface?: string; threadLayoutSplit?: boolean } | null = null
 
 vi.mock('../../data/operator', async () => {
   const actual = await vi.importActual<typeof import('../../data/operator')>('../../data/operator')
@@ -33,6 +37,8 @@ vi.mock('../../core/MessageComposer', () => ({
     disabled?: boolean
     disabledReason?: string | null
     onDisabledInteract?: () => void
+    floatingOffsetClassName?: string
+    surface?: string
   }) => {
     lastComposerProps = props
     return (
@@ -46,13 +52,17 @@ vi.mock('../../core/MessageComposer', () => ({
 }))
 
 vi.mock('../../views/now', () => ({
-  NowView: () => <div>Now view</div>,
+  NowView: (props: { surface?: string; hideNudgeLane?: boolean }) => {
+    lastNowProps = props
+    return <div>Now view</div>
+  },
 }))
 
 vi.mock('../../views/threads', () => ({
-  ThreadView: ({ conversationId }: { conversationId: string | null }) => (
-    <div>{conversationId ? `Thread ${conversationId}` : 'Thread empty'}</div>
-  ),
+  ThreadView: (props: { conversationId: string | null; surface?: string; threadLayoutSplit?: boolean }) => {
+    lastThreadProps = props
+    return <div>{props.conversationId ? `Thread ${props.conversationId}` : 'Thread empty'}</div>
+  },
 }))
 
 vi.mock('../../views/threads/useResolvedThreadConversationId', () => ({
@@ -67,6 +77,8 @@ describe('MainPanel', () => {
   beforeEach(() => {
     clearQueryCache()
     lastComposerProps = null
+    lastNowProps = null
+    lastThreadProps = null
     loadSettings.mockReset()
     loadIntegrations.mockReset()
     loadSettings.mockResolvedValue({
@@ -141,6 +153,7 @@ describe('MainPanel', () => {
   })
 
   afterEach(() => {
+    cleanup()
     clearQueryCache()
   })
 
@@ -192,6 +205,86 @@ describe('MainPanel', () => {
     expect(screen.getByText('Bringing Vel online before rendering live nudges and shell chrome.')).toBeInTheDocument()
     expect(view.container).not.toHaveTextContent('Now view')
     expect(view.container).not.toHaveTextContent(/Composer /)
+  })
+
+  it('uses safe-area-aware floating composer offset on mobile', async () => {
+    render(
+      <MainPanel
+        surface="mobile"
+        conversationId={null}
+        mainView="now"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(lastComposerProps?.floatingOffsetClassName).toContain('safe-area-inset-bottom')
+      expect(lastComposerProps?.surface).toBe('mobile')
+    })
+  })
+
+  it('renders the expected mobile primary route with compact nudges before Now content', () => {
+    render(
+      <MainPanel
+        surface="mobile"
+        conversationId={null}
+        mainView="now"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges={false}
+        mobileNudgeZone={<div>Mobile nudges</div>}
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    expect(screen.getByText('Mobile nudges')).toBeInTheDocument()
+    expect(screen.getByText('Now view')).toBeInTheDocument()
+    expect(lastNowProps).toEqual(expect.objectContaining({ surface: 'mobile', hideNudgeLane: false }))
+  })
+
+  it('suppresses the floating composer while mini composer is open and restores it when closed', () => {
+    const view = render(
+      <MainPanel
+        surface="tablet"
+        conversationId="conv_1"
+        mainView="threads"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        threadLayoutSplit
+        miniComposerOpen
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    expect(screen.getByText('Thread conv_1')).toBeInTheDocument()
+    expect(lastThreadProps).toEqual(expect.objectContaining({
+      conversationId: 'conv_1',
+      surface: 'tablet',
+      threadLayoutSplit: true,
+    }))
+    expect(screen.queryByText(/Composer /)).not.toBeInTheDocument()
+
+    view.rerender(
+      <MainPanel
+        surface="tablet"
+        conversationId="conv_1"
+        mainView="threads"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        threadLayoutSplit
+        miniComposerOpen={false}
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    expect(view.container).toHaveTextContent('Composer disabled')
   })
 
   it('opens the thread when a command-launched morning session returns as inline daily-loop output', async () => {

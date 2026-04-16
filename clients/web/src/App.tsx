@@ -42,6 +42,7 @@ function focusDeepLinkedNode(anchor: string) {
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('now');
+  const [activeNowAnchor, setActiveNowAnchor] = useState<string | null>(null);
   const [systemTarget, setSystemTarget] = useState<SystemNavigationTarget>({});
   const [localNudges, setLocalNudges] = useState<NowNudgeBarData[]>([]);
   const [highlightedNudge, setHighlightedNudge] = useState<{ id: string; nonce: number } | null>(null);
@@ -52,6 +53,8 @@ function App() {
   const [tabletLayoutMode, setTabletLayoutMode] = useState<TabletLayoutMode>(() => readTabletLayoutMode());
   const tabletSplitMode =
     viewportSurface === 'tablet' && (tabletLayoutMode === 'split' || (tabletLayoutMode === 'auto' && isLandscape));
+  const shellNudgeRailVisible = viewportSurface === 'desktop' || tabletSplitMode;
+  const mobileNudgesActive = !shellNudgeRailVisible && mainView === 'now' && activeNowAnchor === 'nudges-section';
 
   const setLayoutMode = useCallback((nextMode: TabletLayoutMode) => {
     setTabletLayoutMode(nextMode);
@@ -74,7 +77,13 @@ function App() {
     setHighlightedNudge((current) => (current?.id === nudgeId ? null : current));
   }, []);
 
+  const selectMainView = useCallback((view: MainView) => {
+    setActiveNowAnchor(null);
+    setMainView(view);
+  }, []);
+
   const openSystem = useCallback((target: SystemNavigationTarget = {}) => {
+    setActiveNowAnchor(null);
     setSystemTarget(target);
     setMainView('system');
     if (!target.anchor) return;
@@ -86,11 +95,13 @@ function App() {
   }, []);
 
   const openConversationThread = useCallback((conversationId: string) => {
+    setActiveNowAnchor(null);
     setSelectedConversationId(conversationId);
     setMainView('threads');
   }, []);
 
   const deepLink = useCallback((target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => {
+    setActiveNowAnchor(target.view === 'now' ? target.anchor ?? null : null);
     if (target.systemTarget) {
       setSystemTarget(target.systemTarget);
     }
@@ -139,8 +150,9 @@ function App() {
       navigation={(
         <Navbar
           activeView={mainView}
+          activeAnchor={activeNowAnchor}
           surface={viewportSurface}
-          onSelectView={setMainView}
+          onSelectView={selectMainView}
           onDeepLink={deepLink}
           layoutMode={tabletLayoutMode}
           onLayoutMode={(nextMode) => setLayoutMode(nextMode)}
@@ -148,9 +160,10 @@ function App() {
           splitModeActive={tabletSplitMode}
         />
       )}
-      nudgeZone={shellBootLoading ? undefined : (
+      nudgeZone={shellBootLoading || !shellNudgeRailVisible ? undefined : (
         <NudgeZone
           activeView={mainView}
+          railCollapsible={viewportSurface === 'tablet' && tabletSplitMode}
           extraNudges={localNudges}
           highlightedNudgeId={highlightedNudge?.id ?? null}
           highlightedNudgeNonce={highlightedNudge?.nonce ?? null}
@@ -167,7 +180,7 @@ function App() {
           surface={viewportSurface}
           conversationId={selectedConversationId}
           mainView={mainView}
-          onNavigate={setMainView}
+          onNavigate={selectMainView}
           onOpenThread={openConversationThread}
           onOpenSystem={openSystem}
           threadLayoutSplit={tabletSplitMode}
@@ -179,7 +192,23 @@ function App() {
           }}
           onRaiseNudge={pushLocalNudge}
           onClearNudge={clearLocalNudge}
-          shellOwnsNowNudges
+          shellOwnsNowNudges={shellNudgeRailVisible}
+          mobileNudgeZone={shellBootLoading || !mobileNudgesActive ? undefined : (
+            <NudgeZone
+              activeView={mainView}
+              variant="compact"
+              compactInitiallyOpen
+              extraNudges={localNudges}
+              highlightedNudgeId={highlightedNudge?.id ?? null}
+              highlightedNudgeNonce={highlightedNudge?.nonce ?? null}
+              onOpenThread={openConversationThread}
+              miniChatOpen={miniChatOpen}
+              miniChatThreadId={miniChatThreadId}
+              onMiniChatThreadSelect={setMiniComposerThread}
+              onMiniChatClose={closeMiniComposer}
+              onOpenSystem={openSystem}
+            />
+          )}
           systemTarget={systemTarget}
           shellBootLoading={shellBootLoading}
         />

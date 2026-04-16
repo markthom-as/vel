@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../api/client'
 import { clearQueryCache } from '../../data/query'
@@ -378,4 +378,185 @@ describe('ThreadView', () => {
     await screen.findByText('No thread selected yet')
     expect(screen.getByText(/latest thread will land here/i)).toBeInTheDocument()
   })
+
+  it('renders mobile compact rows as selectable stable thread buttons with cues', async () => {
+    mockThreadViewData([
+      buildConversation({
+        id: 'conv_1',
+        title: 'Pinned review thread',
+        pinned: true,
+        project_label: 'Vel',
+        continuation: buildContinuation({ reviewRequirements: ['confirm owner'] }),
+      }),
+      buildConversation({
+        id: 'conv_2',
+        title: 'Quiet thread',
+        updated_at: 30,
+      }),
+    ])
+
+    render(<ThreadView conversationId="conv_1" onSelectConversation={vi.fn()} surface="mobile" />)
+
+    const selectedRow = await screen.findByRole('button', {
+      name: /pinned review thread, unread continuation, needs review/i,
+    })
+    expect(selectedRow).toHaveAttribute('aria-current', 'true')
+    expect(selectedRow).toHaveAttribute('data-conversation-id', 'conv_1')
+    expect(selectedRow.className).toContain('min-h-11')
+    expect(within(selectedRow).getByText('Pinned')).toBeInTheDocument()
+    expect(within(selectedRow).getByText('Review')).toBeInTheDocument()
+    expect(within(selectedRow).getByText('Vel')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Quiet thread' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('opens a thread from the mobile compact list', async () => {
+    const onSelectConversation = vi.fn()
+    mockThreadViewData([
+      buildConversation({ id: 'conv_1', title: 'Current mobile thread' }),
+      buildConversation({ id: 'conv_2', title: 'Open this mobile thread' }),
+    ])
+
+    render(<ThreadView conversationId="conv_1" onSelectConversation={onSelectConversation} surface="mobile" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open this mobile thread' }))
+
+    expect(onSelectConversation).toHaveBeenCalledWith('conv_2')
+  })
+
+  it('preserves selected thread semantics through surface changes', async () => {
+    const onSelectConversation = vi.fn()
+    mockThreadViewData([
+      buildConversation({ id: 'conv_1', title: 'First thread' }),
+      buildConversation({ id: 'conv_2', title: 'Selected through resize' }),
+    ])
+
+    const view = render(
+      <ThreadView conversationId="conv_2" onSelectConversation={onSelectConversation} surface="mobile" />,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Selected through resize' })).toHaveAttribute('aria-current', 'true')
+
+    view.rerender(<ThreadView conversationId="conv_2" onSelectConversation={onSelectConversation} surface="desktop" />)
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Selected through resize' }).length).toBeGreaterThan(0)
+    })
+
+    view.rerender(<ThreadView conversationId="conv_2" onSelectConversation={onSelectConversation} surface="mobile" />)
+    expect(await screen.findByRole('button', { name: 'Selected through resize' })).toHaveAttribute('aria-current', 'true')
+    expect(onSelectConversation).not.toHaveBeenCalled()
+  })
+
+  it('uses the full list and detail layout for tablet split mode', async () => {
+    mockThreadViewData(
+      [
+        buildConversation({ id: 'conv_1', title: 'Tablet split thread' }),
+        buildConversation({ id: 'conv_2', title: 'Side rail thread' }),
+      ],
+      [
+        {
+          id: 'msg_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'Keep list and detail visible.' },
+          status: null,
+          importance: null,
+          created_at: 10,
+          updated_at: null,
+        },
+      ],
+    )
+
+    render(
+      <ThreadView
+        conversationId="conv_1"
+        onSelectConversation={vi.fn()}
+        surface="tablet"
+        threadLayoutSplit
+      />,
+    )
+
+    expect(await screen.findByTestId('thread-layout-shell')).toHaveAttribute('data-thread-layout', 'tablet-split')
+    expect(screen.getByTestId('thread-list-rail')).toBeInTheDocument()
+    expect(screen.getByTestId('thread-detail-region')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Find thread')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archive thread' })).toBeInTheDocument()
+    expect(screen.getAllByText('Keep list and detail visible.').length).toBeGreaterThan(0)
+  })
+
+  it('uses compact thread layout for tablet single-pane mode', async () => {
+    mockThreadViewData([
+      buildConversation({ id: 'conv_1', title: 'Tablet single thread' }),
+      buildConversation({ id: 'conv_2', title: 'Hidden detail rail thread' }),
+    ])
+
+    render(
+      <ThreadView
+        conversationId="conv_1"
+        onSelectConversation={vi.fn()}
+        surface="tablet"
+        threadLayoutSplit={false}
+      />,
+    )
+
+    expect(await screen.findByTestId('thread-layout-shell')).toHaveAttribute('data-thread-layout', 'compact')
+    expect(screen.queryByTestId('thread-list-rail')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('thread-detail-region')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /threads \(2\)/i })).toBeInTheDocument()
+  })
 })
+
+function mockThreadViewData(conversations: Array<Record<string, unknown>>, messages: Array<Record<string, unknown>> = []) {
+  vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+    if (path === '/api/conversations') {
+      return {
+        ok: true,
+        data: conversations,
+        meta: { request_id: 'req_conversations' },
+      } as never
+    }
+    const conversationId = path.match(/^\/api\/conversations\/([^/]+)\/messages$/)?.[1]
+    if (conversationId) {
+      return {
+        ok: true,
+        data: messages.filter((message) => message.conversation_id === conversationId),
+        meta: { request_id: `req_messages_${conversationId}` },
+      } as never
+    }
+    throw new Error(`Unexpected GET ${path}`)
+  })
+}
+
+function buildConversation(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'conv_1',
+    title: 'Thread',
+    kind: 'general',
+    pinned: false,
+    archived: false,
+    call_mode_active: false,
+    created_at: 1,
+    updated_at: 20,
+    message_count: 0,
+    last_message_at: null,
+    project_label: null,
+    continuation: null,
+    ...overrides,
+  }
+}
+
+function buildContinuation({ reviewRequirements = [] }: { reviewRequirements?: string[] } = {}) {
+  return {
+    thread_id: 'thread_1',
+    thread_type: 'action_resolution',
+    lifecycle_stage: 'staged',
+    continuation: {
+      escalation_reason: 'Needs explicit user judgment',
+      continuation_context: {},
+      review_requirements: reviewRequirements,
+      bounded_capability_state: 'proposal_review_gated',
+      continuation_category: 'needs_input',
+      open_target: 'thread_detail',
+    },
+  }
+}

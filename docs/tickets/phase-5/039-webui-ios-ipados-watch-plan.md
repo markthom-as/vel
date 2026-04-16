@@ -4,7 +4,8 @@
 - TBD
 
 ## Status
-- Proposed
+- Proposed; `VEL-UI-601` through `VEL-UI-610` verified; web chrome token reconciliation, nudge presentation fallback mapping, MessageComposer mobile surface context, ConversationList overflow actions, Wave 3 watch reduced-surface docs, existing watch entry routes, and VelAPI watch action contract tests verified in the current tree.
+- File-level checklist: [039-webui-ios-ipados-watch-checklist.md](039-webui-ios-ipados-watch-checklist.md)
 
 ## Context
 The current web UI has partial mobile behavior but remains desktop-first in layout, nav hierarchy, and surface density. This ticket defines a targeted plan to deliver:

@@ -38,6 +38,8 @@ Planning notation from this point forward:
 
 Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, while post-`v0.2` `Now` behavior is now governed by `docs/product/now-surface-canonical-contract.md`. Durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md` and `docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md`.
 
+Current platform-surface migration priority is iPhone/iOS web ergonomics first, iPad split-shell ergonomics second, and Apple Watch only as a reduced edge client. The watch surface is intentionally limited to active nudges, compact state, quick capture/signals, and keyboard or voice-transcript append into an existing active thread. It must not grow watch-local synthesis, policy, planner logic, project/settings administration, broad thread management, or credential/tool authority; unsupported follow-through should hand off to iPhone or Mac. Active implementation details live in `docs/tickets/phase-5/039-webui-ios-ipados-watch-plan.md`, and the durable watch boundary lives in `docs/cognitive-agent-architecture/apple/apple-watch-edge-client-contract.md`.
+
 ---
 
 ## Agentic Infrastructure & Developer Experience (ADX)
@@ -224,5 +226,5 @@ Phase 5 opens the local-first harness lane for a single-operator runtime baselin
 ### 5.4 Release-Critical Hardening **[COMPLETE]**
 *   *Ticket*: `037-security-observability-hardening.md`
 
-### 5.5 Morning Standup Overdue-Task Workflow **[PLANNED]**
+### 5.5 Morning Standup Overdue-Task Workflow **[BASELINE SHIPPED]**
 *   *Ticket*: `038-standup-overdue-workflow-slice.md`

@@ -25,6 +25,15 @@ This file defines durable rules for work under `clients/apple`.
 - Phase 05 continuity fields (`projects`, `action_items`, `linked_nodes`) are backend-owned and must not be re-ranked or re-triaged in Swift.
 - Widgets/complications and notifications should route actions through shared queue/sync paths.
 
+## Watch Reduced-Surface Rules
+
+- `Apps/VelWatch` is an edge client of `veld`, preferably bridged through iPhone cache/transport/reconciliation.
+- Keep watch UI limited to compact current state, active nudges, quick capture/signals, and keyboard or voice-transcript append into an existing active thread.
+- Do not add watch-local thread management: no full thread browser, title editing, archive/pin/mute, project inspector, settings hub, or long-form review surface.
+- If no canonical active thread exists, queue input as watch capture with provenance instead of inventing a local thread route.
+- Do not add watch-local synthesis, ranking, risk policy, planner, LLM execution, or credential/tool authority.
+- Route watch actions through shared `VelAPI`, `VelWatchStore`, and offline queue paths; do not create watch-only backend semantics.
+
 ## Contract and Mapping Workflow
 
 - **Canonical Truth**: Backend contracts and architectural status live in **`docs/MASTER_PLAN.md`**.

@@ -2,6 +2,7 @@ import type { ActionItemData, NowNudgeBarData } from '../../types';
 import { resolveNudgeSemantic } from '../../core/Theme/semanticRegistry';
 import { findBarProjectTags } from './nowModel';
 import { buildNudgeViewModel, type NudgeViewModel } from './nudgeViewModel';
+import { nudgeKindMobileLabel, nudgePresentationPriority } from './nudgePresentationMapping';
 
 export type NudgeDisplayModel = {
   kindIconKind: string;
@@ -17,10 +18,11 @@ export function buildNudgeDisplayModel(
 ): NudgeDisplayModel {
   const viewModel = buildNudgeViewModel(bar);
   const kindSemantic = resolveNudgeSemantic(viewModel.leadKind === 'system_settings' ? viewModel.leadKind : bar.kind);
+  const presentationKind = viewModel.leadKind === 'system_settings' ? viewModel.leadKind : bar.kind;
   return {
-    kindIconKind: viewModel.leadKind === 'system_settings' ? viewModel.leadKind : bar.kind,
-    kindLabel: kindSemantic.label,
-    kindUrgent: bar.urgent || bar.kind === 'trust_warning' || bar.kind === 'freshness_warning',
+    kindIconKind: presentationKind,
+    kindLabel: kindSemantic.label === 'Nudge' ? nudgeKindMobileLabel(presentationKind) : kindSemantic.label,
+    kindUrgent: nudgePresentationPriority(bar.kind, bar.urgent) !== 'normal',
     projectTags: findBarProjectTags(bar, actionItems),
     viewModel,
   };

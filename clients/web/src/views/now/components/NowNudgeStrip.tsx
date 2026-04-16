@@ -1,5 +1,6 @@
 import type { ActionItemData, NowData } from '../../../types';
 import { FilterDenseTag, NudgeKindTag, ProjectTag } from '../../../core/FilterToggleTag';
+import { cn } from '../../../core/cn';
 import { TagIcon } from '../../../core/Icons';
 import { NowItemRowShell } from '../../../core/NowItemRow';
 import { formatRelativeMinutes } from '../nowModel';
@@ -17,6 +18,7 @@ export function NowNudgeStrip({
   nowTs,
   actionItems,
   onBarAction,
+  surface = 'default',
 }: {
   bars: NowData['nudge_bars'];
   nowTs: number;
@@ -25,6 +27,7 @@ export function NowNudgeStrip({
     bar: NowData['nudge_bars'][number],
     action: NowData['nudge_bars'][number]['actions'][number],
   ) => void;
+  surface?: 'default' | 'mobile';
 }) {
   if (bars.length === 0) {
     return null;
@@ -43,7 +46,7 @@ export function NowNudgeStrip({
           key={bar.id}
           surface={viewModel.warmSurface ? 'warm' : 'brand'}
           shell="compact"
-          className="!overflow-visible"
+          className={cn('!overflow-visible', surface === 'mobile' ? 'min-h-14 px-3 py-3' : null)}
         >
           <div
             className="pointer-events-none absolute -left-11 top-1/2 z-10 -translate-y-1/2"
@@ -57,11 +60,11 @@ export function NowNudgeStrip({
               isPrimary={isPrimary}
             />
           </div>
-          <div className="relative z-10 flex min-w-0 flex-row items-stretch gap-2">
+          <div className={cn('relative z-10 flex min-w-0 flex-row items-stretch gap-2', surface === 'mobile' ? 'gap-3' : null)}>
             <div className="min-w-0 flex-1 flex flex-col justify-center gap-1">
               <div className="min-w-0 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex min-w-0 flex-nowrap items-center justify-start gap-x-1.5">
-                  <p className="min-w-0 max-w-[min(100%,15rem)] shrink truncate text-sm font-medium leading-none tracking-tight text-white sm:max-w-[min(100%,20rem)]">
+                  <p className={cn('min-w-0 shrink truncate text-sm font-medium leading-none tracking-tight text-white', surface === 'mobile' ? 'max-w-[min(100%,11rem)]' : 'max-w-[min(100%,15rem)] sm:max-w-[min(100%,20rem)]')}>
                     {bar.title}
                   </p>
                   <FilterDenseTag tone="ghost">
@@ -87,7 +90,7 @@ export function NowNudgeStrip({
               </div>
               <p className="line-clamp-2 text-xs leading-snug text-zinc-500">{bar.summary}</p>
             </div>
-            <div className="flex shrink-0 flex-col items-end justify-center gap-1.5 self-stretch">
+            <div className={cn('flex shrink-0 flex-col items-end justify-center gap-1.5 self-stretch', surface === 'mobile' ? 'min-w-[6.5rem]' : null)}>
               {bar.actions.map((action, actionIndex) => (
                 <NudgeActionButton
                   key={`${bar.id}-${actionIndex}-${action.kind}-${action.label}`}
@@ -95,6 +98,7 @@ export function NowNudgeStrip({
                   label={nudgeActionButtonLabel(action, bar)}
                   onClick={() => onBarAction(bar, action)}
                   aria-label={nudgeActionAriaLabel(bar, action, actionIndex, bar.actions.length)}
+                  className={surface === 'mobile' ? '!min-h-10 w-full justify-center !px-3' : undefined}
                 />
               ))}
             </div>

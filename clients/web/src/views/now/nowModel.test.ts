@@ -21,8 +21,8 @@ describe('nudgeOpenSystemTarget', () => {
       ),
     ).toEqual({
       section: 'integrations',
-      subsection: 'providers',
-      anchor: 'providers-llm-routing',
+      subsection: 'models',
+      anchor: 'models-llm-routing',
     })
   })
 })

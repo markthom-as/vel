@@ -17,20 +17,36 @@ afterEach(() => {
 })
 
 describe('Navbar', () => {
-  function renderNavbar(activeView: 'now' | 'threads' | 'system' = 'now', surface: 'mobile' | 'tablet' | 'desktop' = 'desktop') {
+  function renderNavbar(
+    activeView: 'now' | 'threads' | 'system' = 'now',
+    surface: 'mobile' | 'tablet' | 'desktop' = 'desktop',
+    activeAnchor: string | null = null,
+    options: {
+      layoutMode?: 'auto' | 'single' | 'split'
+      layoutSurfaceSupportsToggle?: boolean
+      splitModeActive?: boolean
+      onLayoutMode?: (mode: 'auto' | 'single' | 'split') => void
+    } = {},
+  ) {
     const onSelectView = vi.fn()
     const onDeepLink = vi.fn()
+    const onLayoutMode = options.onLayoutMode ?? vi.fn()
 
     render(
       <Navbar
         activeView={activeView}
+        activeAnchor={activeAnchor}
         onSelectView={onSelectView}
         onDeepLink={onDeepLink}
         surface={surface}
+        layoutMode={options.layoutMode}
+        layoutSurfaceSupportsToggle={options.layoutSurfaceSupportsToggle}
+        splitModeActive={options.splitModeActive}
+        onLayoutMode={onLayoutMode}
       />, 
     )
 
-    return { onSelectView, onDeepLink }
+    return { onSelectView, onDeepLink, onLayoutMode }
   }
 
   it('renders compact bottom navigation tabs on mobile', () => {
@@ -39,13 +55,25 @@ describe('Navbar', () => {
     const nowTab = screen.getByRole('tab', { name: 'Now' })
     const threadsTab = screen.getByRole('tab', { name: 'Threads' })
     const nudgesTab = screen.getByRole('tab', { name: 'Nudges' })
-    const systemTab = screen.getByRole('tab', { name: 'System' })
+    const settingsTab = screen.getByRole('tab', { name: 'Settings' })
 
     expect(nowTab).toBeInTheDocument()
     expect(threadsTab).toBeInTheDocument()
     expect(nudgesTab).toBeInTheDocument()
-    expect(systemTab).toBeInTheDocument()
+    expect(settingsTab).toBeInTheDocument()
     expect(nowTab).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('routes mobile primary tabs through their surface handlers', () => {
+    const { onSelectView } = renderNavbar('now', 'mobile')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Threads' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Now' }))
+
+    expect(onSelectView).toHaveBeenNthCalledWith(1, 'threads')
+    expect(onSelectView).toHaveBeenNthCalledWith(2, 'system')
+    expect(onSelectView).toHaveBeenNthCalledWith(3, 'now')
   })
 
   it('routes mobile nudges tab into now-nudges deep link', () => {
@@ -55,13 +83,80 @@ describe('Navbar', () => {
     fireEvent.click(nudgesTab)
 
     expect(onDeepLink).toHaveBeenCalledWith({ view: 'now', anchor: 'nudges-section' })
-    expect(onSelectView).toHaveBeenCalledWith('now')
+    expect(onSelectView).not.toHaveBeenCalled()
+  })
+
+  it('marks the mobile nudges route active without also selecting Now', () => {
+    renderNavbar('now', 'mobile', 'nudges-section')
+
+    expect(screen.getByRole('tab', { name: 'Nudges' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Now' })).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('keeps the compact mobile bar safe-area aware', () => {
+    renderNavbar('now', 'mobile')
+
+    const tablist = screen.getByRole('tablist', { name: 'Primary' })
+    expect(tablist.parentElement?.parentElement?.className).toContain('gap-3')
+    expect(tablist.parentElement?.parentElement?.parentElement?.className).toContain('min-h-[calc(4rem+env(safe-area-inset-bottom))]')
+    expect(tablist.parentElement?.parentElement?.parentElement?.className).toContain('safe-area-inset-bottom')
+  })
+
+  it('keeps non-tab documentation affordance out of the tablist and mobile bar', () => {
+    renderNavbar('now', 'mobile')
+
+    const tablist = screen.getByRole('tablist', { name: 'Primary' })
+    expect(within(tablist).queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /system documentation/i })).not.toBeInTheDocument()
+  })
+
+  it('shows adaptive layout controls only when the tablet surface supports them', () => {
+    renderNavbar('now', 'tablet', null, {
+      layoutMode: 'auto',
+      layoutSurfaceSupportsToggle: true,
+      splitModeActive: true,
+    })
+
+    expect(screen.getByRole('button', { name: 'Auto layout' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Single-pane threads layout' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Split-pane threads layout' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('keeps tablet layout controls out of phone and unsupported desktop chrome', () => {
+    const mobile = renderNavbar('now', 'mobile', null, {
+      layoutSurfaceSupportsToggle: true,
+    })
+
+    expect(screen.queryByRole('button', { name: 'Auto layout' })).not.toBeInTheDocument()
+    mobile.onSelectView.mockClear()
+    cleanup()
+
+    renderNavbar('now', 'desktop', null, {
+      layoutSurfaceSupportsToggle: false,
+    })
+
+    expect(screen.queryByRole('button', { name: 'Auto layout' })).not.toBeInTheDocument()
+  })
+
+  it('routes tablet layout control clicks through the persisted layout handler', () => {
+    const { onLayoutMode } = renderNavbar('now', 'tablet', null, {
+      layoutMode: 'single',
+      layoutSurfaceSupportsToggle: true,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto layout' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Single-pane threads layout' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Split-pane threads layout' }))
+
+    expect(onLayoutMode).toHaveBeenNthCalledWith(1, 'auto')
+    expect(onLayoutMode).toHaveBeenNthCalledWith(2, 'single')
+    expect(onLayoutMode).toHaveBeenNthCalledWith(3, 'split')
   })
 
   it('renders top nav items and routes clicks through handlers', () => {
     const { onSelectView } = renderNavbar()
 
-    fireEvent.click(screen.getByRole('button', { name: 'System' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'System' }))
 
     expect(onSelectView).toHaveBeenCalledWith('system')
   })
@@ -70,8 +165,8 @@ describe('Navbar', () => {
     renderNavbar()
 
     const labels = screen
-      .getAllByRole('button')
-      .map((button) => button.textContent)
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent)
       .filter((label): label is string => Boolean(label))
 
     const nowIndex = labels.findIndex((label) => label.includes('Now'))
@@ -92,7 +187,7 @@ describe('Navbar', () => {
     fireEvent.click(screen.getByRole('button', { name: /system documentation/i }))
     expect(onDeepLink).toHaveBeenCalledWith({
       view: 'system',
-      systemTarget: { section: 'overview', subsection: 'trust' },
+      systemTarget: { section: 'preferences', subsection: 'documentation', anchor: 'system-documentation' },
       anchor: 'system-documentation',
     })
   })
@@ -100,9 +195,9 @@ describe('Navbar', () => {
   it('keeps icon plus label visible for every primary surface control', () => {
     renderNavbar()
     for (const label of ['Now', 'Threads', 'System']) {
-      const button = screen.getByRole('button', { name: label })
-      expect(button).toHaveTextContent(label)
-      expect(within(button).getByText(label)).toBeInTheDocument()
+      const tab = screen.getByRole('tab', { name: label })
+      expect(tab).toHaveTextContent(label)
+      expect(within(tab).getByText(label)).toBeInTheDocument()
     }
   })
 

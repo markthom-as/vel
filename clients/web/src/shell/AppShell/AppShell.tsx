@@ -15,7 +15,48 @@ interface AppShellProps {
   fullFrameMain?: boolean;
 }
 
-const isNudgeZoneVisible = (surface: ViewportSurface) => surface !== 'mobile';
+type AppShellLayoutState = 'single' | 'split';
+
+function resolveLayoutState(
+  surface: ViewportSurface,
+  layoutMode: TabletLayoutMode,
+  splitModeActive: boolean,
+): AppShellLayoutState {
+  if (surface !== 'tablet') {
+    return 'single';
+  }
+  return splitModeActive || layoutMode === 'split' ? 'split' : 'single';
+}
+
+function workspaceClassForSurface(
+  surface: ViewportSurface,
+  layoutState: AppShellLayoutState,
+  fullFrameMain: boolean,
+): string {
+  if (fullFrameMain) {
+    return shellChrome.workspaceFullFrame;
+  }
+  if (surface === 'mobile') {
+    return shellChrome.workspaceMobile;
+  }
+  if (surface === 'tablet') {
+    return layoutState === 'split' ? shellChrome.workspaceTabletSplit : shellChrome.workspaceTablet;
+  }
+  return shellChrome.workspace;
+}
+
+function isNudgeZoneVisibleForLayout(
+  surface: ViewportSurface,
+  layoutState: AppShellLayoutState,
+): boolean {
+  if (surface === 'mobile') {
+    return false;
+  }
+  if (surface === 'tablet') {
+    return layoutState === 'split';
+  }
+  return true;
+}
 
 export function AppShell({
   navigation,
@@ -27,26 +68,19 @@ export function AppShell({
   splitModeActive = false,
   fullFrameMain = false,
 }: AppShellProps) {
-  const isDesktopOrTablet = surface !== 'mobile';
-  const workspaceClass =
-    fullFrameMain
-      ? shellChrome.workspaceFullFrame
-      : surface === 'mobile'
-        ? shellChrome.workspaceMobile
-        : surface === 'tablet'
-          ? shellChrome.workspaceTablet
-          : shellChrome.workspace;
+  const layoutState = resolveLayoutState(surface, layoutMode, splitModeActive);
+  const workspaceClass = workspaceClassForSurface(surface, layoutState, fullFrameMain);
   const workspaceMainClass = fullFrameMain ? shellChrome.workspaceMainFullFrame : shellChrome.workspaceMain;
-  const workspaceAsideClass = isDesktopOrTablet ? shellChrome.workspaceAside : shellChrome.workspaceAsideHidden;
-  const layoutState = splitModeActive || layoutMode === 'split' ? 'split' : 'single';
+  const showNudgeZone = nudgeZone && isNudgeZoneVisibleForLayout(surface, layoutState);
+  const workspaceAsideClass = showNudgeZone ? shellChrome.workspaceAside : shellChrome.workspaceAsideHidden;
   const workspaceTestId = fullFrameMain ? 'app-shell-workspace-full-frame' : `app-shell-workspace-${surface}`;
 
   return (
-    <div className={shellChrome.app} data-layout={layoutState}>
+    <div className={shellChrome.app} data-layout={layoutState} data-surface={surface}>
       {navigation}
       <div className={workspaceClass} data-testid={workspaceTestId}>
         <main data-testid="app-shell-main" className={workspaceMainClass}>{main}</main>
-        {nudgeZone && isNudgeZoneVisible(surface) ? (
+        {showNudgeZone ? (
           <div data-testid="app-shell-nudges" className={workspaceAsideClass}>
             <div className={shellChrome.workspaceAsideInner}>
               <div data-testid="app-shell-nudges-scroll" className={shellChrome.workspaceAsideScroll}>{nudgeZone}</div>

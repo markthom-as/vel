@@ -1,6 +1,6 @@
 import type { MainView } from '../../data/operatorSurfaces';
 import { contextQueryKeys, loadNow } from '../../data/context';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '../../data/query';
 import { cn } from '../../core/cn';
 import { ActionChipButton } from '../../core/FilterToggleTag';
@@ -37,6 +37,7 @@ function clientIcon(label: string, size: number) {
 
 export interface NavbarProps {
   activeView: MainView;
+  activeAnchor?: string | null;
   surface?: ViewportSurface;
   onSelectView: (view: MainView) => void;
   onDeepLink?: (target: { view: MainView; anchor?: string; systemTarget?: SystemNavigationTarget }) => void;
@@ -48,6 +49,7 @@ export interface NavbarProps {
 
 export function Navbar({
   activeView,
+  activeAnchor = null,
   surface = 'desktop',
   onSelectView,
   onDeepLink,
@@ -56,6 +58,7 @@ export function Navbar({
   layoutSurfaceSupportsToggle = false,
   splitModeActive = false,
 }: NavbarProps) {
+  const [fallbackComputedAt] = useState(() => Math.floor(Date.now() / 1000));
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const { data } = useQuery(
     nowKey,
@@ -64,7 +67,7 @@ export function Navbar({
       return response.ok ? response.data ?? null : null;
     },
   );
-  const dateTime = formatNavbarDateTime(data?.computed_at ?? Math.floor(Date.now() / 1000), data?.timezone ?? 'America/Denver');
+  const dateTime = formatNavbarDateTime(data?.computed_at ?? fallbackComputedAt, data?.timezone ?? 'America/Denver');
   const activeEvent = data ? findActiveEvent(data.schedule.upcoming_events, data.computed_at) : null;
   const activeTask = data?.task_lane?.active?.text ?? 'No active task';
   const clientName = data?.mesh_summary?.authority_label ?? 'Client Unknown';
@@ -171,7 +174,13 @@ export function Navbar({
                 ) : null}
               </div>
               <div className="flex min-w-0 items-center gap-3">
-                <NavbarNavLinks activeView={activeView} onSelectView={onSelectView} onDeepLink={onDeepLink} surface={surface} />
+                <NavbarNavLinks
+                  activeView={activeView}
+                  activeAnchor={activeAnchor}
+                  onSelectView={onSelectView}
+                  onDeepLink={onDeepLink}
+                  surface={surface}
+                />
                 {showLayoutPanel ? (
                   <div className="ml-auto flex items-center gap-1 rounded-full border border-[var(--vel-color-border)] px-1 py-1">
                     <button
@@ -232,7 +241,13 @@ export function Navbar({
       {isMobileSurface ? (
         <div className={NAVBAR_MOBILE_BAR_CLASSNAME}>
           <div className={NAVBAR_MOBILE_BAR_INNER_CLASSNAME}>
-            <NavbarNavLinks activeView={activeView} onSelectView={onSelectView} onDeepLink={onDeepLink} surface={surface} />
+            <NavbarNavLinks
+              activeView={activeView}
+              activeAnchor={activeAnchor}
+              onSelectView={onSelectView}
+              onDeepLink={onDeepLink}
+              surface={surface}
+            />
           </div>
         </div>
       ) : null}

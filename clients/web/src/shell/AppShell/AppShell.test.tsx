@@ -20,6 +20,7 @@ describe('AppShell', () => {
     expect(queryByText(/info/i)).not.toBeInTheDocument()
     expect(getByTestId('app-shell-nudges')).toBeInTheDocument()
     expect(getByTestId('app-shell-workspace-desktop')).toBeInTheDocument()
+    expect(getByTestId('app-shell-workspace-desktop').closest('[data-surface]')).toHaveAttribute('data-surface', 'desktop')
     unmount()
   })
 
@@ -53,12 +54,13 @@ describe('AppShell', () => {
 
     expect(queryByTestId('app-shell-nudges')).not.toBeInTheDocument()
     expect(queryByTestId('app-shell-nudges-scroll')).not.toBeInTheDocument()
-    expect(getByTestId('app-shell-workspace-mobile')).toBeInTheDocument()
+    expect(getByTestId('app-shell-workspace-mobile').className).toContain('safe-area-inset-bottom')
+    expect(getByTestId('app-shell-workspace-mobile').closest('[data-surface]')).toHaveAttribute('data-layout', 'single')
     unmount()
   })
 
-  it('shows nudge rail on tablet surface', () => {
-    const { getByTestId, unmount } = render(
+  it('keeps tablet in single-pane layout until split mode is active', () => {
+    const { getByTestId, queryByTestId, unmount } = render(
       <AppShell
         navigation={<div>Navigation</div>}
         main={<div>Main content</div>}
@@ -67,10 +69,75 @@ describe('AppShell', () => {
       />,
     )
 
+    expect(queryByTestId('app-shell-nudges')).not.toBeInTheDocument()
+    expect(getByTestId('app-shell-workspace-tablet').className).toContain('safe-area-inset-bottom')
+    expect(getByTestId('app-shell-workspace-tablet').className).not.toContain('grid-cols')
+    expect(getByTestId('app-shell-workspace-tablet').closest('[data-surface]')).toHaveAttribute('data-layout', 'single')
+    unmount()
+  })
+
+  it('shows the nudge rail on tablet when split mode is active', () => {
+    const { getByTestId, unmount } = render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        surface="tablet"
+        splitModeActive
+      />,
+    )
+
     expect(getByTestId('app-shell-nudges')).toBeInTheDocument()
     expect(getByTestId('app-shell-nudges-scroll')).toBeInTheDocument()
-    expect(getByTestId('app-shell-workspace-tablet')).toBeInTheDocument()
+    expect(getByTestId('app-shell-workspace-tablet').className).toContain('md:grid-cols')
+    expect(getByTestId('app-shell-workspace-tablet').closest('[data-surface]')).toHaveAttribute('data-layout', 'split')
     unmount()
+  })
+
+  it('treats explicit tablet split layout mode as split-capable', () => {
+    const { getByTestId, unmount } = render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        surface="tablet"
+        layoutMode="split"
+      />,
+    )
+
+    expect(getByTestId('app-shell-nudges')).toBeInTheDocument()
+    expect(getByTestId('app-shell-workspace-tablet').closest('[data-surface]')).toHaveAttribute('data-layout', 'split')
+    unmount()
+  })
+
+  it('ignores persisted split preference outside the tablet surface', () => {
+    const mobile = render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        surface="mobile"
+        layoutMode="split"
+      />,
+    )
+
+    expect(mobile.getByTestId('app-shell-workspace-mobile').closest('[data-surface]')).toHaveAttribute('data-layout', 'single')
+    expect(mobile.queryByTestId('app-shell-nudges')).not.toBeInTheDocument()
+    mobile.unmount()
+
+    const desktop = render(
+      <AppShell
+        navigation={<div>Navigation</div>}
+        main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        surface="desktop"
+        layoutMode="split"
+      />,
+    )
+
+    expect(desktop.getByTestId('app-shell-workspace-desktop').closest('[data-surface]')).toHaveAttribute('data-layout', 'single')
+    expect(desktop.getByTestId('app-shell-nudges')).toBeInTheDocument()
+    desktop.unmount()
   })
 
   it('expands the loading workspace to the full frame below the navbar', () => {

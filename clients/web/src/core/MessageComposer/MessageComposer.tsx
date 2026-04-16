@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import { useRef, useState, useCallback, useMemo, useEffect, type CSSProperties } from 'react';
 import { loadCommandCompletion, submitAssistantEntry } from '../../data/chat';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import {
@@ -8,6 +8,7 @@ import {
   type NowDockedInputIntentData,
   type AssistantEntryVoiceProvenanceData,
 } from '../../types';
+import type { ViewportSurface } from '../hooks/useViewportSurface';
 import { cn } from '../cn';
 import {
   ClipboardCheckIcon,
@@ -66,6 +67,32 @@ type ExplicitCommandParse =
       displayTokens: string[];
     }
   | null;
+
+type VoiceUiState = 'idle' | 'listening' | 'transcribing' | 'recorded' | 'error' | 'unsupported';
+
+function voiceSurfaceForViewport(surface: ViewportSurface): string {
+  switch (surface) {
+    case 'mobile':
+      return 'mobile_web';
+    case 'tablet':
+      return 'tablet_web';
+    case 'desktop':
+    default:
+      return 'web';
+  }
+}
+
+function sourceDeviceForViewport(surface: ViewportSurface): string {
+  switch (surface) {
+    case 'mobile':
+      return 'mobile_browser';
+    case 'tablet':
+      return 'tablet_browser';
+    case 'desktop':
+    default:
+      return 'browser';
+  }
+}
 
 function canonicalizeCommandTokens(tokens: string[]): string[] {
   if (tokens.length >= 2) {
@@ -222,7 +249,7 @@ function FloatingMicPieRing({ progress, warn }: { progress: number; warn: boolea
   );
 }
 
-interface MessageComposerProps {
+export interface MessageComposerProps {
   conversationId?: string | null;
   onOptimisticSend?: (text: string) => string | undefined;
   onSent: (
@@ -242,7 +269,10 @@ interface MessageComposerProps {
   compactTui?: boolean;
   hideHelperText?: boolean;
   floating?: boolean;
+  surface?: ViewportSurface;
   floatingOffsetClassName?: string;
+  keyboardInsetPx?: number;
+  submitOnEnter?: boolean;
   disabled?: boolean;
   disabledReason?: string | null;
   onDisabledInteract?: () => void;
@@ -277,7 +307,10 @@ export function MessageComposer({
   compactTui = false,
   hideHelperText = false,
   floating = false,
+  surface = 'desktop',
   floatingOffsetClassName = 'bottom-5',
+  keyboardInsetPx,
+  submitOnEnter = true,
   disabled = false,
   disabledReason = null,
   onDisabledInteract,
@@ -296,6 +329,7 @@ export function MessageComposer({
   const voicePrevIsListeningRef = useRef(false);
   const [voiceElapsedMs, setVoiceElapsedMs] = useState(0);
   const [voiceLatched, setVoiceLatched] = useState(false);
+  const [detectedKeyboardInsetPx, setDetectedKeyboardInsetPx] = useState(0);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [queuedAttachments, setQueuedAttachments] = useState<AttachmentDraft[]>([]);
   const [selectedIntent, setSelectedIntent] = useState<NowDockedInputIntentData | null>(null);
@@ -305,6 +339,7 @@ export function MessageComposer({
   const [commandHistoryIndex, setCommandHistoryIndex] = useState<number | null>(null);
   const [completionSelectionIndex, setCompletionSelectionIndex] = useState(0);
   const commandDraftBeforeHistoryRef = useRef('');
+  const composingRef = useRef(false);
   const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -313,15 +348,15 @@ export function MessageComposer({
   const appendVoiceTranscript = useCallback((transcript: string) => {
     setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
     const voiceDraft = {
-      surface: 'web',
-      source_device: 'browser',
+      surface: voiceSurfaceForViewport(surface),
+      source_device: sourceDeviceForViewport(surface),
       locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language ?? 'en-US',
       transcript_origin: 'local_browser_stt',
       recorded_at: new Date().toISOString(),
     };
     pendingVoiceRef.current = voiceDraft;
     setPendingVoice(voiceDraft);
-  }, []);
+  }, [surface]);
 
   const voiceRecognition = useSpeechRecognition({
     onResult: appendVoiceTranscript,
@@ -343,6 +378,32 @@ export function MessageComposer({
     stop: stopVoice,
     interimTranscript,
   } = voiceRecognition;
+
+  useEffect(() => {
+    if (
+      keyboardInsetPx !== undefined
+      || !floating
+      || typeof window === 'undefined'
+      || !window.visualViewport
+    ) {
+      setDetectedKeyboardInsetPx(0);
+      return;
+    }
+
+    const visualViewport = window.visualViewport;
+    const updateKeyboardInset = () => {
+      const inset = window.innerHeight - visualViewport.height - visualViewport.offsetTop;
+      setDetectedKeyboardInsetPx(inset >= 80 ? Math.round(inset) : 0);
+    };
+
+    updateKeyboardInset();
+    visualViewport.addEventListener('resize', updateKeyboardInset);
+    visualViewport.addEventListener('scroll', updateKeyboardInset);
+    return () => {
+      visualViewport.removeEventListener('resize', updateKeyboardInset);
+      visualViewport.removeEventListener('scroll', updateKeyboardInset);
+    };
+  }, [floating, keyboardInsetPx]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -517,7 +578,7 @@ export function MessageComposer({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [commandCompletionTokens, disabled, sending]);
+  }, [commandCompletionTokens, disabled, sending, text]);
 
   const send = useCallback(async () => {
     const trimmed = mergedMessage.trim();
@@ -628,6 +689,7 @@ export function MessageComposer({
     onSent,
     onSendFailed,
     disabled,
+    disabledReason,
     onCommand,
     selectedIntent,
   ]);
@@ -673,7 +735,10 @@ export function MessageComposer({
     }, 0);
   }, []);
 
-  const completionHints = commandCompletion?.completion_hints ?? [];
+  const completionHints = useMemo(
+    () => commandCompletion?.completion_hints ?? [],
+    [commandCompletion?.completion_hints],
+  );
   const commandHintSuggestions = commandCompletion?.intent_hints?.suggestions ?? [];
   const selectedCompletionHint = completionHints[Math.min(completionSelectionIndex, Math.max(0, completionHints.length - 1))] ?? null;
   const commandModeLabel =
@@ -725,6 +790,7 @@ export function MessageComposer({
   }, [applyCommandHint, completionHints, completionSelectionIndex]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const nativeEvent = e.nativeEvent as KeyboardEvent & { isComposing?: boolean };
     const textarea = textareaRef.current;
     const selectionAtEnd = Boolean(
       textarea
@@ -770,9 +836,12 @@ export function MessageComposer({
       setCompletionSelectionIndex(0);
       return;
     }
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && submitOnEnter) {
+      if (composingRef.current || nativeEvent.isComposing || nativeEvent.keyCode === 229) {
+        return;
+      }
       e.preventDefault();
-      send();
+      void send();
     }
   };
 
@@ -889,7 +958,9 @@ export function MessageComposer({
   const interactionDisabled = sending || disabled;
 
   const voiceHint = voiceSupported
-    ? isListening
+    ? voiceError
+      ? 'Voice input is unavailable right now. Type your message or try the mic again.'
+      : isListening
       ? voiceLatched
         ? 'Hands-free recording — tap the mic or press Esc to stop. Transcript stays local until you send.'
         : 'Release to stop. Transcript stays local until you send it.'
@@ -915,15 +986,26 @@ export function MessageComposer({
       : 'Hold to talk locally with browser speech-to-text';
 
   const voiceProgress = voiceElapsedMs / FLOATING_VOICE_MAX_MS;
-  const voiceStatusLabel = isListening
-    ? interimTranscript
+  const voiceUiState: VoiceUiState = !voiceSupported
+    ? 'unsupported'
+    : voiceError
+      ? 'error'
+      : isListening && interimTranscript
+        ? 'transcribing'
+        : isListening
+          ? 'listening'
+          : pendingVoice
+            ? 'recorded'
+            : 'idle';
+  const voiceStatusLabel = voiceUiState === 'error'
+    ? 'Voice error'
+    : voiceUiState === 'transcribing'
       ? 'Transcribing'
-      : voiceLatched
-        ? 'Recording'
-        : 'Listening'
-    : pendingVoice
-      ? 'Recorded'
-      : null;
+      : voiceUiState === 'listening'
+        ? voiceLatched ? 'Recording' : 'Listening'
+        : voiceUiState === 'recorded'
+          ? 'Recorded'
+          : null;
   const compactTuiAgentStatus = sending
     ? 'Agent thinking'
     : isListening
@@ -1137,8 +1219,15 @@ export function MessageComposer({
     </button>
   ) : null;
 
+  const effectiveKeyboardInsetPx = Math.max(0, Math.round(keyboardInsetPx ?? detectedKeyboardInsetPx));
+  const isMobileSurface = surface === 'mobile';
+
   const containerClass = floating
-    ? `fixed inset-x-0 z-30 px-4 ${floatingOffsetClassName}`
+    ? cn(
+      'fixed inset-x-0 z-30 transition-transform duration-150',
+      isMobileSurface ? 'px-3' : 'px-4',
+      floatingOffsetClassName,
+    )
     : compactTui
       ? 'shrink-0 w-full border-t border-[var(--vel-color-border)]/50 bg-[color:var(--vel-color-bg)] px-0 py-1 font-mono'
       : compact
@@ -1211,8 +1300,20 @@ export function MessageComposer({
     </div>
   ) : null;
 
+  const containerStyle = floating
+    ? ({
+      '--vel-keyboard-inset': `${effectiveKeyboardInsetPx}px`,
+      transform: effectiveKeyboardInsetPx > 0 ? 'translateY(calc(-1 * var(--vel-keyboard-inset)))' : undefined,
+    } as CSSProperties)
+    : undefined;
+
   return (
-      <div className={containerClass}>
+      <div
+        className={containerClass}
+        data-surface={surface}
+        data-keyboard-open={floating ? effectiveKeyboardInsetPx > 0 : undefined}
+        style={containerStyle}
+      >
       {(error ?? commandMessage) && (
         <p
           className={cn(
@@ -1224,7 +1325,7 @@ export function MessageComposer({
           {error ?? commandMessage}
         </p>
       )}
-      <div className={cn('relative mx-auto flex gap-2', compactTui ? 'w-full max-w-none items-center' : 'max-w-2xl items-end', floating ? 'group w-full items-center' : null)}>
+      <div className={cn('relative mx-auto flex gap-2', compactTui ? 'w-full max-w-none items-center' : 'max-w-2xl items-end', floating ? 'group w-full items-center' : null, floating && isMobileSurface ? 'max-w-none' : null)}>
         {disabled ? (
             <button
               type="button"
@@ -1239,7 +1340,7 @@ export function MessageComposer({
         {floating ? (
           <div className="min-w-0 w-full flex-1">
           <div className={cn('vel-composer-gradient-border min-w-0 w-full rounded-full p-px transition-[opacity,filter] duration-150', disabled ? 'opacity-45 saturate-0 grayscale' : null)}>
-          <div className={cn('flex items-center gap-2 rounded-full bg-zinc-950/95 py-2 pl-2 pr-2 backdrop-blur transition-[opacity,filter] duration-150', disabled ? 'opacity-80 saturate-0 grayscale' : null)}>
+          <div className={cn('flex items-center gap-2 rounded-full bg-zinc-950/95 py-2 pl-2 pr-2 backdrop-blur transition-[opacity,filter] duration-150', isMobileSurface ? 'min-h-14' : null, disabled ? 'opacity-80 saturate-0 grayscale' : null)}>
             {attachmentButtonEl}
             {queuedAttachments.length ? (
               <div className="flex max-w-[14rem] shrink-0 items-center gap-1 overflow-x-auto py-0.5">
@@ -1306,8 +1407,15 @@ export function MessageComposer({
                   setCommandMessageError(false);
                   setError(null);
                 }}
+                onCompositionStart={() => {
+                  composingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  composingRef.current = false;
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask, capture, or talk to Vel…"
+                enterKeyHint={submitOnEnter ? 'send' : undefined}
                 data-vel-composer-input="true"
                 rows={1}
                 className={cn(
@@ -1320,9 +1428,11 @@ export function MessageComposer({
             </div>
             {voiceStatusLabel ? (
               <span
+                role="status"
+                aria-live="polite"
                 className={cn(
                   'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em]',
-                  isListening
+                  isListening || voiceError
                     ? 'border-red-700/55 bg-red-950/35 text-red-200'
                     : 'border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/88 text-[var(--vel-color-accent-soft)]',
                 )}
@@ -1362,6 +1472,11 @@ export function MessageComposer({
           </div>
           </div>
           {commandHintPanel}
+          {voiceError ? (
+            <p className="mt-1.5 px-2 text-[11px] text-red-200" aria-live="polite">
+              {voiceHint}
+            </p>
+          ) : null}
           </div>
         ) : (
           <>
@@ -1379,8 +1494,15 @@ export function MessageComposer({
                     setCommandMessageError(false);
                     setError(null);
                   }}
+                  onCompositionStart={() => {
+                    composingRef.current = true;
+                  }}
+                  onCompositionEnd={() => {
+                    composingRef.current = false;
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder={compactTui ? 'Type a message…' : 'Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)'}
+                  enterKeyHint={submitOnEnter ? 'send' : undefined}
                   rows={1}
                   className={cn(
                     compactFieldClass,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { viewportSurfaceBreakpoints } from '../Theme/tokens';
 
 export type ViewportSurface = 'mobile' | 'tablet' | 'desktop';
 
@@ -13,6 +14,10 @@ export interface ViewportSurfaceSnapshot {
   supportsKeyboardInset: boolean;
 }
 
+type ViewportWindow = Pick<Window, 'innerHeight' | 'innerWidth'> & {
+  visualViewport?: Pick<VisualViewport, 'height'> | null;
+};
+
 const DEFAULT_SURFACE: ViewportSurfaceSnapshot = {
   surface: 'desktop',
   width: 0,
@@ -25,26 +30,31 @@ const DEFAULT_SURFACE: ViewportSurfaceSnapshot = {
 };
 
 export function getSurfaceFromWidth(width: number): ViewportSurface {
-  if (width < 768) {
+  if (width <= viewportSurfaceBreakpoints.mobileMax) {
     return 'mobile';
   }
-  if (width < 1200) {
+  if (width <= viewportSurfaceBreakpoints.tabletMax) {
     return 'tablet';
   }
   return 'desktop';
 }
 
-export function buildViewportSnapshot(): ViewportSurfaceSnapshot {
-  if (typeof window === 'undefined') {
+export function supportsKeyboardInset(viewportWindow: ViewportWindow | undefined): boolean {
+  if (!viewportWindow?.visualViewport) {
+    return false;
+  }
+  return viewportWindow.visualViewport.height < viewportWindow.innerHeight;
+}
+
+export function buildViewportSnapshot(viewportWindow?: ViewportWindow): ViewportSurfaceSnapshot {
+  const activeWindow = viewportWindow ?? (typeof window === 'undefined' ? undefined : window);
+  if (!activeWindow) {
     return DEFAULT_SURFACE;
   }
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+  const width = activeWindow.innerWidth;
+  const height = activeWindow.innerHeight;
   const surface = getSurfaceFromWidth(width);
   const isLandscape = width >= height;
-  const supportsKeyboardInset =
-    typeof window.visualViewport !== 'undefined'
-      && window.visualViewport.height < window.innerHeight;
   return {
     surface,
     width,
@@ -53,7 +63,7 @@ export function buildViewportSnapshot(): ViewportSurfaceSnapshot {
     isTablet: surface === 'tablet',
     isDesktop: surface === 'desktop',
     isLandscape,
-    supportsKeyboardInset,
+    supportsKeyboardInset: supportsKeyboardInset(activeWindow),
   };
 }
 
@@ -68,7 +78,13 @@ export function useViewportSurface(): ViewportSurfaceSnapshot {
     if (typeof window === 'undefined') {
       return;
     }
-    const mediaQueries = [window.matchMedia('(max-width: 767px)'), window.matchMedia('(max-width: 1199px)')];
+    const mediaQueries =
+      typeof window.matchMedia === 'function'
+        ? [
+            window.matchMedia(`(max-width: ${viewportSurfaceBreakpoints.mobileMax}px)`),
+            window.matchMedia(`(max-width: ${viewportSurfaceBreakpoints.tabletMax}px)`),
+          ]
+        : [];
     window.addEventListener('resize', update);
     window.addEventListener('orientationchange', update);
     window.addEventListener('pageshow', update);

@@ -95,7 +95,7 @@ export function NudgeCard({
                   {timestampLabel}
                 </span>
               ) : null}
-              <p className="text-sm font-medium whitespace-normal break-words leading-5">{bar.title}</p>
+              <p className="truncate text-sm font-medium leading-5">{bar.title}</p>
             </div>
             <p className="truncate text-xs text-[var(--vel-color-muted)]">
               {bar.summary}

@@ -22,6 +22,39 @@ describe('MessageComposer', () => {
     return element as T
   }
 
+  function mockAssistantEntryResponse(text = 'Hello') {
+    return {
+      ok: true,
+      data: {
+        route_target: 'threads',
+        user_message: {
+          id: 'msg_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text },
+          status: null,
+          importance: null,
+          created_at: 0,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_1',
+          title: 'Conversation',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          call_mode_active: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+      },
+      meta: { request_id: 'req_msg_1' },
+    }
+  }
+
   beforeEach(() => {
     onSent.mockClear()
     onOptimisticSend.mockReset()
@@ -63,6 +96,7 @@ describe('MessageComposer', () => {
 
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
     expect(container.textContent).toMatch(/0:00/)
+    expect(within(container).getByRole('status')).toHaveTextContent(/listening/i)
     expect(container.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
   })
 
@@ -72,6 +106,114 @@ describe('MessageComposer', () => {
     const textarea = requireHtmlElement(container.querySelector('textarea'))
     fireEvent.change(textarea, { target: { value: 'Hi' } })
     expect(within(container).getByRole('button', { name: /send/i })).toBeInTheDocument()
+  })
+
+  it('does not submit Enter while IME composition is active', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue(mockAssistantEntryResponse('かな'))
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+
+    fireEvent.change(textarea, { target: { value: 'かな' } })
+    fireEvent.compositionStart(textarea)
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    fireEvent.compositionEnd(textarea)
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    expect(api.apiPost).not.toHaveBeenCalled()
+    expect(textarea).toHaveValue('かな')
+  })
+
+  it('submits Enter after IME composition ends', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue(mockAssistantEntryResponse('かな'))
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+
+    fireEvent.change(textarea, { target: { value: 'かな' } })
+    fireEvent.compositionStart(textarea)
+    fireEvent.compositionEnd(textarea)
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        expect.objectContaining({ text: 'かな', conversation_id: 'conv_1' }),
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('can preserve normal textarea Enter behavior when submitOnEnter is disabled', async () => {
+    vi.mocked(api.apiPost).mockResolvedValue(mockAssistantEntryResponse('Hello'))
+
+    const { container } = render(
+      <MessageComposer conversationId="conv_1" onSent={onSent} submitOnEnter={false} />,
+    )
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+
+    fireEvent.change(textarea, { target: { value: 'Hello' } })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+
+    expect(api.apiPost).not.toHaveBeenCalled()
+
+    fireEvent.click(within(container).getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        expect.objectContaining({ text: 'Hello', conversation_id: 'conv_1' }),
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('lifts the floating composer by keyboard inset without replacing the bottom offset class', () => {
+    const { container } = render(
+      <MessageComposer
+        conversationId="conv_1"
+        onSent={onSent}
+        floating
+        floatingOffsetClassName="bottom-24"
+        keyboardInsetPx={280}
+      />,
+    )
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
+
+    expect(composer).toHaveAttribute('data-keyboard-open', 'true')
+    expect(composer).toHaveClass('fixed')
+    expect(composer).toHaveClass('bottom-24')
+    expect(composer).toHaveStyle({ '--vel-keyboard-inset': '280px' })
+    expect(composer).toHaveStyle({ transform: 'translateY(calc(-1 * var(--vel-keyboard-inset)))' })
+    expect(within(composer).getByRole('button', { name: /hold to talk locally/i })).toBeInTheDocument()
+  })
+
+  it('carries mobile surface context into floating composer chrome', () => {
+    const { container } = render(
+      <MessageComposer conversationId="conv_1" onSent={onSent} floating surface="mobile" />,
+    )
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
+
+    expect(composer).toHaveAttribute('data-surface', 'mobile')
+    expect(composer).toHaveClass('px-3')
+    expect(composer.querySelector('.min-h-14')).toBeInTheDocument()
+  })
+
+  it('renders explicit voice error status with typed fallback copy', () => {
+    vi.mocked(speech.useSpeechRecognition).mockReturnValue({
+      isSupported: true,
+      isListening: false,
+      error: 'Permission denied',
+      start: vi.fn(),
+      stop: vi.fn(),
+      interimTranscript: '',
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+
+    expect(within(container).getByRole('status')).toHaveTextContent(/voice error/i)
+    expect(within(container).getByText(/voice input is unavailable right now/i)).toBeInTheDocument()
   })
 
   it('shows attachment menu and queued chip in floating mode', async () => {
@@ -336,7 +478,7 @@ describe('MessageComposer', () => {
       interimTranscript: '',
     }))
 
-    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating surface="mobile" />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
     const voiceButton = within(container).getByRole('button', { name: /hold to talk locally/i })
 
@@ -356,6 +498,10 @@ describe('MessageComposer', () => {
         expect.objectContaining({
           text: 'voice drafted note',
           conversation_id: 'conv_1',
+          voice: expect.objectContaining({
+            surface: 'mobile_web',
+            source_device: 'mobile_browser',
+          }),
         }),
         expect.any(Function),
       )
@@ -370,6 +516,10 @@ describe('MessageComposer', () => {
         text: 'voice drafted note',
         conversationId: 'conv_1',
         intent: null,
+        voice: expect.objectContaining({
+          surface: 'mobile_web',
+          source_device: 'mobile_browser',
+        }),
       }),
     )
   })
@@ -715,7 +865,7 @@ describe('MessageComposer', () => {
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/v1/command/complete',
-        { input: ['should'] },
+        { text: '/should', input: ['should'] },
         expect.any(Function),
       )
     })
@@ -771,7 +921,7 @@ describe('MessageComposer', () => {
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/v1/command/complete',
-        { input: [] },
+        { text: 'vel', input: [] },
         expect.any(Function),
       )
     })
@@ -810,7 +960,7 @@ describe('MessageComposer', () => {
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/v1/command/complete',
-        { input: [] },
+        { text: 'vel', input: [] },
         expect.any(Function),
       )
     })
@@ -889,7 +1039,7 @@ describe('MessageComposer', () => {
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/v1/command/complete',
-        { input: ['morning'] },
+        { text: 'vel morning', input: ['morning'] },
         expect.any(Function),
       )
     })

@@ -135,6 +135,7 @@ interface MainPanelProps {
   onRaiseNudge?: (nudge: NowNudgeBarData) => void;
   onClearNudge?: (nudgeId: string) => void;
   shellOwnsNowNudges?: boolean;
+  mobileNudgeZone?: ReactNode;
   shellBootLoading?: boolean;
 }
 
@@ -170,6 +171,7 @@ export function MainPanel({
   onRaiseNudge,
   onClearNudge,
   shellOwnsNowNudges = false,
+  mobileNudgeZone,
   shellBootLoading = false,
 }: MainPanelProps) {
   void onOpenSystem;
@@ -238,6 +240,9 @@ export function MainPanel({
   const mobileComposerBottomClassName = surface === 'mobile'
     ? 'bottom-[calc(3.9rem+env(safe-area-inset-bottom))]'
     : 'bottom-6 sm:bottom-8';
+  const feedbackBottomClassName = surface === 'mobile'
+    ? 'bottom-[calc(7.5rem+env(safe-area-inset-bottom))]'
+    : 'bottom-20';
 
   const speakAssistantReply = useCallback((response: AssistantEntryResponse) => {
     if (!response.conversation.call_mode_active) {
@@ -269,7 +274,7 @@ export function MainPanel({
       primary_thread_id: null,
       actions: coreSetupNudgeActions,
     });
-  }, [coreSetupNudgeActions, coreSetupStatus, onClearNudge, onRaiseNudge]);
+  }, [coreSetupNudgeActions, coreSetupNudgeSummary, coreSetupStatus, onClearNudge, onRaiseNudge]);
 
   const handleAssistantEntry = useCallback(
     async (response: AssistantEntryResponse, submitted?: SubmittedAssistantEntryPayload | null) => {
@@ -331,7 +336,7 @@ export function MainPanel({
         message: 'Handled here in Now.',
       });
     },
-    [conversationsKey, onNavigate, onOpenThread, speakAssistantReply],
+    [conversationsKey, onNavigate, onOpenThread, onRaiseNudge, speakAssistantReply],
   );
 
   const handleAssistantIntentSelection = useCallback(
@@ -413,9 +418,11 @@ export function MainPanel({
   } else if (mainView === 'now') {
     body = (
       <div className="relative flex min-h-0 flex-1 flex-col bg-transparent">
+        {mobileNudgeZone}
         <NowView
           onOpenThread={onOpenThread}
           hideNudgeLane={shellOwnsNowNudges}
+          surface={surface}
         />
       </div>
     );
@@ -444,7 +451,7 @@ export function MainPanel({
     <div className="relative flex min-h-0 flex-1 flex-col">
       {body}
       {!shellBootLoading && (assistantEntryMessage || assistantInlineResponse) ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[35] flex justify-center px-4 sm:px-6">
+        <div className={`pointer-events-none fixed inset-x-0 ${feedbackBottomClassName} z-[35] flex justify-center px-4 sm:px-6`}>
           <div className="pointer-events-auto max-h-[min(40vh,14rem)] w-full max-w-5xl overflow-y-auto">
             <AssistantEntryFeedback
               message={assistantEntryMessage}
@@ -476,6 +483,7 @@ export function MainPanel({
         <MessageComposer
           compact
           floating
+          surface={surface}
           hideHelperText
           onOpenMiniMode={onOpenMiniComposer}
           floatingOffsetClassName={mobileComposerBottomClassName}

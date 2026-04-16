@@ -59,6 +59,14 @@ Wave-3 reduced watch surface (implemented):
 - supportsFullThreadReadingOrEditing: no
 - supportsLocalPlannerOrLLMLogic: no
 
+Wave-3 blocked/unsupported watch behavior:
+- no project inspector, settings hub, or system administration flows
+- no full conversation browser, thread branching, title editing, archive/pin/mute, or long-form review
+- no watch-local synthesis, ranking, risk policy, planner, or LLM execution
+- no direct credential/tool authority; watch actions use existing `VelWatchStore` API paths and queued capture fallbacks
+- no broad remote-control surface; unsupported follow-through is captured as a handoff request for iPhone or Mac
+- no split workspace, dashboard, live activity, ambient HUD, or screen-awareness features
+
 ## macOS (scaffold)
 
 - supportsChat: yes

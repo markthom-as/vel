@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../../api/client'
 import { clearQueryCache } from '../../data/query'
 import { NudgeZone } from './NudgeZone'
@@ -8,6 +8,16 @@ vi.mock('../../api/client', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   apiPatch: vi.fn(),
+}))
+
+vi.mock('./MiniChatPanel', () => ({
+  MiniChatPanel: ({ onMiniChatClose }: { onMiniChatClose?: () => void }) => (
+    <section aria-label="Mini chat panel">
+      <button type="button" onClick={() => onMiniChatClose?.()}>
+        Close mini chat
+      </button>
+    </section>
+  ),
 }))
 
 function buildNowData(overrides: Record<string, unknown> = {}) {
@@ -217,6 +227,10 @@ describe('NudgeZone', () => {
     } as never)
   })
 
+  afterEach(() => {
+    cleanup()
+  })
+
   it('routes nudge actions through thread and system handlers', async () => {
     const onOpenThread = vi.fn()
     const onOpenSystem = vi.fn()
@@ -239,7 +253,11 @@ describe('NudgeZone', () => {
     expect(onOpenThread).toHaveBeenCalledWith('conv_1')
 
     fireEvent.click(screen.getAllByRole('button', { name: /Sync & clients \(Vel Desktop needs attention\) · mesh_summary_warning/i }).at(-1) as HTMLElement)
-    expect(onOpenSystem).toHaveBeenCalledWith({ section: 'integrations', subsection: 'accounts' })
+    expect(onOpenSystem).toHaveBeenCalledWith({
+      section: 'integrations',
+      subsection: 'sources',
+      anchor: 'sources-account-summary',
+    })
 
   })
 
@@ -280,6 +298,99 @@ describe('NudgeZone', () => {
       expect(screen.getByText('Local fallback nudge')).toBeInTheDocument()
     })
     expect(screen.getByText('Live context is unavailable. Showing local nudges only.')).toBeInTheDocument()
+  })
+
+  it('renders mobile compact nudges as a badge that opens and dismisses a drawer', async () => {
+    render(<NudgeZone activeView="now" variant="compact" />)
+
+    const entry = await screen.findByRole('button', { name: /Nudges/i })
+    expect(entry).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('region', { name: /mobile nudge drawer/i })).not.toBeInTheDocument()
+
+    fireEvent.click(entry)
+
+    const drawer = await screen.findByRole('region', { name: /mobile nudge drawer/i })
+    expect(entry).toHaveAttribute('aria-expanded', 'true')
+    expect(within(drawer).getByText('Active nudges (5)')).toBeInTheDocument()
+    expect(within(drawer).getByText('Standup check-in')).toBeInTheDocument()
+
+    fireEvent.click(within(drawer).getByRole('button', { name: /dismiss/i }))
+    expect(screen.queryByRole('region', { name: /mobile nudge drawer/i })).not.toBeInTheDocument()
+    expect(entry).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('keeps nudge actions reachable from the mobile compact drawer', async () => {
+    const onOpenThread = vi.fn()
+    render(
+      <NudgeZone
+        activeView="now"
+        variant="compact"
+        compactInitiallyOpen
+        onOpenThread={onOpenThread}
+      />,
+    )
+
+    const drawer = await screen.findByRole('region', { name: /mobile nudge drawer/i })
+    fireEvent.click(within(drawer).getAllByRole('button', { name: /Open \(Standup check-in\) · check_in_bar/i }).at(-1) as HTMLElement)
+
+    expect(onOpenThread).toHaveBeenCalledWith('conv_1')
+  })
+
+  it('collapses the docked iPad rail without mounting compact drawer chrome', async () => {
+    render(<NudgeZone activeView="now" railCollapsible />)
+
+    const rail = await screen.findByLabelText('Nudges')
+    expect(rail).toHaveAttribute('data-nudge-zone-variant', 'rail')
+    expect(screen.queryByRole('region', { name: /mobile nudge drawer/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Standup check-in')).toBeInTheDocument()
+
+    const toggle = screen.getByRole('button', { name: 'Collapse' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(rail).toHaveAttribute('data-nudge-rail-collapsed', 'true')
+    expect(screen.getByRole('region', { name: /nudge rail collapsed summary/i })).toHaveTextContent('5 active')
+    expect(screen.queryByText('Standup check-in')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.getByText('Standup check-in')).toBeInTheDocument()
+  })
+
+  it('closes mini chat before collapsing the docked iPad rail', async () => {
+    const onMiniChatClose = vi.fn()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return { ok: true, data: buildNowData(), meta: { request_id: 'req_now' } } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: buildIntegrationsData(),
+          meta: { request_id: 'req_integrations' },
+        } as never
+      }
+      if (path === '/api/conversations') {
+        return { ok: true, data: [], meta: { request_id: 'req_conversations' } } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    render(
+      <NudgeZone
+        activeView="now"
+        railCollapsible
+        miniChatOpen
+        onMiniChatClose={onMiniChatClose}
+      />,
+    )
+
+    expect(await screen.findByRole('region', { name: /mini chat panel/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
+
+    expect(onMiniChatClose).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('region', { name: /nudge rail collapsed summary/i })).toBeInTheDocument()
   })
 
   it('deep-links the core setup nudge to the core settings block', async () => {
@@ -346,8 +457,10 @@ describe('NudgeZone', () => {
       expect(screen.getByText('Extra hidden nudge')).toBeInTheDocument()
     })
 
-    const extraNudge = screen.getAllByText('Extra hidden nudge').at(-1)?.closest('article') as HTMLElement
-    expect(extraNudge.querySelector('[class*="ring-2"], [class*="animate-["]')).not.toBeNull()
+    await waitFor(() => {
+      const extraNudge = screen.getAllByText('Extra hidden nudge').at(-1)?.closest('article') as HTMLElement
+      expect(extraNudge.querySelector('[class*="ring-2"], [class*="animate-["]')).not.toBeNull()
+    })
   })
 
   it('treats nudges as a single-open accordion when switching between them', async () => {
@@ -654,7 +767,7 @@ describe('NudgeZone', () => {
         expect.any(Function),
       )
     })
-    expect(screen.getAllByRole('button', { name: /Primary/i }).length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('button', { name: /Primary/i })).toHaveLength(0)
     expect(screen.queryAllByRole('button', { name: /Team/i })).toHaveLength(0)
   })
 
@@ -854,7 +967,7 @@ describe('NudgeZone', () => {
 
     render(<NudgeZone activeView="now" />)
 
-    const calendarSections = screen.getAllByLabelText('Calendar')
+    const calendarSections = await screen.findAllByLabelText('Calendar')
     await waitFor(() => {
       expect(
         calendarSections.some((section) => within(section as HTMLElement).queryAllByText(/No calendar events for/i).length > 0),
@@ -1013,7 +1126,7 @@ describe('NudgeZone', () => {
 
     render(<NudgeZone activeView="now" />)
 
-    const calendarSections = screen.getAllByLabelText('Calendar')
+    const calendarSections = await screen.findAllByLabelText('Calendar')
     let nextDayCheckbox: HTMLInputElement | null = null
     await waitFor(() => {
       const sectionWithNoEvents = calendarSections.find((section) =>

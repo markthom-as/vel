@@ -9,7 +9,9 @@ import {
   reactivateInboxItem,
   resolveInboxItem,
   snoozeInboxItem,
+  updateConversationArchive,
   updateConversationCallMode,
+  updateConversationPinned,
 } from './chat'
 import type { InboxItemData } from '../types'
 
@@ -180,6 +182,38 @@ describe('chat data helpers', () => {
       expect.any(Function),
     )
     expect(response.data?.call_mode_active).toBe(true)
+  })
+
+  it('patches pinned and archived thread state through the conversation update seam', async () => {
+    vi.mocked(client.apiPatch).mockResolvedValue({
+      ok: true,
+      data: {
+        id: 'conv_1',
+        title: 'Hello',
+        kind: 'general',
+        pinned: true,
+        archived: false,
+        call_mode_active: false,
+        created_at: 1,
+        updated_at: 2,
+        continuation: null,
+      },
+      meta: { request_id: 'req_thread_state' },
+    } as never)
+
+    await updateConversationPinned('conv_1', true)
+    expect(client.apiPatch).toHaveBeenCalledWith(
+      '/api/conversations/conv_1',
+      { pinned: true },
+      expect.any(Function),
+    )
+
+    await updateConversationArchive('conv_1', true)
+    expect(client.apiPatch).toHaveBeenLastCalledWith(
+      '/api/conversations/conv_1',
+      { archived: true },
+      expect.any(Function),
+    )
   })
 
   it('derives intervention API id from synthetic action ids and evidence', () => {

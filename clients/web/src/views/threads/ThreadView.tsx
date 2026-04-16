@@ -22,7 +22,7 @@ import { useResolvedThreadConversationId } from './useResolvedThreadConversation
 import { SurfaceState } from '../../core/SurfaceState';
 import { uiFonts } from '../../core/Theme';
 import { SearchField } from '../../core/SearchField/SearchField';
-import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
+import { MessageComposer } from '../../core/MessageComposer';
 import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 interface ThreadViewProps {
@@ -94,6 +94,7 @@ export function ThreadView({
   const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
   const [togglingCallModeId, setTogglingCallModeId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const compactScrollRef = useRef<HTMLDivElement | null>(null);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
     conversationsKey,
@@ -246,12 +247,13 @@ export function ThreadView({
   }, []);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    try {
-      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    } catch {
-      el.scrollTop = el.scrollHeight;
+    for (const el of [scrollRef.current, compactScrollRef.current]) {
+      if (!el) continue;
+      try {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      } catch {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -426,7 +428,11 @@ export function ThreadView({
     }
 
       return (
-      <section className={cn('flex min-h-0 w-full flex-col font-mono', className)}>
+      <section
+        data-testid="thread-layout-shell"
+        data-thread-layout="compact"
+        className={cn('flex min-h-0 w-full flex-col font-mono', className)}
+      >
         <div className="border-b border-[var(--vel-color-border)]/50">
           <button
             type="button"
@@ -441,29 +447,15 @@ export function ThreadView({
             <div className="max-h-40 w-full overflow-y-auto overflow-x-hidden border-t border-[var(--vel-color-border)]/30">
               {miniThreadList.length === 0 ? (
                 <p className="px-1.5 py-1 text-[9px] text-[var(--vel-color-muted)]">No threads available.</p>
-              ) : miniThreadList.map((conversation, index) => {
-                const isActive = conversation.id === resolvedConversationId;
-                const lastUpdated = conversation.last_message_at ?? conversation.updated_at;
-                return (
-                  <button
-                    type="button"
-                    key={conversation.id}
-                    onClick={() => onSelectConversation?.(conversation.id)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-1 border-l border-r border-[var(--vel-color-border)]/25 px-1.5 py-0.5 text-left transition',
-                      index === 0 ? 'border-t border-[var(--vel-color-border)]/50' : null,
-                      isActive ? 'bg-[color:var(--vel-color-panel)]/35' : 'hover:bg-[color:var(--vel-color-panel)]/10',
-                    )}
-                  >
-                    <span className="min-w-0 truncate text-[9px] leading-snug text-[var(--vel-color-text)]">
-                      <span className="text-[8px] text-[var(--vel-color-muted)]">{index + 1}.</span> {threadTitle(conversation)}
-                    </span>
-                    <span className="shrink-0 text-[8px] uppercase tracking-[0.08em] text-[var(--vel-color-muted)]">
-                      {formatAbsoluteTimestamp(lastUpdated ?? conversation.updated_at)}
-                    </span>
-                  </button>
-                );
-              })}
+              ) : miniThreadList.map((conversation, index) => (
+                <CompactThreadListRow
+                  key={conversation.id}
+                  conversation={conversation}
+                  index={index}
+                  active={conversation.id === resolvedConversationId}
+                  onSelect={onSelectConversation}
+                />
+              ))}
             </div>
           ) : null}
         </div>
@@ -476,7 +468,7 @@ export function ThreadView({
             messages.length === 0 ? (
               <p className="px-1.5 py-1 text-[9px] text-[var(--vel-color-muted)]">No messages in this thread yet.</p>
             ) : (
-              <div className={cn('min-h-0 flex-1 space-y-0.5 overflow-y-auto border-b border-[var(--vel-color-border)]/45 pr-0.5', !showInlineComposer && 'pb-24')}>
+              <div ref={compactScrollRef} className={cn('min-h-0 flex-1 space-y-0.5 overflow-y-auto border-b border-[var(--vel-color-border)]/45 pr-0.5', !showInlineComposer && 'pb-24')}>
                 {messages.map((message) => (
                   <MessageRenderer
                     key={message.id}
@@ -495,6 +487,7 @@ export function ThreadView({
         {showInlineComposer ? <MessageComposer
           compact
           compactTui
+          surface={surface}
           hideHelperText
           conversationId={resolvedConversationId}
           disabled={false}
@@ -521,7 +514,7 @@ export function ThreadView({
               }
               : undefined
           }
-          onSent={(clientMessageId, response, _submitted: SubmittedAssistantEntryPayload) => {
+          onSent={(clientMessageId, response) => {
             setQueryData<MessageData[]>(messagesKey, (prev = []) =>
               reconcileConfirmedSend(
                 prev,
@@ -598,8 +591,13 @@ export function ThreadView({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1">
+      <div
+        data-testid="thread-layout-shell"
+        data-thread-layout={surface === 'tablet' && threadLayoutSplit ? 'tablet-split' : 'standard'}
+        className="flex min-h-0 flex-1"
+      >
         <aside
+          data-testid="thread-list-rail"
           className={cn(
             'shrink-0 border-r border-[var(--vel-color-border)] w-full max-w-[20rem]',
             isMobileSurface ? 'hidden' : 'md:block',
@@ -700,7 +698,7 @@ export function ThreadView({
           </div>
         </aside>
 
-        <section className="relative flex min-w-0 flex-1 flex-col">
+        <section data-testid="thread-detail-region" className="relative flex min-w-0 flex-1 flex-col">
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6">
               <section className="space-y-3 pb-1">
@@ -912,6 +910,88 @@ function previewText(conversation: ConversationData, messages: MessageData[]): s
     return conversation.continuation.continuation.escalation_reason.trim();
   }
   return conversation.kind.replaceAll('_', ' ');
+}
+
+function conversationNeedsReview(conversation: ConversationData): boolean {
+  return Boolean(conversation.continuation?.continuation.review_requirements?.length)
+    || conversation.continuation?.continuation.continuation_category === 'needs_input'
+    || conversation.pinned;
+}
+
+function CompactThreadListRow({
+  conversation,
+  index,
+  active,
+  onSelect,
+}: {
+  conversation: ConversationData;
+  index: number;
+  active: boolean;
+  onSelect?: (conversationId: string) => void;
+}) {
+  const hasContinuation = Boolean(conversation.continuation);
+  const needsReview = conversationNeedsReview(conversation);
+  const lastUpdated = conversation.last_message_at ?? conversation.updated_at;
+  const title = threadTitle(conversation);
+
+  return (
+    <button
+      type="button"
+      key={conversation.id}
+      onClick={() => {
+        if (!active) {
+          onSelect?.(conversation.id);
+        }
+      }}
+      aria-current={active ? 'true' : undefined}
+      aria-label={`${title}${hasContinuation ? ', unread continuation' : ''}${needsReview ? ', needs review' : ''}`}
+      data-conversation-id={conversation.id}
+      className={cn(
+        'flex min-h-11 w-full items-stretch gap-2 border-l border-r border-[var(--vel-color-border)]/25 px-2 py-1.5 text-left transition',
+        index === 0 ? 'border-t border-[var(--vel-color-border)]/50' : null,
+        active
+          ? 'bg-[color:var(--vel-color-panel)]/45 ring-1 ring-inset ring-[color:var(--vel-color-accent-border)]/55'
+          : 'hover:bg-[color:var(--vel-color-panel)]/10',
+      )}
+    >
+      <span className="flex w-4 shrink-0 items-start justify-center pt-1.5">
+        {hasContinuation ? (
+          <span aria-label="Unread continuation" role="img" className="text-[var(--vel-color-accent)]">
+            <DotIcon size={9} />
+          </span>
+        ) : (
+          <ThreadsIcon size={12} className="text-[var(--vel-color-dim)]" />
+        )}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="text-[8px] text-[var(--vel-color-muted)]">{index + 1}.</span>
+          <span className="min-w-0 flex-1 truncate text-[10px] leading-snug text-[var(--vel-color-text)]">
+            {title}
+          </span>
+          {conversation.pinned ? (
+            <FilterDenseTag tone="brand" casing="normal" className="!tracking-normal">Pinned</FilterDenseTag>
+          ) : null}
+        </span>
+        <span className="flex min-w-0 flex-wrap items-center gap-1">
+          {needsReview ? (
+            <FilterDenseTag tone="brand">
+              <WarningIcon size={9} />
+              Review
+            </FilterDenseTag>
+          ) : hasContinuation ? (
+            <FilterDenseTag tone="muted">Unread</FilterDenseTag>
+          ) : null}
+          {conversation.project_label ? (
+            <FilterDenseTag tone="muted" casing="normal">{conversation.project_label}</FilterDenseTag>
+          ) : null}
+          <span className="shrink-0 text-[8px] uppercase tracking-[0.08em] text-[var(--vel-color-muted)]">
+            {formatAbsoluteTimestamp(lastUpdated ?? conversation.updated_at)}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
 }
 
 function ThreadListRow({

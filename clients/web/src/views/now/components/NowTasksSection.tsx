@@ -11,6 +11,7 @@ import { TaskGroup } from './TaskGroup';
 
 export function NowTasksSection({
   taskLane,
+  surface = 'default',
   riskItems,
   allTaskMetadata,
   commitmentIds,
@@ -24,6 +25,7 @@ export function NowTasksSection({
   onOpenThread,
 }: {
   taskLane: NowData['task_lane'];
+  surface?: 'default' | 'mobile';
   riskItems: ActionItemData[];
   allTaskMetadata: NowTaskData[];
   commitmentIds: Set<string>;
@@ -61,6 +63,7 @@ export function NowTasksSection({
           {taskLane?.active ? (
             <CompactTaskLaneRow
               item={taskLane.active}
+              surface={surface}
               metadata={allTaskMetadata.find((task) => task.id === taskLane.active?.id) ?? null}
               emphasis="active"
               pending={Boolean(pendingCommitments[taskLane.active.id])}
@@ -82,6 +85,7 @@ export function NowTasksSection({
             <CompactTaskLaneRow
               key={item.id}
               item={item}
+              surface={surface}
               flat
               metadata={allTaskMetadata.find((task) => task.id === item.id) ?? null}
               pending={Boolean(pendingCommitments[item.id])}
@@ -103,6 +107,7 @@ export function NowTasksSection({
             <CompactTaskLaneRow
               key={item.id}
               item={item}
+              surface={surface}
               flat
               emphasis="completed"
               metadata={allTaskMetadata.find((task) => task.id === item.id) ?? null}

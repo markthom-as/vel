@@ -21,10 +21,12 @@ import {
   formatTimeUntil,
 } from './nowModel';
 import { NowNudgeStrip } from './components/NowNudgeStrip';
+import type { ViewportSurface } from '../../core/hooks/useViewportSurface';
 
 interface NowViewProps {
   onOpenThread?: (conversationId: string) => void;
   hideNudgeLane?: boolean;
+  surface?: ViewportSurface;
 }
 
 interface CommitmentMessage {
@@ -128,7 +130,7 @@ function moveTaskBetweenSections(
   return next;
 }
 
-export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
+export function NowView({ onOpenThread, hideNudgeLane = false, surface = 'desktop' }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
@@ -159,6 +161,8 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
     later: false,
     completed: false,
   });
+  const isMobileSurface = surface === 'mobile';
+  const compactSurface = isMobileSurface ? 'mobile' : 'default';
   useEffect(() => {
     const handleFocus = () => {
       void refetch();
@@ -423,6 +427,13 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
     })();
   };
 
+  const openNowThreadAction = (threadId: string | null | undefined) => {
+    if (!threadId) {
+      return;
+    }
+    onOpenThread?.(threadId);
+  };
+
   const renderTaskRow = (task: TaskDisplay, section: TaskSectionKey) => {
     const isActive = section === 'active';
     const isLater = section === 'later';
@@ -463,12 +474,14 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
         draggable={!isCompleted && !isInbox}
         onDragStart={() => setDraggedTaskId(task.id)}
         onDragEnd={() => setDraggedTaskId(null)}
+        data-now-task-surface={isMobileSurface ? 'mobile' : undefined}
       >
         <ObjectRowFrame
           tone={isActive ? 'activeBrand' : isLater || isCompleted ? 'ghost' : 'neutral'}
-          density="standard"
+          density={isMobileSurface ? 'comfortable' : 'standard'}
           className={cn(
-            'px-4 py-3 transition',
+            'transition',
+            isMobileSurface ? 'min-h-14 px-3 py-3' : 'px-4 py-3',
             isActive
               ? 'scale-[1.045] bg-[color:var(--vel-color-panel-2)]/72'
               : '',
@@ -484,7 +497,8 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
                 disabled={Boolean(pendingCommitments[task.id])}
                 aria-label={`${isCompleted ? 'Reopen' : 'Complete'} ${task.text}`}
                 className={cn(
-                  'inline-flex h-10 w-10 items-center justify-center rounded-[0.7rem] border transition disabled:opacity-50',
+                  'inline-flex items-center justify-center rounded-[0.7rem] border transition disabled:opacity-50',
+                  isMobileSurface ? 'h-11 w-11' : 'h-10 w-10',
                   isCompleted
                     ? 'border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-[var(--vel-color-accent-soft)]'
                     : 'border-[var(--vel-color-border)] bg-transparent text-transparent hover:border-[var(--vel-color-accent-border)]',
@@ -497,7 +511,10 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
             actions={(
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 {task.threadId ? (
-                  <ActionChipButton onClick={() => onOpenThread?.(task.threadId!)}>
+                  <ActionChipButton
+                    onClick={() => openNowThreadAction(task.threadId)}
+                    className={isMobileSurface ? '!min-h-10 !px-3' : undefined}
+                  >
                     <OpenThreadIcon size={15} className="shrink-0" aria-hidden />
                     <span>Open</span>
                   </ActionChipButton>
@@ -602,7 +619,7 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
       return;
     }
     if (action.kind === 'open_thread' && bar.primary_thread_id) {
-      onOpenThread?.(bar.primary_thread_id);
+      openNowThreadAction(bar.primary_thread_id);
       return;
     }
     if (!action.kind.startsWith('reschedule_today') || reschedulingOverdue) {
@@ -754,6 +771,7 @@ export function NowView({ onOpenThread, hideNudgeLane = false }: NowViewProps) {
                 bars={overdueNudgeBars}
                 nowTs={nowTs}
                 actionItems={data.action_items ?? []}
+                surface={compactSurface}
                 onBarAction={(bar, action) => {
                   void handleOverdueNudgeAction(bar, action);
                 }}
