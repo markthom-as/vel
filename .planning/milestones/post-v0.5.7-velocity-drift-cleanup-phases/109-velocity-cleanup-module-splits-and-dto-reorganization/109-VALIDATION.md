@@ -58,6 +58,7 @@
 - forty-sixth DTO slice: `sync` module owns `SwarmClientsData`, with root re-exports preserving swarm clients response references
 - forty-seventh DTO slice: `capture` module owns `ContextCapture`, with root re-exports preserving capture, context, command-language, CLI, and test references
 - forty-eighth DTO slice: `sync` module owns `ClusterBootstrapData`, with root re-exports preserving cluster bootstrap, sync bootstrap, CLI, and client-sync references
+- forty-ninth DTO slice: `sync` module owns `SyncBootstrapData`, with root re-exports preserving sync bootstrap route, CLI, web, and Apple client references
 
 ### Automated
 
@@ -115,6 +116,7 @@
 - forty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-eighth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- forty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

@@ -4180,26 +4180,6 @@ pub struct CurrentContextData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncBootstrapData {
-    pub cluster: ClusterBootstrapData,
-    pub current_context: Option<CurrentContextData>,
-    pub nudges: Vec<NudgeData>,
-    pub commitments: Vec<CommitmentData>,
-    #[serde(default)]
-    pub linked_nodes: Vec<LinkedNodeData>,
-    #[serde(default)]
-    pub projects: Vec<ProjectRecordData>,
-    #[serde(default)]
-    pub action_items: Vec<ActionItemData>,
-    #[serde(default)]
-    pub pending_writebacks: Vec<WritebackOperationData>,
-    #[serde(default)]
-    pub conflicts: Vec<ConflictCaseData>,
-    #[serde(default)]
-    pub people: Vec<PersonRecordData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowLabelData {
     pub key: String,
     pub label: String,

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 use crate::{
-    ActionItemData, ConflictCaseData, LinkedNodeData, LinkingPromptData, PersonRecordData,
-    ProjectRecordData, UnixSeconds, WritebackOperationData,
+    ActionItemData, CommitmentData, ConflictCaseData, CurrentContextData, LinkedNodeData,
+    LinkingPromptData, NudgeData, PersonRecordData, ProjectRecordData, UnixSeconds,
+    WritebackOperationData,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -478,6 +479,26 @@ pub struct SyncClusterStateData {
     pub workers: Vec<ClusterWorkerStateData>,
     #[serde(default)]
     pub clients: Vec<SwarmClientData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncBootstrapData {
+    pub cluster: ClusterBootstrapData,
+    pub current_context: Option<CurrentContextData>,
+    pub nudges: Vec<NudgeData>,
+    pub commitments: Vec<CommitmentData>,
+    #[serde(default)]
+    pub linked_nodes: Vec<LinkedNodeData>,
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+    #[serde(default)]
+    pub action_items: Vec<ActionItemData>,
+    #[serde(default)]
+    pub pending_writebacks: Vec<WritebackOperationData>,
+    #[serde(default)]
+    pub conflicts: Vec<ConflictCaseData>,
+    #[serde(default)]
+    pub people: Vec<PersonRecordData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
