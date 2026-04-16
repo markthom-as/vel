@@ -35,6 +35,7 @@
 - twenty-third DTO slice: `linking` module owns `LinkedNodeData` and the pairing/linking datetime contract test, with root re-exports preserving cluster, sync, route, and CLI references
 - twenty-fourth DTO slice: `sync` module owns branch-sync capability and validation-profile DTOs, with root re-exports preserving cluster and sync route references
 - twenty-fifth DTO slice: `sync` module also owns branch-sync and validation request DTOs, with root re-exports preserving sync route and CLI request references
+- twenty-sixth DTO slice: `sync` module owns queued-work routing kind/data DTOs, with root re-exports preserving sync route, cluster route, app test, and CLI client references
 
 ### Automated
 
@@ -69,6 +70,7 @@
 - twenty-third DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- twenty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_branch_sync_endpoint_queues_structured_work_request -- --nocapture`, `cargo test -p veld app::tests::cluster_validation_endpoint_queues_structured_work_request -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

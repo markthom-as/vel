@@ -2347,31 +2347,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum QueuedWorkRoutingKindData {
-    BranchSync,
-    Validation,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueuedWorkRoutingData {
-    pub work_request_id: String,
-    pub request_type: QueuedWorkRoutingKindData,
-    pub status: String,
-    pub queued_signal_id: String,
-    pub queued_signal_type: String,
-    pub queued_at: UnixSeconds,
-    pub queued_via: String,
-    pub authority_node_id: String,
-    pub authority_epoch: i64,
-    pub target_node_id: String,
-    pub target_worker_class: String,
-    pub requested_capability: String,
-    #[serde(default)]
-    pub request_payload: JsonValue,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlacementRecommendationData {
     pub worker_id: String,
