@@ -281,6 +281,87 @@ async fn standup_repompts_once_then_exits_with_typed_outcome_when_no_commitments
 }
 
 #[tokio::test]
+async fn overdue_workflow_rejects_non_standup_sessions_before_action_state() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage.clone(),
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+    let morning = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let morning = decode_session(morning).await;
+
+    let menu = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/overdue/menu", morning.id),
+            &DailyLoopOverdueMenuRequestData {
+                today: "2026-03-19".to_string(),
+                include_vel_guess: true,
+                limit: 10,
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(menu.status(), StatusCode::BAD_REQUEST);
+
+    let confirm = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/overdue/confirm", morning.id),
+            &DailyLoopOverdueConfirmRequestData {
+                commitment_id: "com_missing".to_string(),
+                action: DailyLoopOverdueActionData::Close,
+                payload: None,
+                operator_reason: None,
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(confirm.status(), StatusCode::BAD_REQUEST);
+
+    let apply = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/overdue/apply", morning.id),
+            &DailyLoopOverdueApplyRequestData {
+                proposal_id: "ovdp_missing".to_string(),
+                idempotency_key: "ovd:test:wrong-phase".to_string(),
+                confirmation_token: "confirm:ovdp_missing".to_string(),
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(apply.status(), StatusCode::BAD_REQUEST);
+
+    let undo = app
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/overdue/undo", morning.id),
+            &DailyLoopOverdueUndoRequestData {
+                action_event_id: "ovdevt_missing".to_string(),
+                idempotency_key: "ovd:test:wrong-phase".to_string(),
+            },
+        ))
+        .await
+        .unwrap();
+    assert_eq!(undo.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn overdue_workflow_exposes_bounded_menu_and_applies_each_action_with_run_evidence() {
     let storage = test_storage().await;
     let now = OffsetDateTime::now_utc();
@@ -413,10 +494,15 @@ async fn overdue_workflow_exposes_bounded_menu_and_applies_each_action_with_run_
         assert_eq!(confirm.status(), StatusCode::OK);
         let confirm: DailyLoopOverdueConfirmResponseData = decode_api_response(confirm).await;
         assert!(confirm.requires_confirmation);
-        assert!(confirm
-            .write_scope
-            .iter()
-            .any(|scope| scope.contains(commitment_id)));
+        let expected_scope = match action {
+            DailyLoopOverdueActionData::Close | DailyLoopOverdueActionData::Tombstone => {
+                format!("commitment:{commitment_id}:status")
+            }
+            DailyLoopOverdueActionData::Reschedule | DailyLoopOverdueActionData::BackToInbox => {
+                format!("commitment:{commitment_id}:due_at")
+            }
+        };
+        assert_eq!(confirm.write_scope, vec![expected_scope]);
 
         let apply = app
             .clone()
