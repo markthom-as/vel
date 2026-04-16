@@ -2350,31 +2350,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClusterNodeStateData {
-    pub node_id: String,
-    #[serde(default, alias = "display_name")]
-    pub node_display_name: Option<String>,
-    #[serde(default)]
-    pub node_class: Option<String>,
-    #[serde(default)]
-    pub sync_base_url: Option<String>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub tailscale_base_url: Option<String>,
-    #[serde(default)]
-    pub lan_base_url: Option<String>,
-    #[serde(default)]
-    pub localhost_base_url: Option<String>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(default)]
-    pub reachability: Option<String>,
-    #[serde(default)]
-    pub last_seen_at: Option<UnixSeconds>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterWorkerStateData {
     #[serde(alias = "id")]
     pub worker_id: String,
