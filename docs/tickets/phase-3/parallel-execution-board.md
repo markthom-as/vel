@@ -27,7 +27,7 @@ Goal: ship reproducible day-simulation and replay assertions as a hard verificat
 
 | Lane | Primary Tickets | Primary Write Scope | Ready State | Notes |
 | --- | --- | --- | --- | --- |
-| A: Clock & Ordering Seams | `007` | `crates/vel-core/src/`, `crates/veld/src/services/` | queued | Add deterministic time/order seams for replay-sensitive logic. |
+| A: Clock & Ordering Seams | `007` | `crates/vel-core/src/`, `crates/veld/src/services/` | queued | Add deterministic time/order seams and the shared replay interface contract for replay-sensitive logic. |
 | B: Simulation Runner | `007` | `crates/vel-sim/` (new) or equivalent module | queued | Build scenario runner and fixture loader. |
 | C: Replay Assertions | `007`, `017` | `crates/veld/tests/`, `crates/vel-storage/src/repositories/` | queued | Assert terminal state + boundary event completeness. |
 
@@ -92,3 +92,7 @@ Sub-phase 3 merge gate:
 1. Add support ownership/update model in `docs/user/README.md` and `docs/user/reality-and-maturity.md`.
 2. Add troubleshooting decision trees for stale context, sync, and auth failures.
 3. Add doc parity checklist for CLI/web/Apple terminology and recovery guidance.
+
+### Sub-Phase 2 Contract Prerequisite (`007`)
+
+Before building `crates/vel-sim/`, define the replay interface contract in `vel-core` so the simulation harness can depend on core/storage contracts without depending on `veld`. `veld` may inject concrete runtime services in integration tests, but the shared contract must own clock injection, ordered fixture events, reducer/service triggers, and emitted run/event observation hooks.

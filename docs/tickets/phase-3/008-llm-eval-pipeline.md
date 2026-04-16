@@ -5,7 +5,7 @@ owner: staff-eng
 type: verification
 priority: medium
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-04-16
 depends_on:
   - 007-day-simulation-harness
   - 017-execution-tracing-reviewability
@@ -40,6 +40,19 @@ This ticket introduces a dedicated eval toolchain that reports judge scores alon
 - **Paired Gates**: judge scores must be paired with deterministic and execution assertions.
 - **Structured Reports**: emit machine-readable report with per-scenario breakdowns.
 
+## Judge Model Strategy Decision
+
+Primary judge mode is local-first through the `vel-llm` router. CI and default local verification should not require a remote provider, network access, or prompt-visible provider credentials.
+
+Remote model judging remains an explicit configuration override for operator-approved runs. The eval runner must invoke judges through the same `vel-llm::Router` boundary used by runtime LLM access so local and remote modes share one request/report contract.
+
+Implications:
+
+- judge configuration names a model profile, rubric, thresholds, and deterministic fallback behavior.
+- local judge prompts must use the router request format rather than provider-specific prompt assembly.
+- remote judge usage must be visible in eval configuration and reports.
+- deterministic hard gates remain authoritative; judge scores are additive quality gates and must not mask execution failures.
+
 # Cross-Cutting Trait Impact
 
 - **Modularity**: required — eval crate should not entangle runtime request handlers.
@@ -53,7 +66,7 @@ This ticket introduces a dedicated eval toolchain that reports judge scores alon
 
 1. **Scaffold crate**: add `crates/veld-evals` with CLI entrypoint.
 2. **Fixture model**: define scenario schema and deterministic expectation fields.
-3. **Judge integration**: add pluggable judge invocation with rubric and thresholds.
+3. **Judge integration**: add `vel-llm::Router`-backed judge invocation with rubric and thresholds, using local judge mode by default and remote providers only by explicit config.
 4. **Reporting + CI**: emit structured output and add CI-friendly failure policy.
 
 # Acceptance Criteria

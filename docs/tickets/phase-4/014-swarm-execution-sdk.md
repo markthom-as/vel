@@ -5,7 +5,7 @@ owner: staff-eng
 type: architecture
 priority: medium
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-04-16
 depends_on:
   - 006-connect-launch-protocol
   - 010-wasm-agent-sandboxing
@@ -46,6 +46,27 @@ This ticket defines the protocol contracts and reference SDKs required for safe,
 - **Capability Negotiation**: requested capabilities declared up front and scoped grants returned.
 - **Trace Linkage**: SDK requests/responses carry stable run/trace identifiers.
 
+## Protocol Versioning Strategy
+
+Protocol messages use envelope-level versioning:
+
+```json
+{
+  "vel_protocol": "1.0",
+  "type": "launch_request"
+}
+```
+
+Version semantics:
+
+- clients and servers reject unknown major versions.
+- servers may accept unknown minor versions when the message type and required fields remain compatible.
+- additive fields require a minor version bump.
+- breaking changes require a major version bump and new fixtures.
+- message handlers must fail closed for unknown message types or required-field mismatches.
+
+No runtime negotiation is required for v1. The SDK and authority node compare envelope versions at message boundaries and return operator-readable protocol errors for unsupported versions.
+
 # Cross-Cutting Trait Impact
 
 - **Modularity**: required — protocol and SDK boundaries should be independent of app routes.
@@ -57,7 +78,7 @@ This ticket defines the protocol contracts and reference SDKs required for safe,
 
 # Implementation Steps (The How)
 
-1. **Protocol design**: define manifest/envelope schema and versioning rules.
+1. **Protocol design**: define manifest/envelope schema and envelope-level `vel_protocol` versioning rules.
 2. **Shared crate**: implement `vel-protocol` serialization/validation core.
 3. **Reference SDK**: implement Rust and TypeScript SDK paths.
 4. **Runtime integration**: wire protocol contract into connect lifecycle.

@@ -5,7 +5,7 @@ owner: staff-eng
 type: architecture
 priority: medium
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-04-16
 depends_on:
   - 016-capability-broker-secret-mediation
   - 017-execution-tracing-reviewability
@@ -40,6 +40,19 @@ Vel does not yet ship an in-process zero-trust sandbox for third-party/community
 - **No Self-Escalation**: modules cannot widen permissions after launch.
 - **Traceability**: ABI calls, denials, and terminal states emit trace-linked records.
 
+## Runtime Decision
+
+Use **wasmtime with the WebAssembly Component Model** as the default runtime and module format for this ticket.
+
+Rationale:
+
+- Component Model WIT gives typed imports and exports for the host ABI, which keeps capability boundaries explicit at the interface layer.
+- deny-by-default is natural: guests only see host functions explicitly exported into their component world.
+- async host support is required for non-blocking runtime integration.
+- wasmtime has a production security track record and a mature resource-limiting surface.
+
+Extism may be evaluated as a developer-experience wrapper over wasmtime, but it must not replace the explicit Component Model host ABI contract unless a later design record supersedes this decision.
+
 # Cross-Cutting Trait Impact
 
 - **Modularity**: required — isolate sandbox/runtime seam from core authority logic.
@@ -51,8 +64,8 @@ Vel does not yet ship an in-process zero-trust sandbox for third-party/community
 
 # Implementation Steps (The How)
 
-1. **Host ABI design**: finalize callable surface and deny-by-default behavior.
-2. **Runtime integration**: embed WASM runtime with strict resource/policy limits.
+1. **Host ABI design**: finalize Component Model WIT callable surface and deny-by-default behavior.
+2. **Runtime integration**: embed wasmtime with strict resource/policy limits.
 3. **Capability wiring**: route side effects through broker mediation.
 4. **Inspection tooling**: expose sandbox lifecycle/denial traces to operators.
 

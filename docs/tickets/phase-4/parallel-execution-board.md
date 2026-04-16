@@ -12,8 +12,8 @@ Goal: lock semantic-memory, sandbox, and external-SDK contracts before broad run
 | Lane | Primary Tickets | Primary Write Scope | Ready State | Notes |
 | --- | --- | --- | --- | --- |
 | A: Semantic Memory Contracts | `009` | `crates/vel-core/src/`, `docs/cognitive-agent-architecture/cognition/` | queued | Define semantic query/index and provenance contracts. |
-| B: Sandbox Host ABI Contracts | `010` | `crates/vel-core/src/`, `docs/cognitive-agent-architecture/agents/` | queued | Define deny-by-default host ABI and policy boundaries. |
-| C: External SDK/Protocol Contracts | `014` | `docs/`, `config/`, protocol fixture/schema surfaces | queued | Define versioned protocol envelopes and capability negotiation semantics. |
+| B: Sandbox Host ABI Contracts | `010` | `crates/vel-core/src/`, `docs/cognitive-agent-architecture/agents/` | queued | Define wasmtime Component Model host ABI and deny-by-default policy boundaries. |
+| C: External SDK/Protocol Contracts | `014` | `docs/`, `config/`, protocol fixture/schema surfaces | queued | Define envelope-versioned protocol messages and capability negotiation semantics. |
 
 Sub-phase 1 merge gate:
 
@@ -83,12 +83,12 @@ Sub-phase 3 merge gate:
 
 ### Lane B: Sandbox Host ABI Contracts (`010`)
 
-1. Define host ABI call envelope and deny-by-default policy schema.
+1. Define wasmtime Component Model host ABI call envelope and deny-by-default policy schema.
 2. Add capability mediation hooks and denial record contract fields.
 3. Add sandbox policy docs covering resource limits and no-self-escalation rules.
 
 ### Lane C: External SDK/Protocol Contracts (`014`)
 
-1. Define `vel-protocol` envelope/versioning schema with parse tests.
+1. Define `vel-protocol` envelope-level versioning schema with parse tests.
 2. Define capability negotiation and heartbeat lease message contracts.
 3. Publish protocol fixture set and integration contract docs for Rust/TS SDK consumers.

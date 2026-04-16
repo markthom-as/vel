@@ -5,7 +5,7 @@ owner: staff-eng
 type: verification
 priority: high
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-04-16
 depends_on:
   - 004-signal-reducer-pipeline
   - 017-execution-tracing-reviewability
@@ -41,6 +41,19 @@ This ticket introduces a simulation harness that can replay realistic signal and
 - **Deterministic Output**: identical fixture input must produce identical replay output.
 - **Execution Speed**: simulation should remain fast enough for regular CI use.
 
+## Replay Interface Contract Decision
+
+The simulation harness must not depend on `veld` directly. `vel-sim` or any equivalent simulation crate may depend on `vel-core` and `vel-storage`, while `veld` remains the runtime that injects concrete services during integration tests.
+
+The replay interface contract belongs in `vel-core` so both the runtime and simulation harness can share it without a circular dependency. The contract must cover:
+
+- injectable clock access for replay-sensitive services.
+- ordered fixture actions/signals that can trigger reducers or runtime service seams.
+- observation hooks for emitted run/event boundaries and terminal state assertions.
+- deterministic error reporting that does not require HTTP route DTOs.
+
+Implementation may use concrete `veld` services in tests, but only behind this shared core contract.
+
 # Cross-Cutting Trait Impact
 
 - **Modularity**: required — simulation should use existing service seams, not duplicate orchestration logic.
@@ -52,6 +65,7 @@ This ticket introduces a simulation harness that can replay realistic signal and
 
 # Implementation Steps (The How)
 
+0. **Replay contract**: define the `vel-core` replay interface contract that simulation and runtime crates can share without `vel-sim -> veld` dependency edges.
 1. **Clock seam**: add controllable time source where needed for replay determinism.
 2. **Scenario runner**: implement day-simulation runner for ordered signal/action fixtures.
 3. **Assertions**: capture and compare terminal state plus expected run/event sequences.
