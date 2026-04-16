@@ -2348,16 +2348,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimRequestData {
-    pub work_request_id: String,
-    pub worker_id: String,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub capability: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAssignmentUpdateRequest {
     pub receipt_id: String,
     pub status: WorkAssignmentStatusData,
@@ -2391,16 +2381,6 @@ pub struct QueuedWorkItemData {
     pub claim_reason: Option<String>,
     #[serde(default)]
     pub next_retry_at: Option<UnixSeconds>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimNextRequestData {
-    pub node_id: String,
-    pub worker_id: String,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub capability: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

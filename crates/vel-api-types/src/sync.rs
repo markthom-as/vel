@@ -120,3 +120,23 @@ pub struct WorkAssignmentReceiptData {
     pub error_message: Option<String>,
     pub last_updated: UnixSeconds,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimRequestData {
+    pub work_request_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimNextRequestData {
+    pub node_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+}
