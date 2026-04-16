@@ -5,8 +5,8 @@ use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
     ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, ConflictCaseId,
-    IntegrationConnectionId, IntegrationFamily, PersonId, PrivacyClass, ProjectId, RiskFactors,
-    RiskSnapshot, RunId, SyncClass, WritebackOperationId,
+    IntegrationConnectionId, PersonId, PrivacyClass, ProjectId, RiskFactors, RiskSnapshot, RunId,
+    SyncClass, WritebackOperationId,
 };
 
 mod apple;
@@ -14,6 +14,7 @@ mod backup;
 mod commands;
 mod common;
 mod health;
+mod integrations;
 mod responses;
 
 pub use apple::*;
@@ -21,6 +22,7 @@ pub use backup::*;
 pub use commands::*;
 pub use common::*;
 pub use health::*;
+pub use integrations::*;
 pub use responses::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1075,85 +1077,6 @@ fn daily_loop_session_continuity_summary(value: &vel_core::DailyLoopSession) -> 
         }
         (vel_core::DailyLoopPhase::Standup, _, _) => {
             "Standup continuity is available.".to_string()
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IntegrationFamilyData {
-    Calendar,
-    Tasks,
-    Activity,
-    Git,
-    Messaging,
-    Notes,
-    Transcripts,
-    Documents,
-    Health,
-    Gaming,
-}
-
-impl From<IntegrationFamily> for IntegrationFamilyData {
-    fn from(value: IntegrationFamily) -> Self {
-        match value {
-            IntegrationFamily::Calendar => Self::Calendar,
-            IntegrationFamily::Tasks => Self::Tasks,
-            IntegrationFamily::Activity => Self::Activity,
-            IntegrationFamily::Git => Self::Git,
-            IntegrationFamily::Messaging => Self::Messaging,
-            IntegrationFamily::Notes => Self::Notes,
-            IntegrationFamily::Transcripts => Self::Transcripts,
-            IntegrationFamily::Documents => Self::Documents,
-            IntegrationFamily::Health => Self::Health,
-            IntegrationFamily::Gaming => Self::Gaming,
-        }
-    }
-}
-
-impl From<IntegrationFamilyData> for IntegrationFamily {
-    fn from(value: IntegrationFamilyData) -> Self {
-        match value {
-            IntegrationFamilyData::Calendar => Self::Calendar,
-            IntegrationFamilyData::Tasks => Self::Tasks,
-            IntegrationFamilyData::Activity => Self::Activity,
-            IntegrationFamilyData::Git => Self::Git,
-            IntegrationFamilyData::Messaging => Self::Messaging,
-            IntegrationFamilyData::Notes => Self::Notes,
-            IntegrationFamilyData::Transcripts => Self::Transcripts,
-            IntegrationFamilyData::Documents => Self::Documents,
-            IntegrationFamilyData::Health => Self::Health,
-            IntegrationFamilyData::Gaming => Self::Gaming,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntegrationSourceRefData {
-    pub family: IntegrationFamilyData,
-    pub provider_key: String,
-    pub connection_id: IntegrationConnectionId,
-    pub external_id: String,
-}
-
-impl From<vel_core::IntegrationSourceRef> for IntegrationSourceRefData {
-    fn from(value: vel_core::IntegrationSourceRef) -> Self {
-        Self {
-            family: value.family.into(),
-            provider_key: value.provider_key,
-            connection_id: value.connection_id,
-            external_id: value.external_id,
-        }
-    }
-}
-
-impl From<IntegrationSourceRefData> for vel_core::IntegrationSourceRef {
-    fn from(value: IntegrationSourceRefData) -> Self {
-        Self {
-            family: value.family.into(),
-            provider_key: value.provider_key,
-            connection_id: value.connection_id,
-            external_id: value.external_id,
         }
     }
 }
