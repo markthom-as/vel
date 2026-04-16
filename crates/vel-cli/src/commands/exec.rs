@@ -7,6 +7,10 @@ use crate::client::{
     ReviewExecutionHandoffRequestData,
 };
 
+const AGENT_SDK_REFERENCE_CLIENT: &str = "vel-agent-sdk";
+const AGENT_SDK_REFERENCE_HELPERS: &str =
+    "AgentSdkClient::manifest_reference(...), AgentSdkClient::connect_launch_request(...)";
+
 pub async fn run_show_context(
     client: &ApiClient,
     project_id: &str,
@@ -100,6 +104,10 @@ pub async fn run_export_context(
     println!(
         "\nnext: review persisted handoffs with `vel exec review --project-id {}`",
         project_id
+    );
+    println!(
+        "reference_client: {} mirrors external/runtime envelopes with {}",
+        AGENT_SDK_REFERENCE_CLIENT, AGENT_SDK_REFERENCE_HELPERS
     );
     Ok(())
 }
@@ -229,6 +237,7 @@ pub async fn run_launch_handoff(
     println!("status: {}", launched.status);
     println!("reachability: {}", launched.reachability);
     println!("node_id: {}", launched.node_id);
+    println!("reference_client: {}", AGENT_SDK_REFERENCE_CLIENT);
     println!(
         "trace_id: {}",
         launched
@@ -394,6 +403,10 @@ fn format_execution_launch_preview(preview: &ExecutionLaunchPreviewData) -> Stri
             preview.routing.write_scopes.join(", ")
         ));
     }
+    lines.push(format!(
+        "reference_client: {} ({})",
+        AGENT_SDK_REFERENCE_CLIENT, AGENT_SDK_REFERENCE_HELPERS
+    ));
     lines.join("\n")
 }
 
@@ -501,6 +514,8 @@ mod tests {
 
         assert!(text.contains("launch_ready: false"));
         assert!(text.contains("handoff review is still pending"));
+        assert!(text.contains("reference_client: vel-agent-sdk"));
+        assert!(text.contains("AgentSdkClient::connect_launch_request(...)"));
     }
 
     fn sample_handoff() -> ExecutionHandoffData {

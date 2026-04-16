@@ -231,6 +231,10 @@ enum Command {
         long_about = "Recompute and persist context, risk, nudges, and downstream runtime outputs.\n\nFor deterministic fixture replay and regression reports, use the standalone eval path:\n  cargo run -p veld-evals -- run --fixtures crates/veld-evals/fixtures/sample-day-context.json --report /tmp/vel-eval-report.json\n\nThat runner uses the vel-sim harness; vel evaluate does not embed veld-evals or change replay behavior."
     )]
     Evaluate {},
+    #[command(
+        about = "Prepare, review, and launch supervised execution handoffs",
+        long_about = "Prepare, review, and launch supervised execution handoffs.\n\nThe reference client for external/runtime envelopes is vel-agent-sdk. Its live-envelope helpers are AgentSdkClient::manifest_reference(...) and AgentSdkClient::connect_launch_request(...)."
+    )]
     Exec {
         #[command(subcommand)]
         command: ExecCommand,
@@ -460,6 +464,10 @@ enum ExecCommand {
         #[arg(long)]
         json: bool,
     },
+    #[command(
+        about = "Preview whether an approved handoff can launch",
+        long_about = "Preview whether an approved handoff can launch.\n\nUse this before runtime handoff launch to inspect blockers, write scope, and the vel-agent-sdk reference envelope helpers: AgentSdkClient::manifest_reference(...) and AgentSdkClient::connect_launch_request(...)."
+    )]
     LaunchPreview {
         handoff_id: String,
         #[arg(long)]
@@ -483,6 +491,10 @@ enum ExecCommand {
         #[arg(long)]
         json: bool,
     },
+    #[command(
+        about = "Launch an approved handoff through the supervised runtime lane",
+        long_about = "Launch an approved handoff through the supervised runtime lane.\n\nFor external agent clients, treat vel-agent-sdk as the reference implementation for the manifest reference and connect-launch request envelopes."
+    )]
     Launch {
         handoff_id: String,
         #[arg(long, default_value = "local_command")]
@@ -2363,6 +2375,37 @@ mod tests {
         assert!(help.contains("crates/veld-evals/fixtures/sample-day-context.json"));
         assert!(help.contains("vel-sim"));
         assert!(help.contains("does not embed veld-evals"));
+    }
+
+    #[test]
+    fn exec_help_points_to_agent_sdk_reference_client() {
+        let mut command = Cli::command();
+        let exec = command
+            .find_subcommand_mut("exec")
+            .expect("exec subcommand");
+        let help = exec.render_long_help().to_string();
+
+        assert!(help.contains("Prepare, review, and launch supervised execution handoffs"));
+        assert!(help.contains("reference client for external/runtime envelopes is vel-agent-sdk"));
+        assert!(help.contains("AgentSdkClient::manifest_reference(...)"));
+        assert!(help.contains("AgentSdkClient::connect_launch_request(...)"));
+    }
+
+    #[test]
+    fn exec_launch_help_points_to_agent_sdk_envelopes() {
+        let mut command = Cli::command();
+        let exec = command
+            .find_subcommand_mut("exec")
+            .expect("exec subcommand");
+        let launch = exec
+            .find_subcommand_mut("launch")
+            .expect("exec launch subcommand");
+        let help = launch.render_long_help().to_string();
+
+        assert!(help.contains("supervised runtime lane"));
+        assert!(help.contains("vel-agent-sdk"));
+        assert!(help.contains("manifest reference"));
+        assert!(help.contains("connect-launch request envelopes"));
     }
 
     #[test]

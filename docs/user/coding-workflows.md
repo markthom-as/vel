@@ -59,6 +59,7 @@ The web General settings surface exposes the same pending execution review queue
 ## 4. Launch a supervised runtime
 
 The handoff-aware launch transport is `POST /v1/execution/handoffs/:id/launch`.
+`vel-agent-sdk` is the reference client for external/runtime envelopes that target the same supervised lane.
 
 Shipped runtime kinds:
 
@@ -77,10 +78,12 @@ cargo run -p vel-cli -- exec launch <handoff_id> \
 
 Direct connect launch transport still exists at `POST /v1/connect/instances` when you need raw runtime control.
 
-The reference SDK now mirrors the live route contract with:
+The reference SDK mirrors the live route contract with:
 
 - `AgentSdkClient::manifest_reference(...)`
 - `AgentSdkClient::connect_launch_request(...)`
+
+Use those helpers when an external agent process needs to build the manifest reference and connect-launch request envelopes. Keep operator review in `vel exec review`, `vel exec launch-preview`, and `vel exec approve`; the SDK is a client for the runtime envelope, not a shortcut around the review gate.
 
 For direct inspection after launch:
 

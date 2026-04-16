@@ -25,6 +25,7 @@ Publish the stable Phase 08 contract boundary before connect transport, routing,
 | Handoff envelope extension | `vel-core` | `crates/vel-core/src/run.rs` |
 | Transport DTOs | `vel-api-types` | `crates/vel-api-types/src/lib.rs` |
 | Protocol manifest reference | `vel-protocol` | `crates/vel-protocol/src/lib.rs` |
+| External/runtime envelope client | `vel-agent-sdk` | `crates/vel-agent-sdk/src/lib.rs` |
 | Schema/example publication | config assets | `config/schemas/project-execution-context.schema.json`, `config/schemas/execution-handoff.schema.json`, `config/schemas/local-agent-manifest.schema.json` |
 
 # Stable Vocabulary
@@ -87,5 +88,6 @@ Publish the stable Phase 08 contract boundary before connect transport, routing,
 - Storage and service layers should persist and serve execution context using these typed fields rather than a second project-metadata blob.
 - Connect transport should carry manifest references and enforce runtime kind plus writable-root checks against the published contract.
 - CLI and operator surfaces may preview or export repo-local sidecars from this context, but policy ownership stays in Rust backend layers.
-- `vel-agent-sdk` should mirror the live connect-launch wire contract, not a historical stub. The reference helpers are `AgentSdkClient::manifest_reference(...)` and `AgentSdkClient::connect_launch_request(...)`.
+- `vel-agent-sdk` is the reference client for external/runtime envelopes. It mirrors the live connect-launch wire contract, not a historical stub. The reference helpers are `AgentSdkClient::manifest_reference(...)` and `AgentSdkClient::connect_launch_request(...)`.
+- `vel exec launch-preview` and `vel exec launch` should keep pointing operators to `vel-agent-sdk` when they need to compare an external agent request with the live runtime envelope.
 - Operator docs should describe one repo-local path: execution context -> exported sidecar pack -> persisted handoff review -> authenticated connect launch -> run/connect inspection.

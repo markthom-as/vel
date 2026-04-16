@@ -14,6 +14,7 @@
 - `vel-agent-sdk` remains green in protocol/SDK tests
 - the chosen CLI surfaces actually mention or exercise the retained crates
 - first crate-integration slice: `vel evaluate` help/output and docs mention `veld-evals` / `vel-sim` replay without adding a `vel-cli` dependency on those crates
+- final crate-integration slice: `vel exec` help/output and coding-execution docs mention `vel-agent-sdk` as the reference external/runtime envelope client without changing dependency structure
 
 ### Automated
 
@@ -23,6 +24,7 @@
 - `cargo test -p veld-evals -- --nocapture`
 - targeted tests for the normalized route/service seam
 - first slice: `cargo test -p veld execution_context -- --nocapture`
+- final slice: `cargo test -p vel-cli exec`
 
 ### Documentation Truth
 
