@@ -1,6 +1,5 @@
-use chrono::{DateTime, Datelike, LocalResult, TimeZone, Timelike, Utc};
-use chrono_tz::Tz;
-use time::{Date, OffsetDateTime, Time};
+use time::{Date, Month, OffsetDateTime, PrimitiveDateTime, Time};
+use time_tz::{timezones, OffsetError, PrimitiveDateTimeExt, TimeZone, ToTimezone, Tz};
 use vel_storage::Storage;
 
 use crate::errors::AppError;
@@ -11,7 +10,7 @@ pub const CURRENT_DAY_ROLLOVER_HOUR: u32 = 4;
 #[derive(Clone, Debug)]
 pub struct ResolvedTimeZone {
     pub name: String,
-    tz: Tz,
+    tz: &'static Tz,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,15 +24,15 @@ impl ResolvedTimeZone {
     pub fn utc() -> Self {
         Self {
             name: "UTC".to_string(),
-            tz: chrono_tz::UTC,
+            tz: timezones::db::UTC,
         }
     }
 
     pub fn parse(name: &str) -> Result<Self, AppError> {
         let trimmed = name.trim();
-        let tz = trimmed
-            .parse::<Tz>()
-            .map_err(|_| AppError::bad_request("timezone must be a valid IANA timezone"))?;
+        let tz = timezones::get_by_name(trimmed)
+            .filter(|timezone| timezone.name() == trimmed)
+            .ok_or_else(|| AppError::bad_request("timezone must be a valid IANA timezone"))?;
         Ok(Self {
             name: trimmed.to_string(),
             tz,
@@ -63,53 +62,48 @@ pub fn start_of_local_day_timestamp(
     timezone: &ResolvedTimeZone,
     now_utc: OffsetDateTime,
 ) -> Result<i64, AppError> {
-    let local = utc_datetime(now_utc).with_timezone(&timezone.tz);
-    let local_midnight =
-        resolve_local_datetime(timezone, local.year(), local.month(), local.day(), 0, 0, 0)?;
-    Ok(local_midnight.with_timezone(&Utc).timestamp())
+    let local = local_offset_datetime(timezone, now_utc);
+    let local_midnight = resolve_local_datetime(
+        timezone,
+        local.date(),
+        Time::MIDNIGHT,
+        LocalResolutionErrorKind::Internal,
+    )?;
+    Ok(local_midnight.unix_timestamp())
 }
 
 pub fn current_day_window(
     timezone: &ResolvedTimeZone,
     now_utc: OffsetDateTime,
 ) -> Result<CurrentDayWindow, AppError> {
-    let local = utc_datetime(now_utc).with_timezone(&timezone.tz);
-    let mut session_date = local.date_naive();
-    if local.hour() < CURRENT_DAY_ROLLOVER_HOUR {
+    let local = local_offset_datetime(timezone, now_utc);
+    let mut session_date = local.date();
+    if local.time().hour() < CURRENT_DAY_ROLLOVER_HOUR as u8 {
         session_date = session_date
-            .pred_opt()
+            .previous_day()
             .ok_or_else(|| AppError::internal("unable to compute previous local date"))?;
     }
     let next_date = session_date
-        .succ_opt()
+        .next_day()
         .ok_or_else(|| AppError::internal("unable to compute next local date"))?;
+    let rollover_time = Time::from_hms(CURRENT_DAY_ROLLOVER_HOUR as u8, 0, 0)
+        .expect("current day rollover hour should be valid");
     let start = resolve_local_datetime(
         timezone,
-        session_date.year(),
-        session_date.month(),
-        session_date.day(),
-        CURRENT_DAY_ROLLOVER_HOUR,
-        0,
-        0,
+        session_date,
+        rollover_time,
+        LocalResolutionErrorKind::Internal,
     )?;
     let end = resolve_local_datetime(
         timezone,
-        next_date.year(),
-        next_date.month(),
-        next_date.day(),
-        CURRENT_DAY_ROLLOVER_HOUR,
-        0,
-        0,
+        next_date,
+        rollover_time,
+        LocalResolutionErrorKind::Internal,
     )?;
     Ok(CurrentDayWindow {
-        start_ts: start.with_timezone(&Utc).timestamp(),
-        end_ts: end.with_timezone(&Utc).timestamp(),
-        session_date: format!(
-            "{:04}-{:02}-{:02}",
-            session_date.year(),
-            session_date.month(),
-            session_date.day()
-        ),
+        start_ts: start.unix_timestamp(),
+        end_ts: end.unix_timestamp(),
+        session_date: format_date(session_date),
     })
 }
 
@@ -125,34 +119,36 @@ pub fn same_local_day(
     left: OffsetDateTime,
     right: OffsetDateTime,
 ) -> bool {
-    let left_local = utc_datetime(left).with_timezone(&timezone.tz);
-    let right_local = utc_datetime(right).with_timezone(&timezone.tz);
-    left_local.date_naive() == right_local.date_naive()
+    let left_local = local_offset_datetime(timezone, left);
+    let right_local = local_offset_datetime(timezone, right);
+    left_local.date() == right_local.date()
 }
 
 pub fn local_date_string(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> String {
-    let local = utc_datetime(value).with_timezone(&timezone.tz);
-    format!(
-        "{:04}-{:02}-{:02}",
-        local.year(),
-        local.month(),
-        local.day()
-    )
+    let local = local_offset_datetime(timezone, value);
+    format_date(local.date())
 }
 
-pub fn local_hour_minute(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> (u32, u32) {
-    let local = utc_datetime(value).with_timezone(&timezone.tz);
-    (local.hour(), local.minute())
+pub fn local_hour_minute(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> (u8, u8) {
+    let local = local_offset_datetime(timezone, value);
+    (local.time().hour(), local.time().minute())
 }
 
 pub fn local_time_label(timezone: &ResolvedTimeZone, unix_ts: i64) -> String {
-    let local = DateTime::<Utc>::from_timestamp(unix_ts, 0)
-        .expect("unix timestamp should convert to chrono datetime")
-        .with_timezone(&timezone.tz);
-    if local.minute() == 0 {
-        local.format("%-I %p").to_string()
+    let local = OffsetDateTime::from_unix_timestamp(unix_ts)
+        .expect("unix timestamp should convert to offset datetime")
+        .to_timezone(timezone.tz);
+    let hour = local.time().hour();
+    let minute = local.time().minute();
+    let suffix = if hour < 12 { "AM" } else { "PM" };
+    let hour_12 = match hour % 12 {
+        0 => 12,
+        value => value,
+    };
+    if minute == 0 {
+        format!("{hour_12} {suffix}")
     } else {
-        local.format("%-I:%M %p").to_string()
+        format!("{hour_12}:{minute:02} {suffix}")
     }
 }
 
@@ -161,8 +157,13 @@ pub fn local_calendar_label(
     value: OffsetDateTime,
     prefix: &str,
 ) -> String {
-    let local = utc_datetime(value).with_timezone(&timezone.tz);
-    format!("{prefix} {}", local.format("%b %-d"))
+    let local = local_offset_datetime(timezone, value);
+    let date = local.date();
+    format!(
+        "{prefix} {} {}",
+        month_abbreviation(date.month()),
+        date.day()
+    )
 }
 
 pub(crate) fn local_datetime_timestamp(
@@ -170,42 +171,73 @@ pub(crate) fn local_datetime_timestamp(
     date: Date,
     time: Time,
 ) -> Result<i64, AppError> {
-    let local = resolve_local_datetime(
-        timezone,
-        date.year(),
-        u8::from(date.month()).into(),
-        date.day().into(),
-        time.hour().into(),
-        time.minute().into(),
-        time.second().into(),
-    )?;
-    Ok(local.with_timezone(&Utc).timestamp())
-}
-
-fn utc_datetime(value: OffsetDateTime) -> DateTime<Utc> {
-    DateTime::<Utc>::from_timestamp(value.unix_timestamp(), value.nanosecond())
-        .expect("offset datetime should convert to chrono datetime")
+    let local = resolve_local_datetime(timezone, date, time, LocalResolutionErrorKind::BadRequest)?;
+    Ok(local.unix_timestamp())
 }
 
 fn resolve_local_datetime(
     timezone: &ResolvedTimeZone,
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    minute: u32,
-    second: u32,
-) -> Result<DateTime<Tz>, AppError> {
-    match timezone
-        .tz
-        .with_ymd_and_hms(year, month, day, hour, minute, second)
-    {
-        LocalResult::Single(value) => Ok(value),
-        LocalResult::Ambiguous(earliest, _) => Ok(earliest),
-        LocalResult::None => Err(AppError::internal(format!(
+    date: Date,
+    time: Time,
+    error_kind: LocalResolutionErrorKind,
+) -> Result<OffsetDateTime, AppError> {
+    let local = PrimitiveDateTime::new(date, time);
+    match local.assume_timezone(timezone.tz) {
+        Ok(value) => Ok(value),
+        Err(OffsetError::Ambiguous(left, right)) => Ok(if left <= right { left } else { right }),
+        Err(OffsetError::Undefined) => Err(local_resolution_error(timezone, error_kind)),
+    }
+}
+
+fn local_offset_datetime(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> OffsetDateTime {
+    value.to_timezone(timezone.tz)
+}
+
+fn local_resolution_error(
+    timezone: &ResolvedTimeZone,
+    error_kind: LocalResolutionErrorKind,
+) -> AppError {
+    match error_kind {
+        LocalResolutionErrorKind::Internal => AppError::internal(format!(
             "unable to resolve local datetime for timezone {}",
             timezone.name
-        ))),
+        )),
+        LocalResolutionErrorKind::BadRequest => AppError::bad_request(format!(
+            "unable to resolve routine block local time for timezone {}",
+            timezone.name
+        )),
+    }
+}
+
+#[derive(Clone, Copy)]
+enum LocalResolutionErrorKind {
+    Internal,
+    BadRequest,
+}
+
+fn format_date(date: Date) -> String {
+    format!(
+        "{:04}-{:02}-{:02}",
+        date.year(),
+        u8::from(date.month()),
+        date.day()
+    )
+}
+
+fn month_abbreviation(month: Month) -> &'static str {
+    match month {
+        Month::January => "Jan",
+        Month::February => "Feb",
+        Month::March => "Mar",
+        Month::April => "Apr",
+        Month::May => "May",
+        Month::June => "Jun",
+        Month::July => "Jul",
+        Month::August => "Aug",
+        Month::September => "Sep",
+        Month::October => "Oct",
+        Month::November => "Nov",
+        Month::December => "Dec",
     }
 }
 
@@ -223,6 +255,11 @@ mod tests {
     #[test]
     fn rejects_invalid_timezone() {
         assert!(ResolvedTimeZone::parse("Mars/Olympus").is_err());
+    }
+
+    #[test]
+    fn rejects_non_iana_timezone_alias() {
+        assert!(ResolvedTimeZone::parse("Mountain Standard Time").is_err());
     }
 
     #[test]

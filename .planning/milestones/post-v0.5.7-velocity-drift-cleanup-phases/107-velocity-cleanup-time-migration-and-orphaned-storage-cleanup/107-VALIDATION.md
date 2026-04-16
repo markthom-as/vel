@@ -8,6 +8,7 @@
 - targeted recurrence/availability tests after each migration step
 - at least one wider compile/test pass after removing the old dependencies
 - first slice check: `now.rs` should have no direct `chrono` import or `timezone.tz()` call; local display behavior should be covered by `timezone` tests
+- final slice check: `chrono` / `chrono-tz` are removed from direct workspace and `veld` dependencies; remaining `chrono` references are transitive lockfile dependencies outside the targeted `veld` service/test path
 
 ### Schema Re-Verification
 
@@ -25,6 +26,7 @@
 - `cargo test -p veld phase64_gcal_black_box -- --nocapture`
 - `cargo test -p veld backup_flow -- --nocapture`
 - `cargo check --workspace --all-targets`
+- final slice: `cargo test -p veld timezone`
 
 ### Documentation Truth
 

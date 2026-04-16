@@ -15,7 +15,7 @@
 | Over-engineering | 6/10 | Two traits with a single implementation each |
 | File organization | 5/10 | Four monolithic files, one 280KB DTO blob |
 | Error handling consistency | 6/10 | Three different error patterns across layers |
-| Dependency hygiene | 7/10 | `chrono` + `time` both in workspace (mid-migration stall) |
+| Dependency hygiene | 8/10 | Phase 107 completed the direct `chrono` / `chrono-tz` cleanup; timezone support now uses pinned `time-tz` |
 | Schema ownership clarity | 8/10 | Phase 107 recheck found one active backup table and two planned foundation tables, not drop-safe orphaned schema |
 | Config field usage | 9/10 | All fields read. No dead config. |
 
@@ -237,9 +237,8 @@ Do this work in a single focused session per crate — it's mechanical but must 
 - `crates/veld/tests/phase64_gcal_black_box.rs`
 
 **Workspace Cargo.toml:**
-- `chrono` at line 49
-- `chrono-tz` at line 50
-- `time` at line 38 (target crate)
+- `time` as the primary datetime crate
+- `time-tz = { version = "3.0.0-rc.5.0.0", features = ["db_impl"] }` for IANA timezone conversion
 
 **Severity:** MEDIUM — two temporal libraries in one binary, chrono is heavier and offset-naive by default
 **Effort:** ~6 hours
@@ -247,13 +246,12 @@ Do this work in a single focused session per crate — it's mechanical but must 
 
 ### Finding
 
-The codebase started on `chrono`, migrated vel-core and vel-api-types to `time`, but left 5 service files and 4 test files still using `chrono`. Both crates are compiled into the `veld` binary, adding ~200KB of unnecessary binary weight and forcing contributors to reason about two different datetime APIs.
+The codebase started on `chrono`, migrated vel-core and vel-api-types to `time`, but left 5 service files and 4 test files still using `chrono`. Phase 107 completed the active `veld` service/test migration and removed direct workspace dependencies on `chrono` and `chrono-tz`.
 
 ```toml
-# Cargo.toml:38,49-50
+# Cargo.toml
 time = { version = "0.3", features = ["formatting", "macros", "parsing", "serde"] }
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-chrono-tz = "0.10"
+time-tz = { version = "3.0.0-rc.5.0.0", features = ["db_impl"] }
 ```
 
 ### Migration map
@@ -264,20 +262,17 @@ chrono-tz = "0.10"
 | `chrono::NaiveDate` | `time::Date` |
 | `chrono::NaiveTime` | `time::Time` |
 | `chrono::Duration` | `time::Duration` |
-| `chrono_tz::Tz` | `time_tz::TimeZone` or `time::UtcOffset` |
+| `chrono_tz::Tz` | `time_tz::Tz` / `time_tz::TimeZone` |
 | `Utc::now()` | `OffsetDateTime::now_utc()` |
 | `.timestamp()` | `.unix_timestamp()` |
 | `.format(...)` | `.format(&format_description!(...))` |
 
-### Fix steps
+### Completed fix
 
-1. Add `time-tz = { version = "0.5", features = ["db-tzdb"] }` to workspace deps (for timezone-aware operations currently using `chrono-tz`).
-2. Migrate `timezone.rs` first — it is the isolated utility; fixes will cascade to callers.
-3. Migrate `recurrence_materialization.rs` and `availability_projection.rs` next.
-4. Migrate `planning_profile.rs` last — largest and most complex.
-5. Update test files to match.
-6. Run `cargo test --workspace --all-features` after each file to catch regressions early.
-7. Remove `chrono` and `chrono-tz` from `Cargo.toml:49-50`.
+1. Migrated `timezone.rs`, `now.rs`, `planning_profile.rs`, `availability_projection.rs`, `recurrence_materialization.rs`, and targeted tests to `time`.
+2. Added `time-tz = { version = "3.0.0-rc.5.0.0", features = ["db_impl"] }` for IANA timezone operations.
+3. Removed direct `chrono` and `chrono-tz` workspace dependencies.
+4. Preserved timezone semantics: exact IANA timezone parsing, earliest instant for ambiguous local times, and explicit errors for undefined local times.
 
 ---
 

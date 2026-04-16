@@ -51,6 +51,5 @@ uuid = { version = "1.8", features = ["serde", "v4"] }
 sha2 = "0.10"
 hex = "0.4"
 serde_yaml = "0.9"
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-chrono-tz = "0.10"
 iana-time-zone = "0.1"
+time-tz = { version = "3.0.0-rc.5.0.0", features = ["db_impl"] }
