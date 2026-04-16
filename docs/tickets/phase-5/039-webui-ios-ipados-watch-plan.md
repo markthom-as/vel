@@ -4,7 +4,7 @@
 - TBD
 
 ## Status
-- Proposed; `VEL-UI-601` through `VEL-UI-610` verified; web chrome token reconciliation, nudge presentation fallback mapping, MessageComposer mobile surface context, mobile thread append routing, ConversationList overflow actions, iPad split thread rail actions, Wave 3 watch reduced-surface docs, existing watch entry routes, and VelAPI watch action contract tests verified in the current tree.
+- Proposed; `VEL-UI-601` through `VEL-UI-610` verified; web chrome token reconciliation, nudge presentation fallback mapping, MessageComposer mobile surface context, mobile thread append routing, ConversationList overflow actions, iPad split thread rail actions, Wave 3 watch reduced-surface docs, existing watch entry routes, VelAPI watch action contract tests, and shared watch append/nudge service mappings verified in the current tree.
 - File-level checklist: [039-webui-ios-ipados-watch-checklist.md](039-webui-ios-ipados-watch-checklist.md)
 
 ## Context

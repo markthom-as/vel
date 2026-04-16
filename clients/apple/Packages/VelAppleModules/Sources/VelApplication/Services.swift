@@ -50,6 +50,91 @@ public struct PlaceholderCaptureService: CaptureService {
     public func createQuickCapture(text: String) async throws {}
 }
 
+public protocol WatchSurfaceActionClient: Sendable {
+    func nudgeDone(id: String) async throws
+    func nudgeSnooze(id: String, minutes: Int) async throws
+    func submitAssistantEntry(text: String, conversationID: String) async throws
+    func createCapture(text: String, type: String, source: String) async throws
+}
+
+public enum WatchSurfaceActionOutcome: Equatable, Sendable {
+    case nudgeResolved(id: String)
+    case nudgeSnoozed(id: String, minutes: Int)
+    case threadAppended(conversationID: String)
+    case captureCreated(type: String, source: String)
+}
+
+public struct WatchSurfaceActionService<Client: WatchSurfaceActionClient>: Sendable {
+    private let client: Client
+
+    public init(client: Client) {
+        self.client = client
+    }
+
+    @discardableResult
+    public func markNudgeDone(id: String) async throws -> WatchSurfaceActionOutcome {
+        let cleanID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanID.isEmpty else { throw WatchSurfaceActionError.emptyNudgeID }
+
+        try await client.nudgeDone(id: cleanID)
+        return .nudgeResolved(id: cleanID)
+    }
+
+    @discardableResult
+    public func snoozeNudge(id: String, minutes: Int = 10) async throws -> WatchSurfaceActionOutcome {
+        let cleanID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanID.isEmpty else { throw WatchSurfaceActionError.emptyNudgeID }
+        guard minutes > 0 else { throw WatchSurfaceActionError.invalidSnoozeMinutes }
+
+        try await client.nudgeSnooze(id: cleanID, minutes: minutes)
+        return .nudgeSnoozed(id: cleanID, minutes: minutes)
+    }
+
+    @discardableResult
+    public func appendToThread(
+        text: String,
+        conversationID: String?,
+        fallbackType: String = "watch_thread_capture",
+        fallbackSource: String = "apple_watch"
+    ) async throws -> WatchSurfaceActionOutcome {
+        let cleanText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanText.isEmpty else { throw WatchSurfaceActionError.emptyText }
+
+        if let conversationID = conversationID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !conversationID.isEmpty {
+            do {
+                try await client.submitAssistantEntry(text: cleanText, conversationID: conversationID)
+                return .threadAppended(conversationID: conversationID)
+            } catch {
+                try await client.createCapture(
+                    text: queuedThreadAppendText(text: cleanText, conversationID: conversationID),
+                    type: fallbackType,
+                    source: fallbackSource
+                )
+                return .captureCreated(type: fallbackType, source: fallbackSource)
+            }
+        }
+
+        try await client.createCapture(text: cleanText, type: fallbackType, source: fallbackSource)
+        return .captureCreated(type: fallbackType, source: fallbackSource)
+    }
+
+    private func queuedThreadAppendText(text: String, conversationID: String) -> String {
+        [
+            "watch_thread_append:",
+            "thread_id: \(conversationID)",
+            "",
+            text
+        ].joined(separator: "\n")
+    }
+}
+
+public enum WatchSurfaceActionError: Error, Equatable, Sendable {
+    case emptyNudgeID
+    case invalidSnoozeMinutes
+    case emptyText
+}
+
 public struct NotificationRoute: Sendable {
     public let action: String
     public let payload: String

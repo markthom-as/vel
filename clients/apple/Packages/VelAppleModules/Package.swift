@@ -48,6 +48,10 @@ let package = Package(
         .target(
             name: "VelApplePlatform",
             dependencies: ["VelFeatureFlags"]
+        ),
+        .testTarget(
+            name: "VelApplicationTests",
+            dependencies: ["VelApplication"]
         )
     ]
 )

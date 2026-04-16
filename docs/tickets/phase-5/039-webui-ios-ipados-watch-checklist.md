@@ -179,18 +179,18 @@
 - [x] Confirm target surfaces are minimal and secure by default.
 
 ### `clients/apple/Apps/VeliOS/ContentView.swift` and related iOS scenes
-- [ ] Ensure iPhone/iPad app routes can point to the same reduced surface primitives where appropriate.
-- [ ] Keep watch-only flows out of non-watch targets.
+- [x] Ensure iPhone/iPad app routes can point to the same reduced surface primitives where appropriate.
+- [x] Keep watch-only flows out of non-watch targets.
 
 ### `clients/apple/VelAPI/Sources/VelAPI/VelClient.swift`
 - [x] Confirm no web DTO transport types leak into domain/service boundaries.
 - [x] Verify thread append/nudge actions reuse stable API boundaries.
 
 ### `clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift`
-- [ ] Validate secret/tool capability mediation for voice/nudge actions stays boundary-safe.
+- [x] Validate secret/tool capability mediation for voice/nudge actions stays boundary-safe.
 
 ### `clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift`
-- [ ] Add/adjust service mappings for watch append/nudge actions.
+- [x] Add/adjust service mappings for watch append/nudge actions.
 
 ### `clients/apple/Apps/VelWatch/` tests (or new tests)
 - [x] Add watch-surface tests for nudge + voice + keyboard append flows.
