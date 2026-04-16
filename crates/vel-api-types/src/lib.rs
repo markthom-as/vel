@@ -4171,12 +4171,6 @@ fn default_snooze_minutes() -> u32 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncResultData {
-    pub source: String,
-    pub signals_ingested: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoopData {
     pub kind: String,
     pub enabled: bool,

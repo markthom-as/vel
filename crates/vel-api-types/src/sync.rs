@@ -451,3 +451,9 @@ pub struct WorkerCapacityData {
     pub current_load: u32,
     pub available_concurrency: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncResultData {
+    pub source: String,
+    pub signals_ingested: u32,
+}
