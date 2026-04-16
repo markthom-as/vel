@@ -61,6 +61,7 @@
 - forty-ninth DTO slice: `sync` module owns `SyncBootstrapData`, with root re-exports preserving sync bootstrap route, CLI, web, and Apple client references
 - fiftieth DTO slice: `agent_grounding` module owns agent capability and blocker DTOs, with root re-exports preserving agent inspect service, CLI, web, and contract-test references
 - fifty-first DTO slice: `agent_grounding` module owns the remaining agent grounding and inspect DTOs, with root re-exports preserving `/v1/agent/inspect`, CLI, web, execution-context, and contract-test references
+- fifty-second DTO slice: `integrations` module owns integration status and auth-start DTOs, with root re-exports preserving integrations route, CLI, web, and Apple client references
 
 ### Automated
 
@@ -121,6 +122,7 @@
 - forty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fiftieth DTO slice: `cargo test -p vel-api-types agent_grounding_capability_entries_preserve_explicit_blockers -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-first DTO slice: `cargo test -p vel-api-types agent_grounding_round_trips_typed_sections -- --nocapture`, `cargo test -p vel-api-types agent_grounding_contract_assets_parse_and_register -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- fifty-second DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

@@ -114,3 +114,97 @@ pub struct IntegrationConnectionEventData {
     pub timestamp: UnixSeconds,
     pub created_at: UnixSeconds,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationCalendarData {
+    pub id: String,
+    pub summary: String,
+    pub primary: bool,
+    pub sync_enabled: bool,
+    pub display_enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationGuidanceData {
+    pub title: String,
+    pub detail: String,
+    pub action: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleCalendarIntegrationData {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_client_id: bool,
+    pub has_client_secret: bool,
+    pub calendars: Vec<IntegrationCalendarData>,
+    pub all_calendars_selected: bool,
+    pub last_sync_at: Option<UnixSeconds>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodoistWriteCapabilitiesData {
+    pub completion_status: bool,
+    pub due_date: bool,
+    pub tags: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodoistIntegrationData {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_api_token: bool,
+    pub last_sync_at: Option<UnixSeconds>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceData>,
+    pub write_capabilities: TodoistWriteCapabilitiesData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalIntegrationData {
+    pub configured: bool,
+    pub source_path: Option<String>,
+    #[serde(default)]
+    pub selected_paths: Vec<String>,
+    #[serde(default)]
+    pub available_paths: Vec<String>,
+    #[serde(default)]
+    pub internal_paths: Vec<String>,
+    #[serde(default)]
+    pub suggested_paths: Vec<String>,
+    pub source_kind: String,
+    pub last_sync_at: Option<UnixSeconds>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalIntegrationPathSelectionData {
+    pub source_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationsData {
+    pub google_calendar: GoogleCalendarIntegrationData,
+    pub todoist: TodoistIntegrationData,
+    pub activity: LocalIntegrationData,
+    pub health: LocalIntegrationData,
+    pub git: LocalIntegrationData,
+    pub messaging: LocalIntegrationData,
+    pub reminders: LocalIntegrationData,
+    pub notes: LocalIntegrationData,
+    pub transcripts: LocalIntegrationData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleCalendarAuthStartData {
+    pub auth_url: String,
+}
