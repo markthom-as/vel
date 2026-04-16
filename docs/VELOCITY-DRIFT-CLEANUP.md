@@ -151,42 +151,24 @@ Update `command_lang.rs:728` to call `tool_runner::run_tool(&tool_request).await
 
 ### Finding
 
-Three policy structs are defined and suppressed with `#[allow(dead_code)]`. Their accessor methods are also dead. The only calls are inside `Default` implementations in the same file — no service, route, or test reads these values.
+Two policy-map structs are dead in the runtime policy config: `PolicyMedsNotLogged` and `PolicyMorningDrift`. Their accessor methods are also dead; runtime behavior for those nudge families is driven by context/nudge strings and `SuggestionPolicies::morning_drift`, not by `policies.*` typed accessors.
+
+`PolicyMeetingPrepWindow` is active and must stay: `crates/veld/src/services/suggestions.rs` reads `meeting_prep_window().default_prep_minutes` when producing prep-time suggestions. `PolicyCommuteLeaveTime` is also active through `nudge_engine.rs` and `suggestions.rs`.
 
 ```rust
-// policy_config.rs:28–68
-#[allow(dead_code)]                    // line 28
-pub struct PolicyMedsNotLogged {       // line 30
-    pub check_window_minutes: u32,
-    pub snooze_minutes: u32,
-}
-
-#[allow(dead_code)]                    // line 38
-pub struct PolicyMeetingPrepWindow {   // line 40
-    pub before_minutes: u32,
-    pub include_travel_buffer: bool,
-}
-
-#[allow(dead_code)]                    // line 60
-pub struct PolicyMorningDrift {        // line 62
-    pub drift_threshold_minutes: u32,
-    pub check_time_local: String,
-}
+pub struct PolicyMedsNotLogged { /* no active typed accessor consumers */ }
+pub struct PolicyMorningDrift { /* superseded by SuggestionPolicies::morning_drift */ }
 ```
 
-Dead accessor methods at lines 311–316, 315–318, 322–325.
-
-The parent `PolicyConfig` struct (line 19) holds `Option<PolicyMedsNotLogged>`, `Option<PolicyMeetingPrepWindow>`, and `Option<PolicyMorningDrift>` as fields — none ever read.
-
-`PolicyCommuteLeaveTime` is **kept** — it is referenced in `command_lang.rs`.
+The parent `PoliciesMap` holds `Option<PolicyMedsNotLogged>` and `Option<PolicyMorningDrift>` as fields only for config parsing/defaults. Those fields are safe to remove together with the matching config/schema entries.
 
 ### Fix
 
-1. Delete structs `PolicyMedsNotLogged`, `PolicyMeetingPrepWindow`, `PolicyMorningDrift` and their `impl Default` blocks.
-2. Delete the three corresponding `Option<…>` fields from `PolicyConfig` (lines 22–25).
-3. Delete the three accessor methods (lines 311–325).
-4. Remove from `Default` factory block at lines 138–141.
-5. If the intent is future policies, capture them in a `// TODO:` comment or a `docs/future/` doc instead.
+1. Delete `PolicyMedsNotLogged` and `PolicyMorningDrift` and their `impl Default` blocks.
+2. Delete the two corresponding `Option<…>` fields from `PoliciesMap`.
+3. Delete the two accessor methods.
+4. Remove the two defaults from the `PoliciesMap::default()` factory.
+5. Remove the inactive `policies.meds_not_logged` and `policies.morning_drift` keys from checked-in policy config/template/example/schema files.
 
 ---
 

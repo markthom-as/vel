@@ -212,38 +212,6 @@
       ],
       "additionalProperties": false
     },
-    "PolicyMedsNotLogged": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "gentle_after_minutes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "warning_after_minutes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "danger_after_minutes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "default_snooze_minutes": {
-          "type": "integer",
-          "minimum": 1
-        }
-      },
-      "required": [
-        "enabled",
-        "gentle_after_minutes",
-        "warning_after_minutes",
-        "danger_after_minutes",
-        "default_snooze_minutes"
-      ],
-      "additionalProperties": false
-    },
     "PolicyMeetingPrepWindow": {
       "type": "object",
       "properties": {
@@ -314,52 +282,14 @@
       ],
       "additionalProperties": false
     },
-    "PolicyMorningDrift": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "gentle_after_minutes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "warning_after_minutes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "danger_after_minutes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "default_snooze_minutes": {
-          "type": "integer",
-          "minimum": 1
-        }
-      },
-      "required": [
-        "enabled",
-        "gentle_after_minutes",
-        "warning_after_minutes",
-        "danger_after_minutes",
-        "default_snooze_minutes"
-      ],
-      "additionalProperties": false
-    },
     "PoliciesMap": {
       "type": "object",
       "properties": {
-        "meds_not_logged": {
-          "$ref": "#/$defs/PolicyMedsNotLogged"
-        },
         "meeting_prep_window": {
           "$ref": "#/$defs/PolicyMeetingPrepWindow"
         },
         "commute_leave_time": {
           "$ref": "#/$defs/PolicyCommuteLeaveTime"
-        },
-        "morning_drift": {
-          "$ref": "#/$defs/PolicyMorningDrift"
         }
       },
       "additionalProperties": false

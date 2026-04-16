@@ -18,25 +18,8 @@ pub struct PolicyConfig {
 /// Policy map: fields are populated from YAML and read via accessors.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PoliciesMap {
-    // Reserved policy surfaces that are still represented in checked-in config/schema/examples.
-    #[allow(dead_code)]
-    pub meds_not_logged: Option<PolicyMedsNotLogged>,
     pub meeting_prep_window: Option<PolicyMeetingPrepWindow>,
     pub commute_leave_time: Option<PolicyCommuteLeaveTime>,
-    // Reserved policy surface kept in config while the suggestion engine still uses its own
-    // threshold settings instead of these structured values.
-    #[allow(dead_code)]
-    pub morning_drift: Option<PolicyMorningDrift>,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct PolicyMedsNotLogged {
-    pub enabled: bool,
-    pub gentle_after_minutes: u32,
-    pub warning_after_minutes: u32,
-    pub danger_after_minutes: u32,
-    pub default_snooze_minutes: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -56,16 +39,6 @@ pub struct PolicyCommuteLeaveTime {
     pub gentle_before_minutes: u32,
     pub warning_before_minutes: u32,
     pub danger_before_minutes: u32,
-    pub default_snooze_minutes: u32,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct PolicyMorningDrift {
-    pub enabled: bool,
-    pub gentle_after_minutes: u32,
-    pub warning_after_minutes: u32,
-    pub danger_after_minutes: u32,
     pub default_snooze_minutes: u32,
 }
 
@@ -138,22 +111,8 @@ pub struct SimpleThresholdSuggestionPolicy {
 impl Default for PoliciesMap {
     fn default() -> Self {
         Self {
-            meds_not_logged: Some(PolicyMedsNotLogged::default()),
             meeting_prep_window: Some(PolicyMeetingPrepWindow::default()),
             commute_leave_time: Some(PolicyCommuteLeaveTime::default()),
-            morning_drift: Some(PolicyMorningDrift::default()),
-        }
-    }
-}
-
-impl Default for PolicyMedsNotLogged {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            gentle_after_minutes: 10,
-            warning_after_minutes: 30,
-            danger_after_minutes: 60,
-            default_snooze_minutes: 10,
         }
     }
 }
@@ -180,18 +139,6 @@ impl Default for PolicyCommuteLeaveTime {
             warning_before_minutes: 5,
             danger_before_minutes: 0,
             default_snooze_minutes: 5,
-        }
-    }
-}
-
-impl Default for PolicyMorningDrift {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            gentle_after_minutes: 20,
-            warning_after_minutes: 40,
-            danger_after_minutes: 60,
-            default_snooze_minutes: 10,
         }
     }
 }
@@ -315,19 +262,11 @@ impl PolicyConfig {
         serde_yaml::from_str(&content).map_err(PolicyConfigError::Parse)
     }
 
-    #[allow(dead_code)]
-    pub fn meds_not_logged(&self) -> Option<&PolicyMedsNotLogged> {
-        self.policies.meds_not_logged.as_ref()
-    }
     pub fn meeting_prep_window(&self) -> Option<&PolicyMeetingPrepWindow> {
         self.policies.meeting_prep_window.as_ref()
     }
     pub fn commute_leave_time(&self) -> Option<&PolicyCommuteLeaveTime> {
         self.policies.commute_leave_time.as_ref()
-    }
-    #[allow(dead_code)]
-    pub fn morning_drift(&self) -> Option<&PolicyMorningDrift> {
-        self.policies.morning_drift.as_ref()
     }
     pub fn queue_work_scheduler_loop(&self) -> Option<&LoopPolicy> {
         self.loops.queue_work_scheduler.as_ref()
@@ -404,10 +343,8 @@ mod tests {
     #[test]
     fn default_has_all_policies() {
         let config = PolicyConfig::default();
-        assert!(config.meds_not_logged().is_some());
         assert!(config.meeting_prep_window().is_some());
         assert!(config.commute_leave_time().is_some());
-        assert!(config.morning_drift().is_some());
         assert!(config.queue_work_scheduler_loop().is_some());
         assert!(config.evaluate_current_state_loop().is_some());
         assert!(config.sync_calendar_loop().is_some());
