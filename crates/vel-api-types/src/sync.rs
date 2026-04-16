@@ -88,3 +88,35 @@ pub struct SyncHeartbeatResponseData {
     #[serde(default)]
     pub placement_hints: Vec<PlacementRecommendationData>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkAssignmentStatusData {
+    Assigned,
+    Started,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentReceiptData {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub status: WorkAssignmentStatusData,
+    pub assigned_at: UnixSeconds,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub completed_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub result: Option<String>,
+    #[serde(default)]
+    pub error_message: Option<String>,
+    pub last_updated: UnixSeconds,
+}
