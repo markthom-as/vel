@@ -21,6 +21,7 @@ mod connect;
 mod doctor;
 mod health;
 mod integrations;
+mod linking;
 mod people;
 mod projects;
 mod responses;
@@ -40,6 +41,7 @@ pub use connect::*;
 pub use doctor::*;
 pub use health::*;
 pub use integrations::*;
+pub use linking::*;
 pub use people::*;
 pub use projects::*;
 pub use responses::*;
@@ -2339,46 +2341,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
             recorded_at: value.recorded_at,
             preview_lines: value.preview_lines,
             thread_id: value.thread_id,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LinkStatusData {
-    Pending,
-    Linked,
-    Revoked,
-    Expired,
-}
-
-impl From<vel_core::LinkStatus> for LinkStatusData {
-    fn from(value: vel_core::LinkStatus) -> Self {
-        match value {
-            vel_core::LinkStatus::Pending => Self::Pending,
-            vel_core::LinkStatus::Linked => Self::Linked,
-            vel_core::LinkStatus::Revoked => Self::Revoked,
-            vel_core::LinkStatus::Expired => Self::Expired,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct LinkScopeData {
-    #[serde(default)]
-    pub read_context: bool,
-    #[serde(default)]
-    pub write_safe_actions: bool,
-    #[serde(default)]
-    pub execute_repo_tasks: bool,
-}
-
-impl From<vel_core::LinkScope> for LinkScopeData {
-    fn from(value: vel_core::LinkScope) -> Self {
-        Self {
-            read_context: value.read_context,
-            write_safe_actions: value.write_safe_actions,
-            execute_repo_tasks: value.execute_repo_tasks,
         }
     }
 }
