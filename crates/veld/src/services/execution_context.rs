@@ -6,6 +6,7 @@ use time::OffsetDateTime;
 use tokio::fs;
 use vel_api_types::AgentInspectData;
 use vel_core::{ProjectRecord, ProjectRootRef};
+use vel_storage::StorageError;
 
 use crate::{errors::AppError, state::AppState};
 
@@ -93,14 +94,20 @@ pub async fn get_execution_context(
     state: &AppState,
     project_id: &str,
 ) -> Result<Option<ExecutionContextData>, AppError> {
-    let project = match state.storage.get_project(project_id).await? {
+    let project = match state
+        .storage
+        .get_project(project_id)
+        .await
+        .map_err(execution_context_storage_error)?
+    {
         Some(project) => project,
         None => return Ok(None),
     };
     let stored = match state
         .storage
         .get_project_execution_context(project_id)
-        .await?
+        .await
+        .map_err(execution_context_storage_error)?
     {
         Some(value) => value,
         None => return Ok(None),
@@ -125,12 +132,14 @@ pub async fn save_execution_context(
     state
         .storage
         .upsert_project_execution_context(&project.id, &context_json, now)
-        .await?;
+        .await
+        .map_err(execution_context_storage_error)?;
 
     let (context_json, created_at, updated_at) = state
         .storage
         .get_project_execution_context(project.id.as_ref())
-        .await?
+        .await
+        .map_err(execution_context_storage_error)?
         .ok_or_else(|| AppError::internal("execution context missing after upsert"))?;
 
     build_execution_context(project, context_json, created_at, updated_at)
@@ -222,8 +231,33 @@ async fn load_project(state: &AppState, project_id: &str) -> Result<ProjectRecor
     state
         .storage
         .get_project(project_id)
-        .await?
+        .await
+        .map_err(execution_context_storage_error)?
         .ok_or_else(|| AppError::not_found("project not found"))
+}
+
+// Phase 108 proof rule: request validation is handled before storage calls;
+// storage integrity failures stay internal unless the repository reports a
+// concrete missing record.
+fn execution_context_storage_error(error: StorageError) -> AppError {
+    match error {
+        StorageError::NotFound(message) => AppError::not_found(message),
+        StorageError::Validation(message) => AppError::internal(format!(
+            "execution context storage validation failed: {message}"
+        )),
+        StorageError::DataCorrupted(message) => AppError::internal(format!(
+            "execution context storage data corrupted: {message}"
+        )),
+        StorageError::InvalidTimestamp(message) => AppError::internal(format!(
+            "execution context storage timestamp invalid: {message}"
+        )),
+        StorageError::Database(error) => {
+            AppError::internal(format!("execution context database error: {error}"))
+        }
+        StorageError::Migration(error) => {
+            AppError::internal(format!("execution context migration error: {error}"))
+        }
+    }
 }
 
 async fn load_execution_context(
@@ -456,6 +490,7 @@ fn render_handoff_markdown(context: &ExecutionContextData) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{http::StatusCode, response::IntoResponse};
     use std::collections::BTreeMap;
     use tokio::sync::broadcast;
     use vel_config::AppConfig;
@@ -672,6 +707,25 @@ mod tests {
                 raw_context_json_supporting_only: true,
             },
         }
+    }
+
+    #[test]
+    fn execution_context_storage_boundary_preserves_storage_not_found() {
+        let response =
+            execution_context_storage_error(StorageError::NotFound("context missing".to_string()))
+                .into_response();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn execution_context_storage_boundary_keeps_storage_validation_internal() {
+        let response = execution_context_storage_error(StorageError::Validation(
+            "bad stored JSON".to_string(),
+        ))
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[tokio::test]

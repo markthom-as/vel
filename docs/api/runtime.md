@@ -517,6 +517,8 @@ GitHub and email write boundary:
 ### `POST /v1/evaluate`
 
 - orchestrated recompute-and-persist path for context, risk, and downstream outputs
+- deterministic regression proof is handled outside this live runtime endpoint by `veld-evals`, which replays versioned fixtures through the `vel-sim` harness and writes a structured report
+- the `vel evaluate` CLI command is a live API client for this endpoint; it points to the standalone fixture replay command for verification but does not embed `veld-evals`
 
 ### `POST /v1/synthesis/week`
 ### `POST /v1/synthesis/project/:slug`

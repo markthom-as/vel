@@ -226,6 +226,10 @@ enum Command {
         #[command(subcommand)]
         command: UncertaintyCommand,
     },
+    #[command(
+        about = "Recompute and persist runtime evaluation",
+        long_about = "Recompute and persist context, risk, nudges, and downstream runtime outputs.\n\nFor deterministic fixture replay and regression reports, use the standalone eval path:\n  cargo run -p veld-evals -- run --fixtures crates/veld-evals/fixtures/sample-day-context.json --report /tmp/vel-eval-report.json\n\nThat runner uses the vel-sim harness; vel evaluate does not embed veld-evals or change replay behavior."
+    )]
     Evaluate {},
     Exec {
         #[command(subcommand)]
@@ -2342,6 +2346,23 @@ mod tests {
         assert!(help.contains("Show the daily-use Now lane summary"));
         assert!(help.contains("Inspect the canonical planning profile used by day-plan and reflow"));
         assert!(help.contains("List and inspect the continuity/archive thread lane"));
+    }
+
+    #[test]
+    fn evaluate_help_points_to_fixture_replay() {
+        let mut command = Cli::command();
+        let evaluate = command
+            .find_subcommand_mut("evaluate")
+            .expect("evaluate subcommand");
+        let help = evaluate.render_long_help().to_string();
+
+        assert!(help.contains(
+            "Recompute and persist context, risk, nudges, and downstream runtime outputs"
+        ));
+        assert!(help.contains("cargo run -p veld-evals -- run"));
+        assert!(help.contains("crates/veld-evals/fixtures/sample-day-context.json"));
+        assert!(help.contains("vel-sim"));
+        assert!(help.contains("does not embed veld-evals"));
     }
 
     #[test]

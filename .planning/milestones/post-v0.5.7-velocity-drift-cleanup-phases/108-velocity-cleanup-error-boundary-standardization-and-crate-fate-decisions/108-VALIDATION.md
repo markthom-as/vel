@@ -6,12 +6,14 @@
 
 - inspect the chosen seam before and after to confirm the conversion chain is simpler and more uniform
 - verify routes still map to correct HTTP-visible behavior after normalization
+- first slice: `execution_context` seam has service-local storage mapping plus HTTP route coverage for request validation, missing context, and corrupted persisted context shape
 
 ### Crate Integration
 
 - `vel-sim` remains green in deterministic replay tests
 - `vel-agent-sdk` remains green in protocol/SDK tests
 - the chosen CLI surfaces actually mention or exercise the retained crates
+- first crate-integration slice: `vel evaluate` help/output and docs mention `veld-evals` / `vel-sim` replay without adding a `vel-cli` dependency on those crates
 
 ### Automated
 
@@ -20,6 +22,7 @@
 - `cargo test -p vel-sim -- --nocapture`
 - `cargo test -p veld-evals -- --nocapture`
 - targeted tests for the normalized route/service seam
+- first slice: `cargo test -p veld execution_context -- --nocapture`
 
 ### Documentation Truth
 

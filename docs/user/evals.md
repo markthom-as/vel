@@ -4,6 +4,8 @@
 
 Use it when you want to verify that a known scenario still produces the expected replay output, and optionally score the resulting context with a configured judge model.
 
+`vel evaluate` remains the live recompute-and-persist command against a running `veld` API. It now points operators toward this fixture replay path, but it does not embed `veld-evals`, depend on it, or change runtime behavior.
+
 ## What it does
 
 - replays versioned eval fixtures against the deterministic `vel-sim` harness,
@@ -20,6 +22,8 @@ cargo run -p veld-evals -- run \
 ```
 
 The sample fixture uses deterministic checks only. The command prints the report JSON and also writes it to the `--report` path.
+
+Use this command after a code change when you need reproducible proof that the checked-in fixture still replays through `vel-sim` the same way. Use `vel evaluate` when you want the daemon to recompute current live operator state.
 
 ## Judge mode
 
