@@ -28,6 +28,7 @@ mod projects;
 mod responses;
 mod reviews;
 mod runs;
+mod signals;
 mod sync;
 mod websocket;
 mod writebacks;
@@ -55,6 +56,7 @@ pub use projects::*;
 pub use responses::*;
 pub use reviews::*;
 pub use runs::*;
+pub use signals::*;
 pub use sync::*;
 pub use websocket::*;
 pub use writebacks::*;
@@ -3301,29 +3303,6 @@ pub struct SuggestionUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SuggestionActionRequest {
     pub reason: Option<String>,
-}
-
-// --- Signals (Phase B) ---
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SignalCreateRequest {
-    pub signal_type: String,
-    pub source: String,
-    pub source_ref: Option<String>,
-    pub timestamp: Option<i64>,
-    #[serde(default)]
-    pub payload: JsonValue,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SignalData {
-    pub signal_id: String,
-    pub signal_type: String,
-    pub source: String,
-    pub source_ref: Option<String>,
-    pub timestamp: i64,
-    pub payload: JsonValue,
-    pub created_at: i64,
 }
 
 // --- Nudges (Phase D) ---
