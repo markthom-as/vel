@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass,
-    ProjectId, RiskFactors, RiskSnapshot, RunId, SyncClass,
+    ActionItemId, ArtifactId, ArtifactStorageKind, CommitmentId, PrivacyClass, ProjectId,
+    RiskFactors, RiskSnapshot, RunId, SyncClass,
 };
 
 mod actions;
@@ -2345,27 +2345,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
             recorded_at: value.recorded_at,
             preview_lines: value.preview_lines,
             thread_id: value.thread_id,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ContextCapture {
-    pub capture_id: CaptureId,
-    pub capture_type: String,
-    pub content_text: String,
-    pub occurred_at: OffsetDateTime,
-    pub source_device: Option<String>,
-}
-
-impl From<vel_core::ContextCapture> for ContextCapture {
-    fn from(c: vel_core::ContextCapture) -> Self {
-        Self {
-            capture_id: c.capture_id,
-            capture_type: c.capture_type,
-            content_text: c.content_text,
-            occurred_at: c.occurred_at,
-            source_device: c.source_device,
         }
     }
 }
