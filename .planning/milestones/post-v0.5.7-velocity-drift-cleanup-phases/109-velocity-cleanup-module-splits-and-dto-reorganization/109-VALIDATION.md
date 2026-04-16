@@ -55,6 +55,7 @@
 - forty-third DTO slice: `sync` module owns `SyncResultData`, with root re-exports preserving sync route and CLI result references
 - forty-fourth DTO slice: `sync` module owns `WorkerPresenceData`, with root re-exports preserving worker presence and cluster worker-list references
 - forty-fifth DTO slice: `sync` module owns `ClusterWorkersData`, with root re-exports preserving cluster workers response references
+- forty-sixth DTO slice: `sync` module owns `SwarmClientsData`, with root re-exports preserving swarm clients response references
 
 ### Automated
 
@@ -109,6 +110,7 @@
 - forty-third DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_calendar_ingests_tzid_events -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- forty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

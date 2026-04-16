@@ -503,3 +503,12 @@ pub struct ClusterWorkersData {
     pub generated_at: UnixSeconds,
     pub workers: Vec<WorkerPresenceData>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientsData {
+    pub generated_at: UnixSeconds,
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    #[serde(default)]
+    pub clients: Vec<SwarmClientData>,
+}
