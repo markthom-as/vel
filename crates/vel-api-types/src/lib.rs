@@ -2347,14 +2347,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlacementRecommendationData {
-    pub worker_id: String,
-    pub node_id: String,
-    pub capability: String,
-    pub reason: String,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkAssignmentStatusData {

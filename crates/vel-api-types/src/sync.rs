@@ -70,3 +70,11 @@ pub struct QueuedWorkRoutingData {
     #[serde(default)]
     pub request_payload: JsonValue,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlacementRecommendationData {
+    pub worker_id: String,
+    pub node_id: String,
+    pub capability: String,
+    pub reason: String,
+}
