@@ -78,6 +78,7 @@
 - sixty-eighth DTO slice: `execution` module owns execution policy, local manifest, project execution context, handoff, and routing record DTOs, with root re-exports preserving execution route, agent-grounding, CLI, web, Apple, and test references
 - sixty-ninth DTO slice: `check_in` module owns check-in card, submit target, escalation, and transition DTOs, with root re-exports preserving Now route, chat tool, reflow edit target, web, and test references
 - seventieth DTO slice: `planning` module owns reflow, day-plan, routine block, and planning constraint primitive DTOs, with root re-exports preserving Now route, planning-profile wrappers, CLI, web, Apple, and test references
+- seventy-first DTO slice: `planning_profile` module owns planning-profile management and commitment-scheduling DTOs, with root re-exports preserving planning-profile routes, chat proposal responses, Now summaries, CLI, web, Apple, and test references
 
 ### Automated
 
@@ -155,6 +156,7 @@
 - sixty-eighth DTO slice: `cargo test -p vel-api-types project_execution_context_converts_from_core --lib -- --nocapture`, `cargo test -p vel-api-types execution_handoff_converts_from_core --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - seventieth DTO slice: `cargo test -p vel-api-types day_plan_proposal_data_serializes_counts_and_routine_blocks --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- seventy-first DTO slice: `cargo test -p vel-api-types planning_profile_management_contract_assets_parse_and_register --lib -- --nocapture`, `cargo test -p vel-api-types planning_profile_edit_proposal_contract_assets_parse_and_register --lib -- --nocapture`, `cargo test -p vel-api-types commitment_scheduling_proposal_contract_assets_parse_and_register --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
