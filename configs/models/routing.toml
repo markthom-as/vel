@@ -1,9 +1,8 @@
 [default]
-chat = "oauth-openai"
+chat = "local-qwen3-coder"
 classify = "local-qwen25-fast"
 codegen = "local-qwen3-coder"
 commit_message = "local-qwen25-fast"
-fallback_remote = "local-qwen3-coder"
 judge = "local-qwen25-fast"
 rename = "local-qwen25-fast"
 summarize = "local-qwen25-fast"
