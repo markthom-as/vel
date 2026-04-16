@@ -22,8 +22,11 @@
 - `init new-milestone` still reports `current_milestone: "v0.1"` and `current_milestone_name: "milestone"`.
 - `init cleanup` is not a supported structured workflow in the current v1 helper; cleanup remains driven by `workflows/cleanup.md`.
 - The default shell uses Node `v20.20.1`; `gsd-pi@2.75.0` requires Node `>=22.0.0`.
+- Post-closeout follow-up added `scripts/gsd2.sh`, a repo-local launcher that selects Node `>=22` for GSD 2 commands without requiring ad hoc shell `PATH` edits.
 - `gsd headless status --timeout 60000 --output-format json` timed out after reporting the milestone complete across three 60-second restart attempts.
 - `gsd graph status` failed on missing package `@gsd-build/mcp-server`.
+- `npm run gsd2 -- headless query --output-format json` now succeeds through the repo-local launcher and reports `All milestones complete.`
+- `npm run gsd2 -- graph status` still fails on missing package `@gsd-build/mcp-server`.
 
 ## Closeout Language
 

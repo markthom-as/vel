@@ -59,7 +59,7 @@ No active phase remains in this milestone.
 
 - v1 `init progress` and `init new-milestone` still report the stale milestone label `v0.1`
 - `init cleanup` is not a supported structured helper; cleanup remains markdown-workflow driven
-- full GSD 2 migration is not claimed; `gsd-pi@2.75.0` is installed, but command replacement still needs Node/runtime/dependency verification
+- full GSD 2 migration is not claimed; `scripts/gsd2.sh` now provides a repo-local Node >=22 launcher for the installed `gsd-pi@2.75.0` command surface, but dependency/command-equivalence verification is still incomplete
 - keeping deferred duplex voice work visible as future scope instead of implying it shipped
 
 ### Pending Todos
@@ -69,7 +69,7 @@ No active phase remains in this milestone.
 
 ### Next Step
 
-Before broad new feature work, decide whether to address the remaining v1 helper label debt, wire the installed GSD 2 command surface through a stable Node `>=22` runtime and dependency-complete install, or open the next product milestone with the compatibility bridge explicitly in place.
+Before broad new feature work, decide whether to address the remaining v1 helper label debt, resolve the remaining GSD 2 graph/headless dependency behavior behind `scripts/gsd2.sh`, or open the next product milestone with the compatibility bridge explicitly in place.
 
 ### Roadmap Evolution
 

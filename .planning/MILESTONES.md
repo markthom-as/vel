@@ -11,6 +11,7 @@
 - reconciled active `.planning` and `.gsd` state for the bridge period
 - verified progress, health, roadmap, phase discovery, cleanup inputs, and new-milestone initialization
 - recorded residual v1 helper label debt, unsupported `init cleanup`, and partial `gsd-pi` runtime/dependency verification as future GSD tool work
+- post-closeout follow-up added `scripts/gsd2.sh` / `npm run gsd2 -- <args>` as a repo-local Node `>=22` launcher; graph dependency and headless equivalence proof remain unresolved
 
 ---
 

@@ -44,3 +44,20 @@ Complete on 2026-04-15.
 - The GSD 2 command surface is installed, but it is not yet wired as the default runtime path and cannot yet replace the v1 workflow because `headless status` times out and `graph status` has a missing dependency.
 
 These residuals are acceptable for closing `0.5.8` as a compatibility bridge, not as a full GSD 2 migration.
+
+## Post-Closeout Runtime Launcher Follow-Up
+
+Follow-up on 2026-04-16 added `scripts/gsd2.sh` and `npm run gsd2 -- <args>` so repo-local checks can run the installed `gsd-pi@2.75.0` surface with a selected Node `>=22` runtime instead of ad hoc shell `PATH` edits.
+
+Validated:
+
+- `bash -n scripts/gsd2.sh`
+- `npm run gsd2 -- --version` -> `2.75.0`
+- `npm run gsd2 -- list` -> `No packages installed.`
+- `npm run gsd2 -- headless --help`
+- `npm run gsd2 -- --cli --version` -> `2.75.0`
+- `npm run gsd2 -- headless query --output-format json` -> reports `All milestones complete.`
+
+Still blocked:
+
+- `npm run gsd2 -- graph status` still fails because the installed package cannot resolve `@gsd-build/mcp-server`.

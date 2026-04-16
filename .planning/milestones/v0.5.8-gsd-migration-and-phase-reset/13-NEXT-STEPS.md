@@ -14,7 +14,8 @@ Residual follow-up:
 
 - v1 helper metadata still reports stale `v0.1` milestone labels in `init progress` and `init new-milestone`
 - `init cleanup` is not a structured helper; cleanup remains markdown-workflow driven
-- full GSD 2 migration remains future work until the installed `gsd-pi` CLI is run under the required Node runtime, graph dependency behavior is resolved or scoped out, and command equivalence is verified
+- `scripts/gsd2.sh` now runs the installed `gsd-pi` command surface under a repo-selected Node `>=22` runtime without requiring ad hoc shell `PATH` edits
+- full GSD 2 migration remains future work until graph dependency behavior is resolved or scoped out, headless behavior is stable, and command equivalence is verified
 
 ## Guiding Principle
 

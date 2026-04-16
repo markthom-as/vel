@@ -73,6 +73,7 @@ Vel uses Nix for a reproducible toolchain. Ensure you are in the `nix-shell` bef
 | `make seed` | Populate local API with sample captures and commitments. |
 | `make smoke` | Run the daemon/API/CLI smoke path. |
 | `make bootstrap-demo-data` | Load demo-oriented local data and snapshots. |
+| `npm run gsd2 -- <args>` | Run the installed GSD 2 command surface through the repo-local Node >=22 launcher. |
 
 ### Example CLI Commands
 ```bash

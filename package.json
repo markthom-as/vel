@@ -4,6 +4,7 @@
   "scripts": {
     "dev:web": "npm run dev --prefix clients/web",
     "build:web": "npm run build --prefix clients/web",
-    "gallery:web": "npm run gallery --prefix clients/web"
+    "gallery:web": "npm run gallery --prefix clients/web",
+    "gsd2": "bash scripts/gsd2.sh"
   }
 }
