@@ -74,6 +74,7 @@
 - sixty-fourth DTO slice: `threads` module owns thread DTOs, with root re-exports preserving thread routes, command language responses, chat continuations, CLI, and web references
 - sixty-fifth DTO slice: `context` module owns basic current-context DTOs, with root re-exports preserving context routes, sync bootstrap, evaluate routes, CLI, web, and Apple references
 - sixty-sixth DTO slice: `explain` module owns explain payload DTOs, with root re-exports preserving explain routes, command language responses, CLI, and web references
+- sixty-seventh DTO slice: `daily_loop` module owns the top daily-loop DTO region, with root re-exports preserving daily loop routes, CLI, web, Apple, and test references
 
 ### Automated
 
@@ -147,6 +148,7 @@
 - sixty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`, `cargo test -p vel-cli threads`
 - sixty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- sixty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
