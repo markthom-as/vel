@@ -78,3 +78,13 @@ pub struct PlacementRecommendationData {
     pub capability: String,
     pub reason: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncHeartbeatResponseData {
+    pub accepted: bool,
+    pub worker_id: String,
+    pub expires_at: UnixSeconds,
+    pub cluster_view_version: UnixSeconds,
+    #[serde(default)]
+    pub placement_hints: Vec<PlacementRecommendationData>,
+}

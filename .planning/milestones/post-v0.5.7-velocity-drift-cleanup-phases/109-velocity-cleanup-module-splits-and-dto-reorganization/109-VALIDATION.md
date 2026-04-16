@@ -37,6 +37,7 @@
 - twenty-fifth DTO slice: `sync` module also owns branch-sync and validation request DTOs, with root re-exports preserving sync route and CLI request references
 - twenty-sixth DTO slice: `sync` module owns queued-work routing kind/data DTOs, with root re-exports preserving sync route, cluster route, app test, and CLI client references
 - twenty-seventh DTO slice: `sync` module owns `PlacementRecommendationData`, with root re-exports preserving heartbeat response and sync route placement-hint parsing
+- twenty-eighth DTO slice: `sync` module owns `SyncHeartbeatResponseData`, with root re-exports preserving heartbeat route response references
 
 ### Automated
 
@@ -73,6 +74,7 @@
 - twenty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_branch_sync_endpoint_queues_structured_work_request -- --nocapture`, `cargo test -p veld app::tests::cluster_validation_endpoint_queues_structured_work_request -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- twenty-eighth DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_heartbeat_endpoint_persists_remote_worker -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
