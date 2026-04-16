@@ -77,6 +77,7 @@
 - sixty-seventh DTO slice: `daily_loop` module owns the top daily-loop DTO region, with root re-exports preserving daily loop routes, CLI, web, Apple, and test references
 - sixty-eighth DTO slice: `execution` module owns execution policy, local manifest, project execution context, handoff, and routing record DTOs, with root re-exports preserving execution route, agent-grounding, CLI, web, Apple, and test references
 - sixty-ninth DTO slice: `check_in` module owns check-in card, submit target, escalation, and transition DTOs, with root re-exports preserving Now route, chat tool, reflow edit target, web, and test references
+- seventieth DTO slice: `planning` module owns reflow, day-plan, routine block, and planning constraint primitive DTOs, with root re-exports preserving Now route, planning-profile wrappers, CLI, web, Apple, and test references
 
 ### Automated
 
@@ -153,6 +154,7 @@
 - sixty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-eighth DTO slice: `cargo test -p vel-api-types project_execution_context_converts_from_core --lib -- --nocapture`, `cargo test -p vel-api-types execution_handoff_converts_from_core --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- seventieth DTO slice: `cargo test -p vel-api-types day_plan_proposal_data_serializes_counts_and_routine_blocks --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
