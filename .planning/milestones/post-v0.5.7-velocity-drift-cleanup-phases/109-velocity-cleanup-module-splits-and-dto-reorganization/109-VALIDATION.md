@@ -66,6 +66,7 @@
 - fifty-fourth DTO slice: `websocket` module owns websocket event/envelope DTOs, with root re-exports preserving broadcast, route, and test references
 - fifty-fifth DTO slice: `artifacts` module owns artifact CRUD DTOs, with root re-exports preserving artifacts route, command payload, CLI, and test references
 - fifty-sixth DTO slice: `runs` module owns run summary/detail/update DTOs and their datetime contract test, with root re-exports preserving runs route, CLI, web, websocket cache, and test references
+- fifty-seventh DTO slice: `chat` module owns conversation and message DTOs, with root re-exports preserving chat route, CLI client, web, and command payload references
 
 ### Automated
 
@@ -131,6 +132,7 @@
 - fifty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-sixth DTO slice: `cargo test -p vel-api-types run_summary_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- fifty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
