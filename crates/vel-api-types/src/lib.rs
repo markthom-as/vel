@@ -14,6 +14,7 @@ mod apple;
 mod backup;
 mod batch_import;
 mod capture;
+mod client_sync;
 mod commands;
 mod common;
 mod conflicts;
@@ -35,6 +36,7 @@ pub use apple::*;
 pub use backup::*;
 pub use batch_import::*;
 pub use capture::*;
+pub use client_sync::*;
 pub use commands::*;
 pub use common::*;
 pub use conflicts::*;
@@ -2345,49 +2347,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
             thread_id: value.thread_id,
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientActionKind {
-    NudgeDone,
-    NudgeSnooze,
-    CommitmentDone,
-    CommitmentCreate,
-    CaptureCreate,
-    BranchSyncRequest,
-    ValidationRequest,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionData {
-    pub action_id: Option<String>,
-    pub action_type: ClientActionKind,
-    pub target_id: Option<String>,
-    pub text: Option<String>,
-    pub minutes: Option<u32>,
-    #[serde(default)]
-    pub payload: Option<JsonValue>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionBatchRequest {
-    pub actions: Vec<ClientActionData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionResultData {
-    pub action_id: Option<String>,
-    pub action_type: ClientActionKind,
-    pub target_id: Option<String>,
-    pub status: String,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionBatchResultData {
-    pub applied: u32,
-    pub results: Vec<ClientActionResultData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
