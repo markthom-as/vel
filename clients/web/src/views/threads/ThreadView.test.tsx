@@ -150,10 +150,10 @@ describe('ThreadView', () => {
     render(<ThreadView conversationId="conv_1" onSelectConversation={onSelectConversation} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Current thread' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Open Current thread' })).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /Review follow-up/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Review follow-up' }))
     expect(onSelectConversation).toHaveBeenCalledWith('conv_2')
   })
 
@@ -185,7 +185,7 @@ describe('ThreadView', () => {
 
     render(<ThreadView conversationId="conv_1" onSelectConversation={vi.fn()} />)
 
-    await screen.findByRole('button', { name: 'Current thread' })
+    await screen.findByRole('button', { name: 'Open Current thread' })
     expect(screen.queryByRole('button', { name: 'Collapse thread rail' })).not.toBeInTheDocument()
     expect(screen.getByPlaceholderText('Find thread')).toBeInTheDocument()
   })
@@ -233,7 +233,7 @@ describe('ThreadView', () => {
     render(<ThreadView conversationId={null} onSelectConversation={onSelectConversation} />)
 
     await waitFor(() => {
-      const activeRows = screen.getAllByRole('button', { name: /Needs review thread/i })
+      const activeRows = screen.getAllByRole('button', { name: /Open Needs review thread/i })
       expect(activeRows.some((button) => button.getAttribute('aria-current') === 'true')).toBe(true)
     })
     expect(onSelectConversation).toHaveBeenCalledWith('conv_1')
@@ -482,6 +482,38 @@ describe('ThreadView', () => {
     expect(screen.getByPlaceholderText('Find thread')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Archive thread' })).toBeInTheDocument()
     expect(screen.getAllByText('Keep list and detail visible.').length).toBeGreaterThan(0)
+  })
+
+  it('keeps pin and archive affordances reachable in the tablet split list rail', async () => {
+    mockThreadViewData([
+      buildConversation({ id: 'conv_1', title: 'Tablet active thread' }),
+      buildConversation({ id: 'conv_2', title: 'Side rail action thread' }),
+    ])
+    vi.mocked(api.apiPatch).mockResolvedValue({
+      ok: true,
+      data: buildConversation({ id: 'conv_2', title: 'Side rail action thread', pinned: true }),
+      meta: { request_id: 'req_pin_thread' },
+    } as never)
+
+    render(
+      <ThreadView
+        conversationId="conv_1"
+        onSelectConversation={vi.fn()}
+        surface="tablet"
+        threadLayoutSplit
+      />,
+    )
+
+    const pinButton = await screen.findByRole('button', { name: 'Pin Side rail action thread' })
+    expect(pinButton).toHaveClass('min-h-8')
+    expect(screen.getByRole('button', { name: 'Archive Side rail action thread' })).toHaveClass('min-h-8')
+    expect(screen.getByRole('button', { name: 'Mute unavailable for Side rail action thread' })).toBeDisabled()
+
+    fireEvent.click(pinButton)
+
+    await waitFor(() => {
+      expect(api.apiPatch).toHaveBeenCalledWith('/api/conversations/conv_2', { pinned: true }, expect.any(Function))
+    })
   })
 
   it('uses compact thread layout for tablet single-pane mode', async () => {

@@ -136,7 +136,7 @@
 
 ### `clients/web/src/views/threads/ConversationList/ConversationList.tsx`
 - [ ] Add collapsible/compact list mode variant for split surfaces.
-- [ ] Keep action affordances for pin/archive/mute in iPad list width.
+- [x] Keep action affordances for pin/archive/mute in iPad list width.
 
 ### `clients/web/src/shell/NudgeZone/NudgeZone.tsx`
 - [x] Add iPad docked rail option and close/collapse control.

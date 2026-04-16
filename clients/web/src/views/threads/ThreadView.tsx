@@ -6,6 +6,7 @@ import {
   loadConversationMessages,
   updateConversationArchive,
   updateConversationCallMode,
+  updateConversationPinned,
   updateConversationTitle,
 } from '../../data/chat';
 import { appendUniqueMessages, reconcileConfirmedSend } from '../../data/chat-state';
@@ -92,6 +93,7 @@ export function ThreadView({
   const [savingTitle, setSavingTitle] = useState(false);
   const [miniThreadListCollapsed, setMiniThreadListCollapsed] = useState(false);
   const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
+  const [pinningConversationId, setPinningConversationId] = useState<string | null>(null);
   const [togglingCallModeId, setTogglingCallModeId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const compactScrollRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +161,23 @@ export function ThreadView({
       }
     } finally {
       setArchivingConversationId(null);
+    }
+  }
+
+  async function toggleConversationPinned(conversation: ConversationData) {
+    if (pinningConversationId) return;
+    const nextPinned = !conversation.pinned;
+    setPinningConversationId(conversation.id);
+    setQueryData(conversationsKey, (current: ConversationData[] | undefined) =>
+      (current ?? []).map((entry) =>
+        entry.id === conversation.id ? { ...entry, pinned: nextPinned } : entry,
+      ),
+    );
+    try {
+      await updateConversationPinned(conversation.id, nextPinned);
+      await invalidateQuery(conversationsKey, { refetch: true });
+    } finally {
+      setPinningConversationId(null);
     }
   }
 
@@ -690,6 +709,13 @@ export function ThreadView({
                         active={conversation.id === resolvedConversationId}
                         disabled={!onSelectConversation || conversation.id === resolvedConversationId}
                         onSelect={onSelectConversation}
+                        actionDisabled={Boolean(archivingConversationId) || Boolean(pinningConversationId)}
+                        onArchive={(target) => {
+                          void archiveConversation(target);
+                        }}
+                        onTogglePinned={(target) => {
+                          void toggleConversationPinned(target);
+                        }}
                       />
                     ))
                   )}
@@ -999,11 +1025,17 @@ function ThreadListRow({
   active,
   disabled,
   onSelect,
+  onTogglePinned,
+  onArchive,
+  actionDisabled,
 }: {
   conversation: ConversationData;
   active: boolean;
   disabled: boolean;
   onSelect?: (conversationId: string) => void;
+  onTogglePinned?: (conversation: ConversationData) => void;
+  onArchive?: (conversation: ConversationData) => void;
+  actionDisabled?: boolean;
 }) {
   const messagesKey = useMemo(
     () => chatQueryKeys.conversationMessages(conversation.id),
@@ -1028,13 +1060,18 @@ function ThreadListRow({
   );
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect?.(conversation.id)}
-      disabled={disabled}
-      className={cn('w-full px-3 py-2 text-left transition disabled:cursor-default', active ? '' : 'opacity-70 hover:opacity-100')}
-      aria-current={active ? 'true' : undefined}
+    <div
+      className={cn('group flex w-full items-stretch gap-2 px-3 py-2 transition', active ? '' : 'opacity-70 hover:opacity-100')}
     >
+      <button
+        type="button"
+        onClick={() => onSelect?.(conversation.id)}
+        disabled={disabled}
+        className="min-w-0 flex-1 text-left transition disabled:cursor-default"
+        aria-current={active ? 'true' : undefined}
+        aria-label={`Open ${threadTitle(conversation)}`}
+        data-conversation-id={conversation.id}
+      >
       <ObjectRowFrame
         as="div"
         tone={active ? 'activeBrand' : 'neutral'}
@@ -1073,7 +1110,36 @@ function ThreadListRow({
           </p>
         </ObjectRowLayout>
       </ObjectRowFrame>
-    </button>
+      </button>
+      <div className="flex shrink-0 flex-col justify-center gap-1">
+        <button
+          type="button"
+          aria-label={`${conversation.pinned ? 'Unpin' : 'Pin'} ${threadTitle(conversation)}`}
+          disabled={actionDisabled}
+          onClick={() => onTogglePinned?.(conversation)}
+          className="inline-flex min-h-8 min-w-10 items-center justify-center rounded-md border border-[var(--vel-color-border)] px-2 text-[9px] uppercase tracking-[0.1em] text-[var(--vel-color-muted)] transition hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)] disabled:opacity-45"
+        >
+          {conversation.pinned ? 'Unpin' : 'Pin'}
+        </button>
+        <button
+          type="button"
+          aria-label={`Archive ${threadTitle(conversation)}`}
+          disabled={actionDisabled}
+          onClick={() => onArchive?.(conversation)}
+          className="inline-flex min-h-8 min-w-10 items-center justify-center rounded-md border border-[var(--vel-color-border)] px-2 text-[9px] uppercase tracking-[0.1em] text-[var(--vel-color-muted)] transition hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)] disabled:opacity-45"
+        >
+          Archive
+        </button>
+        <button
+          type="button"
+          aria-label={`Mute unavailable for ${threadTitle(conversation)}`}
+          disabled
+          className="inline-flex min-h-8 min-w-10 items-center justify-center rounded-md border border-[var(--vel-color-border)] px-2 text-[9px] uppercase tracking-[0.1em] text-[var(--vel-color-muted)] opacity-45"
+        >
+          Mute
+        </button>
+      </div>
+    </div>
   );
 }
 
