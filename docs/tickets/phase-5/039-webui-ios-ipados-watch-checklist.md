@@ -64,7 +64,7 @@
 - [x] Audit and normalize compact thread branch logic.
 - [x] Improve thread list row hit area and action density.
 - [x] Preserve active thread context across orientation/resizing.
-- [ ] Route composer input into append-first action on mobile.
+- [x] Route composer input into append-first action on mobile.
 
 ### `clients/web/src/views/threads/ConversationList/ConversationList.tsx`
 - [x] Tune row rendering for mobile (avatar/icon density, one-line summaries).

@@ -13,6 +13,8 @@ const loadSettings = vi.fn()
 const loadIntegrations = vi.fn()
 let lastComposerProps: {
   onSent?: (clientMessageId: string | undefined, response: AssistantEntryResponse, submitted: { text: string, conversationId: string | null, intent: null, voice: null, attachments: null }) => void
+  onOptimisticSend?: (text: string) => string | undefined
+  conversationId?: string | null
   disabled?: boolean
   disabledReason?: string | null
   onDisabledInteract?: () => void
@@ -34,6 +36,8 @@ vi.mock('../../data/operator', async () => {
 vi.mock('../../core/MessageComposer', () => ({
   MessageComposer: (props: {
     onSent?: (clientMessageId: string | undefined, response: AssistantEntryResponse, submitted: { text: string, conversationId: string | null, intent: null, voice: null, attachments: null }) => void
+    onOptimisticSend?: (text: string) => string | undefined
+    conversationId?: string | null
     disabled?: boolean
     disabledReason?: string | null
     onDisabledInteract?: () => void
@@ -66,7 +70,8 @@ vi.mock('../../views/threads', () => ({
 }))
 
 vi.mock('../../views/threads/useResolvedThreadConversationId', () => ({
-  useResolvedThreadConversationId: (conversationId: string | null) => conversationId,
+  useResolvedThreadConversationId: (conversationId: string | null, resolveFallback = true) =>
+    conversationId ?? (resolveFallback ? 'conv_latest' : null),
 }))
 
 vi.mock('../../views/system', () => ({
@@ -224,6 +229,67 @@ describe('MainPanel', () => {
     await waitFor(() => {
       expect(lastComposerProps?.floatingOffsetClassName).toContain('safe-area-inset-bottom')
       expect(lastComposerProps?.surface).toBe('mobile')
+    })
+  })
+
+  it('routes mobile thread composer input to the active thread append path', async () => {
+    render(
+      <MainPanel
+        surface="mobile"
+        conversationId="conv_1"
+        mainView="threads"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(lastComposerProps?.surface).toBe('mobile')
+      expect(lastComposerProps?.conversationId).toBe('conv_1')
+      expect(lastComposerProps?.onOptimisticSend).toBeTypeOf('function')
+    })
+  })
+
+  it('routes mobile Now composer input to the resolved thread append path', async () => {
+    render(
+      <MainPanel
+        surface="mobile"
+        conversationId={null}
+        mainView="now"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(lastComposerProps?.surface).toBe('mobile')
+      expect(lastComposerProps?.conversationId).toBe('conv_latest')
+      expect(lastComposerProps?.onOptimisticSend).toBeTypeOf('function')
+    })
+  })
+
+  it('keeps non-mobile Now composer input threadless until a thread is selected', async () => {
+    render(
+      <MainPanel
+        conversationId={null}
+        mainView="now"
+        onNavigate={() => {}}
+        onOpenThread={() => {}}
+        onOpenSystem={() => {}}
+        shellOwnsNowNudges
+        systemTarget={{ section: 'integrations' }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(lastComposerProps?.conversationId).toBeUndefined()
+      expect(lastComposerProps?.onOptimisticSend).toBeUndefined()
     })
   })
 

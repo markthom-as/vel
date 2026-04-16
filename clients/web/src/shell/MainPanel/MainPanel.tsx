@@ -179,10 +179,12 @@ export function MainPanel({
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const settingsKey = useMemo(() => operatorQueryKeys.settings(), []);
   const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
-  const resolvedThreadId = useResolvedThreadConversationId(conversationId, mainView === 'threads');
+  const shouldResolveThreadForComposer = mainView === 'threads' || surface === 'mobile';
+  const resolvedThreadId = useResolvedThreadConversationId(conversationId, shouldResolveThreadForComposer);
+  const composerThreadId = shouldResolveThreadForComposer ? resolvedThreadId : null;
   const threadMessagesKey = useMemo(
-    () => (resolvedThreadId ? chatQueryKeys.conversationMessages(resolvedThreadId) : null),
-    [resolvedThreadId],
+    () => (composerThreadId ? chatQueryKeys.conversationMessages(composerThreadId) : null),
+    [composerThreadId],
   );
   const { data: settings } = useQuery(
     settingsKey,
@@ -504,14 +506,14 @@ export function MainPanel({
             }
           }}
           onVoiceUnavailable={onVoiceUnavailable}
-          conversationId={mainView === 'threads' ? resolvedThreadId : undefined}
+          conversationId={composerThreadId ?? undefined}
           onOptimisticSend={
-            mainView === 'threads' && resolvedThreadId && threadMessagesKey
+            composerThreadId && threadMessagesKey
               ? (text) => {
                   const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                   const optimisticMessage: MessageData = {
                     id: clientMessageId,
-                    conversation_id: resolvedThreadId,
+                    conversation_id: composerThreadId,
                     role: 'user',
                     kind: 'text',
                     content: { text },
@@ -528,7 +530,7 @@ export function MainPanel({
               : undefined
           }
           onSent={(clientMessageId, response, submitted) => {
-            if (mainView === 'threads' && threadMessagesKey && resolvedThreadId) {
+            if (threadMessagesKey && composerThreadId) {
               setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
                 reconcileConfirmedSend(
                   prev,
