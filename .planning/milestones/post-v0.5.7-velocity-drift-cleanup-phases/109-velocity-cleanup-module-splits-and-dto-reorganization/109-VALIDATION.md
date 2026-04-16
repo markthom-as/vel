@@ -75,6 +75,7 @@
 - sixty-fifth DTO slice: `context` module owns basic current-context DTOs, with root re-exports preserving context routes, sync bootstrap, evaluate routes, CLI, web, and Apple references
 - sixty-sixth DTO slice: `explain` module owns explain payload DTOs, with root re-exports preserving explain routes, command language responses, CLI, and web references
 - sixty-seventh DTO slice: `daily_loop` module owns the top daily-loop DTO region, with root re-exports preserving daily loop routes, CLI, web, Apple, and test references
+- sixty-eighth DTO slice: `execution` module owns execution policy, local manifest, project execution context, handoff, and routing record DTOs, with root re-exports preserving execution route, agent-grounding, CLI, web, Apple, and test references
 
 ### Automated
 
@@ -149,6 +150,7 @@
 - sixty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- sixty-eighth DTO slice: `cargo test -p vel-api-types project_execution_context_converts_from_core --lib -- --nocapture`, `cargo test -p vel-api-types execution_handoff_converts_from_core --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
