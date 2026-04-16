@@ -177,3 +177,30 @@ impl From<vel_core::PairingTokenRecord> for PairingTokenData {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkingPromptData {
+    pub target_node_id: String,
+    pub target_node_display_name: Option<String>,
+    pub issued_by_node_id: String,
+    pub issued_by_node_display_name: Option<String>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub issued_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub expires_at: OffsetDateTime,
+    pub scopes: LinkScopeData,
+    #[serde(default)]
+    pub issuer_sync_base_url: String,
+    #[serde(default)]
+    pub issuer_sync_transport: String,
+    #[serde(default)]
+    pub issuer_tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub issuer_lan_base_url: Option<String>,
+    #[serde(default)]
+    pub issuer_localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub issuer_public_base_url: Option<String>,
+    #[serde(default)]
+    pub bootstrap_artifact: Option<TrustBootstrapArtifactData>,
+}
