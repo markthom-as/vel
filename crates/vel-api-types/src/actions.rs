@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use vel_core::ProjectId;
+use time::OffsetDateTime;
+use vel_core::{ActionItemId, ProjectId};
+
+use crate::ProjectFamilyData;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -181,5 +184,99 @@ impl From<vel_core::ActionThreadRoute> for ActionThreadRouteData {
             thread_type: value.thread_type,
             project_id: value.project_id,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionItemData {
+    pub id: ActionItemId,
+    pub surface: ActionSurfaceData,
+    pub kind: ActionKindData,
+    pub permission_mode: ActionPermissionModeData,
+    pub scope_affinity: ActionScopeAffinityData,
+    pub title: String,
+    pub summary: String,
+    pub project_id: Option<ProjectId>,
+    pub project_label: Option<String>,
+    pub project_family: Option<ProjectFamilyData>,
+    pub state: ActionStateData,
+    pub rank: i64,
+    #[serde(with = "time::serde::rfc3339")]
+    pub surfaced_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub snoozed_until: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub evidence: Vec<ActionEvidenceRefData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_route: Option<ActionThreadRouteData>,
+}
+
+impl From<vel_core::ActionItem> for ActionItemData {
+    fn from(value: vel_core::ActionItem) -> Self {
+        Self {
+            id: value.id,
+            surface: value.surface.into(),
+            kind: value.kind.into(),
+            permission_mode: value.permission_mode.into(),
+            scope_affinity: value.scope_affinity.into(),
+            title: value.title,
+            summary: value.summary,
+            project_id: value.project_id,
+            project_label: value.project_label,
+            project_family: value.project_family.map(Into::into),
+            state: value.state.into(),
+            rank: value.rank,
+            surfaced_at: value.surfaced_at,
+            snoozed_until: value.snoozed_until,
+            evidence: value.evidence.into_iter().map(Into::into).collect(),
+            thread_route: value.thread_route.map(Into::into),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::datetime;
+
+    #[test]
+    fn action_item_timestamps_serialize_as_rfc3339_strings() {
+        let item = ActionItemData {
+            id: ActionItemId::from("act_1".to_string()),
+            surface: ActionSurfaceData::Now,
+            kind: ActionKindData::NextStep,
+            permission_mode: ActionPermissionModeData::UserConfirm,
+            scope_affinity: ActionScopeAffinityData::Global,
+            title: "Ship patch".to_string(),
+            summary: "Due soon".to_string(),
+            project_id: None,
+            project_label: None,
+            project_family: None,
+            state: ActionStateData::Active,
+            rank: 70,
+            surfaced_at: datetime!(2026-03-19 02:10:00 UTC),
+            snoozed_until: Some(datetime!(2026-03-19 02:20:00 UTC)),
+            evidence: vec![ActionEvidenceRefData {
+                source_kind: "commitment".to_string(),
+                source_id: "com_1".to_string(),
+                label: "Ship patch".to_string(),
+                detail: None,
+            }],
+            thread_route: Some(ActionThreadRouteData {
+                target: ActionThreadRouteTargetData::FilteredThreads,
+                label: "Open related threads".to_string(),
+                thread_id: None,
+                thread_type: Some("action_resolution".to_string()),
+                project_id: Some(ProjectId::from("proj_1".to_string())),
+            }),
+        };
+
+        let value = serde_json::to_value(item).expect("action item should serialize");
+        assert_eq!(value["surfaced_at"], "2026-03-19T02:10:00Z");
+        assert_eq!(value["snoozed_until"], "2026-03-19T02:20:00Z");
+        assert_eq!(value["permission_mode"], "user_confirm");
+        assert_eq!(value["scope_affinity"], "global");
+        assert_eq!(value["thread_route"]["target"], "filtered_threads");
+        assert_eq!(value["thread_route"]["thread_type"], "action_resolution");
     }
 }
