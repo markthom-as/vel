@@ -100,6 +100,22 @@ function coreSetupChecklistValue(
   }
 }
 
+function coreSetupChecklistSuggestion(
+  itemId: typeof CORE_SETUP_CHECKLIST_ITEMS[number]['id'],
+  settings: SettingsData | null | undefined,
+): string | null {
+  switch (itemId) {
+    case 'user_display_name':
+      return settings?.core_setup_suggestions?.user_display_name?.trim() || null;
+    case 'node_display_name':
+      return settings?.core_setup_suggestions?.node_display_name?.trim() || null;
+    case 'agent_profile':
+      return settings?.core_setup_suggestions?.agent_profile?.trim() || null;
+    default:
+      return null;
+  }
+}
+
 function buildCoreSetupNudgeActions(
   status: ReturnType<typeof buildCoreSetupStatus>,
   settings: SettingsData | null | undefined,
@@ -112,8 +128,12 @@ function buildCoreSetupNudgeActions(
         'core_settings',
         item.id,
         missing.has(item.id) ? 'missing' : 'ready',
-        coreSetupChecklistValue(item.id, settings, integrations)
-          ? encodeURIComponent(coreSetupChecklistValue(item.id, settings, integrations)!)
+        (coreSetupChecklistValue(item.id, settings, integrations)
+          ?? (missing.has(item.id) ? coreSetupChecklistSuggestion(item.id, settings) : null))
+          ? encodeURIComponent(
+              (coreSetupChecklistValue(item.id, settings, integrations)
+                ?? coreSetupChecklistSuggestion(item.id, settings))!,
+            )
           : null,
       ].filter(Boolean).join(':'),
       label: item.label,

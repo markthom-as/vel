@@ -8,6 +8,8 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
     let runtime_config =
         crate::services::operator_settings::runtime_sync_config(&state.storage, &state.config)
             .await?;
+    let core_setup_suggestions =
+        crate::services::operator_settings::core_setup_suggestions(&runtime_config);
     let discovered_tailscale_base_url =
         crate::services::tailscale::discover_base_url(&runtime_config).await;
     let discovered_lan_base_url =
@@ -84,6 +86,11 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
             &map,
         )?)
         .map_err(|error| AppError::internal(error.to_string()))?,
+    );
+    map.insert(
+        "core_setup_suggestions".to_string(),
+        serde_json::to_value(core_setup_suggestions)
+            .map_err(|error| AppError::internal(error.to_string()))?,
     );
     Ok(serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({})))
 }

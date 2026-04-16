@@ -534,6 +534,13 @@ export interface SettingsData {
   backup?: BackupSettingsData;
   web_settings?: WebSettingsData;
   core_settings?: CoreSettingsData;
+  core_setup_suggestions?: CoreSetupSuggestionsData;
+}
+
+export interface CoreSetupSuggestionsData {
+  user_display_name?: string | null;
+  node_display_name?: string | null;
+  agent_profile?: string | null;
 }
 
 export interface WebSettingsData {
@@ -5457,6 +5464,28 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.core_settings === undefined
         ? undefined
         : decodeCoreSettingsData(record.core_settings),
+    core_setup_suggestions:
+      record.core_setup_suggestions === undefined
+        ? undefined
+        : decodeCoreSetupSuggestionsData(record.core_setup_suggestions),
+  };
+}
+
+export function decodeCoreSetupSuggestionsData(value: unknown): CoreSetupSuggestionsData {
+  const record = expectRecord(value, 'settings.core_setup_suggestions');
+  return {
+    user_display_name:
+      record.user_display_name === undefined
+        ? undefined
+        : expectNullableString(record.user_display_name, 'settings.core_setup_suggestions.user_display_name'),
+    node_display_name:
+      record.node_display_name === undefined
+        ? undefined
+        : expectNullableString(record.node_display_name, 'settings.core_setup_suggestions.node_display_name'),
+    agent_profile:
+      record.agent_profile === undefined
+        ? undefined
+        : expectNullableString(record.agent_profile, 'settings.core_setup_suggestions.agent_profile'),
   };
 }
 

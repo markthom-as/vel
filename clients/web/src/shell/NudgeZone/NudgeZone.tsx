@@ -95,6 +95,7 @@ export function NudgeZone({
     loading,
     error,
     integrations,
+    acceptCoreSetupSuggestion,
     moveCalendarEvent,
     pendingActionKey,
     pendingCalendarEventId,
@@ -171,6 +172,16 @@ export function NudgeZone({
                   <CoreSetupChecklist
                     bar={bar}
                     items={coreSetupChecklist}
+                    pendingItemId={
+                      pendingActionKey?.startsWith('core-setup:')
+                        ? pendingActionKey.slice('core-setup:'.length)
+                        : null
+                    }
+                    onAcceptSuggestion={(checklist) => {
+                      if (checklist.value) {
+                        void acceptCoreSetupSuggestion(checklist.id, checklist.value);
+                      }
+                    }}
                     onOpenSystemAction={(action) => {
                       onOpenSystem?.(nudgeOpenSystemTarget(bar, action));
                     }}

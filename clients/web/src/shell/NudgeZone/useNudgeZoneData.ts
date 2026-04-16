@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react';
-import { loadIntegrations, updateGoogleCalendarIntegration } from '../../data/operator';
+import {
+  loadIntegrations,
+  operatorQueryKeys,
+  updateGoogleCalendarIntegration,
+  updateSettings,
+} from '../../data/operator';
 import {
   contextQueryKeys,
   loadNow,
@@ -27,6 +32,7 @@ export function useNudgeZoneData(integrationsQueryKey: readonly ['integrations']
   const [pendingCalendarToggleId, setPendingCalendarToggleId] = useState<string | null>(null);
   const [pendingCalendarEventId, setPendingCalendarEventId] = useState<string | null>(null);
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
+  const settingsKey = useMemo(() => operatorQueryKeys.settings(), []);
   const integrationsKey = useMemo(() => integrationsQueryKey, [integrationsQueryKey]);
   const { data, loading, error } = useQuery<NowData | null>(
     nowKey,
@@ -113,7 +119,36 @@ export function useNudgeZoneData(integrationsQueryKey: readonly ['integrations']
     }
   }
 
+  async function acceptCoreSetupSuggestion(itemId: string, value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    setPendingActionKey(`core-setup:${itemId}`);
+    try {
+      const patch =
+        itemId === 'user_display_name'
+          ? { core_settings: { user_display_name: trimmed } }
+          : itemId === 'node_display_name'
+            ? { node_display_name: trimmed }
+            : itemId === 'agent_profile'
+              ? { core_settings: { agent_profile: { role: trimmed } } }
+              : null;
+      if (!patch) {
+        return;
+      }
+      const response = await updateSettings(patch);
+      if (response.ok) {
+        setQueryData(settingsKey, response.data ?? null);
+        invalidateQuery(nowKey, { refetch: true });
+      }
+    } finally {
+      setPendingActionKey(null);
+    }
+  }
+
   return {
+    acceptCoreSetupSuggestion,
     data,
     error,
     integrations: integrations ?? null,

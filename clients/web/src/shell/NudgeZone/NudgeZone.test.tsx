@@ -444,6 +444,76 @@ describe('NudgeZone', () => {
     })
   })
 
+  it('accepts an inferred core setup suggestion from the right-side check control', async () => {
+    clearQueryCache()
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            nudge_bars: [
+              {
+                id: 'core_setup_required',
+                kind: 'needs_input',
+                title: 'Finish Core setup to enable the composer',
+                summary: 'Finish the checklist below to enable Vel.',
+                urgent: true,
+                primary_thread_id: null,
+                actions: [
+                  { kind: 'open_settings:core_settings:user_display_name:missing:Jove%20Operator', label: 'Your name' },
+                ],
+              },
+            ],
+          }),
+          meta: { request_id: 'req_now_core_setup' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return { ok: true, data: buildIntegrationsData(), meta: { request_id: 'req_integrations' } } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+    vi.mocked(api.apiPatch).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        node_display_name: null,
+        core_settings: {
+          user_display_name: 'Jove Operator',
+          developer_mode: false,
+          bypass_setup_gate: false,
+          agent_profile: {
+            role: null,
+            preferences: null,
+            constraints: null,
+            freeform: null,
+          },
+        },
+      },
+      meta: { request_id: 'req_settings_patch' },
+    } as never)
+
+    render(<NudgeZone activeView="now" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Finish Core setup to enable the composer')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Finish Core setup to enable the composer').closest('article') as HTMLElement)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Use Jove Operator for Your name' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use Jove Operator for Your name' }))
+
+    await waitFor(() => {
+      expect(api.apiPatch).toHaveBeenCalledWith(
+        '/api/settings',
+        { core_settings: { user_display_name: 'Jove Operator' } },
+        expect.any(Function),
+      )
+    })
+  })
+
   it('re-expands and highlights a spotlighted nudge', async () => {
     render(
       <NudgeZone

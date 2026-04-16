@@ -9398,6 +9398,14 @@ async fn chat_settings_get_and_patch() {
         get_json["data"]["backup"]["trust"]["status"]["state"],
         "missing"
     );
+    assert_eq!(
+        get_json["data"]["core_setup_suggestions"]["agent_profile"],
+        "Local-first operator"
+    );
+    assert!(
+        get_json["data"]["core_setup_suggestions"]["user_display_name"].is_string()
+            || get_json["data"]["core_setup_suggestions"]["user_display_name"].is_null()
+    );
 
     let patch_resp = app
         .oneshot(

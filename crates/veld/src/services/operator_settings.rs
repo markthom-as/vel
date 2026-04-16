@@ -17,6 +17,13 @@ pub(crate) struct AgentProfileSettings {
     pub freeform: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
+pub(crate) struct CoreSetupSuggestions {
+    pub user_display_name: Option<String>,
+    pub node_display_name: Option<String>,
+    pub agent_profile: Option<String>,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub(crate) struct CoreSettings {
     pub user_display_name: Option<String>,
@@ -57,6 +64,17 @@ pub(crate) fn normalize_optional_string(value: &str) -> Option<String> {
         None
     } else {
         Some(trimmed.to_string())
+    }
+}
+
+pub(crate) fn core_setup_suggestions(config: &AppConfig) -> CoreSetupSuggestions {
+    let user_display_name = inferred_user_display_name();
+    let node_display_name = inferred_node_display_name(config, user_display_name.as_deref());
+
+    CoreSetupSuggestions {
+        user_display_name,
+        node_display_name,
+        agent_profile: Some("Local-first operator".to_string()),
     }
 }
 
@@ -130,6 +148,64 @@ fn apply_discovered_sync_urls(
     }
     if let Some(url) = discovered_lan_base_url {
         runtime.lan_base_url = Some(url);
+    }
+}
+
+fn inferred_user_display_name() -> Option<String> {
+    ["VEL_USER_DISPLAY_NAME", "USER", "LOGNAME", "USERNAME"]
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .find_map(|value| normalize_person_name(&value))
+}
+
+fn inferred_node_display_name(
+    config: &AppConfig,
+    user_display_name: Option<&str>,
+) -> Option<String> {
+    config
+        .node_display_name
+        .as_deref()
+        .and_then(normalize_optional_string)
+        .or_else(|| {
+            ["VEL_NODE_DISPLAY_NAME", "HOSTNAME", "COMPUTERNAME"]
+                .into_iter()
+                .filter_map(|key| std::env::var(key).ok())
+                .find_map(|value| normalize_node_name(&value))
+        })
+        .or_else(|| user_display_name.map(|name| format!("{name}'s node")))
+}
+
+fn normalize_person_name(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let name = trimmed
+        .split(['.', '_', '-'])
+        .filter(|part| !part.trim().is_empty())
+        .map(title_case_ascii)
+        .collect::<Vec<_>>()
+        .join(" ");
+    normalize_optional_string(&name)
+}
+
+fn normalize_node_name(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn title_case_ascii(value: &str) -> String {
+    let mut chars = value.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => {
+            let mut result = first.to_ascii_uppercase().to_string();
+            result.push_str(&chars.as_str().to_ascii_lowercase());
+            result
+        }
     }
 }
 
@@ -209,6 +285,18 @@ mod tests {
         assert_eq!(
             runtime.lan_base_url.as_deref(),
             Some("http://192.168.1.22:4130")
+        );
+    }
+
+    #[test]
+    fn inferred_setup_default_normalization_is_readable() {
+        assert_eq!(
+            normalize_person_name("jove.operator").as_deref(),
+            Some("Jove Operator")
+        );
+        assert_eq!(
+            normalize_node_name("Local node").as_deref(),
+            Some("Local node")
         );
     }
 
