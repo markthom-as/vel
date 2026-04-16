@@ -2348,12 +2348,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimedWorkData {
-    pub queue_item: QueuedWorkItemData,
-    pub receipt: WorkAssignmentReceiptData,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkAssignmentClaimNextResponseData {
     #[serde(default)]
     pub claim: Option<WorkAssignmentClaimedWorkData>,

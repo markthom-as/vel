@@ -42,6 +42,7 @@
 - thirtieth DTO slice: `sync` module owns standalone work-assignment claim request DTOs, with root re-exports preserving claim and claim-next route request references
 - thirty-first DTO slice: `sync` module owns `WorkAssignmentUpdateRequest`, with root re-exports preserving work-assignment update route request references
 - thirty-second DTO slice: `sync` module owns `QueuedWorkItemData`, with root re-exports preserving worker queue list response references
+- thirty-third DTO slice: `sync` module owns `WorkAssignmentClaimedWorkData`, with root re-exports preserving work claim route response references
 
 ### Automated
 
@@ -83,6 +84,7 @@
 - thirtieth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - thirty-first DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::work_assignment_lifecycle_claims_updates_and_lists_receipts -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - thirty-second DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::worker_queue_lists_pending_item_and_hides_completed_receipt -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- thirty-third DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::work_assignment_lifecycle_claims_updates_and_lists_receipts -- --nocapture`, `cargo test -p veld app::tests::claim_next_work_picks_oldest_unclaimed_item -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

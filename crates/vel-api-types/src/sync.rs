@@ -176,3 +176,9 @@ pub struct QueuedWorkItemData {
     #[serde(default)]
     pub next_retry_at: Option<UnixSeconds>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimedWorkData {
+    pub queue_item: QueuedWorkItemData,
+    pub receipt: WorkAssignmentReceiptData,
+}
