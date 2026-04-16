@@ -14,6 +14,7 @@ mod backup;
 mod commands;
 mod common;
 mod connect;
+mod doctor;
 mod health;
 mod integrations;
 mod projects;
@@ -24,6 +25,7 @@ pub use backup::*;
 pub use commands::*;
 pub use common::*;
 pub use connect::*;
+pub use doctor::*;
 pub use health::*;
 pub use integrations::*;
 pub use projects::*;
@@ -3706,32 +3708,6 @@ pub struct SwarmClientsData {
     pub active_authority_epoch: i64,
     #[serde(default)]
     pub clients: Vec<SwarmClientData>,
-}
-
-/// Status of a single diagnostic check.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DiagnosticStatus {
-    Ok,
-    Warn,
-    Fail,
-}
-
-/// A single diagnostic check result.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiagnosticCheck {
-    pub name: String,
-    pub status: DiagnosticStatus,
-    pub message: String,
-}
-
-/// Results of diagnostic checks for `vel doctor`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DoctorData {
-    pub checks: Vec<DiagnosticCheck>,
-    pub backup: BackupTrustData,
-    pub schema_version: u32,
-    pub version: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

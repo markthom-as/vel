@@ -15,6 +15,7 @@
 - app test-ownership slice: `app/tests.rs` owns the moved app test module body, and `app.rs` retains only the test module declaration
 - first Now slice: `services/now/output.rs` owns public `Now*Output` and `TrustReadiness*Output` structs, with `services::now::*` re-exports preserving existing route and Apple voice consumers
 - fifth DTO slice: `connect` module owns connect runtime capability, instance, stream event, stdin ack, and attach DTOs, with root re-exports preserving route, CLI, and test imports
+- sixth DTO slice: `doctor` module owns diagnostic status, diagnostic check, and doctor response DTOs, with root re-exports preserving doctor route and CLI imports
 
 ### Automated
 
@@ -29,6 +30,7 @@
 - app test-ownership slice: targeted app tests including health, auth, route fallback, now snapshot, exposure matrix; `cargo test -p veld app::tests::`; `cargo check -p veld --all-targets`
 - first Now slice: `cargo test -p veld now::tests:: -- --nocapture`; `cargo test -p veld app::tests::now_endpoint_returns_consolidated_snapshot`; `cargo test -p veld app::tests::now_task_lane_patch_persists_lane_membership_and_completion_state`; `cargo test -p veld --test apple_voice_loop -- --nocapture`; `cargo check -p veld --all-targets`
 - fifth DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo test -p veld --test connect_runtime -- --nocapture`, `cargo test -p vel-cli connect -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- sixth DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo test -p veld app::tests::doctor_endpoint_returns_ok_with_schema_version -- --nocapture`, `cargo test -p vel-cli doctor -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixth DTO slice: `cargo test -p vel-api-types -- --nocapture`, targeted integration connection route and CLI tests, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
