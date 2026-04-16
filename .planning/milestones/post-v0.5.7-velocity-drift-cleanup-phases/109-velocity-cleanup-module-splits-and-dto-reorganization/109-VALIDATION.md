@@ -30,6 +30,7 @@
 - eighteenth DTO slice: `linking` module also owns `LinkTargetSuggestionData`, with root re-exports preserving `PairingTokenData` and linking service references
 - nineteenth DTO slice: `linking` module owns trusted-node endpoint kind/data and reachability DTOs, with root re-exports preserving trust bootstrap and linked-node DTO references
 - twentieth DTO slice: `linking` module owns `TrustBootstrapArtifactData`, with root re-exports preserving pairing token and linking prompt references
+- twenty-first DTO slice: `linking` module owns `PairingTokenData`, with root re-exports preserving linking routes, node CLI, and pairing datetime tests
 
 ### Automated
 
@@ -59,6 +60,7 @@
 - eighteenth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - nineteenth DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twentieth DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- twenty-first DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

@@ -146,3 +146,34 @@ impl From<vel_core::TrustBootstrapArtifactRecord> for TrustBootstrapArtifactData
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairingTokenData {
+    pub token_id: String,
+    pub token_code: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub issued_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub expires_at: OffsetDateTime,
+    pub issued_by_node_id: String,
+    pub scopes: LinkScopeData,
+    #[serde(default)]
+    pub suggested_targets: Vec<LinkTargetSuggestionData>,
+    #[serde(default)]
+    pub bootstrap_artifact: Option<TrustBootstrapArtifactData>,
+}
+
+impl From<vel_core::PairingTokenRecord> for PairingTokenData {
+    fn from(value: vel_core::PairingTokenRecord) -> Self {
+        Self {
+            token_id: value.token_id,
+            token_code: value.token_code,
+            issued_at: value.issued_at,
+            expires_at: value.expires_at,
+            issued_by_node_id: value.issued_by_node_id,
+            scopes: value.scopes.into(),
+            suggested_targets: Vec::new(),
+            bootstrap_artifact: None,
+        }
+    }
+}
