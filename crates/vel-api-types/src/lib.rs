@@ -23,6 +23,7 @@ mod doctor;
 mod health;
 mod integrations;
 mod linking;
+mod loops;
 mod nudges;
 mod people;
 mod projects;
@@ -52,6 +53,7 @@ pub use doctor::*;
 pub use health::*;
 pub use integrations::*;
 pub use linking::*;
+pub use loops::*;
 pub use nudges::*;
 pub use people::*;
 pub use projects::*;
@@ -3305,24 +3307,6 @@ pub struct SuggestionUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SuggestionActionRequest {
     pub reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoopData {
-    pub kind: String,
-    pub enabled: bool,
-    pub interval_seconds: i64,
-    pub last_started_at: Option<UnixSeconds>,
-    pub last_finished_at: Option<UnixSeconds>,
-    pub last_status: Option<String>,
-    pub last_error: Option<String>,
-    pub next_due_at: Option<UnixSeconds>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoopUpdateRequest {
-    pub enabled: Option<bool>,
-    pub interval_seconds: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
