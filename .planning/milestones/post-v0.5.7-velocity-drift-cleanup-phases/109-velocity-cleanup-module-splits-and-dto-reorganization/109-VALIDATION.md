@@ -48,6 +48,7 @@
 - thirty-sixth DTO slice: `client_sync` module owns client-action kind, action, batch request, action result, and batch result DTOs, with root re-exports preserving sync actions route references
 - thirty-seventh DTO slice: `sync` module owns `ClusterNodeStateData`, with root re-exports preserving cluster state route and CLI references
 - thirty-eighth DTO slice: `sync` module owns `SwarmClientActiveWorkData`, with root re-exports preserving worker and client active-work references
+- thirty-ninth DTO slice: `sync` module owns `ClusterWorkerStateData`, with root re-exports preserving cluster state route worker references
 
 ### Automated
 
@@ -95,6 +96,7 @@
 - thirty-sixth DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_actions_endpoint_applies_nudge_snooze -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - thirty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_cluster_endpoint_returns_nodes_and_workers -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - thirty-eighth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- thirty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
