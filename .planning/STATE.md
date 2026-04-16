@@ -34,7 +34,7 @@ Current Plan: complete
 Total Plans in Milestone: 3
 Progress: 100%
 Last Activity: 2026-04-16
-Last Activity Description: Ticket 039 split-compact ConversationList variant verified
+Last Activity Description: GSD 2 launcher graph dependency verification completed
 
 ## Current Position
 
@@ -59,7 +59,7 @@ No active phase remains in this milestone.
 
 - v1 `init progress` and `init new-milestone` still report the stale milestone label `v0.1`
 - `init cleanup` is not a supported structured helper; cleanup remains markdown-workflow driven
-- full GSD 2 migration is not claimed; `scripts/gsd2.sh` now provides a repo-local Node >=22 launcher for the installed `gsd-pi@2.75.0` command surface, but dependency/command-equivalence verification is still incomplete
+- full GSD 2 migration is not claimed; `scripts/gsd2.sh` now provides a repo-local Node >=22 launcher for the installed `gsd-pi@2.75.0` command surface and verifies `headless query`, `graph build`, and `graph status`, but full command-equivalence verification remains incomplete
 - keeping deferred duplex voice work visible as future scope instead of implying it shipped
 
 ### Pending Todos
@@ -69,7 +69,7 @@ No active phase remains in this milestone.
 
 ### Next Step
 
-Before broad new feature work, decide whether to address the remaining v1 helper label debt, resolve the remaining GSD 2 graph/headless dependency behavior behind `scripts/gsd2.sh`, or open the next product milestone with the compatibility bridge explicitly in place.
+Before broad new feature work, decide whether to address the remaining v1 helper label debt, further stabilize GSD 2 headless command equivalence beyond the verified query path, or open the next product milestone with the compatibility bridge explicitly in place.
 
 ### Roadmap Evolution
 
@@ -90,4 +90,4 @@ Before broad new feature work, decide whether to address the remaining v1 helper
 - archived historical phase packets from `0.4.x`, `0.5.3`, `0.5.4`, `0.5.5`, `0.5.6`, and deferred `0.5.7` into milestone buckets under `.planning/milestones/`
 
 ---
-*Last updated: 2026-04-16 after completing the Ticket 039 ConversationList overflow actions slice*
+*Last updated: 2026-04-16 after completing GSD 2 launcher graph dependency verification*

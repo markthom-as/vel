@@ -15,7 +15,8 @@ Residual follow-up:
 - v1 helper metadata still reports stale `v0.1` milestone labels in `init progress` and `init new-milestone`
 - `init cleanup` is not a structured helper; cleanup remains markdown-workflow driven
 - `scripts/gsd2.sh` now runs the installed `gsd-pi` command surface under a repo-selected Node `>=22` runtime without requiring ad hoc shell `PATH` edits
-- full GSD 2 migration remains future work until graph dependency behavior is resolved or scoped out, headless behavior is stable, and command equivalence is verified
+- `scripts/gsd2.sh` also repairs the installed bundle's missing internal `@gsd-build/mcp-server` link when `packages/mcp-server` is present, so `npm run gsd2 -- graph build` and `npm run gsd2 -- graph status` now pass
+- full GSD 2 migration remains future work until headless behavior is stable beyond the verified `headless query` path and command equivalence is verified
 
 ## Guiding Principle
 

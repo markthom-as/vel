@@ -11,6 +11,7 @@ clients/apple/VelAPI/.build/
 
 # GSD runtime state
 .gsd/activity/
+.gsd/graphs/
 .gsd/runtime/
 .gsd/auto.lock
 .gsd/gsd.db

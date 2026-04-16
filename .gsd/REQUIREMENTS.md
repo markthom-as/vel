@@ -39,7 +39,7 @@ None.
 - Primary owning slice: M001/S02
 - Supporting slices: M001/S03
 - Validation: validated
-- Notes: Phase 02 selected a compatibility bridge and preserved v1 command authority while `gsd-pi` remains only partially verified: runtime `PATH` must prefer Node `>=22`, and `graph status` is blocked by missing `@gsd-build/mcp-server`.
+- Notes: Phase 02 selected a compatibility bridge and preserved v1 command authority. Follow-up added `scripts/gsd2.sh` so repo-local GSD 2 checks select Node `>=22` and repair the installed bundle's missing internal `@gsd-build/mcp-server` link when present; `headless query`, `graph build`, and `graph status` are now verified, while full command equivalence remains future work.
 
 ### R003 — Keep active planning state milestone-local and truthful
 - Class: continuity

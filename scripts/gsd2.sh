@@ -52,6 +52,57 @@ find_node22() {
   return 1
 }
 
+resolve_gsd_package_root() {
+  "$node_bin" - "$1" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+let current = fs.realpathSync(process.argv[2]);
+if (!fs.statSync(current).isDirectory()) {
+  current = path.dirname(current);
+}
+
+while (true) {
+  const packageJsonPath = path.join(current, 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      if (packageJson.name === 'gsd-pi') {
+        process.stdout.write(current);
+        process.exit(0);
+      }
+    } catch {
+      // Keep walking; a malformed unrelated package file is not actionable here.
+    }
+  }
+
+  const parent = path.dirname(current);
+  if (parent === current) {
+    process.exit(1);
+  }
+  current = parent;
+}
+NODE
+}
+
+ensure_gsd_internal_links() {
+  local command_path package_root scope_dir target link
+  command_path="$(command -v "$command_name" || true)"
+  [[ -n "$command_path" ]] || return 0
+
+  package_root="$(resolve_gsd_package_root "$command_path" 2>/dev/null || true)"
+  [[ -n "$package_root" ]] || return 0
+
+  target="$package_root/packages/mcp-server"
+  link="$package_root/node_modules/@gsd-build/mcp-server"
+  [[ -d "$target" ]] || return 0
+  [[ -e "$link" || -L "$link" ]] && return 0
+
+  scope_dir="$(dirname "$link")"
+  mkdir -p "$scope_dir"
+  ln -s "$target" "$link"
+}
+
 command_name="${GSD_BIN:-gsd}"
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   usage
@@ -77,5 +128,7 @@ if ! command -v "$command_name" >/dev/null 2>&1; then
   echo "hint: install gsd-pi or set GSD_BIN=/absolute/path/to/gsd." >&2
   exit 1
 fi
+
+ensure_gsd_internal_links
 
 exec "$command_name" "$@"

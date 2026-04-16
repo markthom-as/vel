@@ -49,6 +49,8 @@ These residuals are acceptable for closing `0.5.8` as a compatibility bridge, no
 
 Follow-up on 2026-04-16 added `scripts/gsd2.sh` and `npm run gsd2 -- <args>` so repo-local checks can run the installed `gsd-pi@2.75.0` surface with a selected Node `>=22` runtime instead of ad hoc shell `PATH` edits.
 
+Additional follow-up on 2026-04-16 made the launcher repair the missing internal `@gsd-build/mcp-server` package link when the installed `gsd-pi` bundle already includes `packages/mcp-server`.
+
 Validated:
 
 - `bash -n scripts/gsd2.sh`
@@ -57,7 +59,11 @@ Validated:
 - `npm run gsd2 -- headless --help`
 - `npm run gsd2 -- --cli --version` -> `2.75.0`
 - `npm run gsd2 -- headless query --output-format json` -> reports `All milestones complete.`
+- `npm run gsd2 -- graph status` -> initially reports graph not built, not a package-resolution failure
+- `npm run gsd2 -- graph build` -> `Graph built: 8 nodes, 6 edges`
+- `npm run gsd2 -- graph status` -> reports graph exists with 8 nodes, 6 edges, `stale: false`
 
-Still blocked:
+Still limited:
 
-- `npm run gsd2 -- graph status` still fails because the installed package cannot resolve `@gsd-build/mcp-server`.
+- v1 `init progress` and `init new-milestone` still report `v0.1` because the v1 helper only uses ROADMAP heuristics and does not parse the current patch-level `0.5.8` milestone label.
+- `gsd headless status --timeout 60000 --output-format json` remains less stable than `headless query`; the verified repo-local GSD 2 route for non-mutating state is `npm run gsd2 -- headless query --output-format json`.

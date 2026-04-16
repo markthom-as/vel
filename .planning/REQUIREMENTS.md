@@ -73,4 +73,4 @@
 ## Next Step
 
 - decide whether to address residual v1 helper label debt before opening the next feature milestone
-- do not claim full GSD 2 migration until the installed `gsd-pi` surface is runtime-wired, dependency-complete for required workflows, and verified against the v1 Codex workflow equivalents
+- do not claim full GSD 2 migration until the installed `gsd-pi` surface is verified against the v1 Codex workflow equivalents beyond the now-working repo-local `headless query`, `graph build`, and `graph status` paths
