@@ -144,6 +144,31 @@ pub fn local_date_string(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> 
     )
 }
 
+pub fn local_hour_minute(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> (u32, u32) {
+    let local = utc_datetime(value).with_timezone(&timezone.tz);
+    (local.hour(), local.minute())
+}
+
+pub fn local_time_label(timezone: &ResolvedTimeZone, unix_ts: i64) -> String {
+    let local = DateTime::<Utc>::from_timestamp(unix_ts, 0)
+        .expect("unix timestamp should convert to chrono datetime")
+        .with_timezone(&timezone.tz);
+    if local.minute() == 0 {
+        local.format("%-I %p").to_string()
+    } else {
+        local.format("%-I:%M %p").to_string()
+    }
+}
+
+pub fn local_calendar_label(
+    timezone: &ResolvedTimeZone,
+    value: OffsetDateTime,
+    prefix: &str,
+) -> String {
+    let local = utc_datetime(value).with_timezone(&timezone.tz);
+    format!("{prefix} {}", local.format("%b %-d"))
+}
+
 fn utc_datetime(value: OffsetDateTime) -> DateTime<Utc> {
     DateTime::<Utc>::from_timestamp(value.unix_timestamp(), value.nanosecond())
         .expect("offset datetime should convert to chrono datetime")
@@ -214,6 +239,26 @@ mod tests {
         let date = local_date_string(&timezone, value);
 
         assert_eq!(date, "2026-03-15");
+    }
+
+    #[test]
+    fn formats_local_time_label_using_timezone() {
+        let timezone = ResolvedTimeZone::parse("America/Denver").unwrap();
+        let on_hour = datetime!(2026-03-16 18:00:00 UTC).unix_timestamp();
+        let with_minutes = datetime!(2026-03-16 18:30:00 UTC).unix_timestamp();
+
+        assert_eq!(local_time_label(&timezone, on_hour), "12 PM");
+        assert_eq!(local_time_label(&timezone, with_minutes), "12:30 PM");
+    }
+
+    #[test]
+    fn formats_local_calendar_label_using_timezone() {
+        let timezone = ResolvedTimeZone::parse("America/Denver").unwrap();
+        let value = datetime!(2026-03-16 05:30:00 UTC);
+
+        let label = local_calendar_label(&timezone, value, "Due");
+
+        assert_eq!(label, "Due Mar 15");
     }
 
     #[test]

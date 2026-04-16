@@ -1,4 +1,3 @@
-use chrono::{DateTime, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
@@ -1364,9 +1363,7 @@ fn build_status_row(
     task_buckets: &NowTaskBuckets,
     next_event: Option<&NowEventOutput>,
 ) -> NowStatusRowOutput {
-    let local = DateTime::<Utc>::from_timestamp(now.unix_timestamp(), now.nanosecond())
-        .expect("current time should convert")
-        .with_timezone(&timezone.tz());
+    let (hour, minute) = crate::services::timezone::local_hour_minute(timezone, now);
     let context_label = if let Some(task) = task_buckets.next_commitment.as_ref() {
         task.text.clone()
     } else if let Some(event) = next_event {
@@ -1381,7 +1378,7 @@ fn build_status_row(
 
     NowStatusRowOutput {
         date_label: crate::services::timezone::local_date_string(timezone, now),
-        time_label: format!("{:02}:{:02}", local.hour(), local.minute()),
+        time_label: format!("{hour:02}:{minute:02}"),
         context_label,
         elapsed_label,
     }
@@ -2232,14 +2229,7 @@ fn format_local_time_label(
     timezone: &crate::services::timezone::ResolvedTimeZone,
     unix_ts: i64,
 ) -> String {
-    let local = DateTime::<Utc>::from_timestamp(unix_ts, 0)
-        .expect("unix timestamp should convert to chrono datetime")
-        .with_timezone(&timezone.tz());
-    if local.minute() == 0 {
-        local.format("%-I %p").to_string()
-    } else {
-        local.format("%-I:%M %p").to_string()
-    }
+    crate::services::timezone::local_time_label(timezone, unix_ts)
 }
 
 fn due_label_for_lane_item(
@@ -2299,10 +2289,7 @@ fn format_local_calendar_label(
     value: OffsetDateTime,
     prefix: &str,
 ) -> String {
-    let local = DateTime::<Utc>::from_timestamp(value.unix_timestamp(), value.nanosecond())
-        .expect("offset datetime should convert to chrono datetime")
-        .with_timezone(&timezone.tz());
-    format!("{prefix} {}", local.format("%b %-d"))
+    crate::services::timezone::local_calendar_label(timezone, value, prefix)
 }
 
 fn build_docked_input() -> NowDockedInputOutput {

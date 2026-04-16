@@ -16,7 +16,7 @@
 | File organization | 5/10 | Four monolithic files, one 280KB DTO blob |
 | Error handling consistency | 6/10 | Three different error patterns across layers |
 | Dependency hygiene | 7/10 | `chrono` + `time` both in workspace (mid-migration stall) |
-| Orphaned schema objects | 6/10 | Three tables with no Rust code touching them |
+| Schema ownership clarity | 8/10 | Phase 107 recheck found one active backup table and two planned foundation tables, not drop-safe orphaned schema |
 | Config field usage | 9/10 | All fields read. No dead config. |
 
 ---
@@ -30,7 +30,7 @@
 | VD-03 | Delete dead policy structs in `policy_config.rs` | LOW | 30m | LOW |
 | VD-04 | Lift crate-level `#![allow(dead_code)]` suppressions | HIGH | 2–4h | LOW |
 | VD-05 | Complete chrono → time migration | MEDIUM | 6h | MEDIUM |
-| VD-06 | Drop orphaned DB tables (`vel_self_metrics`, `storage_targets`, `verification_records`) | MEDIUM | 3h | LOW |
+| VD-06 | Reclassify flagged schema tables (`vel_self_metrics`, `storage_targets`, `verification_records`) | MEDIUM | 3h | LOW |
 | VD-07 | Split `app.rs` route registration (12,842 lines) | LOW | 4h | NONE |
 | VD-08 | Split `now.rs` service (4,240 lines) | LOW | 8h | NONE |
 | VD-09 | Reorganize `vel-api-types/src/lib.rs` (8,485 lines) | LOW | 6h | NONE |
@@ -281,25 +281,25 @@ chrono-tz = "0.10"
 
 ---
 
-## VD-06 — Drop orphaned DB tables
+## VD-06 — Reclassify flagged schema tables
 
 **Migration files:**
 - `migrations/0020_vel_self_metrics.sql` — creates `vel_self_metrics`
 - `migrations/0033_storage_backup_foundation.sql` — creates `storage_targets` and `verification_records`
 
-**Severity:** MEDIUM — ghost schema; data is written to tables nobody reads
-**Effort:** 30 min to verify + 1h to write drop migration
-**Risk:** LOW — confirmed zero Rust code queries these tables
+**Severity:** MEDIUM — stale audit language made active/planned schema look disposable
+**Effort:** 30 min to verify + documentation cleanup
+**Risk:** LOW — no schema migration is required
 
 ### Finding
 
-Three tables have migrations that created them but no repository code ever reads or writes to them. Verified by searching all `*.rs` files in `crates/` for the table names — zero matches.
+Phase 107 re-verification found the original orphaned-table claim was too broad. `storage_targets` is active in the backup repositories and later backup job schema. `verification_records` and `vel_self_metrics` do not currently have Rust repositories, but they are planned foundation schema for backup verification/trust and self-awareness/reflective tuning respectively. They are not safe to drop under the Phase 107 ownership gate.
 
-| Table | Created in | Repository | SQL queries |
-|-------|-----------|-----------|-------------|
-| `vel_self_metrics` | `0020_vel_self_metrics.sql` | None | 0 |
-| `storage_targets` | `0033_storage_backup_foundation.sql` | None | 0 |
-| `verification_records` | `0033_storage_backup_foundation.sql` | None | 0 |
+| Table | Created in | Classification | Decision |
+|-------|------------|----------------|----------|
+| `storage_targets` | `0033_storage_backup_foundation.sql` | Active backup foundation | Keep; runtime backup repositories and `v0_backup_jobs` depend on it |
+| `verification_records` | `0033_storage_backup_foundation.sql` | Planned backup verification/trust foundation | Keep; no active repository yet, but aligned with backup integrity and restore-planning direction |
+| `vel_self_metrics` | `0020_vel_self_metrics.sql` | Planned self-awareness / reflective-tuning substrate | Keep; no active repository yet, but aligned with self-awareness contracts and nudge effectiveness tracking |
 
 Tables that were initially suspected but are **actually in use** (false positives):
 - `event_log` — used in `vel-storage/src/repositories/chat_repo.rs:479–519`
@@ -310,21 +310,10 @@ Tables that were initially suspected but are **actually in use** (false positive
 
 ### Fix
 
-1. Run a final grep before creating the migration: `grep -r "vel_self_metrics\|storage_targets\|verification_records" crates/ --include="*.rs"` — expect zero results.
-2. Create `migrations/0051_drop_orphaned_tables.sql`:
-
-```sql
--- 0051_drop_orphaned_tables.sql
--- These tables were scaffolded but never had repository code implemented.
--- Dropping to prevent schema confusion.
-
-DROP TABLE IF EXISTS verification_records;
-DROP TABLE IF EXISTS storage_targets;
-DROP TABLE IF EXISTS vel_self_metrics;
-```
-
-3. Note: `storage_targets` and `verification_records` have an FK relationship (`verification_records` references `storage_targets`). Drop `verification_records` first.
-4. Run `cargo test --workspace` — compile-time sqlx verification will catch any missed reference.
+1. Keep all three tables.
+2. Treat `storage_targets` as active backup infrastructure when touching backup or restore code.
+3. Treat `verification_records` and `vel_self_metrics` as planned foundation schema. Before adding new tables in those areas, either use these contracts or update their owner docs.
+4. Only create a future drop migration if a table fails both checks: no live-code use and no Master Plan or accepted architecture ownership.
 
 ---
 

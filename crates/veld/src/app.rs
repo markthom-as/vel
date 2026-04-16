@@ -11833,7 +11833,7 @@ END:VCALENDAR
         let first_id = storage
             .insert_commitment(vel_storage::CommitmentInsert {
                 text: "Deep work".to_string(),
-                source_type: "todoist".to_string(),
+                source_type: "local".to_string(),
                 source_id: "todo_1".to_string(),
                 status: vel_core::CommitmentStatus::Open,
                 due_at: None,
@@ -11846,7 +11846,7 @@ END:VCALENDAR
         let second_id = storage
             .insert_commitment(vel_storage::CommitmentInsert {
                 text: "Triage inbox".to_string(),
-                source_type: "todoist".to_string(),
+                source_type: "local".to_string(),
                 source_id: "todo_2".to_string(),
                 status: vel_core::CommitmentStatus::Open,
                 due_at: None,

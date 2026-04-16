@@ -7,6 +7,7 @@
 - `rg -n 'chrono|chrono_tz' crates/veld Cargo.toml`
 - targeted recurrence/availability tests after each migration step
 - at least one wider compile/test pass after removing the old dependencies
+- first slice check: `now.rs` should have no direct `chrono` import or `timezone.tz()` call; local display behavior should be covered by `timezone` tests
 
 ### Schema Re-Verification
 
@@ -14,6 +15,7 @@
 - decide whether `verification_records` supports backup verification/trust direction
 - decide whether `vel_self_metrics` supports self-awareness/reflective-tuning direction
 - only generate a drop migration for tables that fail both live-code and Master Plan ownership checks
+- Phase 107 first slice decision: no drop migration. `storage_targets` is active; `verification_records` and `vel_self_metrics` are planned foundation schema and remain kept.
 
 ### Automated
 
