@@ -65,6 +65,7 @@
 - fifty-third DTO slice: `integrations` module owns canonical integration write-intent DTOs, with root re-exports preserving integrations route and writeback service references
 - fifty-fourth DTO slice: `websocket` module owns websocket event/envelope DTOs, with root re-exports preserving broadcast, route, and test references
 - fifty-fifth DTO slice: `artifacts` module owns artifact CRUD DTOs, with root re-exports preserving artifacts route, command payload, CLI, and test references
+- fifty-sixth DTO slice: `runs` module owns run summary/detail/update DTOs and their datetime contract test, with root re-exports preserving runs route, CLI, web, websocket cache, and test references
 
 ### Automated
 
@@ -129,6 +130,7 @@
 - fifty-third DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- fifty-sixth DTO slice: `cargo test -p vel-api-types run_summary_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
