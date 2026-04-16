@@ -1,4 +1,3 @@
-use chrono::TimeZone;
 use serde_json::json;
 use sqlx::SqlitePool;
 use time::{macros::datetime, OffsetDateTime};
@@ -179,8 +178,8 @@ async fn google_calendar_black_box_proves_account_window_calendar_event_particip
     let occurrences = RecurrenceMaterializationService::materialize(
         &mapped_event.event,
         &recurrence.series.clone().unwrap(),
-        chrono::Utc.with_ymd_and_hms(2026, 3, 24, 0, 0, 0).unwrap(),
-        chrono::Utc.with_ymd_and_hms(2026, 3, 27, 0, 0, 0).unwrap(),
+        datetime!(2026-03-24 0:00:00 UTC),
+        datetime!(2026-03-27 0:00:00 UTC),
     )
     .unwrap();
     assert_eq!(occurrences.len(), 2);

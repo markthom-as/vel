@@ -1,4 +1,3 @@
-use chrono::{TimeZone, Utc};
 use serde_json::Value;
 use time::{macros::datetime, OffsetDateTime};
 use vel_adapters_google_calendar::{
@@ -129,8 +128,8 @@ fn google_recurrence_and_availability_stay_native_core_aligned() {
     let occurrences = RecurrenceMaterializationService::materialize(
         &mapped_event.event,
         &series,
-        Utc.with_ymd_and_hms(2026, 3, 23, 0, 0, 0).unwrap(),
-        Utc.with_ymd_and_hms(2026, 3, 26, 0, 0, 0).unwrap(),
+        datetime!(2026-03-23 0:00:00 UTC),
+        datetime!(2026-03-26 0:00:00 UTC),
     )
     .unwrap();
 

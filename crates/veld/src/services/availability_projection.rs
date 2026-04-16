@@ -8,7 +8,7 @@ use vel_core::{
 };
 use vel_storage::{upsert_projection, ProjectionRecord};
 
-use crate::errors::AppError;
+use crate::{errors::AppError, services::time_format::format_utc_rfc3339};
 
 #[derive(Debug, Clone)]
 pub struct AvailabilityEventInput {
@@ -185,15 +185,4 @@ fn blocking_bounds(
         },
         _ => Ok(None),
     }
-}
-
-fn format_utc_rfc3339(value: OffsetDateTime) -> Result<String, AppError> {
-    let formatted = value
-        .to_offset(UtcOffset::UTC)
-        .format(&Rfc3339)
-        .map_err(|error| AppError::internal(error.to_string()))?;
-    Ok(formatted
-        .strip_suffix('Z')
-        .map(|prefix| format!("{prefix}+00:00"))
-        .unwrap_or(formatted))
 }

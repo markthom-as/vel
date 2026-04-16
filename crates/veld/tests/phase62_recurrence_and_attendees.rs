@@ -1,4 +1,4 @@
-use chrono::{TimeZone, Utc};
+use time::macros::datetime;
 use vel_core::{
     Event, EventId, EventLocation, EventMoment, EventMomentKind, EventTransparency, Exception,
     ExceptionStatus, ParticipantConfidence, ParticipantRef, ParticipantStub, Participation,
@@ -76,8 +76,8 @@ fn recurrence_materialization_represents_series_occurrences_and_exceptions() {
     let occurrences = RecurrenceMaterializationService::materialize(
         &event,
         &series,
-        Utc.with_ymd_and_hms(2026, 3, 23, 0, 0, 0).unwrap(),
-        Utc.with_ymd_and_hms(2026, 3, 27, 0, 0, 0).unwrap(),
+        datetime!(2026-03-23 0:00:00 UTC),
+        datetime!(2026-03-27 0:00:00 UTC),
     )
     .unwrap();
 

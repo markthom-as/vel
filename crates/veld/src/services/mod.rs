@@ -82,6 +82,7 @@ pub mod skill_invocation;
 pub mod suggestions;
 pub mod synthesis;
 pub(crate) mod tailscale;
+pub(crate) mod time_format;
 pub mod timezone;
 pub mod todoist_write_bridge;
 pub mod tool_runner;

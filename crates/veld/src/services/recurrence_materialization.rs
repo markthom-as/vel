@@ -1,10 +1,10 @@
-use chrono::{DateTime, Datelike, Duration, Utc, Weekday};
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime, UtcOffset, Weekday};
 use vel_core::{
     Event, EventMoment, EventMomentKind, EventTransparency, ExceptionStatus, Occurrence,
     RecurrenceFrequency, RecurrenceWeekday, Series,
 };
 
-use crate::errors::AppError;
+use crate::{errors::AppError, services::time_format::format_utc_rfc3339};
 
 pub struct RecurrenceMaterializationService;
 
@@ -12,8 +12,8 @@ impl RecurrenceMaterializationService {
     pub fn materialize(
         event: &Event,
         series: &Series,
-        window_start: DateTime<Utc>,
-        window_end: DateTime<Utc>,
+        window_start: OffsetDateTime,
+        window_end: OffsetDateTime,
     ) -> Result<Vec<Occurrence>, AppError> {
         series.validate().map_err(AppError::bad_request)?;
         event.validate().map_err(AppError::bad_request)?;
@@ -53,7 +53,11 @@ impl RecurrenceMaterializationService {
             }
 
             if current >= window_start && current <= window_end {
-                let occurrence_key = format!("{}:{}", series.anchor_event_id, current.to_rfc3339());
+                let occurrence_key = format!(
+                    "{}:{}",
+                    series.anchor_event_id,
+                    format_utc_rfc3339(current)?
+                );
 
                 if let Some(exception) = series
                     .exceptions
@@ -100,12 +104,12 @@ impl RecurrenceMaterializationService {
                         anchor_event_id: series.anchor_event_id.clone(),
                         start: EventMoment {
                             kind: EventMomentKind::ZonedDateTime,
-                            value: current.to_rfc3339(),
+                            value: format_utc_rfc3339(current)?,
                             timezone: event.start.timezone.clone(),
                         },
                         end: EventMoment {
                             kind: EventMomentKind::ZonedDateTime,
-                            value: (current + duration).to_rfc3339(),
+                            value: format_utc_rfc3339(current + duration)?,
                             timezone: event.end.timezone.clone(),
                         },
                         materialized: true,
@@ -128,16 +132,16 @@ impl RecurrenceMaterializationService {
     }
 }
 
-fn parse_rfc3339(value: &str) -> Result<DateTime<Utc>, AppError> {
-    DateTime::parse_from_rfc3339(value)
-        .map(|value| value.with_timezone(&Utc))
+fn parse_rfc3339(value: &str) -> Result<OffsetDateTime, AppError> {
+    OffsetDateTime::parse(value, &Rfc3339)
+        .map(|value| value.to_offset(UtcOffset::UTC))
         .map_err(|error| AppError::bad_request(format!("invalid zoned event moment: {error}")))
 }
 
 fn next_occurrence(
-    current: DateTime<Utc>,
+    current: OffsetDateTime,
     rule: &vel_core::SeriesRule,
-) -> Result<DateTime<Utc>, AppError> {
+) -> Result<OffsetDateTime, AppError> {
     match rule.frequency {
         RecurrenceFrequency::Daily => Ok(current + Duration::days(i64::from(rule.interval))),
         RecurrenceFrequency::Weekly => next_weekly_occurrence(current, rule),
@@ -148,9 +152,9 @@ fn next_occurrence(
 }
 
 fn next_weekly_occurrence(
-    current: DateTime<Utc>,
+    current: OffsetDateTime,
     rule: &vel_core::SeriesRule,
-) -> Result<DateTime<Utc>, AppError> {
+) -> Result<OffsetDateTime, AppError> {
     let current_weekday = current.weekday();
     let weekdays = normalize_weekdays(&rule.by_weekdays);
     let current_index = weekdays
@@ -178,20 +182,20 @@ fn normalize_weekdays(values: &[RecurrenceWeekday]) -> Vec<Weekday> {
     values
         .iter()
         .map(|value| match value {
-            RecurrenceWeekday::Monday => Weekday::Mon,
-            RecurrenceWeekday::Tuesday => Weekday::Tue,
-            RecurrenceWeekday::Wednesday => Weekday::Wed,
-            RecurrenceWeekday::Thursday => Weekday::Thu,
-            RecurrenceWeekday::Friday => Weekday::Fri,
-            RecurrenceWeekday::Saturday => Weekday::Sat,
-            RecurrenceWeekday::Sunday => Weekday::Sun,
+            RecurrenceWeekday::Monday => Weekday::Monday,
+            RecurrenceWeekday::Tuesday => Weekday::Tuesday,
+            RecurrenceWeekday::Wednesday => Weekday::Wednesday,
+            RecurrenceWeekday::Thursday => Weekday::Thursday,
+            RecurrenceWeekday::Friday => Weekday::Friday,
+            RecurrenceWeekday::Saturday => Weekday::Saturday,
+            RecurrenceWeekday::Sunday => Weekday::Sunday,
         })
         .collect()
 }
 
 fn days_until(from: Weekday, to: Weekday) -> i64 {
-    let from = from.num_days_from_monday() as i64;
-    let to = to.num_days_from_monday() as i64;
+    let from = from.number_days_from_monday() as i64;
+    let to = to.number_days_from_monday() as i64;
     let delta = to - from;
     if delta <= 0 {
         delta + 7
