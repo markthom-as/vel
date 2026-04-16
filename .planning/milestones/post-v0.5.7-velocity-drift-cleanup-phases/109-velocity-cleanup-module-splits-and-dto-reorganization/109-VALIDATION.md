@@ -18,6 +18,7 @@
 - sixth DTO slice: `doctor` module owns diagnostic status, diagnostic check, and doctor response DTOs, with root re-exports preserving doctor route and CLI imports
 - seventh DTO slice: `capture` module owns capture, journal, watch signal, and search request/response DTOs, with root re-exports preserving route, CLI, and command payload imports
 - eighth DTO slice: `batch_import` module owns batch import item/request/response DTOs, with root re-exports preserving import route and CLI workspace import construction
+- ninth DTO slice: `agent_runtime` module owns local agent spec/spawn/runtime-return DTOs, with root re-exports preserving future consumer imports
 
 ### Automated
 
@@ -35,6 +36,7 @@
 - sixth DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo test -p veld app::tests::doctor_endpoint_returns_ok_with_schema_version -- --nocapture`, `cargo test -p vel-cli doctor -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - seventh DTO slice: `cargo test -p vel-api-types -- --nocapture`, targeted app journal/search/command capture tests, `cargo test -p vel-cli capture -- --nocapture`, `cargo test -p vel-cli search -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - eighth DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo test -p vel-cli commands::import_::tests -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- ninth DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
