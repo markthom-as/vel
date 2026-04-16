@@ -135,7 +135,7 @@
 - [x] Preserve thread selection on rapid width changes.
 
 ### `clients/web/src/views/threads/ConversationList/ConversationList.tsx`
-- [ ] Add collapsible/compact list mode variant for split surfaces.
+- [x] Add collapsible/compact list mode variant for split surfaces.
 - [x] Keep action affordances for pin/archive/mute in iPad list width.
 
 ### `clients/web/src/shell/NudgeZone/NudgeZone.tsx`

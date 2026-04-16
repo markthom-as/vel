@@ -173,6 +173,44 @@ describe('ConversationList realtime sync', () => {
     })
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  it('supports a collapsible split-compact list variant', async () => {
+    vi.mocked(api.apiGet).mockResolvedValue({
+      ok: true,
+      data: [
+        buildConversation({
+          id: 'conv_split',
+          title: 'Split rail thread',
+          project_label: 'Vel',
+        }),
+      ],
+      meta: { request_id: 'req_threads_split' },
+    })
+
+    const view = render(
+      <ConversationList
+        selectedId="conv_split"
+        onSelect={() => {}}
+        variant="split-compact"
+        collapsible
+      />,
+    )
+
+    const row = await within(view.container).findByRole('button', { name: 'Split rail thread' })
+    expect(within(view.container).getByTestId('conversation-list-shell')).toHaveAttribute('data-list-variant', 'split-compact')
+    expect(within(view.container).getByTestId('conversation-list-shell')).toHaveAttribute('data-collapsed', 'false')
+    expect(row.className).toContain('min-h-11')
+    expect(within(row).getByText('Vel')).toBeInTheDocument()
+
+    fireEvent.click(within(view.container).getByRole('button', { name: 'Collapse compact thread list' }))
+
+    expect(within(view.container).getByTestId('conversation-list-shell')).toHaveAttribute('data-collapsed', 'true')
+    expect(within(view.container).queryByRole('button', { name: 'Split rail thread' })).not.toBeInTheDocument()
+
+    fireEvent.click(within(view.container).getByRole('button', { name: 'Expand compact thread list' }))
+
+    expect(await within(view.container).findByRole('button', { name: 'Split rail thread' })).toBeInTheDocument()
+  })
 })
 
 function buildConversation(overrides: Record<string, unknown> = {}) {

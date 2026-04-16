@@ -16,9 +16,17 @@ import { DotIcon, ThreadsIcon, WarningIcon } from '../../../core/Icons';
 interface ConversationListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  variant?: 'standard' | 'split-compact';
+  collapsible?: boolean;
 }
 
-export function ConversationList({ selectedId, onSelect }: ConversationListProps) {
+export function ConversationList({
+  selectedId,
+  onSelect,
+  variant = 'standard',
+  collapsible = false,
+}: ConversationListProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading, error } = useQuery<ConversationData[]>(
     conversationsKey,
@@ -55,34 +63,82 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   if (loading) return <SurfaceState message="Loading conversations…" />;
   if (error) return <SurfaceState message={error} tone="danger" />;
 
+  if (collapsible && collapsed) {
+    return (
+      <section
+        data-testid="conversation-list-shell"
+        data-list-variant={variant}
+        data-collapsed="true"
+        className="flex min-h-0 flex-col px-2 py-2"
+      >
+        <button
+          type="button"
+          aria-label="Expand compact thread list"
+          onClick={() => setCollapsed(false)}
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--vel-color-border)] px-2 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)] transition hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]"
+        >
+          Threads
+        </button>
+      </section>
+    );
+  }
+
   return (
-    <ul className="flex-1 space-y-1 overflow-y-auto px-2 py-2" aria-label="Conversations">
-      {conversations.map((conversation) => (
-        <ConversationRow
-          key={conversation.id}
-          conversation={conversation}
-          selected={selectedId === conversation.id}
-          onSelect={onSelect}
-          onPinnedChange={setConversationPinned}
-          onArchive={archiveConversation}
-        />
-      ))}
-      {conversations.length === 0 && (
-        <li><SurfaceState message="No conversations yet." /></li>
-      )}
-    </ul>
+    <section
+      data-testid="conversation-list-shell"
+      data-list-variant={variant}
+      data-collapsed="false"
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      {collapsible ? (
+        <div className="flex items-center justify-end px-2 pt-2">
+          <button
+            type="button"
+            aria-label="Collapse compact thread list"
+            onClick={() => setCollapsed(true)}
+            className="inline-flex min-h-8 items-center justify-center rounded-lg border border-[var(--vel-color-border)] px-2 text-[10px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)] transition hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]"
+          >
+            Hide
+          </button>
+        </div>
+      ) : null}
+      <ul
+        className={cn(
+          'flex-1 space-y-1 overflow-y-auto px-2 py-2',
+          variant === 'split-compact' ? 'py-1' : '',
+        )}
+        aria-label="Conversations"
+      >
+        {conversations.map((conversation) => (
+          <ConversationRow
+            key={conversation.id}
+            conversation={conversation}
+            selected={selectedId === conversation.id}
+            compact={variant === 'split-compact'}
+            onSelect={onSelect}
+            onPinnedChange={setConversationPinned}
+            onArchive={archiveConversation}
+          />
+        ))}
+        {conversations.length === 0 && (
+          <li><SurfaceState message="No conversations yet." /></li>
+        )}
+      </ul>
+    </section>
   );
 }
 
 function ConversationRow({
   conversation,
   selected,
+  compact,
   onSelect,
   onPinnedChange,
   onArchive,
 }: {
   conversation: ConversationData;
   selected: boolean;
+  compact: boolean;
   onSelect: (id: string) => void;
   onPinnedChange: (conversation: ConversationData, pinned: boolean) => Promise<void>;
   onArchive: (conversation: ConversationData) => Promise<void>;
@@ -117,7 +173,8 @@ function ConversationRow({
         aria-current={selected ? 'true' : undefined}
         data-conversation-id={conversation.id}
         className={cn(
-          'group relative flex min-h-14 w-full items-stretch gap-3 rounded-lg border px-3 py-2 text-left transition',
+          'group relative flex w-full items-stretch rounded-lg border text-left transition',
+          compact ? 'min-h-11 gap-2 px-2 py-1.5' : 'min-h-14 gap-3 px-3 py-2',
           selected
             ? 'border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-[var(--vel-color-text)] shadow-[0_0_0_1px_rgba(255,107,0,0.12)]'
             : 'border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)]/40 text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-text)]',
@@ -129,9 +186,12 @@ function ConversationRow({
           aria-current={selected ? 'true' : undefined}
           aria-label={`${title}${hasContinuation ? ', unread continuation' : ''}${needsReview ? ', needs review' : ''}`}
           data-conversation-id={conversation.id}
-          className="flex min-h-14 min-w-0 flex-1 items-stretch gap-3 text-left"
+          className={cn(
+            'flex min-w-0 flex-1 items-stretch text-left',
+            compact ? 'min-h-11 gap-2' : 'min-h-14 gap-3',
+          )}
         >
-          <span className="flex w-5 shrink-0 items-start justify-center pt-1.5">
+          <span className={cn('flex shrink-0 items-start justify-center', compact ? 'w-4 pt-1' : 'w-5 pt-1.5')}>
             {hasContinuation ? (
               <span aria-label="Unread continuation" role="img" className="text-[var(--vel-color-accent)]">
                 <DotIcon size={10} />
@@ -161,7 +221,9 @@ function ConversationRow({
               {conversation.project_label ? (
                 <FilterDenseTag tone="muted" casing="normal">{conversation.project_label}</FilterDenseTag>
               ) : null}
-              <span className="shrink-0 text-[11px] text-[var(--vel-color-muted)]">{formatTs(updatedAt)}</span>
+              {compact ? null : (
+                <span className="shrink-0 text-[11px] text-[var(--vel-color-muted)]">{formatTs(updatedAt)}</span>
+              )}
             </span>
           </span>
         </button>
