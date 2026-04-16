@@ -2350,26 +2350,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncClusterStateData {
-    #[serde(default)]
-    pub cluster_view_version: Option<i64>,
-    #[serde(default)]
-    pub authority_node_id: Option<String>,
-    #[serde(default)]
-    pub authority_epoch: Option<i64>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub cluster: Option<ClusterBootstrapData>,
-    #[serde(default)]
-    pub nodes: Vec<ClusterNodeStateData>,
-    #[serde(default)]
-    pub workers: Vec<ClusterWorkerStateData>,
-    #[serde(default)]
-    pub clients: Vec<SwarmClientData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerCapacityData {
     pub max_concurrency: u32,
     pub current_load: u32,

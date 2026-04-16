@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::UnixSeconds;
+use crate::{ClusterBootstrapData, UnixSeconds};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchSyncCapabilityData {
@@ -423,4 +423,24 @@ pub struct SwarmClientData {
     pub queue_depth: Option<u32>,
     #[serde(default)]
     pub active_work: Vec<SwarmClientActiveWorkData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncClusterStateData {
+    #[serde(default)]
+    pub cluster_view_version: Option<i64>,
+    #[serde(default)]
+    pub authority_node_id: Option<String>,
+    #[serde(default)]
+    pub authority_epoch: Option<i64>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub cluster: Option<ClusterBootstrapData>,
+    #[serde(default)]
+    pub nodes: Vec<ClusterNodeStateData>,
+    #[serde(default)]
+    pub workers: Vec<ClusterWorkerStateData>,
+    #[serde(default)]
+    pub clients: Vec<SwarmClientData>,
 }
