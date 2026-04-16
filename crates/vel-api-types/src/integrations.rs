@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use vel_core::{IntegrationConnectionId, IntegrationFamily};
+
+use crate::UnixSeconds;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -78,4 +81,36 @@ impl From<IntegrationSourceRefData> for vel_core::IntegrationSourceRef {
             external_id: value.external_id,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationConnectionSettingRefData {
+    pub setting_key: String,
+    pub setting_value: String,
+    pub created_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationConnectionData {
+    pub id: String,
+    pub family: String,
+    pub provider_key: String,
+    pub status: String,
+    pub display_name: String,
+    pub account_ref: Option<String>,
+    pub metadata: JsonValue,
+    pub created_at: UnixSeconds,
+    pub updated_at: UnixSeconds,
+    #[serde(default)]
+    pub setting_refs: Vec<IntegrationConnectionSettingRefData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationConnectionEventData {
+    pub id: String,
+    pub connection_id: String,
+    pub event_type: String,
+    pub payload: JsonValue,
+    pub timestamp: UnixSeconds,
+    pub created_at: UnixSeconds,
 }
