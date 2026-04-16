@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::{ClusterBootstrapData, UnixSeconds};
+use crate::{ClusterBootstrapData, LinkingPromptData, UnixSeconds};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchSyncCapabilityData {
@@ -456,4 +456,42 @@ pub struct WorkerCapacityData {
 pub struct SyncResultData {
     pub source: String,
     pub signals_ingested: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerPresenceData {
+    pub worker_id: String,
+    pub node_id: String,
+    pub node_display_name: String,
+    pub client_kind: Option<String>,
+    pub client_version: Option<String>,
+    pub protocol_version: Option<String>,
+    pub build_id: Option<String>,
+    pub worker_classes: Vec<String>,
+    pub capabilities: Vec<String>,
+    pub status: String,
+    pub queue_depth: u32,
+    pub reachability: String,
+    pub latency_class: String,
+    pub compute_class: String,
+    pub power_class: String,
+    pub recent_failure_rate: f64,
+    pub tailscale_preferred: bool,
+    pub last_heartbeat_at: UnixSeconds,
+    pub started_at: UnixSeconds,
+    pub sync_base_url: String,
+    pub sync_transport: String,
+    pub tailscale_base_url: Option<String>,
+    pub preferred_tailnet_endpoint: Option<String>,
+    pub tailscale_reachable: bool,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub ping_ms: Option<u32>,
+    pub sync_status: Option<String>,
+    pub last_upstream_sync_at: Option<UnixSeconds>,
+    pub last_downstream_sync_at: Option<UnixSeconds>,
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub incoming_linking_prompt: Option<LinkingPromptData>,
+    pub capacity: WorkerCapacityData,
 }
