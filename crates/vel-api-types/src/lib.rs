@@ -27,6 +27,7 @@ mod loops;
 mod nudges;
 mod people;
 mod projects;
+mod provenance;
 mod responses;
 mod reviews;
 mod runs;
@@ -57,6 +58,7 @@ pub use loops::*;
 pub use nudges::*;
 pub use people::*;
 pub use projects::*;
+pub use provenance::*;
 pub use responses::*;
 pub use reviews::*;
 pub use runs::*;
@@ -2523,23 +2525,6 @@ pub struct InboxItemData {
 pub struct InterventionActionData {
     pub id: String,
     pub state: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProvenanceData {
-    pub message_id: String,
-    pub events: Vec<ProvenanceEvent>,
-    pub signals: Vec<JsonValue>,
-    pub policy_decisions: Vec<JsonValue>,
-    pub linked_objects: Vec<JsonValue>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProvenanceEvent {
-    pub id: String,
-    pub event_name: String,
-    pub created_at: UnixSeconds,
-    pub payload: JsonValue,
 }
 
 // --- Commitments ---
