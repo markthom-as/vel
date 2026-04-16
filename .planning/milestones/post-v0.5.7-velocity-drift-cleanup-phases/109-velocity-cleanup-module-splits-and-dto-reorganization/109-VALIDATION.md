@@ -22,6 +22,7 @@
 - tenth DTO slice: `projects` module also owns project create/list route wrapper DTOs, with root re-exports preserving project route, service, and CLI imports
 - eleventh DTO slice: `actions` module owns shared action route primitive DTOs, with root re-exports preserving Now, review, chat, and client imports
 - twelfth DTO slice: `actions` module also owns `ActionItemData`, with root re-exports preserving cluster bootstrap, Now, inbox, and trust-readiness DTO references
+- thirteenth DTO slice: `reviews` module owns `ReviewSnapshotData`, with root re-exports preserving Now, agent review obligations, CLI review, and execution-context fallback references
 
 ### Automated
 
@@ -43,6 +44,7 @@
 - tenth DTO slice: `cargo test -p vel-api-types project_create_request_serializes_project_contract -- --nocapture`, `cargo test -p veld project_service_create_is_local_first -- --nocapture`, `cargo test -p veld project_routes_create_list_and_get_records -- --nocapture`, `cargo test -p vel-cli project_list_command_json_prints_project_records -- --nocapture`, `cargo check -p vel-api-types`
 - eleventh DTO slice: `cargo test -p vel-api-types action_item_timestamps_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twelfth DTO slice: `cargo test -p vel-api-types action_item_timestamps_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- thirteenth DTO slice: `cargo test -p vel-api-types review_snapshot_default_serializes_named_counts -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
