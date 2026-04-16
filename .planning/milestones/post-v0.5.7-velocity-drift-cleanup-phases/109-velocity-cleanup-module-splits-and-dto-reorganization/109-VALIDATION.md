@@ -82,6 +82,7 @@
 - seventy-second DTO slice: `assistant_entry` module owns assistant-entry request/response, attachment/provenance, follow-up, recall context, and assistant context DTOs, with root re-exports preserving chat routes/services, CLI/web/Apple assistant entry surfaces, and context contract tests
 - seventy-third DTO slice: `components` module owns component status and component log event DTOs, with root re-exports preserving component routes, CLI, web decoders, websocket cache payloads, and tests
 - seventy-fourth DTO slice: `integrations` module owns integration log event DTOs, with root re-exports preserving integration routes, CLI summaries, web decoders, and tests
+- seventy-fifth DTO slice: `suggestions` module owns suggestion list/detail/action DTOs, with root re-exports preserving suggestion routes, CLI commands, explain adaptive-policy references, and tests
 
 ### Automated
 
@@ -163,6 +164,7 @@
 - seventy-second DTO slice: `cargo test -p vel-api-types recall_context_round_trips_named_counts_and_scores --lib -- --nocapture`, `cargo test -p vel-api-types assistant_context_round_trips_summary_and_focus_lines --lib -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - seventy-third DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`, `cargo test -p vel-cli components -- --nocapture`
 - seventy-fourth DTO slice: `cargo check -p vel-api-types`, `cargo test -p vel-cli integrations -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- seventy-fifth DTO slice: `cargo check -p vel-api-types`, `cargo test -p vel-cli suggestion -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
