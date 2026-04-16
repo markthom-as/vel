@@ -51,6 +51,7 @@
 - thirty-ninth DTO slice: `sync` module owns `ClusterWorkerStateData`, with root re-exports preserving cluster state route worker references
 - fortieth DTO slice: `sync` module owns `SwarmClientData`, with root re-exports preserving cluster state and swarm clients response references
 - forty-first DTO slice: `sync` module owns `SyncClusterStateData`, with root re-exports preserving cluster state route and CLI references
+- forty-second DTO slice: `sync` module owns `WorkerCapacityData`, with root re-exports preserving worker presence capacity references
 
 ### Automated
 
@@ -101,6 +102,7 @@
 - thirty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fortieth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-first DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- forty-second DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

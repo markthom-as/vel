@@ -2350,13 +2350,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerCapacityData {
-    pub max_concurrency: u32,
-    pub current_load: u32,
-    pub available_concurrency: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerPresenceData {
     pub worker_id: String,
     pub node_id: String,

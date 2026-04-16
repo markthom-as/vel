@@ -444,3 +444,10 @@ pub struct SyncClusterStateData {
     #[serde(default)]
     pub clients: Vec<SwarmClientData>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerCapacityData {
+    pub max_concurrency: u32,
+    pub current_load: u32,
+    pub available_concurrency: u32,
+}
