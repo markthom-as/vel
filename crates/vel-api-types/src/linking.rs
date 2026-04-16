@@ -39,3 +39,12 @@ impl From<vel_core::LinkScope> for LinkScopeData {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkTargetSuggestionData {
+    pub label: String,
+    pub base_url: String,
+    pub transport_hint: String,
+    pub recommended: bool,
+    pub redeem_command_hint: String,
+}

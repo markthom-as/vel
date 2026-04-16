@@ -2361,15 +2361,6 @@ pub struct PairingTokenData {
     pub bootstrap_artifact: Option<TrustBootstrapArtifactData>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LinkTargetSuggestionData {
-    pub label: String,
-    pub base_url: String,
-    pub transport_hint: String,
-    pub recommended: bool,
-    pub redeem_command_hint: String,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TrustedNodeEndpointKindData {
