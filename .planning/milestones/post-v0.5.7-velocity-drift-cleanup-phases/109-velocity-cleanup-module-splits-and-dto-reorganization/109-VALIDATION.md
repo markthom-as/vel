@@ -33,6 +33,7 @@
 - twenty-first DTO slice: `linking` module owns `PairingTokenData`, with root re-exports preserving linking routes, node CLI, and pairing datetime tests
 - twenty-second DTO slice: `linking` module owns `LinkingPromptData`, with root re-exports preserving worker presence, sync bootstrap, and linking route references
 - twenty-third DTO slice: `linking` module owns `LinkedNodeData` and the pairing/linking datetime contract test, with root re-exports preserving cluster, sync, route, and CLI references
+- twenty-fourth DTO slice: `sync` module owns branch-sync capability and validation-profile DTOs, with root re-exports preserving cluster and sync route references
 
 ### Automated
 
@@ -65,6 +66,7 @@
 - twenty-first DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-second DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-third DTO slice: `cargo test -p vel-api-types pairing_and_linking_datetimes_serialize_as_rfc3339_strings -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- twenty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

@@ -26,6 +26,7 @@ mod people;
 mod projects;
 mod responses;
 mod reviews;
+mod sync;
 mod writebacks;
 
 pub use actions::*;
@@ -46,6 +47,7 @@ pub use people::*;
 pub use projects::*;
 pub use responses::*;
 pub use reviews::*;
+pub use sync::*;
 pub use writebacks::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2343,23 +2345,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
             thread_id: value.thread_id,
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchSyncCapabilityData {
-    pub repo_root: String,
-    pub default_remote: String,
-    pub supports_fetch: bool,
-    pub supports_pull: bool,
-    pub supports_push: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationProfileData {
-    pub profile_id: String,
-    pub label: String,
-    pub command_hint: String,
-    pub environment: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
