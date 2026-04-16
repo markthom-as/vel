@@ -96,7 +96,7 @@ Milestone `0.5.3` delivered:
 
 `0.5.7` is now deferred.
 
-`0.5.8` is now the active planning-tooling milestone.
+`0.5.8` is now closed as the planning-tooling compatibility-bridge milestone.
 
 ## Deferred Milestone: v0.5.7 Hybrid Duplex Voice Runtime
 
@@ -116,22 +116,22 @@ Deferred packet:
 - [v0.5.7-phases](/home/jove/code/vel/.planning/milestones/v0.5.7-phases)
 - [hybrid-duplex-voice-runtime-spec.md](/home/jove/code/vel/docs/future/hybrid-duplex-voice-runtime-spec.md)
 
-## Active Milestone: v0.5.8 GSD Migration and Phase Reset
+## Closed Milestone: v0.5.8 GSD Migration and Phase Reset
 
-`0.5.8` is active as the planning-tooling stabilization line.
+`0.5.8` is complete as the planning-tooling stabilization line.
 
 Milestone `0.5.8` exists to make the repo’s GSD workflow truthful before larger feature work resumes:
 
 - inventory the repo’s current dependency on the local `get-shit-done` install
-- evaluate whether `GSD 2` is safe to adopt
-- implement an honest migration, compatibility bridge, or explicit defer path
+- evaluated whether `GSD 2` is safe to adopt
+- implemented an honest compatibility bridge
 - keep active milestone discovery milestone-local with `01`-based phases
 
 ### Active Packet
 
-- [v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md)
-- [v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md)
-- [v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md)
+- [v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md](/Users/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md)
+- [v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md](/Users/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md)
+- [v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md](/Users/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md)
 
 ### Scope Guardrails
 
@@ -153,9 +153,9 @@ The active `0.5.8` line should remain bounded by:
 
 ### Phases
 
-- [ ] **Phase 01: GSD 2 readiness and compatibility audit** - prove what the repo depends on before any cutover.
-- [ ] **Phase 02: GSD 2 migration cutover and Codex integration** - implement the chosen migration or compatibility path.
-- [ ] **Phase 03: GSD 2 verification and closeout** - verify the planning workflow behaves predictably after the change.
+- [x] **Phase 01: GSD 2 readiness and compatibility audit** - proved what the repo depends on before any cutover.
+- [x] **Phase 02: GSD 2 migration cutover and Codex integration** - selected and documented the compatibility bridge path.
+- [x] **Phase 03: GSD 2 verification and closeout** - verified the compatibility bridge and recorded residual helper/runtime dependency debt.
 
 ### Progress
 
@@ -163,9 +163,9 @@ The active `0.5.8` line should remain bounded by:
 
 | Phase | Requirements | Status |
 |-------|--------------|--------|
-| 01. GSD 2 readiness and compatibility audit | AUDIT-58-01, STATE-58-01 | Planned |
-| 02. GSD 2 migration cutover and Codex integration | MIGRATE-58-01, STATE-58-01 | Planned |
-| 03. GSD 2 verification and closeout | VERIFY-58-01 | Planned |
+| 01. GSD 2 readiness and compatibility audit | AUDIT-58-01, STATE-58-01 | Complete |
+| 02. GSD 2 migration cutover and Codex integration | MIGRATE-58-01, STATE-58-01 | Complete |
+| 03. GSD 2 verification and closeout | VERIFY-58-01 | Complete |
 
 ### Phase Details
 
@@ -174,30 +174,39 @@ The active `0.5.8` line should remain bounded by:
 **Goal:** prove what the repo currently depends on before any toolchain cutover.
 **Requirements:** AUDIT-58-01, STATE-58-01
 **Depends on:** deferred `0.5.7` closeout
+**Status:** COMPLETE
 **Success Criteria:**
 1. Current `get-shit-done` entrypoints, local install paths, and repo-specific assumptions are enumerated concretely.
 2. `GSD 2` compatibility gaps and migration blockers are documented with enough specificity to drive an honest cutover decision.
 3. Rollback needs and fallback options are identified before any migration claims are made.
+
+**Evidence:** [01-GSD-MIGRATION-AUDIT.md](phases/01-gsd2-readiness-and-compatibility-audit/01-GSD-MIGRATION-AUDIT.md) and [01-01-SUMMARY.md](phases/01-gsd2-readiness-and-compatibility-audit/01-01-SUMMARY.md).
 
 ### Phase 02: GSD 2 migration cutover and Codex integration
 
 **Goal:** implement the chosen migration or compatibility path without leaving workflow expectations ambiguous.
 **Requirements:** MIGRATE-58-01, STATE-58-01
 **Depends on:** Phase 01
+**Status:** COMPLETE
 **Success Criteria:**
 1. The selected migration, bridge, or explicit defer mechanism is implemented.
 2. Repo-local docs and workflow entrypoints match the actual toolchain behavior.
 3. `.planning/phases/` remains cleanly limited to the active milestone packet.
+
+**Evidence:** [02-V1-COMPATIBILITY-BRIDGE.md](phases/02-gsd2-migration-cutover-and-codex-integration/02-V1-COMPATIBILITY-BRIDGE.md) and [02-01-SUMMARY.md](phases/02-gsd2-migration-cutover-and-codex-integration/02-01-SUMMARY.md).
 
 ### Phase 03: GSD 2 verification and closeout
 
 **Goal:** verify that the planning workflow behaves predictably after the chosen change.
 **Requirements:** VERIFY-58-01
 **Depends on:** Phase 02
+**Status:** COMPLETE
 **Success Criteria:**
 1. Common workflows such as roadmap analysis, health checks, progress routing, and cleanup are exercised directly.
 2. Residual migration debt is recorded explicitly instead of being hidden under optimistic milestone language.
 3. Closeout language matches what was actually verified.
+
+**Evidence:** [03-VALIDATION.md](phases/03-gsd2-verification-and-closeout/03-VALIDATION.md), [03-VERIFICATION.md](phases/03-gsd2-verification-and-closeout/03-VERIFICATION.md), and [03-01-SUMMARY.md](phases/03-gsd2-verification-and-closeout/03-01-SUMMARY.md).
 
 ### Queued Cleanup Packets
 

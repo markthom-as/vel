@@ -41,15 +41,15 @@ This milestone is complete only when all are true:
 - Covers: R001, R002, R003, R004
 - Partially covers: none
 - Leaves for later: none
-- Orphan risks: mismatch between upstream `GSD 2` docs and shipped CLI surface until separately resolved
+- Orphan risks: mismatch between upstream `GSD 2` docs, installed `gsd-pi` runtime/dependency behavior, and shipped CLI surface until separately resolved
 
 ## Slices
 
 - [x] **S01: GSD 2 Readiness and Compatibility Audit** `risk:high` `depends:[]`
   > After this: the repo’s real v1 dependency surface and migration blockers are documented concretely enough to drive the next step.
-- [ ] **S02: GSD 2 Migration Cutover and Codex Integration** `risk:high` `depends:[S01]`
+- [x] **S02: GSD 2 Migration Cutover and Codex Integration** `risk:high` `depends:[S01]`
   > After this: the chosen migration or compatibility path is wired in and repo-local workflow expectations match the actual toolchain state.
-- [ ] **S03: GSD 2 Verification and Closeout** `risk:medium` `depends:[S02]`
+- [x] **S03: GSD 2 Verification and Closeout** `risk:medium` `depends:[S02]`
   > After this: common planning workflows have direct verification evidence and milestone closeout language can stay honest.
 
 ## Boundary Map

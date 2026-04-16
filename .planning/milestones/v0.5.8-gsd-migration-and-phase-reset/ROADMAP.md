@@ -1,12 +1,12 @@
 # Milestone v0.5.8: GSD Migration and Phase Reset
 
-**Status:** IN PROGRESS
-**Milestone:** v0.5.8  
+**Status:** COMPLETE
+**Milestone:** v0.5.8
 **Theme:** stabilize GSD workflow state before larger follow-on work
 
 ## Overview
 
-`v0.5.8` becomes the active follow-on after `v0.5.7` was deferred as future duplex work.
+`v0.5.8` is complete as the active follow-on after `v0.5.7` was deferred as future duplex work.
 
 Its purpose is to make planning workflow state reliable again before reopening larger feature delivery:
 
@@ -17,9 +17,9 @@ Its purpose is to make planning workflow state reliable again before reopening l
 
 ## Active Packet
 
-- [ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md)
-- [REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md)
-- [13-NEXT-STEPS.md](/home/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md)
+- [ROADMAP.md](/Users/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/ROADMAP.md)
+- [REQUIREMENTS.md](/Users/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/REQUIREMENTS.md)
+- [13-NEXT-STEPS.md](/Users/jove/code/vel/.planning/milestones/v0.5.8-gsd-migration-and-phase-reset/13-NEXT-STEPS.md)
 
 ## In Scope
 
@@ -32,7 +32,7 @@ Its purpose is to make planning workflow state reliable again before reopening l
 
 - reopening duplex voice implementation in this milestone
 - renumbering archived historical phase packets
-- pretending a migration happened if compatibility is not demonstrated
+- pretending a migration happened if runtime wiring, dependency completeness, and command equivalence are not demonstrated
 - widening this line into unrelated product or UI work
 
 ## Requirement Buckets
@@ -48,9 +48,9 @@ Its purpose is to make planning workflow state reliable again before reopening l
 
 ### Phase 01: GSD 2 readiness and compatibility audit
 
-**Goal:** prove what the repo currently depends on before any toolchain cutover.  
-**Depends on:** deferred `0.5.7` closeout  
-**Status:** NOT STARTED
+**Goal:** prove what the repo currently depends on before any toolchain cutover.
+**Depends on:** deferred `0.5.7` closeout
+**Status:** COMPLETE
 
 Expected outcomes:
 
@@ -58,11 +58,16 @@ Expected outcomes:
 - concrete incompatibilities between the current setup and `GSD 2` are identified
 - migration preconditions, fallback needs, and rollback shape are documented
 
+Evidence:
+
+- [01-GSD-MIGRATION-AUDIT.md](/Users/jove/code/vel/.planning/phases/01-gsd2-readiness-and-compatibility-audit/01-GSD-MIGRATION-AUDIT.md)
+- [01-01-SUMMARY.md](/Users/jove/code/vel/.planning/phases/01-gsd2-readiness-and-compatibility-audit/01-01-SUMMARY.md)
+
 ### Phase 02: GSD 2 migration cutover and Codex integration
 
-**Goal:** implement the chosen migration or compatibility path without breaking repo-local workflows.  
-**Depends on:** Phase 01  
-**Status:** QUEUED
+**Goal:** implement the chosen migration or compatibility path without breaking repo-local workflows.
+**Depends on:** Phase 01
+**Status:** COMPLETE
 
 Expected outcomes:
 
@@ -70,17 +75,28 @@ Expected outcomes:
 - repo-local docs and workflow entrypoints match the actual installed behavior
 - milestone-local phase numbering and active-state discovery remain stable after the change
 
+Evidence:
+
+- [02-V1-COMPATIBILITY-BRIDGE.md](/Users/jove/code/vel/.planning/phases/02-gsd2-migration-cutover-and-codex-integration/02-V1-COMPATIBILITY-BRIDGE.md)
+- [02-01-SUMMARY.md](/Users/jove/code/vel/.planning/phases/02-gsd2-migration-cutover-and-codex-integration/02-01-SUMMARY.md)
+
 ### Phase 03: GSD 2 verification and closeout
 
-**Goal:** verify that the planning workflow behaves predictably after the chosen change.  
-**Depends on:** Phase 02  
-**Status:** QUEUED
+**Goal:** verify that the planning workflow behaves predictably after the chosen change.
+**Depends on:** Phase 02
+**Status:** COMPLETE
 
 Expected outcomes:
 
 - roadmap and health tooling are exercised against the updated planning state
 - common repo flows such as progress, next-step routing, cleanup, and milestone creation are checked directly
-- residual migration debt is recorded explicitly instead of being hidden under a “finished” claim
+- residual migration debt, including `gsd-pi` runtime/dependency gaps, is recorded explicitly instead of being hidden under a “finished” claim
+
+Evidence:
+
+- [03-VALIDATION.md](/Users/jove/code/vel/.planning/phases/03-gsd2-verification-and-closeout/03-VALIDATION.md)
+- [03-VERIFICATION.md](/Users/jove/code/vel/.planning/phases/03-gsd2-verification-and-closeout/03-VERIFICATION.md)
+- [03-01-SUMMARY.md](/Users/jove/code/vel/.planning/phases/03-gsd2-verification-and-closeout/03-01-SUMMARY.md)
 
 ## Execution Order
 

@@ -8,7 +8,7 @@
 
 `0.5.7` is deferred as future duplex voice work.
 
-`0.5.8` is now active as the GSD migration and phase-reset line.
+`0.5.8` is closed as the GSD compatibility-bridge and phase-reset line.
 
 ## Closed `0.5.5` Requirement Buckets
 
@@ -40,14 +40,14 @@
 | CALL-57-01 | Duplex thread call mode behavior remains future work and did not ship in `0.5.7`. |
 | VERIFY-57-01 | Formal validation and real-device proof remain future work and did not ship in `0.5.7`. |
 
-## Active `0.5.8` Requirement Buckets
+## Closed `0.5.8` Requirement Buckets
 
 | ID | Requirement |
 |----|-------------|
-| AUDIT-58-01 | Current `get-shit-done` v1 dependencies, assumptions, and risks are inventoried before cutover. |
-| MIGRATE-58-01 | The chosen migration, compatibility, or explicit defer path is implemented honestly. |
-| STATE-58-01 | Active planning state remains milestone-local and no archived packet is treated as live work. |
-| VERIFY-58-01 | Direct workflow checks prove the repo is not left in a speculative planning-tool state. |
+| AUDIT-58-01 | Current `get-shit-done` v1 dependencies, assumptions, and risks were inventoried before cutover. |
+| MIGRATE-58-01 | The chosen compatibility bridge path was implemented honestly. |
+| STATE-58-01 | Active planning state remained milestone-local and no archived packet was treated as live work. |
+| VERIFY-58-01 | Direct workflow checks proved the repo was not left in a speculative planning-tool state. |
 
 ## Governing Packet
 
@@ -72,5 +72,5 @@
 
 ## Next Step
 
-- begin Phase `01` planning for `0.5.8` by auditing the current local GSD install and repo-specific workflow assumptions
-- decide whether this repo should migrate to `GSD 2`, add a compatibility bridge, or defer with explicit rationale
+- decide whether to address residual v1 helper label debt before opening the next feature milestone
+- do not claim full GSD 2 migration until the installed `gsd-pi` surface is runtime-wired, dependency-complete for required workflows, and verified against the v1 Codex workflow equivalents

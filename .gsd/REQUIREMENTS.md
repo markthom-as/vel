@@ -4,40 +4,20 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Active
 
-### R002 — Implement an honest GSD path for this repo
-- Class: operability
-- Status: active
-- Description: The chosen path must be implemented honestly as a `GSD 2` migration, a compatibility bridge, or an explicit defer decision.
-- Why it matters: The repo should not imply a migration happened if workflow-critical surfaces still depend on v1-only behavior.
-- Source: execution
-- Primary owning slice: M001/S02
-- Supporting slices: M001/S03
-- Validation: mapped
-- Notes: Phase 02 has begun via a compatibility-bridge path, but the full repo-level path is not yet closed out.
+None.
 
-### R003 — Keep active planning state milestone-local and truthful
-- Class: continuity
-- Status: active
-- Description: Active planning state must stay milestone-local with `01`-based phases, and no archived packet should be treated as live work.
-- Why it matters: Bad milestone discovery or wrong archive targeting makes planning state untrustworthy.
-- Source: execution
-- Primary owning slice: M001/S02
-- Supporting slices: M001/S03
-- Validation: partial
-- Notes: S01 proved the existing v1 milestone-resolution bug; S02 is responsible for keeping active-state discovery clean.
+## Validated
 
 ### R004 — Verify common planning workflows directly after the change
 - Class: failure-visibility
-- Status: active
+- Status: validated
 - Description: Common workflows such as progress, cleanup, roadmap analysis, and milestone creation must be exercised directly after the chosen change.
 - Why it matters: A planning-tool change is not done until the actual operator workflow still behaves predictably.
 - Source: execution
 - Primary owning slice: M001/S03
 - Supporting slices: M001/S02
-- Validation: mapped
-- Notes: Closeout must be based on direct workflow checks, not optimistic milestone language.
-
-## Validated
+- Validation: validated
+- Notes: Proven by S03 direct workflow checks; residual v1 milestone-label debt remains recorded for future tool work.
 
 ### R001 — Inventory current v1 dependency and migration constraints
 - Class: operability
@@ -49,6 +29,28 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: none
 - Validation: validated
 - Notes: Proven by the completed readiness audit and command-backed evidence recorded in S01.
+
+### R002 — Implement an honest GSD path for this repo
+- Class: operability
+- Status: validated
+- Description: The chosen path must be implemented honestly as a `GSD 2` migration, a compatibility bridge, or an explicit defer decision.
+- Why it matters: The repo should not imply a migration happened if workflow-critical surfaces still depend on v1-only behavior.
+- Source: execution
+- Primary owning slice: M001/S02
+- Supporting slices: M001/S03
+- Validation: validated
+- Notes: Phase 02 selected a compatibility bridge and preserved v1 command authority while `gsd-pi` remains only partially verified: runtime `PATH` must prefer Node `>=22`, and `graph status` is blocked by missing `@gsd-build/mcp-server`.
+
+### R003 — Keep active planning state milestone-local and truthful
+- Class: continuity
+- Status: validated
+- Description: Active planning state must stay milestone-local with `01`-based phases, and no archived packet should be treated as live work.
+- Why it matters: Bad milestone discovery or wrong archive targeting makes planning state untrustworthy.
+- Source: execution
+- Primary owning slice: M001/S02
+- Supporting slices: M001/S03
+- Validation: validated
+- Notes: Phase 02 verified active `.planning/phases/` contains only the `0.5.8` phase packet and documented dual-state bridge rules.
 
 ## Deferred
 
@@ -83,15 +85,15 @@ None.
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
 | R001 | operability | validated | M001/S01 | none | validated |
-| R002 | operability | active | M001/S02 | M001/S03 | mapped |
-| R003 | continuity | active | M001/S02 | M001/S03 | partial |
-| R004 | failure-visibility | active | M001/S03 | M001/S02 | mapped |
+| R002 | operability | validated | M001/S02 | M001/S03 | validated |
+| R003 | continuity | validated | M001/S02 | M001/S03 | validated |
+| R004 | failure-visibility | validated | M001/S03 | M001/S02 | validated |
 | R005 | anti-feature | out-of-scope | none | none | n/a |
 | R006 | constraint | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 3
+- Active requirements: 0
 - Mapped to slices: 3
-- Validated: 1
+- Validated: 4
 - Unmapped active requirements: 0
