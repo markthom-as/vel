@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PersonId, PrivacyClass,
+    ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass,
     ProjectId, RiskFactors, RiskSnapshot, RunId, SyncClass,
 };
 
@@ -21,6 +21,7 @@ mod connect;
 mod doctor;
 mod health;
 mod integrations;
+mod people;
 mod projects;
 mod responses;
 mod reviews;
@@ -39,6 +40,7 @@ pub use connect::*;
 pub use doctor::*;
 pub use health::*;
 pub use integrations::*;
+pub use people::*;
 pub use projects::*;
 pub use responses::*;
 pub use reviews::*;
@@ -2339,82 +2341,6 @@ impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusDa
             thread_id: value.thread_id,
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonAliasData {
-    pub platform: String,
-    pub handle: String,
-    pub display: String,
-    pub source_ref: Option<IntegrationSourceRefData>,
-}
-
-impl From<vel_core::PersonAlias> for PersonAliasData {
-    fn from(value: vel_core::PersonAlias) -> Self {
-        Self {
-            platform: value.platform,
-            handle: value.handle,
-            display: value.display,
-            source_ref: value.source_ref.map(Into::into),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonLinkRefData {
-    pub kind: String,
-    pub id: String,
-    pub label: String,
-}
-
-impl From<vel_core::PersonLinkRef> for PersonLinkRefData {
-    fn from(value: vel_core::PersonLinkRef) -> Self {
-        Self {
-            kind: value.kind,
-            id: value.id,
-            label: value.label,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonRecordData {
-    pub id: PersonId,
-    pub display_name: String,
-    pub given_name: Option<String>,
-    pub family_name: Option<String>,
-    pub relationship_context: Option<String>,
-    pub birthday: Option<String>,
-    #[serde(with = "time::serde::rfc3339::option")]
-    pub last_contacted_at: Option<OffsetDateTime>,
-    #[serde(default)]
-    pub aliases: Vec<PersonAliasData>,
-    #[serde(default)]
-    pub links: Vec<PersonLinkRefData>,
-}
-
-impl From<vel_core::PersonRecord> for PersonRecordData {
-    fn from(value: vel_core::PersonRecord) -> Self {
-        Self {
-            id: value.id,
-            display_name: value.display_name,
-            given_name: value.given_name,
-            family_name: value.family_name,
-            relationship_context: value.relationship_context,
-            birthday: value.birthday,
-            last_contacted_at: value.last_contacted_at,
-            aliases: value.aliases.into_iter().map(Into::into).collect(),
-            links: value.links.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonAliasUpsertRequestData {
-    pub platform: String,
-    pub handle: String,
-    pub display: Option<String>,
-    pub source_ref: Option<IntegrationSourceRefData>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

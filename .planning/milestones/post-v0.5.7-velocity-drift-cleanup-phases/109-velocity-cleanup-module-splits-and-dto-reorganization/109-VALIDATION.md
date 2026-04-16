@@ -25,6 +25,7 @@
 - thirteenth DTO slice: `reviews` module owns `ReviewSnapshotData`, with root re-exports preserving Now, agent review obligations, CLI review, and execution-context fallback references
 - fourteenth DTO slice: `writebacks` module owns writeback target, risk, status, kind, and operation DTOs, with root re-exports preserving sync, cluster, Now, and agent-grounding references
 - fifteenth DTO slice: `conflicts` module owns conflict case kind/status/record DTOs, with root re-exports preserving sync, cluster, Now, and agent-grounding references
+- sixteenth DTO slice: `people` module owns person alias, link ref, record, and alias upsert DTOs, with root re-exports preserving people route, sync, cluster, Now, review, and agent-grounding references
 
 ### Automated
 
@@ -49,6 +50,7 @@
 - thirteenth DTO slice: `cargo test -p vel-api-types review_snapshot_default_serializes_named_counts -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fourteenth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifteenth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- sixteenth DTO slice: `cargo test -p vel-api-types person_record_last_contacted_at_serializes_as_rfc3339_string -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
