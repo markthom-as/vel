@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::{ClusterBootstrapData, LinkingPromptData, UnixSeconds};
+use crate::{
+    ActionItemData, ConflictCaseData, LinkedNodeData, LinkingPromptData, PersonRecordData,
+    ProjectRecordData, UnixSeconds, WritebackOperationData,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchSyncCapabilityData {
@@ -18,6 +21,38 @@ pub struct ValidationProfileData {
     pub label: String,
     pub command_hint: String,
     pub environment: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterBootstrapData {
+    pub node_id: String,
+    pub node_display_name: String,
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    pub configured_base_url: String,
+    pub sync_base_url: String,
+    pub sync_transport: String,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_sync: Option<BranchSyncCapabilityData>,
+    #[serde(default)]
+    pub validation_profiles: Vec<ValidationProfileData>,
+    #[serde(default)]
+    pub linked_nodes: Vec<LinkedNodeData>,
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+    #[serde(default)]
+    pub action_items: Vec<ActionItemData>,
+    #[serde(default)]
+    pub pending_writebacks: Vec<WritebackOperationData>,
+    #[serde(default)]
+    pub conflicts: Vec<ConflictCaseData>,
+    #[serde(default)]
+    pub people: Vec<PersonRecordData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
