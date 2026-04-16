@@ -6,6 +6,8 @@ Last updated: 2026-04-15.
 
 This document defines the backend-owned contract for the first morning standup overdue-task workflow vertical.
 
+Implementation ownership: route handlers expose the transport contract and map request/response DTOs; `veld` service orchestration owns overdue menu selection, proposal creation, apply/undo idempotency, and run/event evidence.
+
 ## Goal
 
 Provide one supervised action flow for overdue commitments:

@@ -334,7 +334,7 @@ CLI fallback when the web shell is unavailable:
 - `POST /v1/daily-loop/check-ins/:check_in_event_id/skip` creates a skip event linked to the original check-in event with required reason metadata
 - `POST /v1/daily-loop/sessions/:id/turn` advances the current prompt with bounded submit/skip actions and returns the updated typed session
 - when a daily-loop `check_in` needs longer follow-through, the backend preserves a deterministic thread-backed escalation target and updates that thread with typed deferred/resolved status as the session advances
-- `/overdue/*` endpoints ship the mounted standup overdue workflow baseline: bounded menu, proposal/confirmation/apply, idempotent replay for repeated keys, supported undo, and run/event evidence for mutation commits
+- `/overdue/*` endpoints ship the mounted service-backed standup overdue workflow baseline: bounded menu, proposal/confirmation/apply, idempotent replay for repeated keys, supported undo, and run/event evidence for mutation commits
 - overdue menu requests evaluate overdue commitments against the requested `today` date boundary rather than only server wall-clock time
 - contract and payload notes: [standup overdue workflow contract](standup-overdue-workflow-contract.md)
 

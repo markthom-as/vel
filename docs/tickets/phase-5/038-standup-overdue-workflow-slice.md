@@ -23,12 +23,12 @@ labels:
 
 Ship the first supervised workflow vertical for morning standup/planning: detect overdue commitments, present bounded action choices, require confirmation before mutation, and persist explainable run/event evidence.
 
-Baseline implementation note: the backend and CLI workflow is mounted. Apple Watch and iOS voice overdue quick reactions are mounted over the same confirmation contract. Service-layer extraction remains follow-up work.
+Baseline implementation note: the backend and CLI workflow is mounted. Apple Watch and iOS voice overdue quick reactions are mounted over the same confirmation contract. Overdue menu/confirm/apply/undo orchestration is service-backed, with route handlers limited to transport mapping.
 
 # Impacted Files & Symbols
 
 - **Crate**: `crates/veld`
-  - **Symbols**: daily-loop standup workflow orchestration, overdue action proposal/commit handlers
+  - **Symbols**: daily-loop standup workflow orchestration, service-backed overdue action proposal/commit handlers
 - **Crate**: `crates/vel-core`
   - **Symbols**: overdue action proposal contracts, confirmation payloads, mutation outcome contracts
 - **Crate**: `crates/vel-api-types`
@@ -52,7 +52,7 @@ Baseline implementation note: the backend and CLI workflow is mounted. Apple Wat
 # Implementation Steps (The How)
 
 1. Add overdue workflow DTOs and service-level proposal/confirmation contracts.
-2. Implement daily-loop standup route handlers for menu/confirm/apply/undo path.
+2. Implement daily-loop standup service orchestration and thin route handlers for menu/confirm/apply/undo path.
 3. Add CLI command wrappers for operator flow (`menu`, `confirm`, `apply`, `undo`).
 4. Persist run-event lineage and before/after commitment state evidence.
 5. Add focused integration tests for happy path, deny path, and duplicate/idempotent apply.
@@ -80,6 +80,7 @@ Baseline implementation note: the backend and CLI workflow is mounted. Apple Wat
 Verification evidence captured on 2026-04-15:
 
 - `cargo test -p veld --test daily_loop_standup`
+- `cargo test -p veld --test apple_voice_loop`
 - `cargo test -p vel-cli cli_parses_daily_loop_overdue_commands`
 - `swift test --package-path clients/apple/VelAPI --filter DailyLoopTests`
 - `xcodebuild -project clients/apple/Vel.xcodeproj -scheme VeliOS -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`
