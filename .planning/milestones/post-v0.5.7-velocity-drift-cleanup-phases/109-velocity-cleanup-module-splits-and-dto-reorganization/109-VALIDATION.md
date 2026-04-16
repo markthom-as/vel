@@ -9,6 +9,7 @@
 - `vel-api-types/src/lib.rs` becomes a re-export index rather than the DTO blob itself
 - first DTO slice: `common`, `responses`, and `commands` modules exist, and the remaining root file re-exports those modules while preserving existing consumer imports
 - second DTO slice: `backup` and `health` modules own backup/export DTOs and `HealthData`, with root re-exports preserving existing consumer imports
+- third DTO slice: `apple` module owns Apple voice, schedule, behavior-summary, and response DTOs, with root re-exports preserving existing consumer imports
 - route-registration slice: `app/route_groups.rs` owns public/operator/worker/future route groups and the undefined-route fallback; `app.rs` retains builder entrypoints and tests
 - app test-ownership slice: `app/tests.rs` owns the moved app test module body, and `app.rs` retains only the test module declaration
 
@@ -19,6 +20,7 @@
 - compile/test checks that prove `vel-api-types` re-exports did not break existing consumers
 - first DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`, `cargo test -p vel-cli command_lang`, `cargo test -p veld command_lang -- --nocapture`
 - second DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo test -p vel-cli backup -- --nocapture`, `cargo test -p veld app::tests::health_endpoint_returns_ok`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- third DTO slice: focused Apple API-type tests, `cargo test -p vel-api-types -- --nocapture`, `cargo test -p veld --test apple_voice_loop -- --nocapture`, `cargo test -p veld --test apple_behavior_summary -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - route-registration slice: targeted app exposure tests, `cargo test -p veld connect_runtime -- --nocapture`, `cargo test -p veld execution_context -- --nocapture`, `cargo test -p veld agent_grounding -- --nocapture`, `cargo test -p veld command_lang -- --nocapture`, `cargo check -p veld --all-targets`
 - app test-ownership slice: targeted app tests including health, auth, route fallback, now snapshot, exposure matrix; `cargo test -p veld app::tests::`; `cargo check -p veld --all-targets`
 
