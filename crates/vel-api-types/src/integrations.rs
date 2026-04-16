@@ -116,6 +116,17 @@ pub struct IntegrationConnectionEventData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationLogEventData {
+    pub id: String,
+    pub integration_id: String,
+    pub event_name: String,
+    pub status: String,
+    pub message: String,
+    pub payload: JsonValue,
+    pub created_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationCalendarData {
     pub id: String,
     pub summary: String,
