@@ -1481,63 +1481,6 @@ pub struct ExecutionHandoffRecordData {
     pub updated_at: OffsetDateTime,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AgentContextRefData {
-    pub computed_at: UnixSeconds,
-    #[serde(default)]
-    pub mode: Option<String>,
-    #[serde(default)]
-    pub morning_state: Option<String>,
-    pub current_context_path: String,
-    pub explain_context_path: String,
-    pub explain_drift_path: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentReviewObligationsData {
-    #[serde(default)]
-    pub review_snapshot: ReviewSnapshotData,
-    #[serde(default)]
-    pub pending_writebacks: Vec<WritebackOperationData>,
-    #[serde(default)]
-    pub conflicts: Vec<ConflictCaseData>,
-    #[serde(default)]
-    pub pending_execution_handoffs: Vec<ExecutionHandoffRecordData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentGroundingPackData {
-    pub generated_at: UnixSeconds,
-    pub now: NowData,
-    #[serde(default)]
-    pub current_context: Option<AgentContextRefData>,
-    #[serde(default)]
-    pub projects: Vec<ProjectRecordData>,
-    #[serde(default)]
-    pub people: Vec<PersonRecordData>,
-    #[serde(default)]
-    pub commitments: Vec<CommitmentData>,
-    pub review: AgentReviewObligationsData,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AgentInspectExplainabilityData {
-    #[serde(default)]
-    pub persisted_record_kinds: Vec<String>,
-    #[serde(default)]
-    pub supporting_paths: Vec<String>,
-    pub raw_context_json_supporting_only: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentInspectData {
-    pub grounding: AgentGroundingPackData,
-    pub capabilities: AgentCapabilitySummaryData,
-    #[serde(default)]
-    pub blockers: Vec<AgentBlockerData>,
-    pub explainability: AgentInspectExplainabilityData,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckInSourceKindData {
