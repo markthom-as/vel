@@ -59,6 +59,7 @@
 - forty-seventh DTO slice: `capture` module owns `ContextCapture`, with root re-exports preserving capture, context, command-language, CLI, and test references
 - forty-eighth DTO slice: `sync` module owns `ClusterBootstrapData`, with root re-exports preserving cluster bootstrap, sync bootstrap, CLI, and client-sync references
 - forty-ninth DTO slice: `sync` module owns `SyncBootstrapData`, with root re-exports preserving sync bootstrap route, CLI, web, and Apple client references
+- fiftieth DTO slice: `agent_grounding` module owns agent capability and blocker DTOs, with root re-exports preserving agent inspect service, CLI, web, and contract-test references
 
 ### Automated
 
@@ -117,6 +118,7 @@
 - forty-seventh DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-eighth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - forty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- fiftieth DTO slice: `cargo test -p vel-api-types agent_grounding_capability_entries_preserve_explicit_blockers -- --nocapture`, `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

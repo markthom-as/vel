@@ -9,6 +9,7 @@ use vel_core::{
 };
 
 mod actions;
+mod agent_grounding;
 mod agent_runtime;
 mod apple;
 mod backup;
@@ -31,6 +32,7 @@ mod sync;
 mod writebacks;
 
 pub use actions::*;
+pub use agent_grounding::*;
 pub use agent_runtime::*;
 pub use apple::*;
 pub use backup::*;
@@ -1477,50 +1479,6 @@ pub struct ExecutionHandoffRecordData {
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentCapabilityGroupKindData {
-    ReadContext,
-    ReviewActions,
-    MutationActions,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AgentBlockerData {
-    pub code: String,
-    pub message: String,
-    #[serde(default)]
-    pub escalation_hint: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AgentCapabilityEntryData {
-    pub key: String,
-    pub label: String,
-    pub summary: String,
-    pub available: bool,
-    #[serde(default)]
-    pub blocked_reason: Option<AgentBlockerData>,
-    #[serde(default)]
-    pub requires_review_gate: Option<ExecutionReviewGateData>,
-    #[serde(default)]
-    pub requires_writeback_enabled: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AgentCapabilityGroupData {
-    pub kind: AgentCapabilityGroupKindData,
-    pub label: String,
-    #[serde(default)]
-    pub entries: Vec<AgentCapabilityEntryData>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AgentCapabilitySummaryData {
-    #[serde(default)]
-    pub groups: Vec<AgentCapabilityGroupData>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
