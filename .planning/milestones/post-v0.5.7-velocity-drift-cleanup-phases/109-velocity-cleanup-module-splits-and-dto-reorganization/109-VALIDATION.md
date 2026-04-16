@@ -64,6 +64,7 @@
 - fifty-second DTO slice: `integrations` module owns integration status and auth-start DTOs, with root re-exports preserving integrations route, CLI, web, and Apple client references
 - fifty-third DTO slice: `integrations` module owns canonical integration write-intent DTOs, with root re-exports preserving integrations route and writeback service references
 - fifty-fourth DTO slice: `websocket` module owns websocket event/envelope DTOs, with root re-exports preserving broadcast, route, and test references
+- fifty-fifth DTO slice: `artifacts` module owns artifact CRUD DTOs, with root re-exports preserving artifacts route, command payload, CLI, and test references
 
 ### Automated
 
@@ -127,6 +128,7 @@
 - fifty-second DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-third DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - fifty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- fifty-fifth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 

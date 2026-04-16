@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ActionItemId, ArtifactId, ArtifactStorageKind, CommitmentId, PrivacyClass, ProjectId,
-    RiskFactors, RiskSnapshot, RunId, SyncClass,
+    ActionItemId, ArtifactId, CommitmentId, ProjectId, RiskFactors, RiskSnapshot, RunId,
 };
 
 mod actions;
 mod agent_grounding;
 mod agent_runtime;
 mod apple;
+mod artifacts;
 mod backup;
 mod batch_import;
 mod capture;
@@ -36,6 +36,7 @@ pub use actions::*;
 pub use agent_grounding::*;
 pub use agent_runtime::*;
 pub use apple::*;
+pub use artifacts::*;
 pub use backup::*;
 pub use batch_import::*;
 pub use capture::*;
@@ -2615,43 +2616,6 @@ pub struct ProvenanceEvent {
     pub event_name: String,
     pub created_at: UnixSeconds,
     pub payload: JsonValue,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ArtifactCreateRequest {
-    pub artifact_type: String,
-    pub title: Option<String>,
-    pub mime_type: Option<String>,
-    pub storage_uri: String,
-    #[serde(default)]
-    pub storage_kind: ArtifactStorageKind,
-    #[serde(default)]
-    pub privacy_class: PrivacyClass,
-    #[serde(default)]
-    pub sync_class: SyncClass,
-    pub content_hash: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ArtifactCreateResponse {
-    pub artifact_id: ArtifactId,
-    pub created_at: OffsetDateTime,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ArtifactData {
-    pub artifact_id: ArtifactId,
-    pub artifact_type: String,
-    pub title: Option<String>,
-    pub mime_type: Option<String>,
-    pub storage_uri: String,
-    pub storage_kind: String,
-    pub privacy_class: String,
-    pub sync_class: String,
-    pub content_hash: Option<String>,
-    pub size_bytes: Option<i64>,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
 }
 
 // --- Runs (spec Section 15) ---
