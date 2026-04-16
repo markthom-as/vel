@@ -71,6 +71,7 @@
 - fifty-ninth DTO slice: `nudges` module owns nudge DTOs, with root re-exports preserving nudge route, sync bootstrap, CLI client, web, and test references
 - sixtieth DTO slice: `loops` module owns runtime loop DTOs, with root re-exports preserving loop route, CLI, web, and test references
 - sixty-third DTO slice: `provenance` module owns provenance drawer DTOs, with root re-exports preserving chat route, web, and test references
+- sixty-fourth DTO slice: `threads` module owns thread DTOs, with root re-exports preserving thread routes, command language responses, chat continuations, CLI, and web references
 
 ### Automated
 
@@ -141,6 +142,7 @@
 - fifty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixtieth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - sixty-third DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- sixty-fourth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`, `cargo test -p vel-cli threads`
 
 ### Manual Review
 
