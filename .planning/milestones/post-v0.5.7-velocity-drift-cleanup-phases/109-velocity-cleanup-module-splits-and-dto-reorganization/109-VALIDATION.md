@@ -40,6 +40,7 @@
 - twenty-eighth DTO slice: `sync` module owns `SyncHeartbeatResponseData`, with root re-exports preserving heartbeat route response references
 - twenty-ninth DTO slice: `sync` module owns work-assignment status and receipt DTOs, with root re-exports preserving sync route lifecycle/list response references
 - thirtieth DTO slice: `sync` module owns standalone work-assignment claim request DTOs, with root re-exports preserving claim and claim-next route request references
+- thirty-first DTO slice: `sync` module owns `WorkAssignmentUpdateRequest`, with root re-exports preserving work-assignment update route request references
 
 ### Automated
 
@@ -79,6 +80,7 @@
 - twenty-eighth DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::sync_heartbeat_endpoint_persists_remote_worker -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - twenty-ninth DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::work_assignment_lifecycle_claims_updates_and_lists_receipts -- --nocapture`, `cargo test -p veld app::tests::worker_queue_lists_pending_item_and_hides_completed_receipt -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 - thirtieth DTO slice: `cargo check -p vel-api-types`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
+- thirty-first DTO slice: `cargo check -p vel-api-types`, `cargo test -p veld app::tests::work_assignment_lifecycle_claims_updates_and_lists_receipts -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`
 
 ### Manual Review
 
