@@ -8,6 +8,7 @@
 - `now.rs` public API remains stable while internal responsibilities are split
 - `vel-api-types/src/lib.rs` becomes a re-export index rather than the DTO blob itself
 - first DTO slice: `common`, `responses`, and `commands` modules exist, and the remaining root file re-exports those modules while preserving existing consumer imports
+- route-registration slice: `app/route_groups.rs` owns public/operator/worker/future route groups and the undefined-route fallback; `app.rs` retains builder entrypoints and tests
 
 ### Automated
 
@@ -15,6 +16,7 @@
 - targeted `Now` service tests
 - compile/test checks that prove `vel-api-types` re-exports did not break existing consumers
 - first DTO slice: `cargo test -p vel-api-types -- --nocapture`, `cargo check -p veld --all-targets`, `cargo check -p vel-cli --all-targets`, `cargo test -p vel-cli command_lang`, `cargo test -p veld command_lang -- --nocapture`
+- route-registration slice: targeted app exposure tests, `cargo test -p veld connect_runtime -- --nocapture`, `cargo test -p veld execution_context -- --nocapture`, `cargo test -p veld agent_grounding -- --nocapture`, `cargo test -p veld command_lang -- --nocapture`, `cargo check -p veld --all-targets`
 
 ### Manual Review
 
