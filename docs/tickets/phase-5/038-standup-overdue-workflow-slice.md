@@ -23,7 +23,7 @@ labels:
 
 Ship the first supervised workflow vertical for morning standup/planning: detect overdue commitments, present bounded action choices, require confirmation before mutation, and persist explainable run/event evidence.
 
-Baseline implementation note: the backend and CLI workflow is mounted. Overdue-specific voice/watch shortcuts and service-layer extraction remain follow-up work.
+Baseline implementation note: the backend and CLI workflow is mounted. Apple Watch overdue quick reactions are mounted over the same confirmation contract. Broader Apple voice shortcuts and service-layer extraction remain follow-up work.
 
 # Impacted Files & Symbols
 

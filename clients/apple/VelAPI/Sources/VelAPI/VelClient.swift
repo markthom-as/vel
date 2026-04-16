@@ -391,6 +391,34 @@ public final class VelClient {
         )
     }
 
+    public func dailyLoopOverdueMenu(
+        sessionID: String,
+        request: DailyLoopOverdueMenuRequestData
+    ) async throws -> DailyLoopOverdueMenuResponseData {
+        try await post("/v1/daily-loop/sessions/\(sessionID)/overdue/menu", body: request)
+    }
+
+    public func dailyLoopOverdueConfirm(
+        sessionID: String,
+        request: DailyLoopOverdueConfirmRequestData
+    ) async throws -> DailyLoopOverdueConfirmResponseData {
+        try await post("/v1/daily-loop/sessions/\(sessionID)/overdue/confirm", body: request)
+    }
+
+    public func dailyLoopOverdueApply(
+        sessionID: String,
+        request: DailyLoopOverdueApplyRequestData
+    ) async throws -> DailyLoopOverdueApplyResponseData {
+        try await post("/v1/daily-loop/sessions/\(sessionID)/overdue/apply", body: request)
+    }
+
+    public func dailyLoopOverdueUndo(
+        sessionID: String,
+        request: DailyLoopOverdueUndoRequestData
+    ) async throws -> DailyLoopOverdueUndoResponseData {
+        try await post("/v1/daily-loop/sessions/\(sessionID)/overdue/undo", body: request)
+    }
+
     public func skipDailyLoopCheckIn(
         checkInEventID: String,
         request: DailyLoopCheckInSkipRequestData

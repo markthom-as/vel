@@ -396,6 +396,19 @@ public enum DailyLoopCommitmentActionData: String, Codable, Sendable {
     case close
 }
 
+public enum DailyLoopOverdueActionData: String, Codable, Sendable, CaseIterable {
+    case close
+    case reschedule
+    case backToInbox = "back_to_inbox"
+    case tombstone
+}
+
+public enum DailyLoopOverdueGuessConfidenceData: String, Codable, Sendable {
+    case low
+    case medium
+    case high
+}
+
 public enum DailyLoopPromptKindData: String, Codable, Sendable {
     case intentQuestion = "intent_question"
     case commitmentReduction = "commitment_reduction"
@@ -440,6 +453,143 @@ public struct DailyLoopTurnRequestData: Codable, Sendable {
         self.action = action
         self.response_text = response_text
     }
+}
+
+public struct DailyLoopOverdueVelGuessData: Codable, Sendable {
+    public let suggested_due_at: String
+    public let confidence: DailyLoopOverdueGuessConfidenceData
+    public let reason: String
+
+    public init(suggested_due_at: String, confidence: DailyLoopOverdueGuessConfidenceData, reason: String) {
+        self.suggested_due_at = suggested_due_at
+        self.confidence = confidence
+        self.reason = reason
+    }
+}
+
+public struct DailyLoopOverdueMenuRequestData: Codable, Sendable {
+    public let today: String
+    public let include_vel_guess: Bool
+    public let limit: Int
+
+    public init(today: String, include_vel_guess: Bool = true, limit: Int = 10) {
+        self.today = today
+        self.include_vel_guess = include_vel_guess
+        self.limit = limit
+    }
+}
+
+public struct DailyLoopOverdueMenuItemData: Codable, Sendable, Identifiable {
+    public var id: String { commitment_id }
+    public let commitment_id: String
+    public let title: String
+    public let due_at: String?
+    public let actions: [DailyLoopOverdueActionData]
+    public let vel_due_guess: DailyLoopOverdueVelGuessData?
+
+    public init(
+        commitment_id: String,
+        title: String,
+        due_at: String?,
+        actions: [DailyLoopOverdueActionData],
+        vel_due_guess: DailyLoopOverdueVelGuessData?
+    ) {
+        self.commitment_id = commitment_id
+        self.title = title
+        self.due_at = due_at
+        self.actions = actions
+        self.vel_due_guess = vel_due_guess
+    }
+}
+
+public struct DailyLoopOverdueMenuResponseData: Codable, Sendable {
+    public let session_id: String
+    public let items: [DailyLoopOverdueMenuItemData]
+
+    public init(session_id: String, items: [DailyLoopOverdueMenuItemData]) {
+        self.session_id = session_id
+        self.items = items
+    }
+}
+
+public struct DailyLoopOverdueReschedulePayloadData: Codable, Sendable {
+    public let due_at: String
+    public let source: String
+
+    public init(due_at: String, source: String) {
+        self.due_at = due_at
+        self.source = source
+    }
+}
+
+public struct DailyLoopOverdueConfirmRequestData: Codable, Sendable {
+    public let commitment_id: String
+    public let action: DailyLoopOverdueActionData
+    public let payload: DailyLoopOverdueReschedulePayloadData?
+    public let operator_reason: String?
+
+    public init(
+        commitment_id: String,
+        action: DailyLoopOverdueActionData,
+        payload: DailyLoopOverdueReschedulePayloadData? = nil,
+        operator_reason: String? = nil
+    ) {
+        self.commitment_id = commitment_id
+        self.action = action
+        self.payload = payload
+        self.operator_reason = operator_reason
+    }
+}
+
+public struct DailyLoopOverdueConfirmResponseData: Codable, Sendable {
+    public let proposal_id: String
+    public let confirmation_token: String
+    public let requires_confirmation: Bool
+    public let write_scope: [String]
+    public let idempotency_hint: String
+}
+
+public struct DailyLoopOverdueApplyRequestData: Codable, Sendable {
+    public let proposal_id: String
+    public let idempotency_key: String
+    public let confirmation_token: String
+
+    public init(proposal_id: String, idempotency_key: String, confirmation_token: String) {
+        self.proposal_id = proposal_id
+        self.idempotency_key = idempotency_key
+        self.confirmation_token = confirmation_token
+    }
+}
+
+public struct DailyLoopOverdueStateSnapshotData: Codable, Sendable {
+    public let due_at: String?
+    public let status: String
+}
+
+public struct DailyLoopOverdueApplyResponseData: Codable, Sendable {
+    public let applied: Bool
+    public let action_event_id: String
+    public let run_id: String
+    public let before: DailyLoopOverdueStateSnapshotData
+    public let after: DailyLoopOverdueStateSnapshotData
+    public let undo_supported: Bool
+}
+
+public struct DailyLoopOverdueUndoRequestData: Codable, Sendable {
+    public let action_event_id: String
+    public let idempotency_key: String
+
+    public init(action_event_id: String, idempotency_key: String) {
+        self.action_event_id = action_event_id
+        self.idempotency_key = idempotency_key
+    }
+}
+
+public struct DailyLoopOverdueUndoResponseData: Codable, Sendable {
+    public let undone: Bool
+    public let run_id: String
+    public let before: DailyLoopOverdueStateSnapshotData
+    public let after: DailyLoopOverdueStateSnapshotData
 }
 
 public enum DailyLoopCheckInSkipSourceData: String, Codable, Sendable {

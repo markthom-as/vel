@@ -249,6 +249,7 @@ Current watch work should be described as a reduced edge surface over existing A
 
 - compact `Now` snapshot
 - active nudge resolution
+- overdue quick reactions mapped to the backend proposal/confirm/apply contract
 - quick capture
 - active-thread append when a canonical thread is already available
 - explicit handoff for deeper continuity work
@@ -262,3 +263,4 @@ That is the correct direction. Future work should make it more edge-native and l
 3. Watch responsibilities are limited to interface, sensors, haptics, compact state, and bounded action emission.
 4. Watch-local synthesis, heavy policy logic, and full thread management are explicitly ruled out.
 5. Offline behavior is documented as watch-local minimal cache plus phone-owned reconciliation.
+6. Overdue shortcuts are edge-only inputs to the backend action contract; watch never owns proposal synthesis, mutation authority, or a separate overdue workflow.

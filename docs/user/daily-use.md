@@ -99,9 +99,9 @@ Overdue-task action policy for this playbook:
 
 Shipped today versus planned next:
 
-- shipped now: morning/standup session starts, commitments and nudges review, calendar and context orientation, inbox and thread triage, the CLI overdue-task action menu (`close`, `reschedule`, `back_to_inbox`, `tombstone`) with explicit confirm/apply/undo, and bounded voice entry through existing assistant seams.
+- shipped now: morning/standup session starts, commitments and nudges review, calendar and context orientation, inbox and thread triage, the CLI overdue-task action menu (`close`, `reschedule`, `back_to_inbox`, `tombstone`) with explicit confirm/apply/undo, Apple Watch overdue quick reactions over the same confirmation contract, and bounded voice entry through existing assistant seams.
 - planned next: tighter meeting-mode flow that can run this full sequence end-to-end without route switching.
-- planned next: overdue-specific voice/watch shortcuts that map quick reactions onto the same backend confirmation contract.
+- planned next: broader Apple voice shortcuts that can run the same overdue action set while falling back to typed confirmation whenever parsing is uncertain.
 
 Voice and accessibility expectations:
 

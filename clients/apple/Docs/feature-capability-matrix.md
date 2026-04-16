@@ -12,6 +12,7 @@
 - supportsAmbientHUD: no
 - supportsScreenAwareness: no
 - supportsQuickCapture: yes
+- supportsOverdueQuickReactions: yes (backend proposal/confirm/apply contract, typed fallback on voice uncertainty)
 - supportsNotificationActions: yes
 - supportsSplitViewWorkspace: no
 
@@ -54,6 +55,7 @@
 
 Wave-3 reduced watch surface (implemented):
 - supportsActiveNudges: yes (done/snooze actions only)
+- supportsOverdueQuickReactions: yes (`close`, `reschedule`, `back_to_inbox`, `tombstone` through existing `VelWatchStore` / `VelAPI` routes)
 - supportsThreadAppend: yes (keyboard submit + voice transcript)
 - supportsThreadManagement: no (handoff to phone/Mac for deeper flows)
 - supportsFullThreadReadingOrEditing: no

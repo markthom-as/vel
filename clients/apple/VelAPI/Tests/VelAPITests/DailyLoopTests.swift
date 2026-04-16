@@ -226,6 +226,180 @@ final class DailyLoopTests: XCTestCase {
         XCTAssertEqual(requests.count, 4)
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "x-vel-operator-token"), "operator-secret")
     }
+
+    func testVelClientUsesDailyLoopOverdueRoutes() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let client = VelClient(
+            baseURL: URL(string: "http://localhost:4130")!,
+            session: session,
+            configuration: VelClientConfiguration(operatorToken: "operator-secret")
+        )
+
+        var requests: [URLRequest] = []
+        MockURLProtocol.handler = { request in
+            requests.append(request)
+            let path = request.url?.path ?? ""
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+
+            switch path {
+            case "/v1/daily-loop/sessions/dls_standup_1/overdue/menu":
+                XCTAssertEqual(request.httpMethod, "POST")
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["today"] as? String, "2026-04-16")
+                XCTAssertEqual(payload["include_vel_guess"] as? Bool, true)
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "ok": true,
+                          "data": {
+                            "session_id": "dls_standup_1",
+                            "items": [
+                              {
+                                "commitment_id": "com_overdue_1",
+                                "title": "Reply to overdue task",
+                                "due_at": "2026-04-15T16:00:00Z",
+                                "actions": ["close", "reschedule", "back_to_inbox", "tombstone"],
+                                "vel_due_guess": {
+                                  "suggested_due_at": "2026-04-17T16:00:00Z",
+                                  "confidence": "medium",
+                                  "reason": "next free block + similar task duration"
+                                }
+                              }
+                            ]
+                          },
+                          "meta": { "request_id": "req_overdue_menu" }
+                        }
+                        """
+                        .utf8
+                    )
+                )
+            case "/v1/daily-loop/sessions/dls_standup_1/overdue/confirm":
+                XCTAssertEqual(request.httpMethod, "POST")
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["commitment_id"] as? String, "com_overdue_1")
+                XCTAssertEqual(payload["action"] as? String, "reschedule")
+                let actionPayload = payload["payload"] as? [String: Any]
+                XCTAssertEqual(actionPayload?["source"] as? String, "vel_guess")
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "ok": true,
+                          "data": {
+                            "proposal_id": "mp_1",
+                            "confirmation_token": "confirm:mp_1",
+                            "requires_confirmation": true,
+                            "write_scope": ["commitment:com_overdue_1:due_at"],
+                            "idempotency_hint": "ovd:dls_standup_1:com_overdue_1:reschedule"
+                          },
+                          "meta": { "request_id": "req_overdue_confirm" }
+                        }
+                        """
+                        .utf8
+                    )
+                )
+            case "/v1/daily-loop/sessions/dls_standup_1/overdue/apply":
+                XCTAssertEqual(request.httpMethod, "POST")
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["proposal_id"] as? String, "mp_1")
+                XCTAssertEqual(payload["confirmation_token"] as? String, "confirm:mp_1")
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "ok": true,
+                          "data": {
+                            "applied": true,
+                            "action_event_id": "evt_1",
+                            "run_id": "run_1",
+                            "before": { "due_at": "2026-04-15T16:00:00Z", "status": "open" },
+                            "after": { "due_at": "2026-04-17T16:00:00Z", "status": "open" },
+                            "undo_supported": true
+                          },
+                          "meta": { "request_id": "req_overdue_apply" }
+                        }
+                        """
+                        .utf8
+                    )
+                )
+            case "/v1/daily-loop/sessions/dls_standup_1/overdue/undo":
+                XCTAssertEqual(request.httpMethod, "POST")
+                let payload = try XCTUnwrap(jsonObject(from: request))
+                XCTAssertEqual(payload["action_event_id"] as? String, "evt_1")
+                return (
+                    response,
+                    Data(
+                        """
+                        {
+                          "ok": true,
+                          "data": {
+                            "undone": true,
+                            "run_id": "run_undo_1",
+                            "before": { "due_at": "2026-04-17T16:00:00Z", "status": "open" },
+                            "after": { "due_at": "2026-04-15T16:00:00Z", "status": "open" }
+                          },
+                          "meta": { "request_id": "req_overdue_undo" }
+                        }
+                        """
+                        .utf8
+                    )
+                )
+            default:
+                XCTFail("Unexpected request path: \(path)")
+                return (response, Data())
+            }
+        }
+
+        let menu = try await client.dailyLoopOverdueMenu(
+            sessionID: "dls_standup_1",
+            request: DailyLoopOverdueMenuRequestData(today: "2026-04-16")
+        )
+        let confirm = try await client.dailyLoopOverdueConfirm(
+            sessionID: "dls_standup_1",
+            request: DailyLoopOverdueConfirmRequestData(
+                commitment_id: "com_overdue_1",
+                action: .reschedule,
+                payload: DailyLoopOverdueReschedulePayloadData(
+                    due_at: "2026-04-17T16:00:00Z",
+                    source: "vel_guess"
+                ),
+                operator_reason: "watch quick reaction"
+            )
+        )
+        let apply = try await client.dailyLoopOverdueApply(
+            sessionID: "dls_standup_1",
+            request: DailyLoopOverdueApplyRequestData(
+                proposal_id: confirm.proposal_id,
+                idempotency_key: confirm.idempotency_hint,
+                confirmation_token: confirm.confirmation_token
+            )
+        )
+        let undo = try await client.dailyLoopOverdueUndo(
+            sessionID: "dls_standup_1",
+            request: DailyLoopOverdueUndoRequestData(
+                action_event_id: apply.action_event_id,
+                idempotency_key: "ovd-undo:evt_1"
+            )
+        )
+
+        XCTAssertEqual(menu.items.first?.actions, [.close, .reschedule, .backToInbox, .tombstone])
+        XCTAssertEqual(confirm.proposal_id, "mp_1")
+        XCTAssertTrue(apply.applied)
+        XCTAssertTrue(undo.undone)
+        XCTAssertEqual(requests.count, 4)
+        XCTAssertTrue(requests.allSatisfy { $0.value(forHTTPHeaderField: "x-vel-operator-token") == "operator-secret" })
+    }
 }
 
 private func mockSessionObjectJSON(id: String, phase: String, status: String) -> String {

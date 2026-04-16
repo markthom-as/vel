@@ -6,6 +6,7 @@ import Speech
 import WatchKit
 #endif
 import SwiftUI
+import VelAPI
 import VelApplePlatform
 import VelApplication
 
@@ -21,6 +22,7 @@ struct ContentView: View {
         List {
             sectionSnapshot
             sectionNudges
+            sectionOverdue
             sectionSignals
             sectionCapture
             sectionThreadAppend
@@ -118,6 +120,61 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var sectionOverdue: some View {
+        Section("Overdue") {
+            if store.overdueItems.isEmpty {
+                Text(store.overdueStatus ?? "No overdue tasks loaded.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(store.overdueItems.prefix(3)) { item in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.title)
+                            .font(.caption)
+                            .lineLimit(2)
+
+                        if let dueAt = item.due_at {
+                            Text("Due \(dueAt)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack {
+                            overdueButton("Close", item: item, action: .close)
+                            overdueButton("Tomorrow", item: item, action: .reschedule)
+                        }
+                        HStack {
+                            overdueButton("Inbox", item: item, action: .backToInbox)
+                            overdueButton("Delete", item: item, action: .tombstone)
+                        }
+                    }
+                }
+            }
+
+            Button("Refresh overdue") {
+                playHaptic(.click)
+                Task { await store.refreshOverdueMenu() }
+            }
+            .buttonStyle(.bordered)
+
+            statusFootnote(store.overdueStatus)
+        }
+    }
+
+    private func overdueButton(
+        _ title: String,
+        item: DailyLoopOverdueMenuItemData,
+        action: DailyLoopOverdueActionData
+    ) -> some View {
+        Button(title) {
+            playHaptic(action == .tombstone ? .notification : .click)
+            Task { await store.applyOverdueShortcut(item: item, action: action) }
+        }
+        .buttonStyle(.bordered)
+        .disabled(!item.actions.contains(action))
     }
 
     @ViewBuilder
@@ -258,6 +315,15 @@ struct ContentView: View {
                 Button("Save as note") {
                     playHaptic(.click)
                     submitVoiceCapture()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Use overdue shortcut") {
+                    playHaptic(.click)
+                    Task {
+                        await store.applyVoiceOverdueShortcut(voiceModel.transcript)
+                        voiceModel.clearTranscript()
+                    }
                 }
                 .buttonStyle(.bordered)
             }
